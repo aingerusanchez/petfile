@@ -1,5 +1,24 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
+
+/*
+ * Make Outfit the real default for text, not just an opt-in utility.
+ *
+ * `--default-font-family` (below) correctly cascades Outfit onto html/body,
+ * but react-native-web renders every <Text> with `dir="auto"` and gives it
+ * an explicit `font-family` via its own generated stylesheet, which wins
+ * over inherited html/body styles regardless of cascade layers or source
+ * order. This rule targets that same `[dir="auto"]` marker at equal
+ * (single-selector) specificity so a bare <Text> with no font className
+ * still renders in Outfit. It must compile BEFORE the utilities import
+ * below (hence its position here, ahead of that import) so the explicit
+ * font-sans/font-semibold/font-bold utility classes -- generated later in
+ * the compiled output, same specificity -- still win when applied.
+ */
+[dir="auto"] {
+  font-family: var(--font-sans);
+}
+
 @import "tailwindcss/utilities.css";
 
 /* Platform-specific font families */
