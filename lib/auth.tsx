@@ -26,10 +26,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
 
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => setSession(nextSession),
@@ -59,6 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
         if (result.type !== "success") return { error: null }; // user dismissed it
 
+        // Tokens come back in the URL fragment (#access_token=...), which only
+        // happens for the implicit flow — supabase-js's current default. If
+        // lib/supabase.ts ever sets `flowType: "pkce"` (Supabase's own
+        // recommended default for native), the callback carries `?code=...`
+        // in the query string instead, and this fragment parse must change too.
         const fragment = result.url.split("#")[1] ?? "";
         const params = new URLSearchParams(fragment);
         const accessToken = params.get("access_token");

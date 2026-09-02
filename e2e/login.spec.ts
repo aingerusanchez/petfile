@@ -15,5 +15,5 @@ test("sends an authenticated visitor past the login screen", async ({ page }) =>
   await seedSession(page);
   await page.goto("/");
 
-  await expect(page.getByTestId("login-google")).toBeHidden({ timeout: 15_000 });
+  await expect(page.getByTestId("home-title")).toBeVisible({ timeout: 15_000 });
 });
