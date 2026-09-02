@@ -44,6 +44,7 @@ PetFile (`../petfile`) ya cubre una versión más completa y ambiciosa del mismo
 | Estilos         | NativeWind (Tailwind para React Native), tokens "Nordic Ice"       |
 | Backend         | Supabase (Postgres, Auth, Storage)                                  |
 | Lenguaje        | TypeScript strict                                                   |
+| Gráficas        | `react-native-gifted-charts` (sobre `react-native-svg`)             |
 | Test unitario   | Jest (`jest-expo`) — lógica pura                                    |
 | Test UI/flujos  | Playwright contra el build web de Expo                              |
 | Deploy          | EAS (build/update) para móvil · Vercel u hosting estático para web  |
@@ -204,8 +205,10 @@ Sin cola de sincronización offline en v0 (a diferencia de la persistencia de Fi
 
 ---
 
-## 11. Decisiones pendientes (para la fase de plan/implementación)
+## 11. Decisiones resueltas
 
-- Librería concreta de gráficas para el peso (equivalente RN de `ngx-charts`/`chart.js`: `react-native-gifted-charts`, `victory-native`, etc.).
-- Estrategia de invitación/onboarding exacta para v1 (código de 6 dígitos como en PetFile, o link directo).
-- Si copiar la skill `impeccable` (actualmente scoped a `one-ui/`) al proyecto Petlife para las fases de diseño de pantallas, o prescindir de ella.
+**Librería de gráficas: `react-native-gifted-charts`.** JS puro sobre `react-native-svg` (garantizado en Expo Go, sin riesgo de forzar un development build en v0), API simple y soporte de múltiples líneas/áreas para la futura superposición de la banda de percentiles. Su rendimiento se degrada a partir de ~1000 puntos, irrelevante para el volumen esperado (~50 pesajes/año). Se asume que su mantenimiento se ha ralentizado frente a `victory-native XL` (Skia, mantenido por Nearform): queda encapsulada tras un único componente de gráfica, de modo que migrar en v1/v2 —cuando ya exista un dev build por las notificaciones push— es un cambio contenido.
+
+**Invitación de tutores: pospuesta a v1.** La tabla `invitations` existe en el esquema desde v0, pero su mecanismo concreto (código de 6 dígitos como en PetFile, o link directo) se decide al abordar v1.
+
+**Skill `impeccable`: integración manual por el usuario** cuando llegue la fase de diseño de pantallas. No forma parte del plan de implementación.
