@@ -896,7 +896,7 @@ export default function Login() {
         {busy ? (
           <ActivityIndicator color="#0B1120" />
         ) : (
-          <Text className="font-semibold text-base">Continuar con Google</Text>
+          <Text className="font-semibold text-on-accent">Continuar con Google</Text>
         )}
       </Pressable>
     </View>
@@ -1511,7 +1511,7 @@ export default function Onboarding() {
         onPress={submit}
         className="items-center rounded-xl bg-accent-primary py-4"
       >
-        <Text className="font-semibold text-base">
+        <Text className="font-semibold text-on-accent">
           {busy ? "Guardando..." : "Guardar"}
         </Text>
       </Pressable>
