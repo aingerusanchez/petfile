@@ -24,7 +24,7 @@
 
 - `.env` is gitignored and is filled in **by the user only**. No agent may `cat`, `Read`, `grep`, `echo`, or otherwise print its contents, and no key value may ever appear in a commit, a log, a test fixture, or the conversation. Agents needing the values run the process that reads `.env` — they do not read it themselves.
 - `.env.example` is committed with placeholders only.
-- **`EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are not secrets.** Every `EXPO_PUBLIC_*` variable is inlined into the client bundle and is extractable by anyone with the app. The anon key is a public identifier; data is protected by the RLS policies in Task 3, not by hiding it. Task 3's RLS verification is therefore a security control, not a formality.
+- **`EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_KEY` are not secrets.** Every `EXPO_PUBLIC_*` variable is inlined into the client bundle and is extractable by anyone with the app. The anon key is a public identifier; data is protected by the RLS policies in Task 3, not by hiding it. Task 3's RLS verification is therefore a security control, not a formality.
 - **Actual secrets, which never enter the repo or any agent's context:** the Supabase `service_role` key (unused in v0 — the app must never reference it) and the Google OAuth **client secret**, which is pasted directly into the Supabase dashboard so that Supabase performs the token exchange server-side.
 - For future EAS builds, secrets go in EAS environment variables (encrypted server-side), never in the repo.
 
@@ -103,7 +103,7 @@ Create `.env.example`:
 
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+EXPO_PUBLIC_SUPABASE_KEY=your-anon-key
 ```
 
 Append to `.gitignore`:
@@ -577,11 +577,11 @@ import { Platform } from "react-native";
 import type { Database } from "./database.types";
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const anonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
 
 if (!url || !anonKey) {
   throw new Error(
-    "Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY. Copy .env.example to .env and fill both values.",
+    "Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_KEY. Copy .env.example to .env and fill both values.",
   );
 }
 
@@ -678,14 +678,14 @@ import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const anonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
 const email = process.env.E2E_EMAIL;
 const password = process.env.E2E_PASSWORD;
 
 export async function seedSession(page: Page): Promise<void> {
   if (!url || !anonKey || !email || !password) {
     throw new Error(
-      "Missing EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, E2E_EMAIL or E2E_PASSWORD. See docs/supabase-setup.md.",
+      "Missing EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_KEY, E2E_EMAIL or E2E_PASSWORD. See docs/supabase-setup.md.",
     );
   }
 
@@ -1704,7 +1704,7 @@ Consulta `docs/supabase-setup.md` para crear el proyecto de Supabase, configurar
 
 `.env` está en `.gitignore` y lo rellenas tú. Nunca se comparte con agentes de IA ni se commitea.
 
-- `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_ANON_KEY` **no son secretos**: viajan
+- `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_KEY` **no son secretos**: viajan
   dentro del bundle de la app. Lo que protege los datos son las RLS policies.
 - La `service_role` key y el **client secret de Google** sí son secretos. La primera no se
   usa en la app; el segundo vive solo en el dashboard de Supabase.
