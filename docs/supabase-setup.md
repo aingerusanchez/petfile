@@ -2,16 +2,24 @@
 
 Performed once, by a human. No value below is ever committed or shared with an agent.
 
+> This repo also has a pre-commit guard against committing secrets
+> (`.githooks/pre-commit`). Running `npm install` wires it up automatically via the
+> `prepare` script; if it ever doesn't fire, run `git config core.hooksPath .githooks`
+> yourself to re-enable it.
+
 ## 1. Supabase project
 
 1. Create a project at https://supabase.com (free tier is enough for v0).
-2. Project Settings → API: copy the **Project URL** and the **`anon` public key**.
+2. Project Settings → API: copy the **Project URL** and the **Publishable key**
+   (`sb_publishable_...`). Older projects show this as the **`anon` public** key
+   (a JWT starting `eyJ...`) instead — either works the same way.
 3. `cp .env.example .env` and fill both values.
 
-> The anon key is not a secret — it ships inside the app bundle by design. Your data is
-> protected by the RLS policies in `supabase/migrations/`, not by hiding this key.
-> The **`service_role`** key on that same page *is* secret: it bypasses RLS. Never put it
-> in `.env`, in the repo, or in a chat with an agent.
+> The publishable/anon key is not a secret — it ships inside the app bundle by design.
+> Your data is protected by the RLS policies in `supabase/migrations/`, not by hiding
+> this key. The **Secret key** (`sb_secret_...`, or **`service_role`** on older
+> projects) on that same page *is* secret: it bypasses RLS. Never put it in `.env`, in
+> the repo, or in a chat with an agent.
 
 ## 2. Google Cloud OAuth credentials
 

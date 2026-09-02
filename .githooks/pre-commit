@@ -1,11 +1,38 @@
 #!/bin/sh
-# Refuse to commit .env or anything that looks like a Supabase service key.
-if git diff --cached --name-only | grep -qE '(^|/)\.env$'; then
-  echo "BLOCKED: .env must never be committed." >&2
+# Refuse to commit .env files or anything that looks like a Supabase or
+# Google secret.
+
+# Any .env* file (.env, .env.local, .env.production, ...) except the
+# committed .env.example template. The exclusion is done with a plain shell
+# `case`, not `grep -v`, because `grep -q` combined with `-v` is unreliable
+# across grep implementations (observed returning the wrong exit status on
+# at least one) — a portable `case` match avoids depending on that.
+env_files=$(git diff --cached --name-only | grep -E '(^|/)\.env($|\.)')
+if [ -n "$env_files" ]; then
+  found_real_env=0
+  old_ifs=$IFS
+  IFS='
+'
+  for f in $env_files; do
+    case "$f" in
+      *.env.example) ;;
+      *) found_real_env=1 ;;
+    esac
+  done
+  IFS=$old_ifs
+  if [ "$found_real_env" = "1" ]; then
+    echo "BLOCKED: .env files must never be committed (except .env.example)." >&2
+    exit 1
+  fi
+fi
+
+# Content that looks like a secret: legacy Supabase JWT (anon/service_role),
+# new-format Supabase secret key (sb_secret_...), a service-role-named
+# assignment regardless of letter case, or a Google OAuth client secret
+# (GOCSPX-...).
+if git diff --cached -U0 | grep -qiE 'service_role[A-Za-z_]*[[:space:]]*[:=]|eyJ[A-Za-z0-9_-]{20,}\.|sb_secret_[A-Za-z0-9_-]{10,}|GOCSPX-[A-Za-z0-9_-]{10,}'; then
+  echo "BLOCKED: staged changes look like they contain a Supabase secret key or a Google OAuth client secret." >&2
   exit 1
 fi
-if git diff --cached -U0 | grep -qE 'service_role[A-Za-z_]*[[:space:]]*[:=]|eyJ[A-Za-z0-9_-]{20,}\.'; then
-  echo "BLOCKED: staged changes look like they contain a JWT or service_role key." >&2
-  exit 1
-fi
+
 exit 0

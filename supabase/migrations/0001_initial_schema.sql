@@ -75,6 +75,10 @@ create policy "memberships readable by the member"
   on public.pet_owners for select using (user_id = auth.uid());
 
 -- Create the profile row automatically for every new auth user.
+-- `on conflict do nothing` matters: a failure here must never abort the
+-- auth.users insert itself, or every sign-up in the app breaks.
+-- Google OAuth populates raw_user_meta_data with "full_name"/"name" and
+-- "avatar_url"/"picture" (provider-dependent), not "display_name".
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -82,8 +86,13 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, display_name)
-  values (new.id, new.raw_user_meta_data ->> 'display_name');
+  insert into public.profiles (id, display_name, avatar_url)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name'),
+    coalesce(new.raw_user_meta_data ->> 'avatar_url', new.raw_user_meta_data ->> 'picture')
+  )
+  on conflict (id) do nothing;
   return new;
 end;
 $$;
@@ -91,6 +100,14 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Backfill: anyone who signed in before this migration ran (e.g. testing
+-- login before applying migrations) gets a profile now instead of being
+-- permanently profile-less — profiles has no INSERT policy or grant, so
+-- without this a user in that state could never self-recover.
+insert into public.profiles (id)
+select id from auth.users
+on conflict (id) do nothing;
 
 -- Atomic pet creation: a pet must never exist without an owner, and there
 -- is no INSERT policy on either table, so this function is the only path in.
@@ -130,6 +147,18 @@ begin
   return new_pet;
 end;
 $$;
+
+-- Revoke defaults before granting explicitly. Two default privileges would
+-- otherwise undermine the invariants above:
+--   1. With "Automatically expose new tables" ON, Supabase's default
+--      privileges grant broad table access (including INSERT) at CREATE
+--      TABLE time, so "create_pet_with_owner is the only insert path"
+--      would rest on RLS alone rather than on privileges too.
+--   2. CREATE FUNCTION grants EXECUTE to PUBLIC by default, so both
+--      SECURITY DEFINER functions would be callable by anon out of the box.
+revoke all on public.profiles, public.pets, public.pet_owners from anon, authenticated;
+revoke execute on function public.is_pet_owner(uuid) from public;
+revoke execute on function public.create_pet_with_owner(jsonb) from public;
 
 -- Explicit grants so the app works whether or not the Supabase project has
 -- "Automatically expose new tables" enabled. RLS still decides which rows
