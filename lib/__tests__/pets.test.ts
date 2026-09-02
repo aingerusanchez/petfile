@@ -1,3 +1,6 @@
+// Mock supabase before importing pets
+jest.mock("../supabase");
+
 import { validatePetDraft, type PetDraft } from "../pets";
 
 const valid: PetDraft = {

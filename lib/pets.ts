@@ -1,3 +1,8 @@
+import { supabase } from "./supabase";
+import type { Database } from "./database.types";
+
+export type PetRow = Database["public"]["Tables"]["pets"]["Row"];
+
 export type PetDraft = {
   name: string;
   sex: "male" | "female" | null;
@@ -39,4 +44,51 @@ export function validatePetDraft(
   }
 
   return errors;
+}
+
+export async function createPet(
+  draft: PetDraft,
+): Promise<{ petId: string | null; error: string | null }> {
+  const errors = validatePetDraft(draft);
+  const firstError = Object.values(errors)[0];
+  if (firstError) {
+    return { petId: null, error: firstError };
+  }
+
+  const { data, error } = await supabase.rpc("create_pet_with_owner", {
+    pet: {
+      name: draft.name.trim(),
+      sex: draft.sex,
+      breed_primary: draft.breedPrimary,
+      breed_secondary: null,
+      is_mixed: draft.isMixed,
+      birth_date: draft.birthDate,
+      birth_date_approximate: draft.birthDateApproximate,
+      spayed_neutered: draft.spayedNeutered,
+      activity_level: draft.activityLevel,
+    },
+  });
+
+  if (error) {
+    return { petId: null, error: error.message };
+  }
+
+  return { petId: (data as { id: string }).id, error: null };
+}
+
+export async function getMyPet(): Promise<{
+  pet: PetRow | null;
+  error: string | null;
+}> {
+  const { data, error } = await supabase
+    .from("pets")
+    .select("*")
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return { pet: null, error: error.message };
+  }
+
+  return { pet: data, error: null };
 }
