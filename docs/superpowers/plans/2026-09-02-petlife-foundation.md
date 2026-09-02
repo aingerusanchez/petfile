@@ -12,13 +12,13 @@
 
 ## Global Constraints
 
-- Package manager: **npm** (React Native tooling is most reliably supported on npm; the user's other projects use pnpm — do not follow that precedent here).
+- Package manager: **pnpm** (all of the user's other projects use pnpm; this repo follows that precedent). pnpm's default symlinked `node_modules` breaks Metro and native builds, so the repo root carries an `.npmrc`/`pnpm-workspace.yaml` forcing `node-linker=hoisted` — a flat, npm-like `node_modules` — before anyone runs `pnpm install`. Never remove that setting or run `pnpm install` without it in place.
 - TypeScript **strict mode** enabled; no `any` in committed code.
 - Dark mode only in v0. Every colour comes from the Nordic Ice tokens defined in Task 2 — no raw hex values in components.
 - Screens must never import `@supabase/supabase-js`. The only import site is `lib/supabase.ts`.
 - Conventional Commits for every commit (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `build:`).
 - **v0 auth is Google OAuth only.** Magic links are explicitly out of scope for v0. Signing in with Google from day one means the user's account identity never changes, so no tracking data is stranded on an abandoned account later.
-- **Google OAuth requires a development build.** Expo Go cannot handle the custom-scheme redirect this flow needs. `npx expo run:ios` / `npx expo run:android` produces the dev build; the web target still runs under `npm run web`.
+- **Google OAuth requires a development build.** Expo Go cannot handle the custom-scheme redirect this flow needs. `pnpm expo run:ios` / `pnpm expo run:android` produces the dev build; the web target still runs under `pnpm web`.
 
 ### Secret handling (non-negotiable)
 
@@ -39,7 +39,7 @@
 
 **Interfaces:**
 - Consumes: nothing (first task)
-- Produces: a booting Expo Router app at repo root; `npm run web` serves on `http://localhost:8081`
+- Produces: a booting Expo Router app at repo root; `pnpm web` serves on `http://localhost:8081`
 
 - [ ] **Step 1: Scaffold into a temp directory**
 
@@ -47,7 +47,7 @@
 
 ```bash
 cd /Users/mikel/workspace
-npx create-expo-app@latest petlife-scaffold --template default
+pnpm dlx create-expo-app@latest petlife-scaffold --template default
 ```
 
 - [ ] **Step 2: Merge the scaffold into the repo, preserving git history and docs**
@@ -56,12 +56,12 @@ npx create-expo-app@latest petlife-scaffold --template default
 cd /Users/mikel/workspace
 rsync -a --exclude='.git' petlife-scaffold/ petlife/
 rm -rf petlife-scaffold
-cd petlife && npm install
+cd petlife && pnpm install
 ```
 
 - [ ] **Step 3: Verify the app boots on web**
 
-Run: `cd /Users/mikel/workspace/petlife && npm run web`
+Run: `cd /Users/mikel/workspace/petlife && pnpm web`
 Expected: Metro bundles without error and `http://localhost:8081` renders the Expo starter screen. Stop the server with Ctrl-C once confirmed.
 
 - [ ] **Step 4: Remove the template's demo content**
@@ -114,7 +114,7 @@ Append to `.gitignore`:
 
 - [ ] **Step 6: Verify it still boots, then commit**
 
-Run: `npm run web`
+Run: `pnpm web`
 Expected: `http://localhost:8081` renders "Petlife". Stop the server.
 
 ```bash
@@ -177,7 +177,7 @@ The spec (section 6) specifies Outfit as the app typeface.
 
 ```bash
 cd /Users/mikel/workspace/petlife
-npx expo install expo-font @expo-google-fonts/outfit expo-splash-screen
+pnpm expo install expo-font @expo-google-fonts/outfit expo-splash-screen
 ```
 
 Register it as the default font family in `tailwind.config.js`, inside the same `theme.extend` block as the colours:
@@ -255,7 +255,7 @@ export default function Index() {
 
 - [ ] **Step 5: Verify the tokens and font render**
 
-Run: `npm run web`
+Run: `pnpm web`
 Expected: `http://localhost:8081` shows a dark navy (`#0B1120`) background, a near-white "Petlife" heading set in Outfit, and an ice-blue (`#A5F2F3`) "Nordic Ice" line. If colours are absent, NativeWind is not wired — revisit Step 1 before continuing.
 
 - [ ] **Step 6: Commit**
@@ -324,7 +324,7 @@ Performed once, by a human. No value below is ever committed or shared with an a
 ## 4. Apply the database migrations
 
 Paste each file in `supabase/migrations/` into the SQL Editor in order, oldest first
-(or run `npx supabase db push` with the CLI linked to the project).
+(or run `pnpm dlx supabase db push` with the CLI linked to the project).
 
 ## 5. Create the end-to-end test account
 
@@ -517,7 +517,7 @@ $$;
 
 - [ ] **Step 5: Apply the migration**
 
-Paste the file into the Supabase SQL Editor and run it (or `npx supabase db push` if the CLI is linked).
+Paste the file into the Supabase SQL Editor and run it (or `pnpm dlx supabase db push` if the CLI is linked).
 Expected: "Success. No rows returned".
 
 - [ ] **Step 6: Verify RLS actually isolates data**
@@ -554,13 +554,13 @@ git commit -m "feat: add initial Supabase schema with RLS and atomic pet creatio
 
 ```bash
 cd /Users/mikel/workspace/petlife
-npx expo install @supabase/supabase-js @react-native-async-storage/async-storage react-native-url-polyfill
+pnpm expo install @supabase/supabase-js @react-native-async-storage/async-storage react-native-url-polyfill
 ```
 
 - [ ] **Step 2: Generate the database types**
 
 ```bash
-npx supabase gen types typescript --project-id <project-ref> > lib/database.types.ts
+pnpm dlx supabase gen types typescript --project-id <project-ref> > lib/database.types.ts
 ```
 
 `<project-ref>` is the subdomain of the Project URL (`https://<project-ref>.supabase.co`). If the CLI is not linked, use the Supabase dashboard: API Docs → "Generating types" → copy the output into `lib/database.types.ts`.
@@ -599,7 +599,7 @@ On web the client falls back to `localStorage`, which the Playwright suite relie
 
 - [ ] **Step 4: Verify the client constructs and reaches the project**
 
-Run: `npm run web`, then in the browser devtools console on `http://localhost:8081`, confirm no "Missing EXPO_PUBLIC_SUPABASE_*" error appears in the Metro output or the console.
+Run: `pnpm web`, then in the browser devtools console on `http://localhost:8081`, confirm no "Missing EXPO_PUBLIC_SUPABASE_*" error appears in the Metro output or the console.
 Expected: the app renders as before, with no thrown configuration error.
 
 - [ ] **Step 5: Commit**
@@ -625,8 +625,8 @@ git commit -m "feat: add typed Supabase client"
 
 ```bash
 cd /Users/mikel/workspace/petlife
-npm install -D @playwright/test dotenv
-npx playwright install chromium
+pnpm add -D @playwright/test dotenv
+pnpm exec playwright install chromium
 ```
 
 Create `playwright.config.ts`. `dotenv` loads `.env` into the test process — the values are read by the process, never printed. The `webServer` block starts the Expo web build for the tests and reuses an already-running one locally:
@@ -648,7 +648,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "npm run web",
+    command: "pnpm web",
     url: "http://localhost:8081",
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
@@ -734,7 +734,7 @@ test("sends an authenticated visitor past the login screen", async ({ page }) =>
 
 - [ ] **Step 4: Run the test to verify it fails**
 
-Run: `npm run test:e2e -- e2e/login.spec.ts`
+Run: `pnpm test:e2e -- e2e/login.spec.ts`
 Expected: FAIL — `/login` does not exist yet, so `getByTestId("login-google")` times out.
 
 - [ ] **Step 5: Register the deep-link scheme**
@@ -755,7 +755,7 @@ This must match the `petlife://auth/callback` redirect URL registered in Supabas
 
 ```bash
 cd /Users/mikel/workspace/petlife
-npx expo install expo-web-browser expo-linking
+pnpm expo install expo-web-browser expo-linking
 ```
 
 Create `lib/auth.tsx`. On web, Supabase redirects the page itself and `detectSessionInUrl` picks the session back up. On native, the flow opens a system browser and returns tokens in the callback URL, which are then handed to `setSession`:
@@ -995,14 +995,14 @@ export default function Home() {
 
 Requires the test account from `docs/supabase-setup.md` section 5 and a filled `.env`. Do not read `.env` — just run the suite, which loads it.
 
-Run: `npm run test:e2e -- e2e/login.spec.ts`
-Expected: PASS — both tests green. On failure, inspect the recorded trace with `npx playwright show-trace` to see the rendered screen at the failing step, or re-run with `npm run test:e2e:ui`.
+Run: `pnpm test:e2e -- e2e/login.spec.ts`
+Expected: PASS — both tests green. On failure, inspect the recorded trace with `pnpm exec playwright show-trace` to see the rendered screen at the failing step, or re-run with `pnpm test:e2e:ui`.
 
 - [ ] **Step 10: Verify Google sign-in end to end by hand**
 
 Automation cannot complete Google's consent screen, so confirm the real flow once manually:
 
-Run: `npm run web`, open `http://localhost:8081`, click "Continuar con Google", complete consent.
+Run: `pnpm web`, open `http://localhost:8081`, click "Continuar con Google", complete consent.
 Expected: you land back on the app, signed in, and reloading the page keeps you signed in.
 
 - [ ] **Step 11: Commit**
@@ -1028,7 +1028,7 @@ git commit -m "feat: add Google OAuth sign-in with session-based routing"
 
 ```bash
 cd /Users/mikel/workspace/petlife
-npx expo install -- --save-dev jest jest-expo @types/jest
+pnpm expo install --dev jest jest-expo @types/jest
 ```
 
 Add to `package.json`:
@@ -1100,7 +1100,7 @@ describe("validatePetDraft", () => {
 
 - [ ] **Step 3: Run the test to verify it fails**
 
-Run: `npm test -- lib/__tests__/pets.test.ts`
+Run: `pnpm test -- lib/__tests__/pets.test.ts`
 Expected: FAIL — "Cannot find module '../pets'".
 
 - [ ] **Step 4: Write the minimal implementation**
@@ -1154,7 +1154,7 @@ export function validatePetDraft(
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run: `npm test -- lib/__tests__/pets.test.ts`
+Run: `pnpm test -- lib/__tests__/pets.test.ts`
 Expected: PASS — 6 tests green.
 
 - [ ] **Step 6: Commit**
@@ -1242,7 +1242,7 @@ describe("createPet", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `npm test -- lib/__tests__/pets.rpc.test.ts`
+Run: `pnpm test -- lib/__tests__/pets.rpc.test.ts`
 Expected: FAIL — `createPet` is not exported from `../pets`.
 
 - [ ] **Step 3: Implement `createPet` and `getMyPet`**
@@ -1307,7 +1307,7 @@ export async function getMyPet(): Promise<{
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `npm test`
+Run: `pnpm test`
 Expected: PASS — all tests in `lib/__tests__/` green.
 
 - [ ] **Step 5: Commit**
@@ -1363,7 +1363,7 @@ test("registers a pet and lands on the day view", async ({ page }) => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `npm run test:e2e -- e2e/onboarding.spec.ts`
+Run: `pnpm test:e2e -- e2e/onboarding.spec.ts`
 Expected: FAIL — `/onboarding` does not exist, so `onboarding-name` times out.
 
 - [ ] **Step 3: Build the onboarding screen**
@@ -1651,14 +1651,14 @@ export default function Index() {
 
 - [ ] **Step 6: Run the tests to verify they pass**
 
-Run: `npm run test:e2e`
+Run: `pnpm test:e2e`
 Expected: PASS — both `login.spec.ts` and `onboarding.spec.ts` green.
 
 Note: the second onboarding test creates a pet, so re-running it against the same test account will land on `/(tabs)` before onboarding. Reset it between runs with `delete from pets;` in the Supabase SQL Editor — this only touches the e2e account's data, never the real Google-backed one.
 
 - [ ] **Step 7: Run the whole suite and commit**
 
-Run: `npm test && npm run test:e2e`
+Run: `pnpm test && pnpm test:e2e`
 Expected: all Jest and Playwright tests pass.
 
 ```bash
@@ -1689,16 +1689,16 @@ App para el seguimiento diario y de salud de Loki. Móvil primero (Expo), con sa
 ## Primeros pasos
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env    # rellena las credenciales de Supabase
-npm run web             # web
-npx expo run:ios        # dev build nativo (necesario para el login con Google)
+pnpm web             # web
+pnpm expo run:ios       # dev build nativo (necesario para el login con Google)
 ```
 
 Consulta `docs/supabase-setup.md` para crear el proyecto de Supabase, configurar Google OAuth y aplicar las migraciones.
 
 > El login con Google no funciona en Expo Go: necesita el esquema `petlife://`, que solo
-> existe en un development build. En web funciona con `npm run web`.
+> existe en un development build. En web funciona con `pnpm web`.
 
 ## Secretos
 
@@ -1712,14 +1712,14 @@ Consulta `docs/supabase-setup.md` para crear el proyecto de Supabase, configurar
 
 ## Scripts
 
-| Comando              | Descripción                                  |
-| -------------------- | -------------------------------------------- |
-| `npm run web`        | Servidor de desarrollo web (`:8081`)         |
-| `npm run ios`        | Abre en el simulador de iOS                  |
-| `npm run android`    | Abre en el emulador de Android               |
-| `npm test`           | Tests unitarios (Jest) de la lógica pura     |
-| `npm run test:e2e`   | Tests de flujo (Playwright) sobre el build web |
-| `npm run test:e2e:ui`| Playwright en modo UI, para depurar visualmente |
+| Comando             | Descripción                                     |
+| ------------------- | ------------------------------------------------ |
+| `pnpm web`          | Servidor de desarrollo web (`:8081`)              |
+| `pnpm ios`          | Abre en el simulador de iOS                       |
+| `pnpm android`      | Abre en el emulador de Android                    |
+| `pnpm test`         | Tests unitarios (Jest) de la lógica pura          |
+| `pnpm test:e2e`     | Tests de flujo (Playwright) sobre el build web    |
+| `pnpm test:e2e:ui`  | Playwright en modo UI, para depurar visualmente   |
 
 ## Arquitectura
 
@@ -1745,7 +1745,7 @@ Create `AGENTS.md`:
 
 ## Constraints
 
-- Package manager: **npm** (not pnpm).
+- Package manager: **pnpm** (not npm). The repo root requires `node-linker=hoisted` (see `.npmrc` / `pnpm-workspace.yaml`) so `node_modules` stays flat — never `pnpm install` without it.
 - TypeScript strict; no `any`.
 - Screens never import `@supabase/supabase-js` — only `lib/supabase.ts` does.
 - Colours come from the Nordic Ice Tailwind tokens; no raw hex in components.
@@ -1769,15 +1769,15 @@ When changing RLS policies, treat it as a security change: re-run the isolation 
 ## Commands
 
 ```bash
-npm run web           # dev server on :8081
-npm test              # Jest — pure logic in lib/
-npm run test:e2e      # Playwright — flows against the web build
-npm run test:e2e:ui   # Playwright UI mode for visual debugging
+pnpm web           # dev server on :8081
+pnpm test              # Jest — pure logic in lib/
+pnpm test:e2e      # Playwright — flows against the web build
+pnpm test:e2e:ui   # Playwright UI mode for visual debugging
 ```
 
 ## Definition of done
 
-`npm test && npm run test:e2e` both pass before declaring work complete.
+`pnpm test && pnpm test:e2e` both pass before declaring work complete.
 
 ## Commits
 
@@ -1802,8 +1802,8 @@ git commit -m "docs: add README and AGENTS.md"
 
 ## Done when
 
-- [ ] `npm test` passes (pet validation and RPC mapping).
-- [ ] `npm run test:e2e` passes (Google button starts the OAuth flow, seeded session bypasses login, onboarding validation, onboarding success).
+- [ ] `pnpm test` passes (pet validation and RPC mapping).
+- [ ] `pnpm test:e2e` passes (Google button starts the OAuth flow, seeded session bypasses login, onboarding validation, onboarding success).
 - [ ] Signing in with the real Google account on a fresh profile lands on `/onboarding`; after registering Loki it lands on the day view, and reopening the app goes straight there.
 - [ ] The app renders in Nordic Ice dark mode with the Outfit typeface, on web and in a native dev build.
 - [ ] `git log -p` contains no key material, and `.env` is untracked.

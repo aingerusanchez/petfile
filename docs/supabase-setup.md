@@ -3,7 +3,7 @@
 Performed once, by a human. No value below is ever committed or shared with an agent.
 
 > This repo also has a pre-commit guard against committing secrets
-> (`.githooks/pre-commit`). Running `npm install` wires it up automatically via the
+> (`.githooks/pre-commit`). Running `pnpm install` wires it up automatically via the
 > `prepare` script; if it ever doesn't fire, run `git config core.hooksPath .githooks`
 > yourself to re-enable it.
 
@@ -46,7 +46,7 @@ Performed once, by a human. No value below is ever committed or shared with an a
 ## 4. Apply the database migrations
 
 Paste each file in `supabase/migrations/` into the SQL Editor in order, oldest first
-(or run `npx supabase db push` with the CLI linked to the project).
+(or run `pnpm dlx supabase db push` with the CLI linked to the project).
 
 ## 5. Create the end-to-end test account
 
