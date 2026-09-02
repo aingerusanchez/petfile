@@ -16,9 +16,17 @@
 - TypeScript **strict mode** enabled; no `any` in committed code.
 - Dark mode only in v0. Every colour comes from the Nordic Ice tokens defined in Task 2 — no raw hex values in components.
 - Screens must never import `@supabase/supabase-js`. The only import site is `lib/supabase.ts`.
-- Secrets live in `.env` (gitignored). Only `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are exposed to the client. `.env.example` is committed with placeholder values.
 - Conventional Commits for every commit (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `build:`).
-- **v0 auth is email + password.** The spec names "Google o magic link"; both need extra setup (deep-link handling for magic links, `expo-auth-session` + Google Cloud credentials for OAuth) that would delay a usable v0. Email+password is a deliberate v0 simplification, swappable later without schema changes.
+- **v0 auth is Google OAuth only.** Magic links are explicitly out of scope for v0. Signing in with Google from day one means the user's account identity never changes, so no tracking data is stranded on an abandoned account later.
+- **Google OAuth requires a development build.** Expo Go cannot handle the custom-scheme redirect this flow needs. `npx expo run:ios` / `npx expo run:android` produces the dev build; the web target still runs under `npm run web`.
+
+### Secret handling (non-negotiable)
+
+- `.env` is gitignored and is filled in **by the user only**. No agent may `cat`, `Read`, `grep`, `echo`, or otherwise print its contents, and no key value may ever appear in a commit, a log, a test fixture, or the conversation. Agents needing the values run the process that reads `.env` — they do not read it themselves.
+- `.env.example` is committed with placeholders only.
+- **`EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are not secrets.** Every `EXPO_PUBLIC_*` variable is inlined into the client bundle and is extractable by anyone with the app. The anon key is a public identifier; data is protected by the RLS policies in Task 3, not by hiding it. Task 3's RLS verification is therefore a security control, not a formality.
+- **Actual secrets, which never enter the repo or any agent's context:** the Supabase `service_role` key (unused in v0 — the app must never reference it) and the Google OAuth **client secret**, which is pasted directly into the Supabase dashboard so that Supabase performs the token exchange server-side.
+- For future EAS builds, secrets go in EAS environment variables (encrypted server-side), never in the repo.
 
 ---
 
@@ -269,28 +277,104 @@ git commit -m "feat: add NativeWind with Nordic Ice tokens and the Outfit typefa
 - Consumes: nothing from earlier tasks (pure backend)
 - Produces: tables `profiles`, `pets`, `pet_owners`; RPC `create_pet_with_owner(pet jsonb) returns pets`; helper `is_pet_owner(p_pet_id uuid) returns boolean`
 
-- [ ] **Step 1: Create the Supabase project and record its credentials**
+- [ ] **Step 1: Write the setup guide for the user**
 
-REQUIRED: this step needs the user. Ask them to create a project at https://supabase.com (free tier), then paste the Project URL and anon key. Write them into a local `.env` (never committed):
+**This step is performed by the user, not by an agent.** The agent's job is to write `docs/supabase-setup.md` and then stop and ask the user to complete it. The user fills `.env` themselves; the agent never reads it.
 
-```
-EXPO_PUBLIC_SUPABASE_URL=<project url>
-EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon key>
-```
-
-Document the steps in `docs/supabase-setup.md` so the setup is reproducible:
+Create `docs/supabase-setup.md`:
 
 ```markdown
-# Supabase setup
+# Supabase and Google OAuth setup
+
+Performed once, by a human. No value below is ever committed or shared with an agent.
+
+## 1. Supabase project
 
 1. Create a project at https://supabase.com (free tier is enough for v0).
-2. Project Settings → API: copy the Project URL and the `anon` public key.
-3. Copy `.env.example` to `.env` and fill both values.
-4. Apply migrations: paste each file in `supabase/migrations/` into the SQL Editor in order, or run `npx supabase db push` with the CLI linked to the project.
-5. Authentication → Providers → Email: ensure Email is enabled. For v0, disable "Confirm email" so sign-up is immediate.
+2. Project Settings → API: copy the **Project URL** and the **`anon` public key**.
+3. `cp .env.example .env` and fill both values.
+
+> The anon key is not a secret — it ships inside the app bundle by design. Your data is
+> protected by the RLS policies in `supabase/migrations/`, not by hiding this key.
+> The **`service_role`** key on that same page *is* secret: it bypasses RLS. Never put it
+> in `.env`, in the repo, or in a chat with an agent.
+
+## 2. Google Cloud OAuth credentials
+
+1. Go to https://console.cloud.google.com → create a project (e.g. "Petlife").
+2. APIs & Services → OAuth consent screen: External, app name "Petlife", add your own
+   email as a test user.
+3. APIs & Services → Credentials → Create credentials → OAuth client ID. Create a
+   **Web application** client:
+   - Authorised redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
+   - Copy the **Client ID** and **Client secret**.
+4. For native builds, also create an **iOS** client (bundle id `com.petlife.app`) and an
+   **Android** client. These have no client secret.
+
+## 3. Connect Google to Supabase
+
+1. Supabase → Authentication → Providers → Google → enable.
+2. Paste the **Web** client ID and client secret from step 2.3.
+   The client secret lives here and nowhere else — Supabase performs the token exchange
+   server-side, so the secret never reaches the app or the repo.
+3. Authentication → URL Configuration → Redirect URLs, add:
+   - `petlife://auth/callback` (native)
+   - `http://localhost:8081` (web dev)
+
+## 4. Apply the database migrations
+
+Paste each file in `supabase/migrations/` into the SQL Editor in order, oldest first
+(or run `npx supabase db push` with the CLI linked to the project).
+
+## 5. Create the end-to-end test account
+
+Playwright cannot drive Google's consent screen, so the test suite signs in with a
+dedicated password account that exists only for testing.
+
+1. Supabase → Authentication → Users → Add user → Create new user.
+   - Email: `loki-e2e@example.com`, any strong password, "Auto Confirm User" checked.
+2. Add to `.env`:
+
+   ```
+   E2E_EMAIL=loki-e2e@example.com
+   E2E_PASSWORD=<the password you chose>
+   ```
+
+This account is separate from your real Google-backed account, so nothing you record in
+normal use is tied to it.
 ```
 
-- [ ] **Step 2: Write the schema migration**
+- [ ] **Step 2: Add a guard against committing secrets**
+
+Create `.githooks/pre-commit`:
+
+```bash
+#!/bin/sh
+# Refuse to commit .env or anything that looks like a Supabase service key.
+if git diff --cached --name-only | grep -qE '(^|/)\.env$'; then
+  echo "BLOCKED: .env must never be committed." >&2
+  exit 1
+fi
+if git diff --cached -U0 | grep -qE 'service_role|eyJ[A-Za-z0-9_-]{20,}\.'; then
+  echo "BLOCKED: staged changes look like they contain a JWT or service_role key." >&2
+  exit 1
+fi
+exit 0
+```
+
+Enable it:
+
+```bash
+cd /Users/mikel/workspace/petlife
+chmod +x .githooks/pre-commit
+git config core.hooksPath .githooks
+```
+
+- [ ] **Step 3: Hand off to the user and wait**
+
+STOP. Tell the user the setup guide is ready and ask them to complete `docs/supabase-setup.md` sections 1-3 and 5, then confirm. Do not continue until they do — the remaining steps need a live project.
+
+- [ ] **Step 4: Write the schema migration**
 
 Create `supabase/migrations/0001_initial_schema.sql`:
 
@@ -431,12 +515,12 @@ $$;
 
 **Deliberately not in this migration:** `routine_templates` and `routine_occurrences` ship with the Routines plan, `health_events` with the Health plan, and `invitations` with v1 — the spec defers its mechanism (6-digit code vs. direct link), so creating the table now would mean guessing its shape. Each arrives as its own numbered migration.
 
-- [ ] **Step 3: Apply the migration**
+- [ ] **Step 5: Apply the migration**
 
 Paste the file into the Supabase SQL Editor and run it (or `npx supabase db push` if the CLI is linked).
 Expected: "Success. No rows returned".
 
-- [ ] **Step 4: Verify RLS actually isolates data**
+- [ ] **Step 6: Verify RLS actually isolates data**
 
 In the Supabase SQL Editor, run this as an anonymous caller — `auth.uid()` is null, so every policy must deny:
 
@@ -447,10 +531,10 @@ select count(*) from public.pets;
 
 Expected: `0` rows, and no error. A non-zero count or a permission error means the policies are wrong — fix before continuing.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/ docs/supabase-setup.md
+git add supabase/ docs/supabase-setup.md .githooks/
 git commit -m "feat: add initial Supabase schema with RLS and atomic pet creation"
 ```
 
@@ -483,12 +567,13 @@ npx supabase gen types typescript --project-id <project-ref> > lib/database.type
 
 - [ ] **Step 3: Create the single client module**
 
-Create `lib/supabase.ts`. `AsyncStorage` persists the session across app restarts; `detectSessionInUrl` must be false on native, where there is no URL to read a session from.
+Create `lib/supabase.ts`. `AsyncStorage` persists the session across app restarts. `detectSessionInUrl` must be true on web — that is how the OAuth redirect hands the session back — and false on native, where the session arrives through a deep link instead.
 
 ```ts
 import "react-native-url-polyfill/auto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
+import { Platform } from "react-native";
 import type { Database } from "./database.types";
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -502,13 +587,15 @@ if (!url || !anonKey) {
 
 export const supabase = createClient<Database>(url, anonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: Platform.OS === "web" ? undefined : AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: Platform.OS === "web",
   },
 });
 ```
+
+On web the client falls back to `localStorage`, which the Playwright suite relies on to seed a session in Task 5.
 
 - [ ] **Step 4: Verify the client constructs and reaches the project**
 
@@ -524,28 +611,31 @@ git commit -m "feat: add typed Supabase client"
 
 ---
 
-### Task 5: Authentication — session context, login screen, and route guarding
+### Task 5: Authentication — Google OAuth, session context, and route guarding
 
 **Files:**
-- Create: `lib/auth.tsx`, `app/(auth)/login.tsx`, `playwright.config.ts`, `e2e/login.spec.ts`
-- Modify: `app/_layout.tsx`, `app/index.tsx`, `package.json`
+- Create: `lib/auth.tsx`, `app/(auth)/login.tsx`, `playwright.config.ts`, `e2e/auth.ts`, `e2e/login.spec.ts`
+- Modify: `app/_layout.tsx`, `app/index.tsx`, `app.json`, `package.json`
 
 **Interfaces:**
 - Consumes: `supabase` from `lib/supabase.ts`
-- Produces: `AuthProvider` (React component) and `useAuth(): { session: Session | null; loading: boolean; signIn(email, password): Promise<{ error: string | null }>; signUp(email, password): Promise<{ error: string | null }>; signOut(): Promise<void> }` from `lib/auth.tsx`
+- Produces: `AuthProvider` (React component) and `useAuth(): { session: Session | null; loading: boolean; signInWithGoogle(): Promise<{ error: string | null }>; signOut(): Promise<void> }` from `lib/auth.tsx`; `seedSession(page: Page): Promise<void>` from `e2e/auth.ts`
 
 - [ ] **Step 1: Install Playwright and scaffold its config**
 
 ```bash
 cd /Users/mikel/workspace/petlife
-npm install -D @playwright/test
+npm install -D @playwright/test dotenv
 npx playwright install chromium
 ```
 
-Create `playwright.config.ts`. The `webServer` block starts the Expo web build for the tests and reuses an already-running one locally:
+Create `playwright.config.ts`. `dotenv` loads `.env` into the test process — the values are read by the process, never printed. The `webServer` block starts the Expo web build for the tests and reuses an already-running one locally:
 
 ```ts
 import { defineConfig, devices } from "@playwright/test";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export default defineConfig({
   testDir: "./e2e",
@@ -577,48 +667,103 @@ Add the script to `package.json`:
 }
 ```
 
-- [ ] **Step 2: Write the failing end-to-end test**
+- [ ] **Step 2: Write the session-seeding helper**
 
-Create `e2e/login.spec.ts`. It asserts the two behaviours that matter: a wrong password surfaces a visible error, and a correct one lands the user past the login screen.
+Playwright cannot drive Google's consent screen (Google blocks automated browsers), so tests that need an authenticated app inject a session directly. This helper signs in the dedicated test account server-side, then writes the resulting session into `localStorage` under the key the Supabase web client reads on boot.
+
+Create `e2e/auth.ts`:
+
+```ts
+import type { Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const email = process.env.E2E_EMAIL;
+const password = process.env.E2E_PASSWORD;
+
+export async function seedSession(page: Page): Promise<void> {
+  if (!url || !anonKey || !email || !password) {
+    throw new Error(
+      "Missing EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, E2E_EMAIL or E2E_PASSWORD. See docs/supabase-setup.md.",
+    );
+  }
+
+  const client = createClient(url, anonKey);
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (error || !data.session) {
+    throw new Error(`E2E sign-in failed: ${error?.message ?? "no session returned"}`);
+  }
+
+  const projectRef = new URL(url).hostname.split(".")[0];
+  const storageKey = `sb-${projectRef}-auth-token`;
+  const session = JSON.stringify(data.session);
+
+  await page.addInitScript(
+    ([key, value]) => window.localStorage.setItem(key, value),
+    [storageKey, session] as const,
+  );
+}
+```
+
+- [ ] **Step 3: Write the failing end-to-end test**
+
+Create `e2e/login.spec.ts`. Two behaviours matter: an unauthenticated visitor is offered Google and clicking it actually starts Google's flow, and an authenticated visitor never sees the login screen at all.
 
 ```ts
 import { expect, test } from "@playwright/test";
+import { seedSession } from "./auth";
 
-const EMAIL = process.env.E2E_EMAIL ?? "loki-test@example.com";
-const PASSWORD = process.env.E2E_PASSWORD ?? "petlife-test-1234";
-
-test("shows an error when the password is wrong", async ({ page }) => {
+test("offers Google sign-in and starts the OAuth flow", async ({ page }) => {
   await page.goto("/login");
-  await page.getByTestId("login-email").fill(EMAIL);
-  await page.getByTestId("login-password").fill("definitely-wrong");
-  await page.getByTestId("login-submit").click();
 
-  await expect(page.getByTestId("login-error")).toBeVisible();
+  const button = page.getByTestId("login-google");
+  await expect(button).toBeVisible();
+
+  await button.click();
+  await page.waitForURL(/accounts\.google\.com/, { timeout: 20_000 });
 });
 
-test("signs in with valid credentials and leaves the login screen", async ({
-  page,
-}) => {
-  await page.goto("/login");
-  await page.getByTestId("login-email").fill(EMAIL);
-  await page.getByTestId("login-password").fill(PASSWORD);
-  await page.getByTestId("login-submit").click();
+test("sends an authenticated visitor past the login screen", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/");
 
-  await expect(page.getByTestId("login-submit")).toBeHidden({ timeout: 15_000 });
+  await expect(page.getByTestId("login-google")).toBeHidden({ timeout: 15_000 });
 });
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [ ] **Step 4: Run the test to verify it fails**
 
 Run: `npm run test:e2e -- e2e/login.spec.ts`
-Expected: FAIL — `/login` does not exist yet, so `getByTestId("login-email")` times out.
+Expected: FAIL — `/login` does not exist yet, so `getByTestId("login-google")` times out.
 
-- [ ] **Step 4: Create the auth context**
+- [ ] **Step 5: Register the deep-link scheme**
 
-Create `lib/auth.tsx`:
+Google's redirect comes back to the native app through a custom scheme. In `app.json`, set `expo.scheme`:
+
+```json
+{
+  "expo": {
+    "scheme": "petlife"
+  }
+}
+```
+
+This must match the `petlife://auth/callback` redirect URL registered in Supabase (setup guide, section 3).
+
+- [ ] **Step 6: Create the auth context**
+
+```bash
+cd /Users/mikel/workspace/petlife
+npx expo install expo-web-browser expo-linking
+```
+
+Create `lib/auth.tsx`. On web, Supabase redirects the page itself and `detectSessionInUrl` picks the session back up. On native, the flow opens a system browser and returns tokens in the callback URL, which are then handed to `setSession`:
 
 ```tsx
 import type { Session } from "@supabase/supabase-js";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import {
   createContext,
   useContext,
@@ -627,13 +772,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { Platform } from "react-native";
 import { supabase } from "./supabase";
 
 type AuthValue = {
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 };
 
@@ -660,16 +805,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       loading,
-      signIn: async (email, password) => {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+      signInWithGoogle: async () => {
+        const redirectTo =
+          Platform.OS === "web"
+            ? window.location.origin
+            : Linking.createURL("auth/callback");
+
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo, skipBrowserRedirect: Platform.OS !== "web" },
         });
-        return { error: error?.message ?? null };
-      },
-      signUp: async (email, password) => {
-        const { error } = await supabase.auth.signUp({ email, password });
-        return { error: error?.message ?? null };
+
+        if (error) return { error: error.message };
+        if (Platform.OS === "web") return { error: null }; // the page is redirecting
+
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        if (result.type !== "success") return { error: null }; // user dismissed it
+
+        const fragment = result.url.split("#")[1] ?? "";
+        const params = new URLSearchParams(fragment);
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+
+        if (!accessToken || !refreshToken) {
+          return { error: params.get("error_description") ?? "No se recibió la sesión" };
+        }
+
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        return { error: sessionError?.message ?? null };
       },
       signOut: async () => {
         await supabase.auth.signOut();
@@ -688,54 +854,32 @@ export function useAuth(): AuthValue {
 }
 ```
 
-- [ ] **Step 5: Build the login screen**
+- [ ] **Step 7: Build the login screen**
 
-Create `app/(auth)/login.tsx`. It doubles as sign-up for v0 so the single user can create their account without a separate screen:
+Create `app/(auth)/login.tsx`:
 
 ```tsx
 import { useState } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { useAuth } from "../../lib/auth";
 
 export default function Login() {
-  const { signIn, signUp } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { signInWithGoogle } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function submit(mode: "in" | "up") {
+  async function submit() {
     setBusy(true);
     setError(null);
-    const { error: failure } =
-      mode === "in" ? await signIn(email, password) : await signUp(email, password);
+    const { error: failure } = await signInWithGoogle();
     setError(failure);
     setBusy(false);
   }
 
   return (
     <View className="flex-1 justify-center bg-base px-6">
-      <Text className="mb-8 text-3xl font-bold text-text-primary">Petlife</Text>
-
-      <TextInput
-        testID="login-email"
-        value={email}
-        onChangeText={setEmail}
-        placeholder="Email"
-        placeholderTextColor="#64748B"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        className="mb-3 rounded-xl border border-border-default bg-surface px-4 py-3 text-text-primary"
-      />
-      <TextInput
-        testID="login-password"
-        value={password}
-        onChangeText={setPassword}
-        placeholder="Contraseña"
-        placeholderTextColor="#64748B"
-        secureTextEntry
-        className="mb-3 rounded-xl border border-border-default bg-surface px-4 py-3 text-text-primary"
-      />
+      <Text className="mb-2 text-4xl font-bold text-text-primary">Petlife</Text>
+      <Text className="mb-10 text-text-tertiary">El día a día de Loki</Text>
 
       {error ? (
         <Text testID="login-error" className="mb-3 text-error">
@@ -744,27 +888,23 @@ export default function Login() {
       ) : null}
 
       <Pressable
-        testID="login-submit"
+        testID="login-google"
         disabled={busy}
-        onPress={() => submit("in")}
-        className="mb-3 items-center rounded-xl bg-accent-primary py-3"
+        onPress={submit}
+        className="items-center rounded-xl bg-accent-primary py-4"
       >
         {busy ? (
           <ActivityIndicator color="#0B1120" />
         ) : (
-          <Text className="font-semibold text-base">Entrar</Text>
+          <Text className="font-semibold text-base">Continuar con Google</Text>
         )}
-      </Pressable>
-
-      <Pressable testID="login-signup" disabled={busy} onPress={() => submit("up")}>
-        <Text className="text-center text-text-tertiary">Crear cuenta</Text>
       </Pressable>
     </View>
   );
 }
 ```
 
-- [ ] **Step 6: Wire the provider and redirect unauthenticated users**
+- [ ] **Step 8: Wire the provider and redirect unauthenticated users**
 
 Replace `app/_layout.tsx`, keeping the font loading from Task 2 and wrapping the stack in the provider:
 
@@ -851,18 +991,25 @@ export default function Home() {
 }
 ```
 
-- [ ] **Step 7: Create the test account, then run the test to verify it passes**
+- [ ] **Step 9: Run the tests to verify they pass**
 
-Create the account once via the running app: open `http://localhost:8081/login`, enter `loki-test@example.com` / `petlife-test-1234`, and press "Crear cuenta".
+Requires the test account from `docs/supabase-setup.md` section 5 and a filled `.env`. Do not read `.env` — just run the suite, which loads it.
 
 Run: `npm run test:e2e -- e2e/login.spec.ts`
-Expected: PASS — both tests green. On failure, inspect the recorded trace with `npx playwright show-trace` to see the rendered screen at the failing step.
+Expected: PASS — both tests green. On failure, inspect the recorded trace with `npx playwright show-trace` to see the rendered screen at the failing step, or re-run with `npm run test:e2e:ui`.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 10: Verify Google sign-in end to end by hand**
+
+Automation cannot complete Google's consent screen, so confirm the real flow once manually:
+
+Run: `npm run web`, open `http://localhost:8081`, click "Continuar con Google", complete consent.
+Expected: you land back on the app, signed in, and reloading the page keeps you signed in.
+
+- [ ] **Step 11: Commit**
 
 ```bash
 git add -A
-git commit -m "feat: add email/password auth with session-based routing"
+git commit -m "feat: add Google OAuth sign-in with session-based routing"
 ```
 
 ---
@@ -1189,29 +1336,21 @@ Create `e2e/onboarding.spec.ts`:
 
 ```ts
 import { expect, test } from "@playwright/test";
-
-const EMAIL = process.env.E2E_EMAIL ?? "loki-test@example.com";
-const PASSWORD = process.env.E2E_PASSWORD ?? "petlife-test-1234";
+import { seedSession } from "./auth";
 
 test("blocks submission until the required fields are filled", async ({ page }) => {
-  await page.goto("/login");
-  await page.getByTestId("login-email").fill(EMAIL);
-  await page.getByTestId("login-password").fill(PASSWORD);
-  await page.getByTestId("login-submit").click();
-
+  await seedSession(page);
   await page.goto("/onboarding");
+
   await page.getByTestId("onboarding-submit").click();
 
   await expect(page.getByTestId("onboarding-error")).toBeVisible();
 });
 
 test("registers a pet and lands on the day view", async ({ page }) => {
-  await page.goto("/login");
-  await page.getByTestId("login-email").fill(EMAIL);
-  await page.getByTestId("login-password").fill(PASSWORD);
-  await page.getByTestId("login-submit").click();
-
+  await seedSession(page);
   await page.goto("/onboarding");
+
   await page.getByTestId("onboarding-name").fill("Loki");
   await page.getByTestId("onboarding-sex-male").click();
   await page.getByTestId("onboarding-breed").fill("Husky Siberiano");
@@ -1515,7 +1654,7 @@ export default function Index() {
 Run: `npm run test:e2e`
 Expected: PASS — both `login.spec.ts` and `onboarding.spec.ts` green.
 
-Note: the second onboarding test creates a pet, so re-running it against the same account will land on `/(tabs)` before onboarding. Delete the row between runs with `delete from pets;` in the SQL Editor, or use a fresh `E2E_EMAIL`.
+Note: the second onboarding test creates a pet, so re-running it against the same test account will land on `/(tabs)` before onboarding. Reset it between runs with `delete from pets;` in the Supabase SQL Editor — this only touches the e2e account's data, never the real Google-backed one.
 
 - [ ] **Step 7: Run the whole suite and commit**
 
@@ -1552,10 +1691,24 @@ App para el seguimiento diario y de salud de Loki. Móvil primero (Expo), con sa
 ```bash
 npm install
 cp .env.example .env    # rellena las credenciales de Supabase
-npm run web             # o `npm run ios` / `npm run android`
+npm run web             # web
+npx expo run:ios        # dev build nativo (necesario para el login con Google)
 ```
 
-Consulta `docs/supabase-setup.md` para crear el proyecto de Supabase y aplicar las migraciones.
+Consulta `docs/supabase-setup.md` para crear el proyecto de Supabase, configurar Google OAuth y aplicar las migraciones.
+
+> El login con Google no funciona en Expo Go: necesita el esquema `petlife://`, que solo
+> existe en un development build. En web funciona con `npm run web`.
+
+## Secretos
+
+`.env` está en `.gitignore` y lo rellenas tú. Nunca se comparte con agentes de IA ni se commitea.
+
+- `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_ANON_KEY` **no son secretos**: viajan
+  dentro del bundle de la app. Lo que protege los datos son las RLS policies.
+- La `service_role` key y el **client secret de Google** sí son secretos. La primera no se
+  usa en la app; el segundo vive solo en el dashboard de Supabase.
+- Un hook de pre-commit (`.githooks/pre-commit`) bloquea commitear `.env` o JWTs.
 
 ## Scripts
 
@@ -1597,6 +1750,21 @@ Create `AGENTS.md`:
 - Screens never import `@supabase/supabase-js` — only `lib/supabase.ts` does.
 - Colours come from the Nordic Ice Tailwind tokens; no raw hex in components.
 - Dark mode only in v0.
+- Auth is Google OAuth only. No email/password UI — the password account in Supabase exists solely for Playwright.
+
+## Secrets — read this before touching anything
+
+**Never `cat`, `Read`, `grep`, or echo `.env`.** Run the process that reads it instead; the
+values must never enter an agent's context, a log, a commit, or a chat message. `.env` is
+gitignored and `.githooks/pre-commit` blocks committing it or any JWT-shaped string.
+
+`EXPO_PUBLIC_*` variables are inlined into the client bundle and are *not* secrets — the
+Supabase anon key is a public identifier and data is protected by RLS. The `service_role`
+key and the Google OAuth client secret *are* secrets: the former is never used by this app,
+the latter lives only in the Supabase dashboard. Never add either to the repo.
+
+When changing RLS policies, treat it as a security change: re-run the isolation check in
+`supabase/migrations/` before committing.
 
 ## Commands
 
@@ -1635,9 +1803,10 @@ git commit -m "docs: add README and AGENTS.md"
 ## Done when
 
 - [ ] `npm test` passes (pet validation and RPC mapping).
-- [ ] `npm run test:e2e` passes (login error, login success, onboarding validation, onboarding success).
-- [ ] Signing in on a fresh account lands on `/onboarding`; after registering Loki it lands on the day view, and reopening the app goes straight there.
-- [ ] The app renders in Nordic Ice dark mode on web and in Expo Go on the user's phone.
+- [ ] `npm run test:e2e` passes (Google button starts the OAuth flow, seeded session bypasses login, onboarding validation, onboarding success).
+- [ ] Signing in with the real Google account on a fresh profile lands on `/onboarding`; after registering Loki it lands on the day view, and reopening the app goes straight there.
+- [ ] The app renders in Nordic Ice dark mode with the Outfit typeface, on web and in a native dev build.
+- [ ] `git log -p` contains no key material, and `.env` is untracked.
 
 ## Next plans
 
