@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { seedSession } from "./auth";
+import { resetE2EPets, seedSession } from "./auth";
+
+test.beforeAll(async () => {
+  // Onboarding tests create a real pet against the live database. Reset
+  // first so repeated runs don't accumulate duplicate rows for the e2e
+  // account, and so "registers a pet" starts from a known no-pet state.
+  await resetE2EPets();
+});
 
 test("blocks submission until the required fields are filled", async ({ page }) => {
   await seedSession(page);
