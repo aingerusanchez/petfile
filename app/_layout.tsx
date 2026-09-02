@@ -10,6 +10,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { AuthProvider } from "../lib/auth";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,7 +29,7 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <>
+    <AuthProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -36,6 +37,6 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: "#0B1120" },
         }}
       />
-    </>
+    </AuthProvider>
   );
 }

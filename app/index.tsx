@@ -1,10 +1,17 @@
-import { Text, View } from "react-native";
+import { Redirect } from "expo-router";
+import { ActivityIndicator, View } from "react-native";
+import { useAuth } from "../lib/auth";
 
 export default function Index() {
-  return (
-    <View className="flex-1 items-center justify-center bg-base">
-      <Text className="text-3xl font-bold text-text-primary">Petlife</Text>
-      <Text className="mt-2 text-accent-primary">Nordic Ice</Text>
-    </View>
-  );
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-base">
+        <ActivityIndicator color="#A5F2F3" />
+      </View>
+    );
+  }
+
+  return <Redirect href={session ? "/home" : "/login"} />;
 }

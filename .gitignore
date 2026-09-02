@@ -39,6 +39,12 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # Supabase CLI local cache
 supabase/.temp/
 
