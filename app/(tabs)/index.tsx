@@ -6,6 +6,9 @@ export default function Home() {
       <Text testID="home-title" className="text-2xl text-text-primary">
         Hoy
       </Text>
+      <Text className="mt-2 text-text-tertiary">
+        El checklist del día llega en el plan de rutinas
+      </Text>
     </View>
   );
 }
