@@ -1,0 +1,53 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+
+/* Platform-specific font families */
+@media android {
+  :root {
+    --font-mono: monospace;
+    --font-rounded: normal;
+    --font-serif: serif;
+    --font-sans: normal;
+  }
+}
+
+@media ios {
+  :root {
+    --font-mono: ui-monospace;
+    --font-serif: ui-serif;
+    --font-sans: system-ui;
+    --font-rounded: ui-rounded;
+  }
+}
+
+/* Nordic Ice design tokens (petlife-foundation spec, section 6) */
+@layer theme {
+  @theme {
+    --color-base: #0b1120;
+    --color-surface: #131c2e;
+    --color-elevated: #1e293b;
+    --color-nav: #0d1525;
+    --color-border-default: #1e293b;
+    --color-border-strong: #334155;
+    --color-accent-primary: #a5f2f3;
+    --color-accent-secondary: #7dd3e8;
+    /* Added beyond the spec table: "base" already backs bg-base, and Tailwind's
+       built-in text-base (font-size) utility would shadow a text-base color
+       utility, so dark text placed on accent surfaces uses text-on-accent. */
+    --color-on-accent: #0b1120;
+    --color-text-primary: #f1f5f9;
+    --color-text-secondary: #cbd5e1;
+    --color-text-tertiary: #94a3b8;
+    --color-text-muted: #64748b;
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+    --color-error: #ef4444;
+    --color-info: #3b82f6;
+
+    /* Outfit typeface (spec section 6) */
+    --font-sans: "Outfit_500Medium";
+    --font-semibold: "Outfit_600SemiBold";
+    --font-bold: "Outfit_700Bold";
+  }
+}
