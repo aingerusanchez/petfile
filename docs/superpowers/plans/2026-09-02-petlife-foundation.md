@@ -1671,131 +1671,72 @@ git commit -m "feat: add pet onboarding and the authenticated tab shell"
 ### Task 9: Project documentation
 
 **Files:**
-- Create: `README.md`, `AGENTS.md`
+- Create: `README.md`, `AGENTS.md`, `CLAUDE.md`
 
 **Interfaces:**
 - Consumes: everything built in Tasks 1-8
 - Produces: no code
 
+**Split of responsibility** (per the user's explicit instruction): `README.md` is the entry point for a human developer — clone, run in dev, build for production, CI/CD — and must stay accurate as the project evolves. `AGENTS.md` is tool-agnostic agent guidance (constraints, secrets, commands, architecture) usable by any AI coding tool. `CLAUDE.md` is Claude-Code-specific: it imports `AGENTS.md`, then adds the documentation-maintenance mandate and pointers to project-scoped skills.
+
+Before writing, read `package.json` for the exact installed versions of Expo, React Native, React, TypeScript, NativeWind and Supabase — do not hardcode versions from this plan, which was written before some of these were pinned by later tasks. Also confirm which scripts actually exist in `package.json` (Jest/Playwright scripts land in Tasks 6 and 5 respectively) and list exactly those.
+
+**Known gap to document, not silently fix**: this app has no development-mode login bypass (PetFile, the parked sibling project, had one via a `bypassAuth` flag; Petlife does not). Every environment, including local dev, requires a real Google sign-in. Document this explicitly in the README rather than implying a bypass exists — do not invent one.
+
 - [ ] **Step 1: Write the README**
 
-Create `README.md`:
+Create `README.md` with these sections, in this order:
 
-```markdown
-# Petlife
-
-App para el seguimiento diario y de salud de Loki. Móvil primero (Expo), con salida a web.
-
-## Primeros pasos
-
-```bash
-pnpm install
-cp .env.example .env    # rellena las credenciales de Supabase
-pnpm web             # web
-pnpm expo run:ios       # dev build nativo (necesario para el login con Google)
-```
-
-Consulta `docs/supabase-setup.md` para crear el proyecto de Supabase, configurar Google OAuth y aplicar las migraciones.
-
-> El login con Google no funciona en Expo Go: necesita el esquema `petlife://`, que solo
-> existe en un development build. En web funciona con `pnpm web`.
-
-## Secretos
-
-`.env` está en `.gitignore` y lo rellenas tú. Nunca se comparte con agentes de IA ni se commitea.
-
-- `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_KEY` **no son secretos**: viajan
-  dentro del bundle de la app. Lo que protege los datos son las RLS policies.
-- La `service_role` key y el **client secret de Google** sí son secretos. La primera no se
-  usa en la app; el segundo vive solo en el dashboard de Supabase.
-- Un hook de pre-commit (`.githooks/pre-commit`) bloquea commitear `.env` o JWTs.
-
-## Scripts
-
-| Comando             | Descripción                                     |
-| ------------------- | ------------------------------------------------ |
-| `pnpm web`          | Servidor de desarrollo web (`:8081`)              |
-| `pnpm ios`          | Abre en el simulador de iOS                       |
-| `pnpm android`      | Abre en el emulador de Android                    |
-| `pnpm test`         | Tests unitarios (Jest) de la lógica pura          |
-| `pnpm test:e2e`     | Tests de flujo (Playwright) sobre el build web    |
-| `pnpm test:e2e:ui`  | Playwright en modo UI, para depurar visualmente   |
-
-## Arquitectura
-
-- `app/` — rutas (Expo Router). `(auth)/login`, `onboarding`, `(tabs)/`.
-- `lib/` — cliente de Supabase, contexto de auth y lógica de dominio pura.
-- `supabase/migrations/` — esquema SQL versionado.
-- `e2e/` — tests Playwright.
-
-El acceso a datos pasa siempre por `lib/`; las pantallas nunca importan `@supabase/supabase-js`.
-
-## Documentación
-
-- Spec: `docs/superpowers/specs/2026-09-02-petlife-design.md`
-- Planes: `docs/superpowers/plans/`
-```
+1. **Title and one-line description.**
+2. **Primeros pasos** — clone, `pnpm install`, `cp .env.example .env` + fill Supabase credentials, `pnpm web` for the web target, `pnpm expo run:ios` / `pnpm expo run:android` for a native dev build (needed for Google sign-in — link to why in `docs/supabase-setup.md`).
+3. **Secretos** — same content as the plan's earlier drafts: `EXPO_PUBLIC_*` vars are not secrets (RLS protects the data, not hiding the key); `service_role` and the Google client secret never enter the repo; the pre-commit hook (`.githooks/pre-commit`) blocks committing `.env` or key-shaped strings, and `pnpm install` wires it via the `prepare` script.
+4. **Desarrollo y testing** — state plainly that there is no dev-mode auth bypass; every run needs a real Google sign-in. Document the Playwright e2e test account by email only (`loki-e2e@example.com` — never the password, which stays in `.env`), and how to run it (`pnpm test:e2e`, `pnpm test:e2e:ui` for visual debugging with the trace viewer). Document `pnpm test` for the Jest suite covering pure domain logic.
+5. **Scripts** — a table with every script actually present in `package.json` at the time this task runs, one row each, plain description.
+6. **Stack tecnológico** — a table (layer → technology → exact version from `package.json`): Expo/Expo Router, React Native, React, TypeScript, NativeWind/Tailwind, Supabase JS client, Jest, Playwright.
+7. **Arquitectura** — directory map (`app/`, `lib/`, `supabase/migrations/`, `e2e/`) and the one invariant that matters most: screens never import `@supabase/supabase-js`, only `lib/supabase.ts` does. Mention the Postgres/RLS data model briefly (households-free, `pet_owners` join table is what makes v1 sharing an insert, not a redesign).
+8. **Compilación de producción** — be honest about current state: native builds go through EAS (`eas build`), not yet configured in this repo (no `eas.json` exists yet — first real build needs `eas init`); the web target builds via `expo export --platform web` to a static bundle deployable to any static host. Do not claim more automation exists than does.
+9. **CI/CD** — state plainly that none is configured yet in this repo, as a known gap rather than glossing over it.
+10. **Documentación** — links to the spec (`docs/superpowers/specs/2026-09-02-petlife-design.md`) and the plans directory.
 
 - [ ] **Step 2: Write AGENTS.md**
 
-Create `AGENTS.md`:
+Create `AGENTS.md` with the same content as the plan's earlier draft (Constraints, Secrets, Commands, Definition of done, Commits, Architecture — reusing the exact text already validated in this plan), plus one addition: a **documentation maintenance** table mirroring the one PetFile uses (`AGENTS.md` in the sibling `petfile/` project, section "Mantenimiento de documentación"), adapted to this repo's actual files:
 
 ```markdown
-# AGENTS.md
+## Documentation maintenance
 
-## Constraints
+Update README.md whenever you touch one of these:
 
-- Package manager: **pnpm** (not npm). The repo root requires `node-linker=hoisted` (see `.npmrc` / `pnpm-workspace.yaml`) so `node_modules` stays flat — never `pnpm install` without it.
-- TypeScript strict; no `any`.
-- Screens never import `@supabase/supabase-js` — only `lib/supabase.ts` does.
-- Colours come from the Nordic Ice Tailwind tokens; no raw hex in components.
-- Dark mode only in v0.
-- Auth is Google OAuth only. No email/password UI — the password account in Supabase exists solely for Playwright.
-
-## Secrets — read this before touching anything
-
-**Never `cat`, `Read`, `grep`, or echo `.env`.** Run the process that reads it instead; the
-values must never enter an agent's context, a log, a commit, or a chat message. `.env` is
-gitignored and `.githooks/pre-commit` blocks committing it or any JWT-shaped string.
-
-`EXPO_PUBLIC_*` variables are inlined into the client bundle and are *not* secrets — the
-Supabase anon key is a public identifier and data is protected by RLS. The `service_role`
-key and the Google OAuth client secret *are* secrets: the former is never used by this app,
-the latter lives only in the Supabase dashboard. Never add either to the repo.
-
-When changing RLS policies, treat it as a security change: re-run the isolation check in
-`supabase/migrations/` before committing.
-
-## Commands
-
-```bash
-pnpm web           # dev server on :8081
-pnpm test              # Jest — pure logic in lib/
-pnpm test:e2e      # Playwright — flows against the web build
-pnpm test:e2e:ui   # Playwright UI mode for visual debugging
+| If you change…                          | Update…                                    |
+| ---------------------------------------- | ------------------------------------------- |
+| `package.json` scripts                   | README (Scripts)                             |
+| `package.json` dependencies (versions)   | README (Stack tecnológico)                   |
+| `supabase/migrations/`                   | README (Arquitectura), `docs/supabase-setup.md` if the setup flow itself changes |
+| `.env.example`                           | README (Secretos)                            |
+| Adding `eas.json` / a real CI workflow   | README (Compilación de producción / CI/CD)   |
 ```
 
-## Definition of done
+- [ ] **Step 3: Write CLAUDE.md**
 
-`pnpm test && pnpm test:e2e` both pass before declaring work complete.
+Create `CLAUDE.md`. It starts with the existing import (already present in the repo from the Expo template scaffold) and adds Claude-Code-specific guidance below it:
 
-## Commits
+```markdown
+@AGENTS.md
 
-Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `chore:`, `build:`.
+## Keeping documentation current
 
-## Architecture
+Before ending a session that touched `package.json` scripts/dependencies, `supabase/migrations/`, `.env.example`, or added build/CI tooling, check the table in AGENTS.md's "Documentation maintenance" section and update README.md accordingly. Stale docs are a defect, not a follow-up.
 
-- `app/` — Expo Router routes.
-- `lib/` — Supabase client, auth context, pure domain logic (unit-tested).
-- `supabase/migrations/` — versioned SQL. RLS restricts every table to `pet_owners` membership.
-- Pets are created only through the `create_pet_with_owner` RPC, which writes the pet and its ownership row atomically. There is no INSERT policy on `pets`.
+## Project-scoped skills
+
+No project-scoped skills are configured in `.claude/skills/` for Petlife yet. If one is added later (for example, copying `impeccable` from the sibling `one-ui/` project for UI design work, per the design spec's decision to integrate it manually — see `docs/superpowers/specs/2026-09-02-petlife-design.md` section 11), list it here with what it's for, so a future session knows it exists without rediscovering it. A `graphify` knowledge graph is not set up for this repo; if one ever is, add the same read-before-architecture-questions rule the sibling `one-ui/` project uses.
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add README.md AGENTS.md
-git commit -m "docs: add README and AGENTS.md"
+git add README.md AGENTS.md CLAUDE.md
+git commit -m "docs: add README, AGENTS.md, and CLAUDE.md with doc-maintenance policy"
 ```
 
 ---

@@ -1,9 +1,10 @@
+minimumReleaseAge: 1440 # 1 day
 minimumReleaseAgeExclude:
-  - '@expo/cli@57.0.21'
-  - '@expo/fingerprint@0.20.12'
-  - '@expo/metro-runtime@57.0.15'
-  - '@expo/router-server@57.0.9'
-  - '@expo/ui@57.0.15'
+  - "@expo/cli@57.0.21"
+  - "@expo/fingerprint@0.20.12"
+  - "@expo/metro-runtime@57.0.15"
+  - "@expo/router-server@57.0.9"
+  - "@expo/ui@57.0.15"
   - babel-preset-expo@57.0.10
   - expo-asset@57.0.16
   - expo-constants@57.0.17
