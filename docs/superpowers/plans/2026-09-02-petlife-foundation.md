@@ -1,0 +1,1645 @@
+# Petlife Foundation Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** A running Expo app where the user can sign in and register Loki, with the pet persisted to Supabase Postgres under row-level security.
+
+**Architecture:** Expo Router file-based routing over a Supabase backend. All database access goes through `lib/supabase.ts`; screens never import `@supabase/supabase-js` directly. Pet creation is atomic via a `security definer` Postgres function that writes both the `pets` row and its `pet_owners` membership, so a pet can never exist without an owner. Pure validation logic lives in `lib/` and is unit-tested with Jest; user-facing flows are tested with Playwright against the Expo web build.
+
+**Tech Stack:** Expo (React Native) + Expo Router, TypeScript strict, NativeWind, Supabase (Postgres + Auth), Jest (`jest-expo`), Playwright.
+
+**Spec:** `docs/superpowers/specs/2026-09-02-petlife-design.md`
+
+## Global Constraints
+
+- Package manager: **npm** (React Native tooling is most reliably supported on npm; the user's other projects use pnpm — do not follow that precedent here).
+- TypeScript **strict mode** enabled; no `any` in committed code.
+- Dark mode only in v0. Every colour comes from the Nordic Ice tokens defined in Task 2 — no raw hex values in components.
+- Screens must never import `@supabase/supabase-js`. The only import site is `lib/supabase.ts`.
+- Secrets live in `.env` (gitignored). Only `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are exposed to the client. `.env.example` is committed with placeholder values.
+- Conventional Commits for every commit (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `build:`).
+- **v0 auth is email + password.** The spec names "Google o magic link"; both need extra setup (deep-link handling for magic links, `expo-auth-session` + Google Cloud credentials for OAuth) that would delay a usable v0. Email+password is a deliberate v0 simplification, swappable later without schema changes.
+
+---
+
+### Task 1: Scaffold the Expo app
+
+**Files:**
+- Create: everything from the Expo template at repo root (`app/`, `package.json`, `app.json`, `tsconfig.json`, `.gitignore`)
+- Create: `.env.example`
+- Modify: `.gitignore` (add `.env`)
+
+**Interfaces:**
+- Consumes: nothing (first task)
+- Produces: a booting Expo Router app at repo root; `npm run web` serves on `http://localhost:8081`
+
+- [ ] **Step 1: Scaffold into a temp directory**
+
+`create-expo-app` refuses to write into a directory that already has files, and `petlife/` already contains `.git/` and `docs/`. Scaffold beside it, then merge.
+
+```bash
+cd /Users/mikel/workspace
+npx create-expo-app@latest petlife-scaffold --template default
+```
+
+- [ ] **Step 2: Merge the scaffold into the repo, preserving git history and docs**
+
+```bash
+cd /Users/mikel/workspace
+rsync -a --exclude='.git' petlife-scaffold/ petlife/
+rm -rf petlife-scaffold
+cd petlife && npm install
+```
+
+- [ ] **Step 3: Verify the app boots on web**
+
+Run: `cd /Users/mikel/workspace/petlife && npm run web`
+Expected: Metro bundles without error and `http://localhost:8081` renders the Expo starter screen. Stop the server with Ctrl-C once confirmed.
+
+- [ ] **Step 4: Remove the template's demo content**
+
+Delete the starter screens and assets the template ships that Petlife will not use, keeping `app/_layout.tsx`:
+
+```bash
+cd /Users/mikel/workspace/petlife
+rm -rf app/\(tabs\) components/ hooks/ constants/ 2>/dev/null || true
+```
+
+Replace `app/_layout.tsx` with a minimal root layout:
+
+```tsx
+import { Stack } from "expo-router";
+
+export default function RootLayout() {
+  return <Stack screenOptions={{ headerShown: false }} />;
+}
+```
+
+Create `app/index.tsx` as a temporary landing screen so the router has a route:
+
+```tsx
+import { Text, View } from "react-native";
+
+export default function Index() {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <Text>Petlife</Text>
+    </View>
+  );
+}
+```
+
+- [ ] **Step 5: Add environment variable scaffolding**
+
+Create `.env.example`:
+
+```
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Append to `.gitignore`:
+
+```
+.env
+```
+
+- [ ] **Step 6: Verify it still boots, then commit**
+
+Run: `npm run web`
+Expected: `http://localhost:8081` renders "Petlife". Stop the server.
+
+```bash
+git add -A
+git commit -m "build: scaffold Expo Router app with TypeScript"
+```
+
+---
+
+### Task 2: NativeWind and the Nordic Ice design tokens
+
+**Files:**
+- Create: `tailwind.config.js`, `global.css`, `nativewind-env.d.ts`
+- Modify: `babel.config.js`, `metro.config.js`, `app/_layout.tsx`, `app/index.tsx`
+
+**Interfaces:**
+- Consumes: booting app from Task 1
+- Produces: `className` styling available in every component; the token names `bg-base`, `bg-surface`, `bg-elevated`, `bg-nav`, `border-default`, `border-strong`, `accent-primary`, `accent-secondary`, `text-primary`, `text-secondary`, `text-tertiary`, `text-muted`, `success`, `warning`, `error`, `info`
+
+- [ ] **Step 1: Run the Tailwind setup skill**
+
+REQUIRED SUB-SKILL: invoke the `expo-app-design:expo-tailwind-setup` skill and follow it to install and wire NativeWind. It carries the current, version-correct wiring for `babel.config.js`, `metro.config.js`, `global.css`, and the TypeScript declaration file — do not hand-write those from memory, as the required setup differs between NativeWind v4 and v5.
+
+- [ ] **Step 2: Define the Nordic Ice tokens**
+
+Add the palette to `tailwind.config.js`. These values are copied verbatim from the spec (section 6) and are the only colours the app may use:
+
+```js
+// tailwind.config.js — merge into the config the setup skill generated
+module.exports = {
+  // ...content/presets from the setup skill
+  theme: {
+    extend: {
+      colors: {
+        base: "#0B1120",
+        surface: "#131C2E",
+        elevated: "#1E293B",
+        nav: "#0D1525",
+        "border-default": "#1E293B",
+        "border-strong": "#334155",
+        "accent-primary": "#A5F2F3",
+        "accent-secondary": "#7DD3E8",
+        "text-primary": "#F1F5F9",
+        "text-secondary": "#CBD5E1",
+        "text-tertiary": "#94A3B8",
+        "text-muted": "#64748B",
+        success: "#22C55E",
+        warning: "#F59E0B",
+        error: "#EF4444",
+        info: "#3B82F6",
+      },
+    },
+  },
+};
+```
+
+- [ ] **Step 3: Install the Outfit typeface**
+
+The spec (section 6) specifies Outfit as the app typeface.
+
+```bash
+cd /Users/mikel/workspace/petlife
+npx expo install expo-font @expo-google-fonts/outfit expo-splash-screen
+```
+
+Register it as the default font family in `tailwind.config.js`, inside the same `theme.extend` block as the colours:
+
+```js
+fontFamily: {
+  sans: ["Outfit_500Medium"],
+  semibold: ["Outfit_600SemiBold"],
+  bold: ["Outfit_700Bold"],
+},
+```
+
+- [ ] **Step 4: Apply the dark base and load the font in the root layout**
+
+Replace `app/_layout.tsx`. The splash screen is held until the font is ready, so text never flashes in the fallback face:
+
+```tsx
+import "../global.css";
+import {
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+  useFonts,
+} from "@expo-google-fonts/outfit";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+
+SplashScreen.preventAutoHideAsync();
+
+export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync();
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
+
+  return (
+    <>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "#0B1120" },
+        }}
+      />
+    </>
+  );
+}
+```
+
+Replace `app/index.tsx` with a token-styled screen:
+
+```tsx
+import { Text, View } from "react-native";
+
+export default function Index() {
+  return (
+    <View className="flex-1 items-center justify-center bg-base">
+      <Text className="text-3xl font-bold text-text-primary">Petlife</Text>
+      <Text className="mt-2 text-accent-primary">Nordic Ice</Text>
+    </View>
+  );
+}
+```
+
+- [ ] **Step 5: Verify the tokens and font render**
+
+Run: `npm run web`
+Expected: `http://localhost:8081` shows a dark navy (`#0B1120`) background, a near-white "Petlife" heading set in Outfit, and an ice-blue (`#A5F2F3`) "Nordic Ice" line. If colours are absent, NativeWind is not wired — revisit Step 1 before continuing.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add -A
+git commit -m "feat: add NativeWind with Nordic Ice tokens and the Outfit typeface"
+```
+
+---
+
+### Task 3: Supabase schema, RLS policies, and atomic pet creation
+
+**Files:**
+- Create: `supabase/migrations/0001_initial_schema.sql`
+- Create: `docs/supabase-setup.md`
+
+**Interfaces:**
+- Consumes: nothing from earlier tasks (pure backend)
+- Produces: tables `profiles`, `pets`, `pet_owners`; RPC `create_pet_with_owner(pet jsonb) returns pets`; helper `is_pet_owner(p_pet_id uuid) returns boolean`
+
+- [ ] **Step 1: Create the Supabase project and record its credentials**
+
+REQUIRED: this step needs the user. Ask them to create a project at https://supabase.com (free tier), then paste the Project URL and anon key. Write them into a local `.env` (never committed):
+
+```
+EXPO_PUBLIC_SUPABASE_URL=<project url>
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+```
+
+Document the steps in `docs/supabase-setup.md` so the setup is reproducible:
+
+```markdown
+# Supabase setup
+
+1. Create a project at https://supabase.com (free tier is enough for v0).
+2. Project Settings → API: copy the Project URL and the `anon` public key.
+3. Copy `.env.example` to `.env` and fill both values.
+4. Apply migrations: paste each file in `supabase/migrations/` into the SQL Editor in order, or run `npx supabase db push` with the CLI linked to the project.
+5. Authentication → Providers → Email: ensure Email is enabled. For v0, disable "Confirm email" so sign-up is immediate.
+```
+
+- [ ] **Step 2: Write the schema migration**
+
+Create `supabase/migrations/0001_initial_schema.sql`:
+
+```sql
+-- Profiles: one row per auth user.
+create table public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  display_name text,
+  avatar_url text,
+  created_at timestamptz not null default now()
+);
+
+-- Pets.
+create table public.pets (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  species text not null default 'dog',
+  sex text not null check (sex in ('male', 'female')),
+  breed_primary text,
+  breed_secondary text,
+  is_mixed boolean not null default false,
+  birth_date date,
+  birth_date_approximate boolean not null default false,
+  photo_url text,
+  spayed_neutered boolean,
+  activity_level text not null default 'moderate'
+    check (activity_level in ('low', 'moderate', 'high')),
+  exercise_goal_minutes integer,
+  vet_primary jsonb,
+  vet_emergency jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Membership: which users may see and edit which pets.
+-- This table is what makes v1 sharing an INSERT rather than a redesign.
+create table public.pet_owners (
+  pet_id uuid not null references public.pets (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  role text not null default 'owner' check (role in ('owner', 'member')),
+  joined_at timestamptz not null default now(),
+  primary key (pet_id, user_id)
+);
+
+create index pet_owners_user_id_idx on public.pet_owners (user_id);
+
+-- Membership check as SECURITY DEFINER so pet policies can consult
+-- pet_owners without triggering that table's own RLS (infinite recursion).
+create or replace function public.is_pet_owner(p_pet_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.pet_owners
+    where pet_id = p_pet_id and user_id = auth.uid()
+  );
+$$;
+
+alter table public.profiles enable row level security;
+alter table public.pets enable row level security;
+alter table public.pet_owners enable row level security;
+
+create policy "profiles are self-readable"
+  on public.profiles for select using (id = auth.uid());
+create policy "profiles are self-writable"
+  on public.profiles for update using (id = auth.uid());
+
+create policy "pets readable by their owners"
+  on public.pets for select using (public.is_pet_owner(id));
+create policy "pets writable by their owners"
+  on public.pets for update using (public.is_pet_owner(id));
+create policy "pets deletable by their owners"
+  on public.pets for delete using (public.is_pet_owner(id));
+
+create policy "memberships readable by the member"
+  on public.pet_owners for select using (user_id = auth.uid());
+
+-- Create the profile row automatically for every new auth user.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, display_name)
+  values (new.id, new.raw_user_meta_data ->> 'display_name');
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- Atomic pet creation: a pet must never exist without an owner, and there
+-- is no INSERT policy on either table, so this function is the only path in.
+create or replace function public.create_pet_with_owner(pet jsonb)
+returns public.pets
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_pet public.pets;
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated';
+  end if;
+
+  insert into public.pets (
+    name, sex, breed_primary, breed_secondary, is_mixed,
+    birth_date, birth_date_approximate, spayed_neutered, activity_level
+  )
+  values (
+    pet ->> 'name',
+    pet ->> 'sex',
+    pet ->> 'breed_primary',
+    pet ->> 'breed_secondary',
+    coalesce((pet ->> 'is_mixed')::boolean, false),
+    (pet ->> 'birth_date')::date,
+    coalesce((pet ->> 'birth_date_approximate')::boolean, false),
+    (pet ->> 'spayed_neutered')::boolean,
+    coalesce(pet ->> 'activity_level', 'moderate')
+  )
+  returning * into new_pet;
+
+  insert into public.pet_owners (pet_id, user_id, role)
+  values (new_pet.id, auth.uid(), 'owner');
+
+  return new_pet;
+end;
+$$;
+```
+
+**Deliberately not in this migration:** `routine_templates` and `routine_occurrences` ship with the Routines plan, `health_events` with the Health plan, and `invitations` with v1 — the spec defers its mechanism (6-digit code vs. direct link), so creating the table now would mean guessing its shape. Each arrives as its own numbered migration.
+
+- [ ] **Step 3: Apply the migration**
+
+Paste the file into the Supabase SQL Editor and run it (or `npx supabase db push` if the CLI is linked).
+Expected: "Success. No rows returned".
+
+- [ ] **Step 4: Verify RLS actually isolates data**
+
+In the Supabase SQL Editor, run this as an anonymous caller — `auth.uid()` is null, so every policy must deny:
+
+```sql
+set role authenticated;
+select count(*) from public.pets;
+```
+
+Expected: `0` rows, and no error. A non-zero count or a permission error means the policies are wrong — fix before continuing.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add supabase/ docs/supabase-setup.md
+git commit -m "feat: add initial Supabase schema with RLS and atomic pet creation"
+```
+
+---
+
+### Task 4: Supabase client and generated database types
+
+**Files:**
+- Create: `lib/supabase.ts`, `lib/database.types.ts`
+- Modify: `package.json` (dependencies)
+
+**Interfaces:**
+- Consumes: the project credentials and schema from Task 3
+- Produces: `supabase` (typed `SupabaseClient<Database>`) exported from `lib/supabase.ts`; the `Database` type from `lib/database.types.ts`
+
+- [ ] **Step 1: Install the client and its React Native dependencies**
+
+```bash
+cd /Users/mikel/workspace/petlife
+npx expo install @supabase/supabase-js @react-native-async-storage/async-storage react-native-url-polyfill
+```
+
+- [ ] **Step 2: Generate the database types**
+
+```bash
+npx supabase gen types typescript --project-id <project-ref> > lib/database.types.ts
+```
+
+`<project-ref>` is the subdomain of the Project URL (`https://<project-ref>.supabase.co`). If the CLI is not linked, use the Supabase dashboard: API Docs → "Generating types" → copy the output into `lib/database.types.ts`.
+
+- [ ] **Step 3: Create the single client module**
+
+Create `lib/supabase.ts`. `AsyncStorage` persists the session across app restarts; `detectSessionInUrl` must be false on native, where there is no URL to read a session from.
+
+```ts
+import "react-native-url-polyfill/auto";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
+
+const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!url || !anonKey) {
+  throw new Error(
+    "Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY. Copy .env.example to .env and fill both values.",
+  );
+}
+
+export const supabase = createClient<Database>(url, anonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+```
+
+- [ ] **Step 4: Verify the client constructs and reaches the project**
+
+Run: `npm run web`, then in the browser devtools console on `http://localhost:8081`, confirm no "Missing EXPO_PUBLIC_SUPABASE_*" error appears in the Metro output or the console.
+Expected: the app renders as before, with no thrown configuration error.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A
+git commit -m "feat: add typed Supabase client"
+```
+
+---
+
+### Task 5: Authentication — session context, login screen, and route guarding
+
+**Files:**
+- Create: `lib/auth.tsx`, `app/(auth)/login.tsx`, `playwright.config.ts`, `e2e/login.spec.ts`
+- Modify: `app/_layout.tsx`, `app/index.tsx`, `package.json`
+
+**Interfaces:**
+- Consumes: `supabase` from `lib/supabase.ts`
+- Produces: `AuthProvider` (React component) and `useAuth(): { session: Session | null; loading: boolean; signIn(email, password): Promise<{ error: string | null }>; signUp(email, password): Promise<{ error: string | null }>; signOut(): Promise<void> }` from `lib/auth.tsx`
+
+- [ ] **Step 1: Install Playwright and scaffold its config**
+
+```bash
+cd /Users/mikel/workspace/petlife
+npm install -D @playwright/test
+npx playwright install chromium
+```
+
+Create `playwright.config.ts`. The `webServer` block starts the Expo web build for the tests and reuses an already-running one locally:
+
+```ts
+import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./e2e",
+  timeout: 60_000,
+  use: {
+    baseURL: "http://localhost:8081",
+    trace: "retain-on-failure",
+    video: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  webServer: {
+    command: "npm run web",
+    url: "http://localhost:8081",
+    reuseExistingServer: !process.env.CI,
+    timeout: 180_000,
+  },
+});
+```
+
+Add the script to `package.json`:
+
+```json
+{
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  }
+}
+```
+
+- [ ] **Step 2: Write the failing end-to-end test**
+
+Create `e2e/login.spec.ts`. It asserts the two behaviours that matter: a wrong password surfaces a visible error, and a correct one lands the user past the login screen.
+
+```ts
+import { expect, test } from "@playwright/test";
+
+const EMAIL = process.env.E2E_EMAIL ?? "loki-test@example.com";
+const PASSWORD = process.env.E2E_PASSWORD ?? "petlife-test-1234";
+
+test("shows an error when the password is wrong", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(EMAIL);
+  await page.getByTestId("login-password").fill("definitely-wrong");
+  await page.getByTestId("login-submit").click();
+
+  await expect(page.getByTestId("login-error")).toBeVisible();
+});
+
+test("signs in with valid credentials and leaves the login screen", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(EMAIL);
+  await page.getByTestId("login-password").fill(PASSWORD);
+  await page.getByTestId("login-submit").click();
+
+  await expect(page.getByTestId("login-submit")).toBeHidden({ timeout: 15_000 });
+});
+```
+
+- [ ] **Step 3: Run the test to verify it fails**
+
+Run: `npm run test:e2e -- e2e/login.spec.ts`
+Expected: FAIL — `/login` does not exist yet, so `getByTestId("login-email")` times out.
+
+- [ ] **Step 4: Create the auth context**
+
+Create `lib/auth.tsx`:
+
+```tsx
+import type { Session } from "@supabase/supabase-js";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { supabase } from "./supabase";
+
+type AuthValue = {
+  session: Session | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  signOut: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => setSession(nextSession),
+    );
+
+    return () => subscription.subscription.unsubscribe();
+  }, []);
+
+  const value = useMemo<AuthValue>(
+    () => ({
+      session,
+      loading,
+      signIn: async (email, password) => {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        return { error: error?.message ?? null };
+      },
+      signUp: async (email, password) => {
+        const { error } = await supabase.auth.signUp({ email, password });
+        return { error: error?.message ?? null };
+      },
+      signOut: async () => {
+        await supabase.auth.signOut();
+      },
+    }),
+    [session, loading],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthValue {
+  const value = useContext(AuthContext);
+  if (!value) throw new Error("useAuth must be used inside AuthProvider");
+  return value;
+}
+```
+
+- [ ] **Step 5: Build the login screen**
+
+Create `app/(auth)/login.tsx`. It doubles as sign-up for v0 so the single user can create their account without a separate screen:
+
+```tsx
+import { useState } from "react";
+import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { useAuth } from "../../lib/auth";
+
+export default function Login() {
+  const { signIn, signUp } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(mode: "in" | "up") {
+    setBusy(true);
+    setError(null);
+    const { error: failure } =
+      mode === "in" ? await signIn(email, password) : await signUp(email, password);
+    setError(failure);
+    setBusy(false);
+  }
+
+  return (
+    <View className="flex-1 justify-center bg-base px-6">
+      <Text className="mb-8 text-3xl font-bold text-text-primary">Petlife</Text>
+
+      <TextInput
+        testID="login-email"
+        value={email}
+        onChangeText={setEmail}
+        placeholder="Email"
+        placeholderTextColor="#64748B"
+        autoCapitalize="none"
+        keyboardType="email-address"
+        className="mb-3 rounded-xl border border-border-default bg-surface px-4 py-3 text-text-primary"
+      />
+      <TextInput
+        testID="login-password"
+        value={password}
+        onChangeText={setPassword}
+        placeholder="Contraseña"
+        placeholderTextColor="#64748B"
+        secureTextEntry
+        className="mb-3 rounded-xl border border-border-default bg-surface px-4 py-3 text-text-primary"
+      />
+
+      {error ? (
+        <Text testID="login-error" className="mb-3 text-error">
+          {error}
+        </Text>
+      ) : null}
+
+      <Pressable
+        testID="login-submit"
+        disabled={busy}
+        onPress={() => submit("in")}
+        className="mb-3 items-center rounded-xl bg-accent-primary py-3"
+      >
+        {busy ? (
+          <ActivityIndicator color="#0B1120" />
+        ) : (
+          <Text className="font-semibold text-base">Entrar</Text>
+        )}
+      </Pressable>
+
+      <Pressable testID="login-signup" disabled={busy} onPress={() => submit("up")}>
+        <Text className="text-center text-text-tertiary">Crear cuenta</Text>
+      </Pressable>
+    </View>
+  );
+}
+```
+
+- [ ] **Step 6: Wire the provider and redirect unauthenticated users**
+
+Replace `app/_layout.tsx`, keeping the font loading from Task 2 and wrapping the stack in the provider:
+
+```tsx
+import "../global.css";
+import {
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+  useFonts,
+} from "@expo-google-fonts/outfit";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import { AuthProvider } from "../lib/auth";
+
+SplashScreen.preventAutoHideAsync();
+
+export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync();
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
+
+  return (
+    <AuthProvider>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "#0B1120" },
+        }}
+      />
+    </AuthProvider>
+  );
+}
+```
+
+Replace `app/index.tsx` so it routes by session state:
+
+```tsx
+import { Redirect } from "expo-router";
+import { ActivityIndicator, View } from "react-native";
+import { useAuth } from "../lib/auth";
+
+export default function Index() {
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-base">
+        <ActivityIndicator color="#A5F2F3" />
+      </View>
+    );
+  }
+
+  return <Redirect href={session ? "/home" : "/login"} />;
+}
+```
+
+Create a temporary `app/home.tsx` so the authenticated redirect resolves (Task 8 replaces it with the tab shell):
+
+```tsx
+import { Text, View } from "react-native";
+
+export default function Home() {
+  return (
+    <View className="flex-1 items-center justify-center bg-base">
+      <Text testID="home-title" className="text-2xl text-text-primary">
+        Hoy
+      </Text>
+    </View>
+  );
+}
+```
+
+- [ ] **Step 7: Create the test account, then run the test to verify it passes**
+
+Create the account once via the running app: open `http://localhost:8081/login`, enter `loki-test@example.com` / `petlife-test-1234`, and press "Crear cuenta".
+
+Run: `npm run test:e2e -- e2e/login.spec.ts`
+Expected: PASS — both tests green. On failure, inspect the recorded trace with `npx playwright show-trace` to see the rendered screen at the failing step.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add -A
+git commit -m "feat: add email/password auth with session-based routing"
+```
+
+---
+
+### Task 6: Pet draft validation (pure logic)
+
+**Files:**
+- Create: `lib/pets.ts`, `lib/__tests__/pets.test.ts`
+- Modify: `package.json` (Jest config and scripts)
+
+**Interfaces:**
+- Consumes: nothing at runtime (pure module)
+- Produces: `type PetDraft = { name: string; sex: "male" | "female" | null; breedPrimary: string | null; isMixed: boolean; birthDate: string | null; birthDateApproximate: boolean; spayedNeutered: boolean | null; activityLevel: "low" | "moderate" | "high" }` and `validatePetDraft(draft: PetDraft, today?: Date): Record<string, string>` — an object keyed by field name, empty when valid
+
+- [ ] **Step 1: Install and configure Jest**
+
+```bash
+cd /Users/mikel/workspace/petlife
+npx expo install -- --save-dev jest jest-expo @types/jest
+```
+
+Add to `package.json`:
+
+```json
+{
+  "scripts": {
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": ["/node_modules/", "/e2e/"]
+  }
+}
+```
+
+`testPathIgnorePatterns` keeps Jest out of the Playwright suite — without it, Jest tries to run `e2e/*.spec.ts` and fails on Playwright's imports.
+
+- [ ] **Step 2: Write the failing test**
+
+Create `lib/__tests__/pets.test.ts`:
+
+```ts
+import { validatePetDraft, type PetDraft } from "../pets";
+
+const valid: PetDraft = {
+  name: "Loki",
+  sex: "male",
+  breedPrimary: "Husky Siberiano",
+  isMixed: false,
+  birthDate: "2025-09-14",
+  birthDateApproximate: false,
+  spayedNeutered: false,
+  activityLevel: "high",
+};
+
+const today = new Date("2026-09-02T00:00:00Z");
+
+describe("validatePetDraft", () => {
+  it("accepts a complete draft", () => {
+    expect(validatePetDraft(valid, today)).toEqual({});
+  });
+
+  it("requires a name", () => {
+    expect(validatePetDraft({ ...valid, name: "   " }, today)).toHaveProperty("name");
+  });
+
+  it("requires a sex", () => {
+    expect(validatePetDraft({ ...valid, sex: null }, today)).toHaveProperty("sex");
+  });
+
+  it("rejects a birth date in the future", () => {
+    expect(
+      validatePetDraft({ ...valid, birthDate: "2026-12-01" }, today),
+    ).toHaveProperty("birthDate");
+  });
+
+  it("rejects an unparseable birth date", () => {
+    expect(
+      validatePetDraft({ ...valid, birthDate: "14/09/2025" }, today),
+    ).toHaveProperty("birthDate");
+  });
+
+  it("allows an unknown birth date", () => {
+    expect(validatePetDraft({ ...valid, birthDate: null }, today)).toEqual({});
+  });
+});
+```
+
+- [ ] **Step 3: Run the test to verify it fails**
+
+Run: `npm test -- lib/__tests__/pets.test.ts`
+Expected: FAIL — "Cannot find module '../pets'".
+
+- [ ] **Step 4: Write the minimal implementation**
+
+Create `lib/pets.ts`:
+
+```ts
+export type PetDraft = {
+  name: string;
+  sex: "male" | "female" | null;
+  breedPrimary: string | null;
+  isMixed: boolean;
+  birthDate: string | null; // YYYY-MM-DD
+  birthDateApproximate: boolean;
+  spayedNeutered: boolean | null;
+  activityLevel: "low" | "moderate" | "high";
+};
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function validatePetDraft(
+  draft: PetDraft,
+  today: Date = new Date(),
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  if (!draft.name.trim()) {
+    errors.name = "El nombre es obligatorio";
+  }
+
+  if (!draft.sex) {
+    errors.sex = "Indica el sexo";
+  }
+
+  if (draft.birthDate !== null) {
+    if (!ISO_DATE.test(draft.birthDate)) {
+      errors.birthDate = "Usa el formato AAAA-MM-DD";
+    } else {
+      const parsed = new Date(`${draft.birthDate}T00:00:00Z`);
+      if (Number.isNaN(parsed.getTime())) {
+        errors.birthDate = "Fecha no válida";
+      } else if (parsed.getTime() > today.getTime()) {
+        errors.birthDate = "La fecha no puede ser futura";
+      }
+    }
+  }
+
+  return errors;
+}
+```
+
+- [ ] **Step 5: Run the test to verify it passes**
+
+Run: `npm test -- lib/__tests__/pets.test.ts`
+Expected: PASS — 6 tests green.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add -A
+git commit -m "feat: add pet draft validation with unit tests"
+```
+
+---
+
+### Task 7: Persist a pet through the atomic RPC
+
+**Files:**
+- Modify: `lib/pets.ts`
+- Create: `lib/__tests__/pets.rpc.test.ts`
+
+**Interfaces:**
+- Consumes: `validatePetDraft`, `PetDraft` from Task 6; `supabase` from Task 4; the `create_pet_with_owner` RPC from Task 3
+- Produces: `createPet(draft: PetDraft): Promise<{ petId: string | null; error: string | null }>` and `getMyPet(): Promise<{ pet: PetRow | null; error: string | null }>`, where `PetRow = Database["public"]["Tables"]["pets"]["Row"]`
+
+- [ ] **Step 1: Write the failing test**
+
+Create `lib/__tests__/pets.rpc.test.ts`. The Supabase client is mocked so this stays a fast unit test — it asserts the mapping from camelCase draft to the snake_case payload the RPC expects, which is exactly where this kind of code breaks:
+
+```ts
+import { createPet } from "../pets";
+import type { PetDraft } from "../pets";
+
+const rpc = jest.fn();
+jest.mock("../supabase", () => ({ supabase: { rpc: (...args: unknown[]) => rpc(...args) } }));
+
+const draft: PetDraft = {
+  name: "Loki",
+  sex: "male",
+  breedPrimary: "Husky Siberiano",
+  isMixed: false,
+  birthDate: "2025-09-14",
+  birthDateApproximate: false,
+  spayedNeutered: false,
+  activityLevel: "high",
+};
+
+beforeEach(() => rpc.mockReset());
+
+describe("createPet", () => {
+  it("sends the draft as a snake_case payload and returns the new id", async () => {
+    rpc.mockResolvedValue({ data: { id: "pet-1" }, error: null });
+
+    const result = await createPet(draft);
+
+    expect(rpc).toHaveBeenCalledWith("create_pet_with_owner", {
+      pet: {
+        name: "Loki",
+        sex: "male",
+        breed_primary: "Husky Siberiano",
+        breed_secondary: null,
+        is_mixed: false,
+        birth_date: "2025-09-14",
+        birth_date_approximate: false,
+        spayed_neutered: false,
+        activity_level: "high",
+      },
+    });
+    expect(result).toEqual({ petId: "pet-1", error: null });
+  });
+
+  it("rejects an invalid draft without calling the database", async () => {
+    const result = await createPet({ ...draft, name: "" });
+
+    expect(rpc).not.toHaveBeenCalled();
+    expect(result.petId).toBeNull();
+    expect(result.error).toBe("El nombre es obligatorio");
+  });
+
+  it("surfaces a database error message", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "not authenticated" } });
+
+    const result = await createPet(draft);
+
+    expect(result).toEqual({ petId: null, error: "not authenticated" });
+  });
+});
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `npm test -- lib/__tests__/pets.rpc.test.ts`
+Expected: FAIL — `createPet` is not exported from `../pets`.
+
+- [ ] **Step 3: Implement `createPet` and `getMyPet`**
+
+Append to `lib/pets.ts`:
+
+```ts
+import { supabase } from "./supabase";
+import type { Database } from "./database.types";
+
+export type PetRow = Database["public"]["Tables"]["pets"]["Row"];
+
+export async function createPet(
+  draft: PetDraft,
+): Promise<{ petId: string | null; error: string | null }> {
+  const errors = validatePetDraft(draft);
+  const firstError = Object.values(errors)[0];
+  if (firstError) {
+    return { petId: null, error: firstError };
+  }
+
+  const { data, error } = await supabase.rpc("create_pet_with_owner", {
+    pet: {
+      name: draft.name.trim(),
+      sex: draft.sex,
+      breed_primary: draft.breedPrimary,
+      breed_secondary: null,
+      is_mixed: draft.isMixed,
+      birth_date: draft.birthDate,
+      birth_date_approximate: draft.birthDateApproximate,
+      spayed_neutered: draft.spayedNeutered,
+      activity_level: draft.activityLevel,
+    },
+  });
+
+  if (error) {
+    return { petId: null, error: error.message };
+  }
+
+  return { petId: (data as { id: string }).id, error: null };
+}
+
+export async function getMyPet(): Promise<{
+  pet: PetRow | null;
+  error: string | null;
+}> {
+  const { data, error } = await supabase
+    .from("pets")
+    .select("*")
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return { pet: null, error: error.message };
+  }
+
+  return { pet: data, error: null };
+}
+```
+
+`getMyPet` needs no explicit owner filter: the RLS policy from Task 3 already restricts `pets` to rows the caller owns.
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `npm test`
+Expected: PASS — all tests in `lib/__tests__/` green.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A
+git commit -m "feat: persist pets through the atomic create_pet_with_owner RPC"
+```
+
+---
+
+### Task 8: Onboarding screen and the authenticated shell
+
+**Files:**
+- Create: `app/onboarding.tsx`, `app/(tabs)/_layout.tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/health.tsx`, `app/(tabs)/profile.tsx`, `e2e/onboarding.spec.ts`
+- Delete: `app/home.tsx` (the placeholder from Task 5)
+- Modify: `app/index.tsx`
+
+**Interfaces:**
+- Consumes: `useAuth` from Task 5; `createPet`, `getMyPet`, `PetDraft` from Tasks 6-7
+- Produces: the routes `/onboarding`, `/(tabs)` (Home), `/(tabs)/health`, `/(tabs)/profile`
+
+- [ ] **Step 1: Write the failing end-to-end test**
+
+Create `e2e/onboarding.spec.ts`:
+
+```ts
+import { expect, test } from "@playwright/test";
+
+const EMAIL = process.env.E2E_EMAIL ?? "loki-test@example.com";
+const PASSWORD = process.env.E2E_PASSWORD ?? "petlife-test-1234";
+
+test("blocks submission until the required fields are filled", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(EMAIL);
+  await page.getByTestId("login-password").fill(PASSWORD);
+  await page.getByTestId("login-submit").click();
+
+  await page.goto("/onboarding");
+  await page.getByTestId("onboarding-submit").click();
+
+  await expect(page.getByTestId("onboarding-error")).toBeVisible();
+});
+
+test("registers a pet and lands on the day view", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(EMAIL);
+  await page.getByTestId("login-password").fill(PASSWORD);
+  await page.getByTestId("login-submit").click();
+
+  await page.goto("/onboarding");
+  await page.getByTestId("onboarding-name").fill("Loki");
+  await page.getByTestId("onboarding-sex-male").click();
+  await page.getByTestId("onboarding-breed").fill("Husky Siberiano");
+  await page.getByTestId("onboarding-birthdate").fill("2025-09-14");
+  await page.getByTestId("onboarding-submit").click();
+
+  await expect(page.getByTestId("home-title")).toBeVisible({ timeout: 15_000 });
+});
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `npm run test:e2e -- e2e/onboarding.spec.ts`
+Expected: FAIL — `/onboarding` does not exist, so `onboarding-name` times out.
+
+- [ ] **Step 3: Build the onboarding screen**
+
+Create `app/onboarding.tsx`:
+
+```tsx
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { createPet, type PetDraft } from "../lib/pets";
+
+const ACTIVITY: PetDraft["activityLevel"][] = ["low", "moderate", "high"];
+const ACTIVITY_LABEL: Record<PetDraft["activityLevel"], string> = {
+  low: "Bajo",
+  moderate: "Moderado",
+  high: "Alto",
+};
+
+export default function Onboarding() {
+  const router = useRouter();
+  const [draft, setDraft] = useState<PetDraft>({
+    name: "",
+    sex: null,
+    breedPrimary: null,
+    isMixed: false,
+    birthDate: null,
+    birthDateApproximate: false,
+    spayedNeutered: null,
+    activityLevel: "moderate",
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    const { petId, error: failure } = await createPet(draft);
+    setBusy(false);
+
+    if (petId) {
+      router.replace("/(tabs)");
+      return;
+    }
+    setError(failure);
+  }
+
+  return (
+    <ScrollView className="flex-1 bg-base" contentContainerClassName="px-6 py-12">
+      <Text className="mb-8 text-3xl font-bold text-text-primary">
+        ¿Quién vive contigo?
+      </Text>
+
+      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
+        Nombre
+      </Text>
+      <TextInput
+        testID="onboarding-name"
+        value={draft.name}
+        onChangeText={(name) => setDraft((d) => ({ ...d, name }))}
+        placeholder="Loki"
+        placeholderTextColor="#64748B"
+        className="mb-5 rounded-xl border border-border-default bg-surface px-4 py-3 text-text-primary"
+      />
+
+      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
+        Sexo
+      </Text>
+      <View className="mb-5 flex-row gap-3">
+        {(["male", "female"] as const).map((sex) => (
+          <Pressable
+            key={sex}
+            testID={`onboarding-sex-${sex}`}
+            onPress={() => setDraft((d) => ({ ...d, sex }))}
+            className={`flex-1 items-center rounded-xl border py-3 ${
+              draft.sex === sex
+                ? "border-accent-primary bg-elevated"
+                : "border-border-default bg-surface"
+            }`}
+          >
+            <Text className="text-text-primary">
+              {sex === "male" ? "♂ Macho" : "♀ Hembra"}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
+        Raza
+      </Text>
+      <TextInput
+        testID="onboarding-breed"
+        value={draft.breedPrimary ?? ""}
+        onChangeText={(value) =>
+          setDraft((d) => ({ ...d, breedPrimary: value || null }))
+        }
+        placeholder="Husky Siberiano"
+        placeholderTextColor="#64748B"
+        className="mb-5 rounded-xl border border-border-default bg-surface px-4 py-3 text-text-primary"
+      />
+
+      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
+        Fecha de nacimiento
+      </Text>
+      <TextInput
+        testID="onboarding-birthdate"
+        value={draft.birthDate ?? ""}
+        onChangeText={(value) =>
+          setDraft((d) => ({ ...d, birthDate: value || null }))
+        }
+        placeholder="AAAA-MM-DD"
+        placeholderTextColor="#64748B"
+        className="mb-5 rounded-xl border border-border-default bg-surface px-4 py-3 text-text-primary"
+      />
+
+      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
+        Nivel de actividad
+      </Text>
+      <View className="mb-8 flex-row gap-3">
+        {ACTIVITY.map((level) => (
+          <Pressable
+            key={level}
+            testID={`onboarding-activity-${level}`}
+            onPress={() => setDraft((d) => ({ ...d, activityLevel: level }))}
+            className={`flex-1 items-center rounded-xl border py-3 ${
+              draft.activityLevel === level
+                ? "border-accent-primary bg-elevated"
+                : "border-border-default bg-surface"
+            }`}
+          >
+            <Text className="text-text-primary">{ACTIVITY_LABEL[level]}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {error ? (
+        <Text testID="onboarding-error" className="mb-3 text-error">
+          {error}
+        </Text>
+      ) : null}
+
+      <Pressable
+        testID="onboarding-submit"
+        disabled={busy}
+        onPress={submit}
+        className="items-center rounded-xl bg-accent-primary py-4"
+      >
+        <Text className="font-semibold text-base">
+          {busy ? "Guardando..." : "Guardar"}
+        </Text>
+      </Pressable>
+    </ScrollView>
+  );
+}
+```
+
+- [ ] **Step 4: Build the tab shell**
+
+Delete the placeholder and create the tab group:
+
+```bash
+rm app/home.tsx
+```
+
+Create `app/(tabs)/_layout.tsx`:
+
+```tsx
+import { Tabs } from "expo-router";
+
+export default function TabsLayout() {
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: { backgroundColor: "#0D1525", borderTopColor: "#1E293B" },
+        tabBarActiveTintColor: "#A5F2F3",
+        tabBarInactiveTintColor: "#64748B",
+      }}
+    >
+      <Tabs.Screen name="index" options={{ title: "Hoy" }} />
+      <Tabs.Screen name="health" options={{ title: "Salud" }} />
+      <Tabs.Screen name="profile" options={{ title: "Perfil" }} />
+    </Tabs>
+  );
+}
+```
+
+Create `app/(tabs)/index.tsx`:
+
+```tsx
+import { Text, View } from "react-native";
+
+export default function Home() {
+  return (
+    <View className="flex-1 items-center justify-center bg-base">
+      <Text testID="home-title" className="text-2xl text-text-primary">
+        Hoy
+      </Text>
+      <Text className="mt-2 text-text-tertiary">
+        El checklist del día llega en el plan de rutinas
+      </Text>
+    </View>
+  );
+}
+```
+
+Create `app/(tabs)/health.tsx`:
+
+```tsx
+import { Text, View } from "react-native";
+
+export default function Health() {
+  return (
+    <View className="flex-1 items-center justify-center bg-base">
+      <Text testID="health-title" className="text-2xl text-text-primary">
+        Salud
+      </Text>
+    </View>
+  );
+}
+```
+
+Create `app/(tabs)/profile.tsx`:
+
+```tsx
+import { Text, View } from "react-native";
+import { useAuth } from "../../lib/auth";
+import { Pressable } from "react-native";
+
+export default function Profile() {
+  const { signOut } = useAuth();
+
+  return (
+    <View className="flex-1 items-center justify-center bg-base px-6">
+      <Text testID="profile-title" className="mb-8 text-2xl text-text-primary">
+        Perfil
+      </Text>
+      <Pressable
+        testID="profile-signout"
+        onPress={signOut}
+        className="rounded-xl border border-border-strong px-6 py-3"
+      >
+        <Text className="text-text-secondary">Cerrar sesión</Text>
+      </Pressable>
+    </View>
+  );
+}
+```
+
+- [ ] **Step 5: Route by whether a pet exists**
+
+Replace `app/index.tsx` so a signed-in user without a pet is sent to onboarding:
+
+```tsx
+import { Redirect } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
+import { useAuth } from "../lib/auth";
+import { getMyPet } from "../lib/pets";
+
+export default function Index() {
+  const { session, loading } = useAuth();
+  const [hasPet, setHasPet] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!session) {
+      setHasPet(null);
+      return;
+    }
+    getMyPet().then(({ pet }) => setHasPet(pet !== null));
+  }, [session]);
+
+  if (loading || (session && hasPet === null)) {
+    return (
+      <View className="flex-1 items-center justify-center bg-base">
+        <ActivityIndicator color="#A5F2F3" />
+      </View>
+    );
+  }
+
+  if (!session) return <Redirect href="/login" />;
+  return <Redirect href={hasPet ? "/(tabs)" : "/onboarding"} />;
+}
+```
+
+- [ ] **Step 6: Run the tests to verify they pass**
+
+Run: `npm run test:e2e`
+Expected: PASS — both `login.spec.ts` and `onboarding.spec.ts` green.
+
+Note: the second onboarding test creates a pet, so re-running it against the same account will land on `/(tabs)` before onboarding. Delete the row between runs with `delete from pets;` in the SQL Editor, or use a fresh `E2E_EMAIL`.
+
+- [ ] **Step 7: Run the whole suite and commit**
+
+Run: `npm test && npm run test:e2e`
+Expected: all Jest and Playwright tests pass.
+
+```bash
+git add -A
+git commit -m "feat: add pet onboarding and the authenticated tab shell"
+```
+
+---
+
+### Task 9: Project documentation
+
+**Files:**
+- Create: `README.md`, `AGENTS.md`
+
+**Interfaces:**
+- Consumes: everything built in Tasks 1-8
+- Produces: no code
+
+- [ ] **Step 1: Write the README**
+
+Create `README.md`:
+
+```markdown
+# Petlife
+
+App para el seguimiento diario y de salud de Loki. Móvil primero (Expo), con salida a web.
+
+## Primeros pasos
+
+```bash
+npm install
+cp .env.example .env    # rellena las credenciales de Supabase
+npm run web             # o `npm run ios` / `npm run android`
+```
+
+Consulta `docs/supabase-setup.md` para crear el proyecto de Supabase y aplicar las migraciones.
+
+## Scripts
+
+| Comando              | Descripción                                  |
+| -------------------- | -------------------------------------------- |
+| `npm run web`        | Servidor de desarrollo web (`:8081`)         |
+| `npm run ios`        | Abre en el simulador de iOS                  |
+| `npm run android`    | Abre en el emulador de Android               |
+| `npm test`           | Tests unitarios (Jest) de la lógica pura     |
+| `npm run test:e2e`   | Tests de flujo (Playwright) sobre el build web |
+| `npm run test:e2e:ui`| Playwright en modo UI, para depurar visualmente |
+
+## Arquitectura
+
+- `app/` — rutas (Expo Router). `(auth)/login`, `onboarding`, `(tabs)/`.
+- `lib/` — cliente de Supabase, contexto de auth y lógica de dominio pura.
+- `supabase/migrations/` — esquema SQL versionado.
+- `e2e/` — tests Playwright.
+
+El acceso a datos pasa siempre por `lib/`; las pantallas nunca importan `@supabase/supabase-js`.
+
+## Documentación
+
+- Spec: `docs/superpowers/specs/2026-09-02-petlife-design.md`
+- Planes: `docs/superpowers/plans/`
+```
+
+- [ ] **Step 2: Write AGENTS.md**
+
+Create `AGENTS.md`:
+
+```markdown
+# AGENTS.md
+
+## Constraints
+
+- Package manager: **npm** (not pnpm).
+- TypeScript strict; no `any`.
+- Screens never import `@supabase/supabase-js` — only `lib/supabase.ts` does.
+- Colours come from the Nordic Ice Tailwind tokens; no raw hex in components.
+- Dark mode only in v0.
+
+## Commands
+
+```bash
+npm run web           # dev server on :8081
+npm test              # Jest — pure logic in lib/
+npm run test:e2e      # Playwright — flows against the web build
+npm run test:e2e:ui   # Playwright UI mode for visual debugging
+```
+
+## Definition of done
+
+`npm test && npm run test:e2e` both pass before declaring work complete.
+
+## Commits
+
+Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `chore:`, `build:`.
+
+## Architecture
+
+- `app/` — Expo Router routes.
+- `lib/` — Supabase client, auth context, pure domain logic (unit-tested).
+- `supabase/migrations/` — versioned SQL. RLS restricts every table to `pet_owners` membership.
+- Pets are created only through the `create_pet_with_owner` RPC, which writes the pet and its ownership row atomically. There is no INSERT policy on `pets`.
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add README.md AGENTS.md
+git commit -m "docs: add README and AGENTS.md"
+```
+
+---
+
+## Done when
+
+- [ ] `npm test` passes (pet validation and RPC mapping).
+- [ ] `npm run test:e2e` passes (login error, login success, onboarding validation, onboarding success).
+- [ ] Signing in on a fresh account lands on `/onboarding`; after registering Loki it lands on the day view, and reopening the app goes straight there.
+- [ ] The app renders in Nordic Ice dark mode on web and in Expo Go on the user's phone.
+
+## Next plans
+
+- **Routines** — recurrence engine in `lib/routines.ts`, daily occurrence materialisation, the Home checklist with swipe-to-complete/skip, walk duration chips, and the one-off item FAB.
+- **Health** — `lib/health.ts` next-due-date calculation, weight and incident logging, the vaccine/deworming calendar, in-app due alerts, and the weight chart with `react-native-gifted-charts`.
