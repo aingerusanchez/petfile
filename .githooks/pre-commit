@@ -1,0 +1,11 @@
+#!/bin/sh
+# Refuse to commit .env or anything that looks like a Supabase service key.
+if git diff --cached --name-only | grep -qE '(^|/)\.env$'; then
+  echo "BLOCKED: .env must never be committed." >&2
+  exit 1
+fi
+if git diff --cached -U0 | grep -qE 'service_role[A-Za-z_]*[[:space:]]*[:=]|eyJ[A-Za-z0-9_-]{20,}\.'; then
+  echo "BLOCKED: staged changes look like they contain a JWT or service_role key." >&2
+  exit 1
+fi
+exit 0
