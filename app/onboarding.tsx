@@ -1,8 +1,8 @@
 import { Redirect, useRouter } from "expo-router";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useAuth } from "../lib/auth";
-import { createPet, type PetDraft } from "../lib/pets";
+import { createPet, getMyPet, type PetDraft } from "../lib/pets";
 
 const ACTIVITY: PetDraft["activityLevel"][] = ["low", "moderate", "high"];
 const ACTIVITY_LABEL: Record<PetDraft["activityLevel"], string> = {
@@ -26,8 +26,66 @@ export default function Onboarding() {
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [hasPet, setHasPet] = useState<boolean | null>(null);
+  const [petCheckError, setPetCheckError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
-  if (loading) {
+  const retry = useCallback(() => {
+    setPetCheckError(null);
+    setHasPet(null);
+    setAttempt((n) => n + 1);
+  }, []);
+
+  // Onboarding is reachable directly (deep link, back navigation), so it needs
+  // the same has-pet check `app/index.tsx` does — otherwise a user who already
+  // has a pet gets the creation form again and can make a duplicate.
+  useEffect(() => {
+    if (!session) {
+      setHasPet(null);
+      setPetCheckError(null);
+      return;
+    }
+
+    let cancelled = false;
+    getMyPet()
+      .then(({ pet, error: failure }) => {
+        if (cancelled) return;
+        if (failure) {
+          setPetCheckError(failure);
+          return;
+        }
+        setHasPet(pet !== null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setPetCheckError(
+          err instanceof Error ? err.message : "No se pudo comprobar tu mascota",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session, attempt]);
+
+  // A failed check must not fall through to the form (that would risk a
+  // duplicate pet) or leave the spinner spinning forever.
+  if (petCheckError) {
+    return (
+      <View className="flex-1 items-center justify-center bg-base px-6">
+        <Text className="mb-4 text-center text-error">{petCheckError}</Text>
+        <Pressable
+          testID="onboarding-retry"
+          onPress={retry}
+          className="rounded-xl border border-border-strong px-6 py-3"
+        >
+          <Text className="text-text-secondary">Reintentar</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (loading || (session && hasPet === null)) {
     return (
       <View className="flex-1 items-center justify-center bg-base">
         <ActivityIndicator color="#A5F2F3" />
@@ -36,6 +94,7 @@ export default function Onboarding() {
   }
 
   if (!session) return <Redirect href="/login" />;
+  if (hasPet) return <Redirect href="/(tabs)" />;
 
   // A write failure must always surface an error and re-enable the button.
   // Without the catch, a throw (e.g. the RPC returning no row) left `busy`

@@ -80,9 +80,12 @@ export async function getMyPet(): Promise<{
   pet: PetRow | null;
   error: string | null;
 }> {
+  // Explicit ordering: without it, `limit(1)` picks an arbitrary row once the
+  // account has more than one pet, so "the" pet would differ between calls.
   const { data, error } = await supabase
     .from("pets")
     .select("*")
+    .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
