@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-03T11:26:27Z",
+  "title": "Design System: Petlife",
+  "extensions": {
+    "colorMeta": {
+      "base": { "role": "neutral", "displayName": "Polar Night", "canonical": "#0b1120", "tonalRamp": ["#141e39", "#21325f", "#2e4785", "#3b5bab", "#5474c4", "#7a93d1", "#b3c1e5", "#ecf0f8"] },
+      "surface": { "role": "neutral", "displayName": "Fjord Slate", "canonical": "#131c2e", "tonalRamp": ["#162136", "#25375a", "#344d7e", "#4363a2", "#5d7cbc", "#8199cb", "#b7c5e1", "#edf0f8"] },
+      "elevated": { "role": "neutral", "displayName": "Elevated Frost", "canonical": "#1e293b", "tonalRamp": ["#1a2333", "#2b3b55", "#3c5276", "#4d6a98", "#6783b2", "#899fc3", "#bbc8dd", "#eef1f6"] },
+      "nav": { "role": "neutral", "displayName": "Deep Ice", "canonical": "#0d1525", "tonalRamp": ["#142039", "#21365e", "#2e4b84", "#3c60aa", "#557ac3", "#7b97d1", "#b4c4e4", "#ecf0f8"] },
+      "border-default": { "role": "neutral", "displayName": "Hairline Frost", "canonical": "#1e293b", "tonalRamp": ["#1a2333", "#2b3b55", "#3c5276", "#4d6a98", "#6783b2", "#899fc3", "#bbc8dd", "#eef1f6"] },
+      "border-strong": { "role": "neutral", "displayName": "Steel Frost", "canonical": "#334155", "tonalRamp": ["#1d2530", "#303d50", "#435570", "#566e8f", "#7087a9", "#8fa2bc", "#bfcad9", "#eff2f5"] },
+      "accent-primary": { "role": "primary", "displayName": "Ice Blue Glacial", "canonical": "#a5f2f3", "tonalRamp": ["#094343", "#0f6f70", "#159c9d", "#1bc8ca", "#35e2e4", "#62e8ea", "#a5f2f3", "#e9fcfc"] },
+      "accent-secondary": { "role": "secondary", "displayName": "Aqua Glaciar", "canonical": "#7dd3e8", "tonalRamp": ["#0b3741", "#135b6c", "#1b7f98", "#23a3c3", "#3cbddd", "#67cce4", "#a8e2f0", "#e9f8fb"] },
+      "on-accent": { "role": "neutral", "displayName": "On Accent (Polar Night)", "canonical": "#0b1120", "tonalRamp": ["#141e39", "#21325f", "#2e4785", "#3b5bab", "#5474c4", "#7a93d1", "#b3c1e5", "#ecf0f8"] },
+      "text-primary": { "role": "neutral", "displayName": "Snow White", "canonical": "#f1f5f9", "tonalRamp": ["#172636", "#264059", "#36597d", "#4573a1", "#5e8cba", "#82a6c9", "#b8cce0", "#edf2f7"] },
+      "text-secondary": { "role": "neutral", "displayName": "Frost Grey", "canonical": "#cbd5e1", "tonalRamp": ["#1c2531", "#2f3e51", "#415771", "#547092", "#6d89ab", "#8ea4be", "#becbda", "#eff2f6"] },
+      "text-tertiary": { "role": "neutral", "displayName": "Mist Grey", "canonical": "#94a3b8", "tonalRamp": ["#1f252e", "#333e4d", "#47566b", "#5c6f8a", "#7588a3", "#94a3b8", "#c2cad6", "#f0f2f5"] },
+      "text-muted": { "role": "neutral", "displayName": "Slate Mist", "canonical": "#64748b", "tonalRamp": ["#20252c", "#353e4a", "#4b5768", "#606f85", "#7a899f", "#97a3b4", "#c4cbd4", "#f0f2f4"] },
+      "success": { "role": "status", "displayName": "Success Green", "canonical": "#22c55e", "tonalRamp": ["#0b411f", "#136d34", "#1a9849", "#22c45d", "#3bdd77", "#67e595", "#a8f0c3", "#e9fbf0"] },
+      "warning": { "role": "status", "displayName": "Warning Amber", "canonical": "#f59e0b", "tonalRamp": ["#492f03", "#7a4f05", "#ab6e07", "#dc8e09", "#f6a723", "#f8bb54", "#fbd89d", "#fef5e7"] },
+      "error": { "role": "status", "displayName": "Error Red", "canonical": "#ef4444", "tonalRamp": ["#460606", "#750a0a", "#a40e0e", "#d31212", "#ed2c2c", "#f15b5b", "#f7a1a1", "#fde8e8"] },
+      "info": { "role": "status", "displayName": "Info Blue", "canonical": "#3b82f6", "tonalRamp": ["#031e49", "#06327a", "#0846ab", "#0a5adb", "#2473f5", "#5492f7", "#9dc1fb", "#e7effe"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The single largest text in the app — the wordmark on the login screen only." },
+      "headline": { "displayName": "Headline", "purpose": "A screen's primary question or title, e.g. the onboarding prompt." },
+      "title": { "displayName": "Title", "purpose": "Tab-screen headers (Hoy, Salud, Perfil) — Medium weight, a location marker not an announcement." },
+      "body": { "displayName": "Body", "purpose": "Standard reading text, subtitles, secondary/ghost button labels." },
+      "label": { "displayName": "Label", "purpose": "Uppercase field labels above form inputs." }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Full-width primary action. Ice Blue Glacial fill, dark text, 12px radius.",
+      "html": "<button class=\"ds-btn-primary\">Continuar con Google</button>",
+      "css": ".ds-btn-primary { display: flex; align-items: center; justify-content: center; width: 100%; background: #a5f2f3; color: #0b1120; font-family: 'Outfit', system-ui, sans-serif; font-weight: 600; font-size: 1rem; padding: 16px 24px; border: none; border-radius: 12px; cursor: pointer; transition: opacity 0.15s ease; } .ds-btn-primary:hover { opacity: 0.92; } .ds-btn-primary:focus-visible { outline: 2px solid #a5f2f3; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.6; cursor: default; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Lower-emphasis action (retry, sign out). Transparent fill, Steel Frost border.",
+      "html": "<button class=\"ds-btn-secondary\">Reintentar</button>",
+      "css": ".ds-btn-secondary { display: flex; align-items: center; justify-content: center; background: transparent; color: #cbd5e1; font-family: 'Outfit', system-ui, sans-serif; font-weight: 500; font-size: 1rem; padding: 12px 24px; border: 1px solid #334155; border-radius: 12px; cursor: pointer; transition: border-color 0.15s ease; } .ds-btn-secondary:hover { border-color: #a5f2f3; } .ds-btn-secondary:focus-visible { outline: 2px solid #a5f2f3; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Standard text field. Fjord Slate fill, hairline border, muted placeholder.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Loki\" />",
+      "css": ".ds-input { width: 100%; background: #131c2e; color: #f1f5f9; font-family: 'Outfit', system-ui, sans-serif; font-weight: 500; font-size: 1rem; padding: 12px 16px; border: 1px solid #1e293b; border-radius: 12px; box-sizing: border-box; } .ds-input::placeholder { color: #64748b; } .ds-input:focus { outline: none; border-color: #a5f2f3; }"
+    },
+    {
+      "name": "Selector Chip",
+      "kind": "chip",
+      "refersTo": "chip-selector",
+      "description": "Exclusive single-select option within a small fixed set (sex, activity level). Unselected state.",
+      "html": "<button class=\"ds-chip\">Moderado</button>",
+      "css": ".ds-chip { flex: 1; text-align: center; background: #131c2e; color: #f1f5f9; font-family: 'Outfit', system-ui, sans-serif; font-weight: 500; font-size: 1rem; padding: 12px 0; border: 1px solid #1e293b; border-radius: 12px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; } .ds-chip:hover { border-color: #334155; }"
+    },
+    {
+      "name": "Selector Chip (Active)",
+      "kind": "chip",
+      "refersTo": "chip-selector-active",
+      "description": "Selected state of the same chip — Elevated Frost fill, accent border.",
+      "html": "<button class=\"ds-chip-active\" aria-pressed=\"true\">Moderado</button>",
+      "css": ".ds-chip-active { flex: 1; text-align: center; background: #1e293b; color: #f1f5f9; font-family: 'Outfit', system-ui, sans-serif; font-weight: 500; font-size: 1rem; padding: 12px 0; border: 1px solid #a5f2f3; border-radius: 12px; cursor: pointer; }"
+    },
+    {
+      "name": "Bottom Tab Bar",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "3-destination bottom navigation. Deep Ice background, active label in Ice Blue Glacial.",
+      "html": "<nav class=\"ds-tabbar\"><button class=\"ds-tab ds-tab--active\">Hoy</button><button class=\"ds-tab\">Salud</button><button class=\"ds-tab\">Perfil</button></nav>",
+      "css": ".ds-tabbar { display: flex; background: #0d1525; border-top: 1px solid #1e293b; padding: 8px 0; } .ds-tab { flex: 1; background: none; border: none; color: #64748b; font-family: 'Outfit', system-ui, sans-serif; font-weight: 500; font-size: 0.75rem; padding: 8px 0; cursor: pointer; } .ds-tab--active { color: #a5f2f3; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Nordic Ice",
+    "overview": "Petlife runs dark-mode-only, deep navy fading toward black, cut through by a single ice-blue accent used sparingly. The personality is cold, precise, and minimal: no shadows, no gradients, no decoration that isn't load-bearing. Every screen so far is a plain vertical stack — a title, a short set of fields, one primary action — because the product's own principle is low-friction retrospective logging, not a showcase interface. Depth comes entirely from tone (four fixed surface steps, darkest to lightest), never from a shadow.\n\nWithin that cold restraint, interactive elements are tactile and confident rather than timid: a filled ice-blue button, a visibly elevated selected state on chips, a full-width primary action that's unmissable. The coldness is in the palette and the absence of ornament; the confidence is in how directly each control commits to its state.",
+    "keyCharacteristics": [
+      "Dark-mode-only, one accent hue (ice blue), used almost exclusively on primary actions and active states.",
+      "Flat by construction — tonal layering substitutes for shadows everywhere.",
+      "One typeface (Outfit) carries every role; hierarchy is built from weight and size, never a second font.",
+      "One corner radius (12px) on every interactive control, no exceptions yet.",
+      "Open tension, not yet resolved: platform is set to adaptive (native iOS/Material guidance applies) but the implementation is one uniform custom system across platforms."
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Ice Blue Glacial is the only color that means \"act here.\" It appears on the primary button, the active tab, and a selected chip's border — nowhere else.", "section": "colors" },
+      { "name": "The Text-On-Accent Rule", "body": "Any text placed on an Ice Blue Glacial surface uses on-accent (#0B1120), never text-base — text-base is Tailwind's font-size utility, not a color.", "section": "colors" },
+      { "name": "The One Family Rule", "body": "Outfit is the only typeface. Reach for a heavier weight or larger size before considering a second family.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "No drop shadows, no glassmorphism, no blur. A component that needs to signal 'raised' moves up one tonal step instead.", "section": "elevation" },
+      { "name": "The One Radius Rule", "body": "12px is the only corner radius in the system. A new component defaults to it rather than picking a fresh value.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do use the single 12px radius (rounded-xl) on every new interactive control.",
+      "Do express state through a tonal step and the accent border, never a shadow.",
+      "Do keep Outfit as the only typeface; differentiate by weight and size.",
+      "Do use text-on-accent for any text on an Ice Blue Glacial surface — never text-base.",
+      "Do resolve every color through a Nordic Ice token; a raw hex value in a component className is a defect."
+    ],
+    "donts": [
+      "Don't add drop shadows, glassmorphism, or blur.",
+      "Don't introduce a second accent hue outside Ice Blue Glacial / Aqua Glaciar.",
+      "Don't communicate state by color alone.",
+      "Don't default to platform-native components to satisfy the adaptive platform setting without a deliberate decision."
+    ]
+  }
+}
