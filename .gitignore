@@ -50,9 +50,6 @@ supabase/.temp/
 
 # AI Stuff (instructions, skills, agents, etc.)
 .superpowers/
-# Process artifacts from the superpowers workflow (spec/plan) — useful during
-# this development phase, not living reference for a clone or collaborator.
-# docs/supabase-setup.md stays tracked; it's the one doc a fresh clone needs.
 docs/superpowers/
 ## Impeccable — per-machine consent/config only; PRODUCT.md/DESIGN.md are tracked
 .impeccable/config.local.json
