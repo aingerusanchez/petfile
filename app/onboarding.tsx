@@ -1,6 +1,13 @@
 import { Redirect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useAuth } from "../lib/auth";
 import { createPet, getMyPet, type PetDraft } from "../lib/pets";
 
@@ -24,6 +31,11 @@ export default function Onboarding() {
     spayedNeutered: null,
     activityLevel: "moderate",
   });
+  // spayedNeutered is a true boolean | null tri-state where null is itself a
+  // legitimate answer ("no lo sé"), so the draft's initial null can't double
+  // as "untouched" — this flag is what keeps no chip pre-selected until the
+  // user actually picks one.
+  const [neuteredTouched, setNeuteredTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [hasPet, setHasPet] = useState<boolean | null>(null);
@@ -59,7 +71,9 @@ export default function Onboarding() {
       .catch((err: unknown) => {
         if (cancelled) return;
         setPetCheckError(
-          err instanceof Error ? err.message : "No se pudo comprobar tu mascota",
+          err instanceof Error
+            ? err.message
+            : "No se pudo comprobar tu mascota",
         );
       });
 
@@ -119,7 +133,10 @@ export default function Onboarding() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-base" contentContainerClassName="px-6 py-12">
+    <ScrollView
+      className="flex-1 bg-base"
+      contentContainerClassName="px-6 py-12"
+    >
       <Text className="mb-8 text-3xl font-bold text-text-primary">
         ¿Quién vive contigo?
       </Text>
@@ -173,6 +190,31 @@ export default function Onboarding() {
       />
 
       <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
+        ¿Es mestizo?
+      </Text>
+      <View className="mb-5 flex-row gap-3">
+        {(
+          [
+            { value: false, label: "No" },
+            { value: true, label: "Sí" },
+          ] as const
+        ).map(({ value, label }) => (
+          <Pressable
+            key={String(value)}
+            testID={`onboarding-mixed-${value ? "yes" : "no"}`}
+            onPress={() => setDraft((d) => ({ ...d, isMixed: value }))}
+            className={`flex-1 items-center rounded-xl border py-3 ${
+              draft.isMixed === value
+                ? "border-accent-primary bg-elevated"
+                : "border-border-default bg-surface"
+            }`}
+          >
+            <Text className="text-text-primary">{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
         Fecha de nacimiento
       </Text>
       <TextInput
@@ -185,6 +227,62 @@ export default function Onboarding() {
         placeholderTextColor="#64748B"
         className="mb-5 rounded-xl border border-border-default bg-surface px-4 py-3 text-text-primary"
       />
+
+      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
+        ¿Fecha aproximada?
+      </Text>
+      <View className="mb-5 flex-row gap-3">
+        {(
+          [
+            { value: false, label: "No" },
+            { value: true, label: "Sí" },
+          ] as const
+        ).map(({ value, label }) => (
+          <Pressable
+            key={String(value)}
+            testID={`onboarding-birthdate-approx-${value ? "yes" : "no"}`}
+            onPress={() =>
+              setDraft((d) => ({ ...d, birthDateApproximate: value }))
+            }
+            className={`flex-1 items-center rounded-xl border py-3 ${
+              draft.birthDateApproximate === value
+                ? "border-accent-primary bg-elevated"
+                : "border-border-default bg-surface"
+            }`}
+          >
+            <Text className="text-text-primary">{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
+        ¿Esterilizado?
+      </Text>
+      <View className="mb-5 flex-row gap-3">
+        {(
+          [
+            { value: true, label: "Sí", testId: "yes" },
+            { value: false, label: "No", testId: "no" },
+            { value: null, label: "No sé", testId: "unknown" },
+          ] as const
+        ).map(({ value, label, testId }) => (
+          <Pressable
+            key={testId}
+            testID={`onboarding-neutered-${testId}`}
+            onPress={() => {
+              setNeuteredTouched(true);
+              setDraft((d) => ({ ...d, spayedNeutered: value }));
+            }}
+            className={`flex-1 items-center rounded-xl border py-3 ${
+              neuteredTouched && draft.spayedNeutered === value
+                ? "border-accent-primary bg-elevated"
+                : "border-border-default bg-surface"
+            }`}
+          >
+            <Text className="text-text-primary">{label}</Text>
+          </Pressable>
+        ))}
+      </View>
 
       <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
         Nivel de actividad
