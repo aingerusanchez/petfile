@@ -6,6 +6,9 @@ dotenv.config();
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
+  // The whole suite shares one live Supabase account, and resetE2EPets()
+  // deletes that account's pets mid-suite. Parallel workers would race it.
+  workers: 1,
   use: {
     baseURL: "http://localhost:8081",
     trace: "retain-on-failure",

@@ -6,6 +6,9 @@ const anonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
 const email = process.env.E2E_EMAIL;
 const password = process.env.E2E_PASSWORD;
 
+/** The dedicated throwaway account documented in README.md and docs/supabase-setup.md. */
+const E2E_ACCOUNT_EMAIL = "loki-e2e@example.com";
+
 function requireEnv(): { url: string; anonKey: string; email: string; password: string } {
   if (!url || !anonKey || !email || !password) {
     throw new Error(
@@ -52,6 +55,18 @@ export async function seedSession(page: Page): Promise<void> {
  * membership rows are left behind.
  */
 export async function resetE2EPets(): Promise<void> {
+  // Defence in depth: this is an unconditional delete of every pet the
+  // credentialed account can see. RLS scopes it to that account, so a
+  // misconfigured `.env` pointing E2E_EMAIL at a real user would silently
+  // destroy that user's real pet records. Refuse to run unless the account
+  // is the documented throwaway one (README.md, docs/supabase-setup.md).
+  if (email !== E2E_ACCOUNT_EMAIL) {
+    throw new Error(
+      `Refusing to reset pets: E2E_EMAIL is not the dedicated test account (${E2E_ACCOUNT_EMAIL}). ` +
+        "resetE2EPets deletes every pet the credentialed account owns — check your .env.",
+    );
+  }
+
   const { client } = await signInE2EUser();
   const { error } = await client.from("pets").delete().not("id", "is", null);
   if (error) {
