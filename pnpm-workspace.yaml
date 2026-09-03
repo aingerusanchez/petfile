@@ -16,3 +16,15 @@ minimumReleaseAgeExclude:
   - expo-router@57.0.18
   - expo@57.0.19
 nodeLinker: hoisted
+# react-native-css@3.0.7 declares `lightningcss: ">=1.27.0"` with no upper
+# bound. Under `nodeLinker: hoisted`, pnpm hoisted lightningcss@1.33.0 to the
+# root, whose @import/Specifier serialization schema no longer matches what
+# react-native-css's Metro compiler expects — every native bundle then dies
+# with `failed to deserialize; expected an object-like struct named Specifier`.
+# Web is unaffected (it goes through @tailwindcss/postcss, not react-native-css),
+# which is why this stayed invisible for a long time.
+# 1.32.0 is the version @tailwindcss/node@4.3.3 already pins exactly, and it
+# satisfies @expo/metro-config's `^1.30.1`, so this unifies the whole tree on
+# one working copy. Re-test `expo export` on ios/android/web before bumping it.
+overrides:
+  lightningcss: 1.30.1
