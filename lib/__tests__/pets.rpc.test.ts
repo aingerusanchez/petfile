@@ -1,16 +1,17 @@
-import type { PetDraft } from "../pets";
+import { createPet, type PetDraft } from "../pets";
+import { supabase } from "../supabase";
 
-// Mock the supabase module before importing pets
-const mockRpc = jest.fn();
-
+// `jest.mock` is hoisted above the imports, so `createPet` sees the mock even
+// though both modules are imported statically. The factory creates the spy
+// inline rather than closing over an outer `const`, which would still be in
+// its temporal dead zone when the hoisted factory runs.
 jest.mock("../supabase", () => ({
   supabase: {
-    rpc: mockRpc,
+    rpc: jest.fn(),
   },
 }));
 
-// Import createPet after mocking supabase
-const { createPet } = require("../pets");
+const mockRpc = supabase.rpc as unknown as jest.Mock;
 
 const draft: PetDraft = {
   name: "Loki",
