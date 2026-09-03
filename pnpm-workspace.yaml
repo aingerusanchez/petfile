@@ -23,8 +23,10 @@ nodeLinker: hoisted
 # with `failed to deserialize; expected an object-like struct named Specifier`.
 # Web is unaffected (it goes through @tailwindcss/postcss, not react-native-css),
 # which is why this stayed invisible for a long time.
-# 1.32.0 is the version @tailwindcss/node@4.3.3 already pins exactly, and it
-# satisfies @expo/metro-config's `^1.30.1`, so this unifies the whole tree on
-# one working copy. Re-test `expo export` on ios/android/web before bumping it.
+# 1.30.1 is the version @expo/metro-config actually requires and that
+# react-native-css's own loader recommends. Note this pins BELOW the 1.32.0
+# that @tailwindcss/node@4.3.3 would otherwise resolve on its own — that's
+# intentional, not a typo. Re-test `expo export` on ios/android/web before
+# bumping it.
 overrides:
   lightningcss: 1.30.1
