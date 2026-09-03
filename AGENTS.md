@@ -24,15 +24,15 @@ This file provides guidance to agentic AI tools when working with code in this r
 ## Commands
 
 ```bash
-pnpm install          # install deps (wires the pre-commit hook via `prepare`)
-pnpm start             # expo start
+pnpm install            # install deps (wires the pre-commit hook via `prepare`)
+pnpm start              # expo start
 pnpm web                # expo start --web
 pnpm ios                # expo start --ios (requires a native dev build for Google sign-in)
 pnpm android            # expo start --android (requires a native dev build for Google sign-in)
 pnpm test               # Jest — pure domain logic (pet validation, RPC mapping)
 pnpm test:e2e           # Playwright end-to-end
 pnpm test:e2e:ui        # Playwright end-to-end, UI mode / trace viewer
-pnpm lint                # expo lint — currently broken, no ESLint config in the repo; do not attempt to fix as a side effect of another task
+pnpm lint               # expo lint — currently broken, no ESLint config in the repo; do not attempt to fix as a side effect of another task
 ```
 
 ## Definition of done
@@ -74,10 +74,10 @@ Pure validation logic lives in `lib/` and is unit-tested with Jest; user-facing 
 
 Update README.md whenever you touch one of these:
 
-| If you change…                          | Update…                                    |
-| ---------------------------------------- | ------------------------------------------- |
-| `package.json` scripts                   | README (Scripts)                             |
-| `package.json` dependencies (versions)   | README (Stack tecnológico)                   |
-| `supabase/migrations/`                   | README (Arquitectura), `docs/supabase-setup.md` if the setup flow itself changes |
-| `.env.example`                           | README (Secretos)                            |
-| Adding `eas.json` / a real CI workflow   | README (Compilación de producción / CI/CD)   |
+| If you change…                         | Update…                                                                          |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| `package.json` scripts                 | README (Scripts)                                                                 |
+| `package.json` dependencies (versions) | README (Stack tecnológico)                                                       |
+| `supabase/migrations/`                 | README (Arquitectura), `docs/supabase-setup.md` if the setup flow itself changes |
+| `.env.example`                         | README (Secretos)                                                                |
+| Adding `eas.json` / a real CI workflow | README (Compilación de producción / CI/CD)                                       |

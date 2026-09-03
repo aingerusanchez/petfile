@@ -1,7 +1,3 @@
-.superpowers/
-
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
 # dependencies
 node_modules/
 
@@ -10,6 +6,9 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+
+# Metro
+.metro-health-check*
 
 # Native
 .kotlin/
@@ -20,8 +19,9 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
-# Metro
-.metro-health-check*
+# generated native folders
+/ios
+/android
 
 # debug
 npm-debug.*
@@ -48,8 +48,9 @@ yarn-error.*
 # Supabase CLI local cache
 supabase/.temp/
 
-example
-
-# generated native folders
-/ios
-/android
+# AI Stuff (instructions, skills, agents, etc.)
+.superpowers/
+## Impeccable — per-machine consent/config only; PRODUCT.md/DESIGN.md are tracked
+.impeccable/config.local.json
+# Impeccable design-detector hook runtime cache (per-session state, not skill source)
+.claude/skills/impeccable/scripts/.impeccable/
