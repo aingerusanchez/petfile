@@ -96,7 +96,7 @@ Within that cold restraint, interactive elements are tactile and confident rathe
 - Flat by construction — tonal layering substitutes for shadows everywhere.
 - One typeface (Outfit) carries every role; hierarchy is built from weight and size, never a second font.
 - One corner radius (12px) on every interactive control, no exceptions yet.
-- **Open tension, not yet resolved:** the project's platform setting is `adaptive` (iOS HIG + Material 3 guidance both apply), but the implementation runs one custom, uniform design system across iOS, Android, and web rather than native-per-OS components. Treat the system below as current ground truth; a future session may need to explicitly choose between "native-conforming" and "one uniform world" rather than let it default silently (see `CLAUDE.md`).
+- **Resolved:** Nordic Ice governs every platform as one uniform system — it is adapted to each platform's physical constraints (safe areas, gesture zones), never replaced by native-per-OS components (SF Symbols, Material 3 widgets) to satisfy strict HIG/Material conformance. Web is the primary adaptation target. Android is the priority platform for native testing/QA only — a testing-order fact, not a visual-system decision.
 
 ## Colors
 
@@ -194,4 +194,4 @@ Bottom tab bar, 3 destinations (Hoy / Salud / Perfil), text-only (no icons imple
 - **Don't** add drop shadows, glassmorphism, or blur — depth here is tonal, never shadow-based.
 - **Don't** introduce a second accent hue outside Ice Blue Glacial / Aqua Glaciar; the accent family is deliberately narrow so it keeps its meaning.
 - **Don't** communicate success/error/selected state by color alone — pair it with a label or icon (no case of this exists yet, but the system has no color-blind-safe fallback built in and shouldn't ship one that relies on hue alone).
-- **Don't** default to platform-native components (SF Symbols pickers, Material FABs, iOS grouped lists) to satisfy the `adaptive` platform setting without a deliberate decision — the implemented system is one uniform world across iOS/Android/web today, and that tension is open, not resolved, in this file.
+- **Don't** reach for platform-native components (SF Symbols pickers, Material FABs, iOS grouped lists) to satisfy per-OS conformance — Nordic Ice is deliberately one uniform world across iOS, Android, and web. Adapt it to a platform's physical constraints; don't replace it with that platform's native kit.

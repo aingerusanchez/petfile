@@ -4,7 +4,7 @@
 
 ## Platform
 
-adaptive
+web
 
 ## Users
 
@@ -27,10 +27,11 @@ Logging is mostly retrospective, not real-time during the event itself: a walk o
 - v0 (current): single user, Google OAuth only — no email/password UI, no development-mode auth bypass in any environment. Daily routines and health events both ship from day one (not sequenced). Weight is tracked as a simple line, without the breed-percentile comparison band. Due-date alerts (vaccines, deworming) surface inside the app only — no push notifications yet.
 - Data model already supports v1 (sharing via `pet_owners`) and v2 (multiple pets/species) without restructuring; the UI for either doesn't exist yet.
 - Explicitly undecided: the tutor-invitation mechanism for v1 (6-digit code vs. direct link); whether sterilization/mixed-breed/approximate-birthdate fields join the onboarding form now or as a fast-follow (flagged after the foundation branch's final review, not yet resolved); cosmetic app identity (icon/splash colors, license file) still carries Expo's scaffold defaults.
+- Android is the priority platform for native testing/QA — both household members test there first when a native (non-web) build matters. This is a testing priority only; it does not change the visual system, which stays uniform across iOS, Android, and web (see Brand Commitments).
 
 ## Brand Commitments
 
-"Nordic Ice" visual identity — a dark-mode-only palette and the Outfit typeface — is a fixed constraint the user chose to carry into this project and preserve, kept as the one visual constraint while everything else was decided fresh. Token values are implemented in `global.css`.
+"Nordic Ice" visual identity — a dark-mode-only palette and the Outfit typeface — is a fixed constraint the user chose to carry into this project and preserve, kept as the one visual constraint while everything else was decided fresh. Token values are implemented in `global.css`. It governs every platform as one uniform system: adapt it to each platform's physical constraints (safe areas, native gesture zones) rather than swapping in platform-native components (SF Symbols, Material 3 widgets) to satisfy per-OS conformance. Web is the primary adaptation target.
 
 ## Evidence on Hand
 
