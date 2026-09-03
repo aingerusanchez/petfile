@@ -48,6 +48,10 @@ Performed once, by a human. No value below is ever committed or shared with an a
 Paste each file in `supabase/migrations/` into the SQL Editor in order, oldest first
 (or run `pnpm dlx supabase db push` with the CLI linked to the project).
 
+If your project was set up before `0002_harden_update_policies.sql` existed, apply
+that file too — it adds the missing `WITH CHECK` clauses to the two UPDATE policies
+and is safe to run against a database that already has `0001` applied.
+
 ## 5. Create the end-to-end test account
 
 Playwright cannot drive Google's consent screen, so the test suite signs in with a
