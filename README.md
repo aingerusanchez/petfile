@@ -50,6 +50,7 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 | `pnpm ios`         | Arranca el servidor de desarrollo apuntando a iOS          |
 | `pnpm web`         | Arranca el servidor de desarrollo apuntando a web          |
 | `pnpm lint`        | `expo lint` — **actualmente roto** (ver nota abajo)        |
+| `pnpm typecheck`   | `tsc --noEmit` — comprobación de tipos de todo el proyecto |
 | `pnpm test`        | Ejecuta la suite de Jest                                   |
 | `pnpm test:e2e`    | Ejecuta la suite end-to-end de Playwright                  |
 | `pnpm test:e2e:ui` | Ejecuta Playwright en UI mode (trace viewer)                |
@@ -66,7 +67,8 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 | UI                       | React                  | 19.2.3      |
 | Lenguaje                 | TypeScript             | ~6.0.3      |
 | Estilos                  | NativeWind             | 5.0.0-preview.4 |
-| Estilos                  | Tailwind CSS           | ^4.1.11     |
+| Estilos                  | Tailwind CSS           | 4.3.3       |
+| Estilos                  | `react-native-css`     | 3.0.7       |
 | Backend                  | `@supabase/supabase-js` | ^2.112.4  |
 | Tests unitarios          | Jest (`jest-expo`)     | ~29.7.0 (preset ~57.0.5) |
 | Tests e2e                | Playwright             | ^1.62.1     |
@@ -78,14 +80,14 @@ app/                     → Expo Router: rutas por archivo
   (auth)/                → login
   (tabs)/                → shell autenticado (home, health, profile)
 lib/                      → lógica de dominio y acceso a datos
-  supabase.ts             → único punto de import de @supabase/supabase-js
+  supabase.ts             → único punto de import de @supabase/supabase-js en el código de app
   auth.tsx                → contexto de sesión / OAuth de Google
   pets.ts                 → validación de mascotas + llamada a la RPC de creación
 supabase/migrations/      → esquema Postgres, RLS, funciones RPC
 e2e/                       → specs de Playwright + helpers de sign-in
 ```
 
-**Invariante clave:** las pantallas nunca importan `@supabase/supabase-js` directamente — solo `lib/supabase.ts` lo hace. Cualquier acceso a datos pasa por `lib/`.
+**Invariante clave:** las pantallas nunca importan `@supabase/supabase-js` directamente — dentro del código de la app, solo `lib/supabase.ts` lo hace. Cualquier acceso a datos pasa por `lib/`. (`e2e/auth.ts` también usa `createClient` directamente, pero es código de test: crea su propio cliente para sembrar la sesión y limpiar datos, fuera del runtime de la app.)
 
 El modelo de datos en Postgres no tiene concepto de "household": `pets` pertenece a uno o más usuarios a través de la tabla de unión `pet_owners`, protegida con RLS. Esto significa que compartir una mascota entre varios usuarios en el futuro es un `insert` en `pet_owners`, no un rediseño del esquema. La creación de una mascota es atómica vía una función RPC `security definer` (`create_pet_with_owner`) que escribe `pets` y `pet_owners` en la misma transacción.
 

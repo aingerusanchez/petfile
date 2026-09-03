@@ -7,7 +7,7 @@ This file provides guidance to agentic AI tools when working with code in this r
 - Package manager: **pnpm** only. pnpm's default symlinked `node_modules` breaks Metro and native builds, so the repo root carries an `.npmrc` / `pnpm-workspace.yaml` forcing `node-linker=hoisted` (a flat, npm-like `node_modules`). Never remove that setting or run `pnpm install` without it in place.
 - TypeScript **strict mode** is enabled; no `any` in committed code.
 - Dark mode only in v0. Every colour comes from the Nordic Ice tokens — no raw hex values in components.
-- Screens must never import `@supabase/supabase-js`. The only import site is `lib/supabase.ts`.
+- Screens must never import `@supabase/supabase-js`. The only import site in app code is `lib/supabase.ts` — `e2e/auth.ts` also uses `createClient` directly, but that is test setup, not app runtime.
 - Conventional Commits for every commit (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `build:`).
 - **v0 auth is Google OAuth only.** Magic links are out of scope for v0. There is **no development-mode auth bypass** — every environment, including local dev, requires a real Google sign-in. Do not add one, and do not write code or docs that imply one exists.
 - **Google OAuth requires a native dev build.** Expo Go cannot handle the custom-scheme redirect this flow needs. `pnpm expo run:ios` / `pnpm expo run:android` produces the dev build; the web target runs under `pnpm web`.
@@ -57,14 +57,14 @@ app/                     → Expo Router routes
   (auth)/                → login
   (tabs)/                → authenticated shell (home, health, profile)
 lib/                      → domain logic and data access
-  supabase.ts             → the only import site for @supabase/supabase-js
+  supabase.ts             → the only import site for @supabase/supabase-js in app code
   auth.tsx                → session context / Google OAuth
   pets.ts                 → pet validation + the create-pet RPC call
 supabase/migrations/      → Postgres schema, RLS policies, RPC functions
 e2e/                       → Playwright specs + sign-in helpers
 ```
 
-All database access goes through `lib/supabase.ts`; screens never import `@supabase/supabase-js` directly. Pet creation is atomic via a `security definer` Postgres function (`create_pet_with_owner`) that writes both the `pets` row and its `pet_owners` membership in one transaction, so a pet can never exist without an owner.
+All database access goes through `lib/supabase.ts`; screens never import `@supabase/supabase-js` directly. The one legitimate exception lives outside app code: `e2e/auth.ts` builds its own client to seed the Playwright session and reset test data. Pet creation is atomic via a `security definer` Postgres function (`create_pet_with_owner`) that writes both the `pets` row and its `pet_owners` membership in one transaction, so a pet can never exist without an owner.
 
 There is no `households` concept in the data model. `pets` relates to users through the `pet_owners` join table (RLS-protected), which is what makes multi-user sharing in a future version an `insert` into `pet_owners`, not a schema redesign.
 
