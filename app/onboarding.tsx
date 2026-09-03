@@ -37,17 +37,26 @@ export default function Onboarding() {
 
   if (!session) return <Redirect href="/login" />;
 
+  // A write failure must always surface an error and re-enable the button.
+  // Without the catch, a throw (e.g. the RPC returning no row) left `busy`
+  // stuck on forever: no error, no retry, and the typed-in draft lost.
   async function submit() {
     setBusy(true);
     setError(null);
-    const { petId, error: failure } = await createPet(draft);
-    setBusy(false);
-
-    if (petId) {
-      router.replace("/(tabs)");
-      return;
+    try {
+      const { petId, error: failure } = await createPet(draft);
+      if (petId) {
+        router.replace("/(tabs)");
+        return;
+      }
+      setError(failure);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Ha ocurrido un error inesperado",
+      );
+    } finally {
+      setBusy(false);
     }
-    setError(failure);
   }
 
   return (
