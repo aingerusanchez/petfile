@@ -8,19 +8,19 @@ adaptive
 
 ## Users
 
-Primary user (v0): Aingeru, tracking his dog Loki (Husky Siberiano, in his puppy months) solo, from his phone. v1 expands to his partner as a second tutor of the same dog, sharing the same data. No broader public audience — this is a private household tool, not a commercial product.
+Pet tutors managing a dog's day-to-day care and health. Private, non-commercial household use — not a public or commercial product.
 
 ## Product Purpose
 
-Log Loki's daily routines (walks, meals, medication) and health events (weight, vaccinations, deworming, incidents) with minimal friction, so no tracking data is lost during his critical early months. Success is real, sustained use — an entry logged during an actual walk, not an app that looks complete but goes unused.
+Log a dog's daily routines (walks, meals, medication) and health events (weight, vaccinations, deworming, incidents) with minimal friction, so no tracking data is lost during his critical early months. Success is real, sustained use — an entry logged after the walk or the vet visit, not an app that looks complete but goes unused.
 
 ## Positioning
 
-Deliberately lighter and faster to ship than its parked sibling project, PetFile (Angular + Firebase, a more ambitious multi-device/household model for the same problem). Petlife is built on Postgres/Supabase from day one specifically so that sharing with a second tutor (v1) is an `insert` into a join table, not a schema redesign — it buys the same eventual capability as PetFile without PetFile's setup cost, by choosing to ship a narrower v0 today.
+Built on a relational data model from day one, so that adding a second tutor or a second pet later is additive — a new row, never a schema redesign.
 
 ## Operating Context
 
-Used primarily on a phone, frequently outdoors mid-walk — the spec's own interaction design (swipe-to-complete/skip a routine) exists because logging has to survive being done one-handed, on the move, without full attention. Google sign-in requires a native development build; Expo Go cannot complete the OAuth redirect. A web export exists as a secondary target, not the primary one.
+Logging is mostly retrospective, not real-time during the event itself: a walk or a vet visit occupies the tutor's hands and attention, so the normal pattern is to log it after getting home, not mid-walk or mid-consultation. Concrete examples: logging a walk on returning home (whether the dog pooped and its state, any incident, an optional note) — a future version could even auto-detect "arrived home" via reconnecting to the home wifi; after a vet visit, logging the deworming/vaccine applied, letting the next due date calculate itself, updating weight, and keeping notes from the conversation with the vet (e.g. diet — kibble vs. natural food, pros and cons — or a possible spay/neuter date). Google sign-in requires a native development build; Expo Go cannot complete the OAuth redirect. A web export exists as a secondary target, not the primary one.
 
 ## Capabilities and Constraints
 
@@ -30,20 +30,20 @@ Used primarily on a phone, frequently outdoors mid-walk — the spec's own inter
 
 ## Brand Commitments
 
-"Nordic Ice" visual identity — a dark-mode-only palette and the Outfit typeface — carried over deliberately from the sibling PetFile project at the user's explicit request, kept as the one visual constraint while everything else about the stack changed. Token values are implemented in `global.css`.
+"Nordic Ice" visual identity — a dark-mode-only palette and the Outfit typeface — is a fixed constraint the user chose to carry into this project and preserve, kept as the one visual constraint while everything else was decided fresh. Token values are implemented in `global.css`.
 
 ## Evidence on Hand
 
-None. No photos, logos, or press exist for this project — it is a private two-person household tool. Future design work must not fabricate testimonials, reviews, press mentions, or sample data beyond what the product itself generates.
+None. No photos, logos, or press exist for this project — it is a private household tool. Future design work must not fabricate testimonials, reviews, press mentions, or sample data beyond what the product itself generates.
 
 ## Product Principles
 
 - Ship something usable today over a complete feature set; the MVP evolves with real use, not ahead of it.
 - Never lose tracking data — the app's core promise during Loki's critical early months.
 - Grow the data model, not rebuild it: sharing and multi-pet support must stay additive.
-- Low-friction capture beats completeness — logging must survive being done one-handed, outdoors, mid-walk.
+- Low-friction capture beats completeness — logging happens after the fact (back home, after the vet), so it should be quick to fill in retrospectively, not built to survive real-time, one-handed use.
 - Be honest about gaps in the product and its docs — no implied capability (a dev bypass, CI/CD, automation) that doesn't exist yet.
 
 ## Accessibility & Inclusion
 
-No specific accessibility need identified for either household member (confirmed with the user). General good practice is already built into the design tokens: WCAG AA contrast on the Nordic Ice palette, no state communicated by color alone, and touch targets sized for one-handed mobile use.
+No specific accessibility need identified for either household member (confirmed with the user). General good practice is already built into the design tokens: WCAG AA contrast on the Nordic Ice palette, no state communicated by color alone, and standard mobile touch-target sizing.
