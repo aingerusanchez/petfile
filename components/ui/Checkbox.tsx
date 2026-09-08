@@ -70,7 +70,13 @@ export function Checkbox({
         ) : null}
       </View>
       <View className="flex-1">
-        <Text className={`text-text-primary${checked ? " font-semibold" : ""}`}>
+        {/* leading-6 matches the 24px box, so the label's first line and the
+            box share a centre. Without it the line box is the font's own
+            height and `items-start` leaves the text riding high — visible on
+            device, where the default line height is tighter than the web's. */}
+        <Text
+          className={`leading-6 text-text-primary${checked ? " font-semibold" : ""}`}
+        >
           {label}
         </Text>
         {hint ? (
