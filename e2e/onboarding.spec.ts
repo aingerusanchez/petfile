@@ -346,15 +346,24 @@ test("has a route for the OAuth callback instead of an unmatched-route screen", 
   });
 });
 
-test("replaces the generated sitemap and not-found debug screens", async ({
-  page,
-}) => {
+test("replaces the generated not-found debug screen", async ({ page }) => {
   await seedSession(page);
-
-  await page.goto("/_sitemap");
-  await expect(page.getByText("System Information")).toBeHidden();
-
   await page.goto("/esta-ruta-no-existe");
+
+  // Expo Router's built-in is a developer tool: "Unmatched Route" in English,
+  // with a link to the generated sitemap and its System Information panel.
   await expect(page.getByText("Unmatched Route")).toBeHidden();
   await expect(page.getByText("Por aquí no hay nada")).toBeVisible();
 });
+
+test("keeps the generated sitemap in development", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/_sitemap");
+
+  // Deliberately still present here: app/_sitemap.tsx renders the built-in
+  // under __DEV__ and redirects otherwise, and the e2e suite runs against the
+  // dev server. The production half — that the route closes — cannot be
+  // asserted from here; it lives in the `__DEV__` guard in that file.
+  await expect(page.getByText("System Information")).toBeVisible();
+});
+
