@@ -175,3 +175,22 @@ export function meansMixedBreed(value: string | null): boolean {
   if (!folded) return false;
   return MIXED_BREED_TERMS.includes(folded);
 }
+
+/**
+ * True while the text is on its way to one of those terms.
+ *
+ * The offer in the field has to behave like the rest of the autocomplete,
+ * which suggests from the third letter: waiting for the whole word means a
+ * tutor typing "Mest" sees nothing at all and concludes the field has no
+ * suggestions — measured on device, that is exactly what happened. Three
+ * letters is also what keeps a single "c" from hijacking the field on its way
+ * to "Caniche".
+ *
+ * Deliberately more generous than `meansMixedBreed`: this one only *offers*,
+ * while that one silently rewrites what gets stored, so it stays exact.
+ */
+export function looksLikeMixedBreed(value: string | null): boolean {
+  const folded = foldForSearch(value ?? "");
+  if (folded.length < 3) return false;
+  return MIXED_BREED_TERMS.some((term) => term.startsWith(folded));
+}

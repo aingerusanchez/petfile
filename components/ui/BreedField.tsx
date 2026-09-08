@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import {
   isKnownBreed,
-  meansMixedBreed,
+  looksLikeMixedBreed,
   searchBreeds,
 } from "../../lib/breeds";
 import { FieldLabel } from "./FieldLabel";
@@ -61,9 +61,10 @@ export function BreedField({
   const text = value ?? "";
   // "Mestizo" is an answer to the breed question, not a breed. When the field
   // owns the mixed flag, offer to record it as what it is instead of storing a
-  // non-breed in breed_primary.
-  const mixedIntent = focused && !!onMixedIntent && meansMixedBreed(text);
-  const suggestions = focused && !mixedIntent ? searchBreeds(text) : [];
+  // non-breed in breed_primary. It sits above the breed suggestions rather
+  // than replacing them: a prefix can be on its way to both.
+  const mixedIntent = focused && !!onMixedIntent && looksLikeMixedBreed(text);
+  const suggestions = focused ? searchBreeds(text) : [];
   const recognised = text.trim().length > 0 && isKnownBreed(text);
 
   return (

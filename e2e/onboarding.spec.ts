@@ -95,7 +95,9 @@ test('turns a breed field answered "Mestizo" into the mixed flag', async ({
   await seedSession(page);
   await page.goto("/onboarding");
 
-  await page.getByTestId("onboarding-breed").fill("Mestizo");
+  // From the third letter, like the rest of the autocomplete: waiting for the
+  // whole word means the tutor sees nothing and assumes there is no list.
+  await page.getByTestId("onboarding-breed").fill("Mest");
 
   // Offered as what it is, rather than accepted as a breed.
   const offer = page.getByTestId("onboarding-breed-mixed-intent");
@@ -114,6 +116,12 @@ test("does not offer the mixed flag for an actual breed", async ({ page }) => {
   await page.getByTestId("onboarding-breed").fill("Husky Siberiano");
 
   await expect(page.getByTestId("onboarding-breed-mixed-intent")).toBeHidden();
+
+  // Two letters is still too early to hand the field to the flag: "c" is on
+  // its way to Caniche as often as to "cruce".
+  await page.getByTestId("onboarding-breed").fill("Ca");
+  await expect(page.getByTestId("onboarding-breed-mixed-intent")).toBeHidden();
+  await expect(page.getByTestId("breed-suggestion-Caniche")).toBeVisible();
 });
 
 test("asks for month and year only when the date is approximate", async ({
