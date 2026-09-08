@@ -93,7 +93,13 @@ Dates cross the app/database boundary in exactly one format: **ISO `YYYY-MM-DD`*
 
 Shared UI lives in `components/ui/`, never in `app/` — `app/` holds routes. Three invariants come with it: **window insets are consumed only in `Screen`** (no screen reaches for `useSafeAreaInsets()` on its own, which is what keeps the primary action clear of the Android navigation bar in one place), **a colour needed by a React Native prop comes from `components/ui/tokens.ts`**, never a retyped hex literal, and **`Text` is imported from `components/ui`, never from `react-native`** — that wrapper is the only thing applying the typeface on native, where a bare `<Text>` falls back to Roboto (`grep -rnE '\bText\b' app components | grep 'from "react-native"'` should return nothing outside `components/ui/Text.tsx` — the word boundaries keep `TextInput` out). `global.css`'s `@theme` block stays the source of truth for anything a `className` can reach.
 
-Two platform gotchas the browser hides, both measured on device and recorded in DESIGN.md: a `TextInput` needs **`pl-4 pr-4` rather than `px-4`** (Android drops `padding-inline` on text inputs), and the native CSS compiler resolves **`1rem` to 14, not 16**, so every rem-based utility renders at 87.5% of what the browser shows.
+Three platform gotchas the browser hides, all measured on device and recorded in DESIGN.md:
+
+- A `TextInput` needs **`pl-4 pr-4` rather than `px-4`** — Android drops `padding-inline` on text inputs.
+- The native CSS compiler resolves **`1rem` to 14, not 16**, so every rem-based utility renders at 87.5% of what the browser shows.
+- **`leading-*` does nothing on native.** It arrives as a `calc()`, which that compiler discards, so line height comes from a `style` prop. Anything that has to line up with a class-sized box needs both sides as literals from one constant — see `components/ui/Checkbox.tsx`.
+
+The web target hides all three, so **a change that has to hold on the device is verified on the device**, with a screenshot (`adb exec-out screencap -p`) rather than by eye in the browser.
 
 ## Documentation maintenance
 
