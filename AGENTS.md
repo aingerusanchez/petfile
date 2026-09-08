@@ -71,6 +71,7 @@ components/ui/            → the design-system primitives every screen composes
   BreedField.tsx          → breed combobox: suggests from a list, accepts free text
   TextField.tsx           → labelled input, label linked for screen readers
   FieldLabel.tsx          → the uppercase field label
+  Text.tsx                → text in the app's typeface; the only Text app code imports
   Button.tsx              → secondary / ghost button
   LoadingScreen.tsx       → full-screen busy state
   tokens.ts               → Nordic Ice values for RN props className can't reach
@@ -90,7 +91,9 @@ Pure validation logic lives in `lib/` and is unit-tested with Jest; user-facing 
 
 Dates cross the app/database boundary in exactly one format: **ISO `YYYY-MM-DD`**, because `pets.birth_date` is a Postgres `date` and the RPC casts with `::date`, where Postgres's DateStyle makes a `DD/MM/AAAA` string ambiguous. The UI shows and collects the Spanish locale's `DD/MM/AAAA`; `lib/dates.ts` converts at the edge and is the only place that builds or parses a date string. An approximate birth date stores the 1st of the month with `birth_date_approximate = true` — **anything computing a due date must read that flag**, because the day is a placeholder, not data.
 
-Shared UI lives in `components/ui/`, never in `app/` — `app/` holds routes. Two invariants come with it: **window insets are consumed only in `Screen`** (no screen reaches for `useSafeAreaInsets()` on its own, which is what keeps the primary action clear of the Android navigation bar in one place), and **a colour needed by a React Native prop comes from `components/ui/tokens.ts`**, never a retyped hex literal. `global.css`'s `@theme` block stays the source of truth for anything a `className` can reach.
+Shared UI lives in `components/ui/`, never in `app/` — `app/` holds routes. Three invariants come with it: **window insets are consumed only in `Screen`** (no screen reaches for `useSafeAreaInsets()` on its own, which is what keeps the primary action clear of the Android navigation bar in one place), **a colour needed by a React Native prop comes from `components/ui/tokens.ts`**, never a retyped hex literal, and **`Text` is imported from `components/ui`, never from `react-native`** — that wrapper is the only thing applying the typeface on native, where a bare `<Text>` falls back to Roboto (`grep -rnE '\bText\b' app components | grep 'from "react-native"'` should return nothing outside `components/ui/Text.tsx` — the word boundaries keep `TextInput` out). `global.css`'s `@theme` block stays the source of truth for anything a `className` can reach.
+
+Two platform gotchas the browser hides, both measured on device and recorded in DESIGN.md: a `TextInput` needs **`pl-4 pr-4` rather than `px-4`** (Android drops `padding-inline` on text inputs), and the native CSS compiler resolves **`1rem` to 14, not 16**, so every rem-based utility renders at 87.5% of what the browser shows.
 
 ## Documentation maintenance
 

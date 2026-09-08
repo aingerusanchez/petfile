@@ -124,7 +124,7 @@ Almost monochrome by design — a deep navy neutral scale carries nearly the who
 
 ### Secondary
 
-- **Aqua Glaciar** (#7DD3E8): one step cooler/deeper than the primary accent, and the second interactive accent this token was reserved for from the start. It carries the link (tertiary) button and nothing else yet — 11.08:1 on Polar Night. Its whole job is to read as interactive *without* claiming the primary action's meaning; keep it out of anything that competes with Ice Blue Glacial.
+- **Aqua Glaciar** (#7DD3E8): one step cooler/deeper than the primary accent, and the second interactive accent this token was reserved for from the start. It carries the link (tertiary) button and nothing else yet — 11.08:1 on Polar Night. Its whole job is to read as interactive _without_ claiming the primary action's meaning; keep it out of anything that competes with Ice Blue Glacial.
 
 ### Neutral
 
@@ -161,11 +161,15 @@ Almost monochrome by design — a deep navy neutral scale carries nearly the who
 
 **The One Family Rule.** Outfit is the only typeface. If a future screen ever needs a visually distinct moment (a stat, a number), reach for a heavier Outfit weight or a larger size before considering a second family.
 
+**The family is applied, never inherited.** A rule that depends on every call site restating it is not a rule, and this one broke exactly that way: on the web, `global.css` makes Outfit the default with a `[dir="auto"]` rule, which works because react-native-web stamps that attribute on every rendered `<Text>`. Native has no such hook — the CSS compiler supports class selectors and drops universal and type selectors — so on Android a bare `<Text>` inherited nothing and rendered in **Roboto**, while headings, which name `font-bold` explicitly, stayed in Outfit. Measured on device: the whole form was the platform's face, the title was ours. The family is therefore applied once, in `components/ui/Text.tsx`, and **app code imports `Text` from the design system, never from `react-native`**. Components that render text through a third party (the date picker's own labels) pass `font-sans` in the classNames they hand it.
+
 ## Layout
 
 Single-column, mobile-first. Screens are a plain vertical stack (`View`/`ScrollView`) — no grid system exists yet because nothing built so far needs one. Page margins run 24px (`px-6`) on the sides; interactive elements carry generous internal padding (12–16px vertical).
 
 Vertical rhythm is stepped by margin-bottom: 8px between a label and its field, 20px between fields, 32–40px between major sections (e.g. the login title block, or the gap before a screen's primary action). Grouped choices (the sex selector, the activity-level selector) sit in a `flex-row` with a fixed 12px gap, each option taking equal width (`flex-1`).
+
+**Open: every number above is web-measured, and the device renders them at 87.5%.** Tailwind's spacing, radius and font-size utilities are `rem`-based, and the native CSS compiler resolves `1rem` to **14** (it follows React Native's default font size) where the browser resolves it to 16. Measured on a 375×817dp device: the group's `px-5` padding lands at 17.5dp instead of 20dp, the 24px checkbox at 21dp, and the chips at ~41dp instead of the 47dp recorded here — further below Android's 48dp touch target than the audit says. `withNativewind`'s `inlineRem` option cannot fix it in this version (the metro wrapper stores compiler options at `config.transformer.reactNativeCSS` while its transformer reads `options.reactNativeCSS`, so they never arrive); expressing the theme's `--spacing`, `--radius-*` and `--text-*` in px would. **Unresolved — it belongs to the platform-adaptation pass, because closing it moves every dimension on the device at once.**
 
 ## Elevation & Depth
 
@@ -175,9 +179,9 @@ Flat by construction — no shadow appears anywhere in the implementation. Depth
 
 **The Flat-By-Default Rule.** No drop shadows, no glassmorphism, no blur. If a future component needs to signal "raised," it moves up one tonal step — it does not reach for a shadow.
 
-**This is a consequence of the palette, not a preference.** It was tested: a black shadow at 25% effective alpha composited over Polar Night yields **1.03:1** — weaker than the *weakest* tonal step the palette already has (page → surface, 1.11:1). The same shadow on a light ground gives 1.83:1. On a near-black page a shadow has nothing to contrast against, so it costs render work and buys almost nothing. Two shadowed variants of the onboarding form were built and rejected on this evidence; what looked like depth in them was the tonal step doing the work.
+**This is a consequence of the palette, not a preference.** It was tested: a black shadow at 25% effective alpha composited over Polar Night yields **1.03:1** — weaker than the _weakest_ tonal step the palette already has (page → surface, 1.11:1). The same shadow on a light ground gives 1.83:1. On a near-black page a shadow has nothing to contrast against, so it costs render work and buys almost nothing. Two shadowed variants of the onboarding form were built and rejected on this evidence; what looked like depth in them was the tonal step doing the work.
 
-**Grouping is the fifth depth role, and it is an outline.** A form section is bounded by a 1px Hairline Frost border (1.29:1 against the page) with 20px padding and the system radius — the `Group` component. It is deliberately *not* a filled card: the four tones are already spoken for (page, content surface, selected state, tab bar), so a filled grouping card would have to take one of those roles and push every other component's tone down a step. A filled variant was built and it did exactly that, costing the field and chip tones. An outline groups without spending a tone, so nothing else has to move.
+**Grouping is the fifth depth role, and it is an outline.** A form section is bounded by a 1px Hairline Frost border (1.29:1 against the page) with 20px padding and the system radius — the `Group` component. It is deliberately _not_ a filled card: the four tones are already spoken for (page, content surface, selected state, tab bar), so a filled grouping card would have to take one of those roles and push every other component's tone down a step. A filled variant was built and it did exactly that, costing the field and chip tones. An outline groups without spending a tone, so nothing else has to move.
 
 ## Shapes
 
@@ -200,7 +204,7 @@ One radius, everywhere: 12px (`rounded-xl`) on every button, input, and chip in 
 - **An icon is not a reason**, and that applies to the button itself. The success and error states keep a label beside the glyph (`successLabel` / `errorLabel`), because a red button with a warning icon says something is wrong without saying what. The caller names it, since only the caller knows which failure it was — onboarding distinguishes "Faltan datos por rellenar" from "No se ha podido guardar". Never let a throw escape a handler and leave a red flash as the only explanation either.
 - **Motion honours the system "remove animations" setting** via `useReducedMotion()`: the status icon still appears, it just does not zoom in.
 - **Secondary / Ghost:** transparent fill, Steel Frost 1px border, `text-secondary` label, 12px vertical / 24px horizontal padding. Used for a real alternative action (retry, sign out) — never the primary action on a screen.
-- **Link (tertiary):** no border, no fill, no full-width block. Aqua Glaciar label at 600 weight, optional 16px leading icon, left-aligned and sized to its text, with a 48dp minimum hit area. For an action that must sit *below* the primary in the reading order rather than compete with it — revealing an optional section, for instance.
+- **Link (tertiary):** no border, no fill, no full-width block. Aqua Glaciar label at 600 weight, optional 16px leading icon, left-aligned and sized to its text, with a 48dp minimum hit area. For an action that must sit _below_ the primary in the reading order rather than compete with it — revealing an optional section, for instance.
   Two full-width buttons stacked read as a pair of peer actions however different their fills are, which is exactly what a skippable disclosure must not look like next to an irreversible commit. Shrinking it to a link is what separates them; distance alone did not.
   **It uses Aqua Glaciar, not Ice Blue Glacial, on purpose.** The primary accent means "this is the one thing to do here" (The One Accent Rule), and a disclosure the tutor may ignore is not that.
 - **Hover / Focus:** not yet defined. This is a native app (no `:hover`); a pressed/focus treatment (e.g. a brief opacity or scale change) has not been implemented on any button yet and should be resolved deliberately, not left implicit, the first time it matters for a real interaction.
@@ -210,26 +214,32 @@ One radius, everywhere: 12px (`rounded-xl`) on every button, input, and chip in 
 Used as an exclusive single-select control within a small fixed set (e.g. sex: 2 options; activity level: 3 options) — closer to a segmented control than a tag.
 
 - **Unselected:** Fjord Slate fill, Hairline Frost 1px border, `text-primary` label at body weight.
-- **Selected:** Elevated Frost fill, Ice Blue Glacial 1px border, `text-primary` label at **700 weight**. The weight change is load-bearing, not decoration: the selected-vs-unselected *fill* difference measures 1.16:1 and cannot be relied on (see Don'ts).
+- **Selected:** Elevated Frost fill, Ice Blue Glacial 1px border, `text-primary` label at **700 weight**. The weight change is load-bearing, not decoration: the selected-vs-unselected _fill_ difference measures 1.16:1 and cannot be relied on (see Don'ts).
 - **Layout:** equal-width (`flex-1`) siblings in a row, 12px gap, 12px radius, centered label. A row is wrapped in `ChipGroup`, which exposes the set as one radio group so the chosen option is announced in context.
 - **Optional 16px leading icon**, drawn in `text-primary` when selected and `text-tertiary` at rest, so the icon carries the same selected/unselected signal as the weight change. The sex chips use `Mars` and `Venus` — the icons the old `♂`/`♀` glyphs were reaching for before they fell outside Outfit's charset and silently changed typeface (see The No-Glyph Rule).
 - **Size:** 12px vertical padding over a body line box, measured at **47dp** on the web target — 1dp under Android's 48dp minimum touch target, and not yet corrected.
 
 ### Group
+
 A hairline-outlined section of a form: 1px Hairline Frost border, 12px radius, 20px padding, `pb-1` at the bottom because form fields carry their own 20px bottom margin and a symmetric padding would visibly deepen the gap at the end of every group. An optional `title` renders in `text-secondary` uppercase — one step brighter than a field label's `text-tertiary`, so a section heading never reads as just another field label.
 
-**Use it for sections that differ in kind, not in priority.** In onboarding every field shown at start sits in a *single* group, including the skippable breed: they are one set of facts about the animal and should read as equally worth giving. Priority is expressed by what blocks a save and by the `opcional` marker, never by splitting a form into an important box and an unimportant one. The deferrable health and activity fields get their own group because they are a different kind of fact and arrive at a different moment.
+**Use it for sections that differ in kind, not in priority.** In onboarding every field shown at start sits in a _single_ group, including the skippable breed: they are one set of facts about the animal and should read as equally worth giving. Priority is expressed by what blocks a save and by the `opcional` marker, never by splitting a form into an important box and an unimportant one. The deferrable health and activity fields get their own group because they are a different kind of fact and arrive at a different moment.
 
 ### Checkbox
+
 A voluntary boolean flag, **unchecked by default**. Used for a qualifier that only ever gets asserted deliberately — "solo sé el mes y el año", "es mestizo" — where an unchecked box is the honest resting state.
+
 - **Box:** 24px square, 6px radius (the recorded exception in Shapes), 1px border. Unchecked: Steel Frost border on Fjord Slate. Checked: Ice Blue Glacial fill and border, with an `on-accent` tick.
 - **Label:** `text-primary`, stepping to 600 weight when checked — a non-chromatic cue, same principle as the chips.
+- **Label alignment:** the label carries a **24px line height so its first line and the box share a centre**. The row is `items-start` (so a box stays level with the first line when the label wraps or a hint follows), which without an explicit line height leaves the text riding high — visible on device, where the default line height is tighter than the web's.
 - **Hint:** optional second line, `text-tertiary` at 12px, stating what ticking the box does.
 - **Why not a chip pair:** three adjacent Sí/No chip rows looked identical but behaved differently, two of them rendering "No" pre-selected so an assumption was indistinguishable from an answer, with the polarity flipped between them. A checkbox says what a chip pair cannot: this is off unless you turn it on.
 - **When a chip row is still right:** `¿Esterilizado?` keeps three chips because "no lo sé" is a real answer for an adopted dog, and a checkbox cannot carry a third state.
 
 ### Date Field & Picker
+
 A value display that opens a picker. **No text input** — the field previously demanded `AAAA-MM-DD` from a reader who writes DD/MM/AAAA, with no `keyboardType`, so Android raised the alphabetic keyboard for a digits-only task.
+
 - **Display:** Fjord Slate fill, hairline border, 12px radius, calendar icon suffix in `text-tertiary`. Empty shows `DD/MM/AAAA`, or "Mes y año" in approximate mode.
 - **Sheet:** bottom sheet on an 80%-opacity Polar Night scrim, with a title, an X, and a Cancelar / Confirmar pair in the footer. **Four ways out without saving** — the X, Cancelar, a scrim tap, and Android's system Back. Nothing commits until Confirmar.
 - **Exact mode is `react-native-ui-datepicker`**, themed entirely through its `classNames` prop with Nordic Ice utilities. Chosen because it is pure JS (identical on web and Android, unlike `@expo/ui`'s DateTimePicker, which returns `null` on web and would silently render nothing during development), it carries its own accessibility (every day cell is a `button` with the day number as its accessible name), and `locale="es"` gives Spanish month and weekday names. `maxDate` disables future days in the UI, not just in validation. Its defaults reference `text-foreground` and `bg-accent`, classes this project does not define, so **every visible key is set rather than merged over `useDefaultClassNames()`** — a partial override renders invisible text.
@@ -238,26 +248,35 @@ A value display that opens a picker. **No text input** — the field previously 
 - **Capitalisation:** month names are capitalised at the source in `lib/dates.ts`; the library's own header caption comes from dayjs in lowercase and is corrected with a `capitalize` class on `month_selector_label`.
 
 ### Breed Combobox
+
 Suggests from a curated list, accepts anything typed.
+
 - **Input:** the standard field style, `autoCapitalize="words"`, autocorrect off (a breed is a proper noun and autocorrect mangles them).
 - **Suggestions:** up to 6, in an Elevated Frost panel below the field, hairline-divided, prefix matches before substring matches, accent- and case-insensitive so "pastor aleman" finds "Pastor Alemán".
-- **Free text is valid.** Mixed breeds, unknown provenance and regional names sit outside any list; the list makes the canonical spelling easy, it does not constrain. A recognised value gets a quiet "Raza reconocida" confirmation, never a warning for being off-list.
+- **"Mestizo" is an answer to the breed question, not a breed.** It is deliberately absent from the list, because an adopted dog often has no known ancestry and "mestizo" is the honest answer rather than a gap — one that already has a home in the record, the `is_mixed` flag. Left alone, free text let the same fact take two encodings, one of them wrong: `breed_primary = "Mestizo"` with `is_mixed` false, which reads perfectly ("Hulk — Mestizo") and is unusable for anything breed-based. So typing it **offers to record it as what it is** — a single row, "Mestizo, sin raza concreta", that ticks the flag and clears the field — and the app→database boundary normalises it the same way for a tutor who types past the offer. The display the tutor wanted is legitimate and survives: a mixed dog with no breeds named reads back as "Mestizo", one with a single breed as "Mestizo de Husky Siberiano". **Nothing stores the word.**
+- **Free text is still valid.** Regional names and breeds outside the list are real answers; the list makes the canonical spelling easy, it does not constrain.
+- **The second breed is labelled "Mezcla con", not "Segunda raza".** A cross has two halves; numbering them ranks one parent above the other, and the field is there to name the other half, not a runner-up. A recognised value gets a quiet "Esa la conocemos" confirmation, never a warning for being off-list.
 
 ### Inputs / Fields
 
-- **Style:** Fjord Slate fill, Hairline Frost 1px border, 12px radius, 16px horizontal / 12px vertical padding, `text-primary` value text, **`text-tertiary` placeholder**. Not `text-muted`: that measured 3.58:1 on the input fill and failed WCAG AA, on the one element that carried the required date format. `text-tertiary` measures 6.64:1 and still reads as a hint.
+- **Style:** Fjord Slate fill, Hairline Frost 1px border, 12px radius, 16px horizontal / 12px vertical padding, `text-primary` value text, **`text-tertiary` placeholder**.
+- **Horizontal padding is physical (`pl-4 pr-4`), not logical (`px-4`).** On a `TextInput`, Tailwind's `px-*` compiles to `padding-inline`, which React Native honours on a `View` but drops on Android's text input: measured, the placeholder sat 4.9dp from the border instead of 16dp, so text on device was flush against the edge while the browser looked right. `py-*` (`padding-block`) is unaffected. Not `text-muted`: that measured 3.58:1 on the input fill and failed WCAG AA, on the one element that carried the required date format. `text-tertiary` measures 6.64:1 and still reads as a hint.
 - **Focus:** not yet defined — no distinct focus treatment exists apart from the resting style.
 - **Validate on submit, forgive on input.** An error appears only when the tutor submits, and clears the moment its own field becomes valid — no blur required. It is never raised mid-typing for a field they have not finished, and clearing walks the errors already on screen rather than re-validating everything, so it can run on every keystroke without conjuring new ones.
-- **Error / Disabled:** `TextField` accepts a per-field `error`, which swaps the resting hairline for `border-error` and renders the message below the input as a polite live region. Screens have not adopted it yet — onboarding still shows one error block below all its groups, which is why it reveals a single error per submit. The slot exists; wiring it up is pending.
+- **Error / Disabled:** `TextField` accepts a per-field `error`, which swaps the resting hairline for `border-error` and renders the message below the input as a polite live region. Onboarding uses it: every failing field is marked at once, its label's asterisk turns `error` red, and the screen scrolls to the first one only when that field is off screen. No disabled input style exists yet — nothing in the app disables a field.
 
 ### Celebration
+
 A one-shot confetti fall over the whole app: 44 pieces, half round and half tumbling squares, staggered over 700ms and falling for 2.2s with a horizontal drift and a rotation. `pointerEvents="none"` throughout, so it never intercepts a tap on the screen it falls over. Hosted above the navigator, like the toast and for the same reason: the screen that earns a celebration is the screen that navigates away.
+
 - **It degrades to nothing.** Under the system "remove animations" setting the component renders `null`. Confetti carries no information, so there is nothing to preserve when motion is off — unlike a button's status icon, which still appears and merely stops zooming. That is the line: motion may enhance a state change, never be the only thing communicating it.
 - **Palette:** Ice Blue Glacial, Aqua Glaciar, Success Green and Snow White. Error Red is left out; a celebration does not throw warnings. **This is the one place a Nordic Ice colour appears as decoration**, and it is a narrow, deliberate exception to The One Accent Rule rather than an oversight — every colour here is role-scoped to something interactive, so any confetti would break some rule. It is scoped to a moment that happens once in an account's life.
 - **Reserved for exactly that moment.** Registering the pet runs once per account in v0, which is what stops the effect becoming the repeated noise that usually ruins one. Do not reach for it on an ordinary save.
 
 ### Toast
+
 A transient message that floats above the whole app, in four variants: **success**, **warning**, **error**, **info**.
+
 - **Surface:** Elevated Frost fill, one tonal step above content, with a 1px border in the status colour and a 12px radius. **No shadow** — the toast earns its separation the way every raised surface here does, by moving up a tonal step (The Flat-By-Default Rule). This is the first component that genuinely needed to float, and it did not need a shadow to do it.
 - **Anatomy:** a 20px status icon, the message in `text-primary` (13.35:1 on the fill, so legibility never depends on the status hue), and either an action or a dismiss control.
 - **Every variant has its own icon** — `CircleCheck`, `TriangleAlert`, `CircleAlert`, `Info` — which is what satisfies the rule against communicating state by colour alone. Status colours measure 6.42:1, 6.81:1, 3.89:1 and 3.98:1 against the fill, all clear of the 3:1 needed for a non-text indicator.
@@ -279,6 +298,7 @@ Icons arrived with the checkbox and the date field; before that the app had none
 **Sizes in use:** 16px inside the 24px checkbox (at `strokeWidth` 3, so it holds up at that size), 18px as a field suffix, 20px for the sheet dismiss (`X`).
 
 ### Named Rules
+
 **The No-Glyph Rule.** An icon is never a Unicode character. Outfit's charset does not cover the symbol ranges, so a glyph silently falls back to another typeface and breaks The One Family Rule — which is exactly what the old `♂`/`♀` sex chips did, in the middle of the form. Those are now the words "Macho" and "Hembra".
 
 ## Do's and Don'ts
@@ -289,10 +309,10 @@ Icons arrived with the checkbox and the date field; before that the app had none
 - **Do** express state (selected, active) through a tonal step (Elevated Frost) and the accent border, never a shadow.
 - **Do** keep Outfit as the only typeface; differentiate by weight and size.
 - **Do** mark an optional field as optional. Nothing marked required works better here than asterisks everywhere: the required fields lead the form, and only the skippable ones carry the word. It is also the honest thing to do — a tutor is entitled to know which data they can decline to give.
-- **Do** make every animation optional. Android's "remove animations" setting is honoured through `useReducedMotion()`, and the rule is that motion may only ever *enhance* a state change, never be the only thing that communicates it: the button's status icon still appears when motion is off, it simply does not zoom. This binds anything decorative added later — a celebration effect included: it must degrade to nothing, not to a broken half-animation.
-- **Do** scroll the *first* error into view on submit, in visual order rather than the order the validator reported them, and only when the field is not already on screen — moving the view for a field the tutor can already see costs them their place. Defer it a frame: scrolling in the same tick as the error state scrolls the pre-error layout, and the browser's scroll anchoring then cancels it.
+- **Do** make every animation optional. Android's "remove animations" setting is honoured through `useReducedMotion()`, and the rule is that motion may only ever _enhance_ a state change, never be the only thing that communicates it: the button's status icon still appears when motion is off, it simply does not zoom. This binds anything decorative added later — a celebration effect included: it must degrade to nothing, not to a broken half-animation.
+- **Do** scroll the _first_ error into view on submit, in visual order rather than the order the validator reported them, and only when the field is not already on screen — moving the view for a field the tutor can already see costs them their place. Defer it a frame: scrolling in the same tick as the error state scrolls the pre-error layout, and the browser's scroll anchoring then cancels it.
 - **Do** confirm a write. Every CRUD action owes the user a visible result: the button's own check or alert for the press, and a toast for what actually happened to their data. A screen that navigates on success without a word leaves the tutor guessing whether the thing they came to do worked.
-- **Do** pair a confirmation with the action that triggered it. "¡Vamos, Loki!" is answered by "¡Loki ya está contigo!" — a recall, the call on a walk and the dog arriving. The pair makes the feedback read as an *answer* rather than a log line, and it draws on the product's own world instead of borrowed charm. Write the two together or they drift apart.
+- **Do** pair a confirmation with the action that triggered it. "¡Vamos, Loki!" is answered by "¡Loki ya está contigo!" — a recall, the call on a walk and the dog arriving. The pair makes the feedback read as an _answer_ rather than a log line, and it draws on the product's own world instead of borrowed charm. Write the two together or they drift apart.
 - **Do** let a control explain itself. Ticking "Aproximado" turns the picker into month and year; that demonstration replaces the sentence that would have described it.
 - **Do** use `text-on-accent` for any text on an Ice Blue Glacial surface — never `text-base`, which is Tailwind's font-size utility, not a color, and silently produces no text color at all.
 - **Do** resolve every color through a Nordic Ice token; a raw hex value in a component `className` is a defect, not a shortcut (enforced in `AGENTS.md`).
@@ -305,7 +325,7 @@ Icons arrived with the checkbox and the date field; before that the app had none
 - **Don't** let wit cost an error its clarity. The voice may reach a failure — "Parece que Loki no contesta a su nombre… ¡vuelve a intentarlo!" keeps the recall metaphor the button opened — but only while the way out stays explicit and the message persists until the user acts on it. The test is not tone, it is whether the tutor knows what to do next. Two shapes that pass it: a question where a rule would do ("¿Cómo se llama?" for an empty field, "¿Aún no ha nacido?" for a future date, which treats a slip as the slip it almost always is), and taking responsibility when the fault is ours ("Algo ha ido mal por nuestro lado").
 - **Don't** put the voice in a label. Field labels, chips, month names and dismiss controls stay literal: a label's whole job is to be read instantly, and personality there costs legibility for nothing. The voice belongs in headlines, primary actions, confirmations and empty states.
 - **Don't** name an internal plan in user-facing copy. An empty state says what will appear here in the tutor's terms, not what the roadmap calls it.
-- **Don't** write a sentence where an intuitive control would do. The average reader skips body copy, so explanatory text is not documentation — it is clutter that pushes the real controls down. Detail a genuinely interested user might want should be *reachable*, not placed in everyone's way.
+- **Don't** write a sentence where an intuitive control would do. The average reader skips body copy, so explanatory text is not documentation — it is clutter that pushes the real controls down. Detail a genuinely interested user might want should be _reachable_, not placed in everyone's way.
 - **Don't** explain a collapsed or inactive block from the outside. Describing what sits behind "Rellenar más datos" charges cognitive load to every reader, including the majority who will never open it. The explanation belongs inside, once the block is open.
 - **Don't** state what the context already carries. A screen inside a pet app, asking for a pet's details, does not need a sentence announcing that it is asking for a pet's details.
 - **Don't** reach for platform-native components (Material 3 FABs, Material filled text fields, Android date-picker dialogs — or their iOS equivalents) to satisfy per-OS conformance. Being an Android app does not make Material 3 the house style: Nordic Ice is deliberately one uniform world. Adapt it to Android's physical constraints; don't replace it with Android's native kit.
