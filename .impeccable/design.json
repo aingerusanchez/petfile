@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-08T13:05:24Z",
+  "generatedAt": "2026-09-08T16:53:58Z",
   "title": "Design System: Petlife",
   "extensions": {
     "colorMeta": {
@@ -146,7 +146,7 @@
       "Don't write a sentence where an intuitive control would do; explanatory text the average reader skips is clutter, and extra detail should be reachable rather than in everyone's way.",
       "Don't explain a collapsed or inactive block from the outside \u2014 that is cognitive load charged to every reader, including the majority who never open it.",
       "Don't state what the context already carries.",
-      "Don't let the warm voice reach an error \u2014 a failure must be unambiguous before it is friendly.",
+      "Don't let wit cost an error its clarity. The voice may reach a failure while the way out stays explicit; the test is whether the tutor knows what to do next.",
       "Don't put the voice in a label; structural text stays literal.",
       "Don't reach for platform-native components (Material 3 FABs, Material filled text fields, Android date-picker dialogs) to satisfy per-OS conformance. Being an Android app does not make Material 3 the house style."
     ]

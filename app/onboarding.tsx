@@ -192,7 +192,12 @@ export default function Onboarding() {
       // away on a timer.
       toast.show({
         variant: "error",
-        message: failure ?? `No hemos podido guardar a ${petName}.`,
+        // The failure stays inside the recall metaphor the button opened, and
+        // the retry keeps it actionable — a joke that left the tutor without a
+        // way forward would not be worth the charm.
+        message:
+          failure ??
+          `Parece que ${petName} no contesta a su nombre... ¡vuelve a intentarlo!`,
         persist: true,
         action: { label: "Reintentar", onPress: () => void submit() },
       });
@@ -224,8 +229,13 @@ export default function Onboarding() {
 
   return (
     <Screen scroll>
+      {/* "Compi" over "mascota": the animal is someone the tutor lives with,
+          not something they own. The emoji is a deliberate fallback to the
+          system emoji font, which is a different thing from The No-Glyph Rule
+          — that bans text glyphs expected to match Outfit, like the ♂/♀ the
+          sex chips used to carry. */}
       <Text className="mb-8 text-3xl font-bold text-text-primary">
-        ¿Quién vive contigo?
+        Cuéntanos sobre tu compi 😊
       </Text>
 
       {/* Everything visible at start lives in one group on purpose: the tutor
@@ -393,6 +403,15 @@ export default function Onboarding() {
           testID="onboarding-submit"
           variant="primary"
           label={submitLabel}
+          successLabel="¡Ya estáis dentro!"
+          // Two different failures reach the same button, so it says which:
+          // fields left blank, or a write that did not go through. The toast
+          // carries the detail for the second; this is the headline.
+          errorLabel={
+            Object.keys(fieldErrors).length > 0
+              ? "Faltan datos por rellenar"
+              : "No se ha podido guardar"
+          }
           onPress={submit}
         />
       </View>

@@ -23,6 +23,14 @@ type ButtonProps = {
   variant?: ButtonVariant;
   /** Leading icon. Ignored while the button is showing a status. */
   icon?: LucideIcon;
+  /**
+   * What the button says once the action resolved. The icon alone is a signal,
+   * not an explanation — a red button with a warning glyph tells the user
+   * something is wrong but not what, and the screen's own rule is that an icon
+   * is never a reason. The caller knows which failure it was, so it names it.
+   */
+  successLabel?: string;
+  errorLabel?: string;
   disabled?: boolean;
   testID?: string;
 };
@@ -52,6 +60,8 @@ export function Button({
   onPress,
   variant = "secondary",
   icon: Icon,
+  successLabel = "¡Listo!",
+  errorLabel = "Algo no ha salido bien",
   disabled = false,
   testID,
 }: ButtonProps) {
@@ -142,15 +152,19 @@ export function Button({
         <Animated.View
           testID={testID ? `${testID}-success` : undefined}
           entering={reduceMotion ? undefined : ZoomIn.duration(220)}
+          className="flex-row items-center gap-2"
         >
           <Check size={20} strokeWidth={3} color={iconColor} />
+          <Text className={labelClass}>{successLabel}</Text>
         </Animated.View>
       ) : status === "error" ? (
         <Animated.View
           testID={testID ? `${testID}-error` : undefined}
           entering={reduceMotion ? undefined : ZoomIn.duration(220)}
+          className="flex-row items-center gap-2"
         >
           <CircleAlert size={20} strokeWidth={2.5} color={iconColor} />
+          <Text className={labelClass}>{errorLabel}</Text>
         </Animated.View>
       ) : (
         <>

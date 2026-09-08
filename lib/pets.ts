@@ -41,7 +41,7 @@ export function validatePetDraft(
   // relaxing it here alone produces a save the database rejects. Revisit
   // together with that migration, not before.
   if (!draft.sex) {
-    errors.sex = "¿Macho o hembra?";
+    errors.sex = "¿Cómo se identifica?";
   }
 
   // The birth date is required, unlike the fields that only matter once a
@@ -60,9 +60,9 @@ export function validatePetDraft(
       if (Number.isNaN(parsed.getTime())) {
         errors.birthDate = "Esa fecha no existe";
       } else if (parsed.getTime() > today.getTime()) {
-        // Warmer than "la fecha no puede ser futura", and it names the actual
-        // problem more precisely than a rule about valid ranges does.
-        errors.birthDate = "Todavía no ha nacido";
+        // A question treats a future date as the slip it almost always is,
+        // rather than as a rule the tutor broke.
+        errors.birthDate = "¿Aún no ha nacido?";
       }
     }
   }
