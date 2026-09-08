@@ -35,6 +35,18 @@ type CheckboxProps = {
  * not cover the check characters, so a glyph would silently fall back to
  * another typeface and break The One Family Rule.
  */
+/**
+ * The box's side, and the label's line height.
+ *
+ * A literal, and both from the same constant, because the two only share a
+ * centre while they are the same height — and neither can be expressed as a
+ * class here. Tailwind's `h-6` is rem-based, which the native compiler
+ * resolves to 21 rather than 24, and `leading-6` reaches native as a
+ * `calc()`, which that compiler warns on and discards: measured on device,
+ * every `leading-*` class was inert and the label rode 2dp above the box.
+ */
+const BOX = 24;
+
 export function Checkbox({
   label,
   checked,
@@ -59,7 +71,8 @@ export function Checkbox({
           to the control rather than a fresh arbitrary value. Recorded in
           DESIGN.md > Shapes. */}
       <View
-        className={`h-6 w-6 items-center justify-center rounded-md border ${
+        style={{ width: BOX, height: BOX }}
+        className={`items-center justify-center rounded-md border ${
           checked
             ? "border-accent-primary bg-accent-primary"
             : "border-border-strong bg-surface"
@@ -70,12 +83,15 @@ export function Checkbox({
         ) : null}
       </View>
       <View className="flex-1">
-        {/* leading-6 matches the 24px box, so the label's first line and the
-            box share a centre. Without it the line box is the font's own
-            height and `items-start` leaves the text riding high — visible on
-            device, where the default line height is tighter than the web's. */}
+        {/* The row is items-start so the box stays level with the first line
+            when the label wraps or a hint follows; a line box the same height
+            as the box is what puts the two on one centre. What remains is the
+            font's own asymmetry — the ink sits 2.5 physical px (0.8dp) above
+            the centre on device — which is below perceptibility and not worth
+            a magic offset. */}
         <Text
-          className={`leading-6 text-text-primary${checked ? " font-semibold" : ""}`}
+          style={{ lineHeight: BOX }}
+          className={`text-text-primary${checked ? " font-semibold" : ""}`}
         >
           {label}
         </Text>
