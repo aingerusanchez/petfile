@@ -5,8 +5,8 @@ import { PLACEHOLDER_COLOR } from "./tokens";
 
 type TextFieldProps = Omit<TextInputProps, "className" | "placeholderTextColor"> & {
   label: string;
-  /** Marks the field as not required, rendered as a word beside the label. */
-  optional?: boolean;
+  /** Marks the field as one that blocks a save. */
+  required?: boolean;
   /** Per-field validation message. Renders below the input and drives the error border. */
   error?: string | null;
   className?: string;
@@ -34,7 +34,7 @@ type TextFieldProps = Omit<TextInputProps, "className" | "placeholderTextColor">
  */
 export function TextField({
   label,
-  optional = false,
+  required = false,
   error = null,
   className = "mb-5",
   ...inputProps
@@ -43,7 +43,7 @@ export function TextField({
 
   return (
     <View className={className}>
-      <FieldLabel nativeID={labelID} optional={optional}>
+      <FieldLabel nativeID={labelID} required={required}>
         {label}
       </FieldLabel>
       <TextInput

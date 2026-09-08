@@ -249,6 +249,7 @@ export default function Onboarding() {
         <TextField
           testID="onboarding-name"
           label="Nombre"
+          required
           value={draft.name}
           onChangeText={(name) => setDraft((d) => ({ ...d, name }))}
           placeholder="Loki"
@@ -260,7 +261,7 @@ export default function Onboarding() {
         />
 
         <FieldLabel>Sexo</FieldLabel>
-        <ChipGroup label="Sexo" className={fieldErrors.sex ? "mb-2" : "mb-5"}>
+        <ChipGroup label="Sexo" className="mb-5">
           {(
             [
               { value: "male", label: "Macho", icon: Mars },
@@ -277,19 +278,10 @@ export default function Onboarding() {
             />
           ))}
         </ChipGroup>
-        {fieldErrors.sex ? (
-          <Text
-            testID="onboarding-sex-error"
-            accessibilityLiveRegion="polite"
-            className="mb-5 text-xs text-error"
-          >
-            {fieldErrors.sex}
-          </Text>
-        ) : null}
-
         <DateField
           testID="onboarding-birthdate"
           label="Fecha de nacimiento"
+          required
           value={draft.birthDate}
           onChange={(iso) => setDraft((d) => ({ ...d, birthDate: iso }))}
           approximate={draft.birthDateApproximate}
@@ -307,7 +299,6 @@ export default function Onboarding() {
         <BreedField
           testID="onboarding-breed"
           label="Raza"
-          optional
           value={draft.breedPrimary}
           onChange={(breed) => setDraft((d) => ({ ...d, breedPrimary: breed }))}
           placeholder="Husky Siberiano"
@@ -335,7 +326,6 @@ export default function Onboarding() {
             <BreedField
               testID="onboarding-breed-secondary"
               label="Segunda raza"
-              optional
               value={draft.breedSecondary}
               onChange={(breed) =>
                 setDraft((d) => ({ ...d, breedSecondary: breed }))
@@ -354,7 +344,7 @@ export default function Onboarding() {
           weight and nutrition later — and they arrive at a different moment. */}
       {showOptional ? (
         <Group testID="onboarding-optional" title="Salud y actividad">
-          <FieldLabel optional>¿Esterilizado?</FieldLabel>
+          <FieldLabel>¿Esterilizado?</FieldLabel>
           <ChipGroup label="¿Esterilizado?">
             {(
               [
@@ -376,7 +366,7 @@ export default function Onboarding() {
             ))}
           </ChipGroup>
 
-          <FieldLabel optional>Nivel de actividad</FieldLabel>
+          <FieldLabel>Nivel de actividad</FieldLabel>
           <ChipGroup label="Nivel de actividad">
             {ACTIVITY.map((level) => (
               <Chip

@@ -35,14 +35,15 @@ export function validatePetDraft(
     errors.name = "¿Cómo se llama?";
   }
 
-  // Sex stays required. It was briefly made optional on the reasoning that it
-  // is an identification datum like breed, but `pets.sex` is `not null` in the
-  // initial schema, so the app cannot relax it without a migration — and
-  // relaxing it here alone produces a save the database rejects. Revisit
-  // together with that migration, not before.
-  if (!draft.sex) {
-    errors.sex = "¿Cómo se identifica?";
-  }
+  // Sex is deliberately not required, and neither is breed. Nothing in v0
+  // reads either one: sex becomes useful later for adult-weight estimation in
+  // nutrition and for tracking heat cycles in females, breed for the
+  // percentile weight band. Blocking a registration on data the app cannot yet
+  // use would be asking for it to satisfy a constraint rather than a need.
+  //
+  // Requires `0003_sex_optional.sql`: `pets.sex` was `not null` in the initial
+  // schema, so without that migration this validation passes and the database
+  // rejects the insert.
 
   // The birth date is required, unlike the fields that only matter once a
   // tutor cares about weight or nutrition: many later flows depend on it from

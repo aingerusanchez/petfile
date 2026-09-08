@@ -8,7 +8,7 @@ type BreedFieldProps = {
   label: string;
   value: string | null;
   onChange: (breed: string | null) => void;
-  optional?: boolean;
+  required?: boolean;
   error?: string | null;
   placeholder?: string;
   testID?: string;
@@ -31,7 +31,7 @@ export function BreedField({
   label,
   value,
   onChange,
-  optional = false,
+  required = false,
   error = null,
   placeholder,
   testID,
@@ -44,7 +44,7 @@ export function BreedField({
 
   return (
     <View className="mb-5">
-      <FieldLabel nativeID={labelID} optional={optional}>
+      <FieldLabel nativeID={labelID} required={required}>
         {label}
       </FieldLabel>
 

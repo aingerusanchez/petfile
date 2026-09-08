@@ -73,7 +73,7 @@ type DateFieldProps = {
    * never hand it back, which is what keeps the day grid out of reach.
    */
   approximate?: boolean;
-  optional?: boolean;
+  required?: boolean;
   error?: string | null;
   testID?: string;
 };
@@ -83,7 +83,7 @@ export function DateField({
   value,
   onChange,
   approximate = false,
-  optional = false,
+  required = false,
   error = null,
   testID,
 }: DateFieldProps) {
@@ -120,7 +120,7 @@ export function DateField({
 
   return (
     <View className="mb-5">
-      <FieldLabel optional={optional}>{label}</FieldLabel>
+      <FieldLabel required={required}>{label}</FieldLabel>
 
       <Pressable
         testID={testID}

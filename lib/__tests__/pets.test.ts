@@ -26,8 +26,16 @@ describe("validatePetDraft", () => {
     expect(validatePetDraft({ ...valid, name: "   " }, today)).toHaveProperty("name");
   });
 
-  it("requires a sex", () => {
-    expect(validatePetDraft({ ...valid, sex: null }, today)).toHaveProperty("sex");
+  // Only the name and the birth date block a save. Sex and breed are useful
+  // later (adult-weight estimation, heat-cycle tracking, the percentile weight
+  // band) but nothing in v0 reads them, so requiring them would be asking for
+  // data to satisfy a constraint rather than a need. Needs 0003_sex_optional.
+  it("does not require a sex", () => {
+    expect(validatePetDraft({ ...valid, sex: null }, today)).toEqual({});
+  });
+
+  it("does not require a breed", () => {
+    expect(validatePetDraft({ ...valid, breedPrimary: null }, today)).toEqual({});
   });
 
   it("rejects a birth date in the future", () => {

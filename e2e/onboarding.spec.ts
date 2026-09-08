@@ -50,8 +50,9 @@ test("reports every missing required field at once, beside the field", async ({
 
   await page.getByTestId("onboarding-submit").click();
 
-  // Both required fields report together. The form used to reveal one error
-  // per submit round-trip, rendered below every group.
+  // Both required fields report together, and they are the only two that can:
+  // sex and breed do not block a save. The form used to reveal one error per
+  // submit round-trip, rendered below every group.
   await expect(page.getByTestId("onboarding-name-error")).toBeVisible();
   await expect(page.getByTestId("onboarding-birthdate-error")).toBeVisible();
 });
@@ -172,9 +173,9 @@ test("registers a pet with only the required fields and lands on the day view", 
 
   await page.getByTestId("onboarding-name").fill("Loki");
   await pickExactBirthDate(page);
-  await page.getByTestId("onboarding-sex-male").click();
 
-  // Breed, sterilisation and activity level are left blank on purpose.
+  // Sex, breed, sterilisation and activity level are all left blank on
+  // purpose: a name and a date are the whole requirement.
   await page.getByTestId("onboarding-submit").click();
 
   await expect(page.getByTestId("home-title")).toBeVisible({ timeout: 15_000 });
@@ -191,16 +192,17 @@ test("runs the whole feedback cycle on the primary action", async ({ page }) => 
   await expect(page.getByTestId("onboarding-name-error")).toBeVisible();
 });
 
-test("marks only the skippable field as optional, and gives sex its icons", async ({
+test("marks the two fields that block a save, and nothing else", async ({
   page,
 }) => {
   await seedSession(page);
   await page.goto("/onboarding");
 
-  // Breed is the one visible field the tutor may decline; name, sex and date
-  // are required and carry no marker. Sex was briefly optional too, but the
-  // `not null` column made that a save the database rejects.
-  await expect(page.getByText("opcional")).toHaveCount(1);
+  // Required is what gets marked, not optional: only the name and the birth
+  // date block a save, so those two carry the asterisk and the other visible
+  // fields carry nothing. Everything still reads at the same weight — the
+  // marker says what blocks a save, not what matters.
+  await expect(page.getByText("*", { exact: false })).toHaveCount(2);
   await expect(page.getByTestId("onboarding-sex-male")).toBeVisible();
   await expect(page.getByTestId("onboarding-sex-female")).toBeVisible();
 });
