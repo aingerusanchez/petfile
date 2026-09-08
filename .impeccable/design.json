@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-08T12:38:13Z",
+  "generatedAt": "2026-09-08T12:52:09Z",
   "title": "Design System: Petlife",
   "extensions": {
     "colorMeta": {
@@ -35,7 +35,8 @@
     "motion": [
       { "name": "status-icon-in", "value": "ZoomIn 220ms", "purpose": "A button's check or alert arriving. Skipped entirely under the system remove-animations setting; the icon still appears." },
       { "name": "toast-in", "value": "SlideInDown 240ms", "purpose": "Toast entry, falling back to a fade under reduced motion." },
-      { "name": "toast-out", "value": "SlideOutDown 180ms", "purpose": "Toast exit, falling back to a fade under reduced motion." }
+      { "name": "toast-out", "value": "SlideOutDown 180ms", "purpose": "Toast exit, falling back to a fade under reduced motion." },
+      { "name": "confetti-fall", "value": "2200ms Easing.in(quad), 700ms stagger", "purpose": "The one-shot registration celebration. Renders nothing at all under the system remove-animations setting, because confetti carries no information to preserve." }
     ],
     "breakpoints": []
   },

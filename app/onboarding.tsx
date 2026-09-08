@@ -14,6 +14,7 @@ import {
   LoadingScreen,
   Screen,
   TextField,
+  useCelebration,
   useToast,
 } from "../components/ui";
 import { useAuth } from "../lib/auth";
@@ -36,6 +37,7 @@ export default function Onboarding() {
   const { session, loading } = useAuth();
   const router = useRouter();
   const toast = useToast();
+  const { celebrate } = useCelebration();
   const [draft, setDraft] = useState<PetDraft>({
     name: "",
     sex: null,
@@ -174,6 +176,10 @@ export default function Onboarding() {
         // The toast host lives above the Stack, so this survives the
         // navigation that immediately unmounts this screen — which is the
         // whole reason the flow no longer has to stall to be understood.
+        // Once in an account's life: v0 is single-pet, and onboarding
+        // redirects away for good afterwards. That is what earns the effect —
+        // it can never become the repeated noise that usually ruins one.
+        celebrate();
         toast.show({
           variant: "success",
           message: `${petName} ya está en la app.`,

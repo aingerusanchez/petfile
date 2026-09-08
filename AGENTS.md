@@ -61,6 +61,7 @@ components/ui/            → the design-system primitives every screen composes
   Chip.tsx                → selector chip + ChipGroup (exclusive single-select row)
   Group.tsx               → hairline-outlined form section
   Toast.tsx               → transient message; ToastProvider hosts it above the navigator
+  Celebration.tsx         → one-shot confetti; CelebrationProvider hosts it above the navigator
   Checkbox.tsx            → voluntary boolean flag, unchecked by default
   DateField.tsx           → date display + in-house picker (month+year when approximate)
   BreedField.tsx          → breed combobox: suggests from a list, accepts free text

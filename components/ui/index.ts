@@ -1,6 +1,8 @@
 export { BreedField } from "./BreedField";
 export { Button } from "./Button";
 export { Checkbox } from "./Checkbox";
+export { Celebration } from "./Celebration";
+export { CelebrationProvider, useCelebration } from "./CelebrationProvider";
 export { Chip, ChipGroup } from "./Chip";
 export { DateField } from "./DateField";
 export { FieldLabel } from "./FieldLabel";

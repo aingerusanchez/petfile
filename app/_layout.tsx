@@ -11,7 +11,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { ToastProvider, colors } from "../components/ui";
+import { CelebrationProvider, ToastProvider, colors } from "../components/ui";
 import { AuthProvider } from "../lib/auth";
 
 SplashScreen.preventAutoHideAsync();
@@ -40,13 +40,15 @@ export default function RootLayout() {
         {/* Above the Stack on purpose: a toast rendered by a screen would be
             unmounted by its own success navigation. */}
         <ToastProvider>
-          <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.base },
-            }}
-          />
+          <CelebrationProvider>
+            <StatusBar style="light" />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.base },
+              }}
+            />
+          </CelebrationProvider>
         </ToastProvider>
       </AuthProvider>
     </SafeAreaProvider>

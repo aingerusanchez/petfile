@@ -89,6 +89,7 @@ components/ui/            → primitivos del sistema de diseño que componen las
   Chip.tsx                → chip selector + ChipGroup (fila de selección única)
   Group.tsx               → sección de formulario con contorno hairline
   Toast.tsx               → mensaje transitorio; ToastProvider lo monta sobre el navegador
+  Celebration.tsx         → confeti de un disparo; CelebrationProvider lo monta sobre el navegador
   Checkbox.tsx            → flag booleano voluntario, sin marcar por defecto
   DateField.tsx           → fecha + picker propio (mes+año si es aproximada)
   BreedField.tsx          → combobox de raza: sugiere de una lista, acepta texto libre

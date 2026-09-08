@@ -224,3 +224,22 @@ test("confirms a successful save with a toast that survives the navigation", asy
   await expect(page.getByTestId("toast-success")).toContainText("Loki");
   await expect(page.getByTestId("toast-success-countdown")).toBeVisible();
 });
+
+test("celebrates a successful registration, above the navigator", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/onboarding");
+
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  await page.getByTestId("onboarding-name").fill("Loki");
+  await page.getByTestId("onboarding-sex-male").click();
+  await pickExactBirthDate(page);
+  await page.getByTestId("onboarding-submit").click();
+
+  // Same reason as the toast: it is hosted above the Stack, so it survives the
+  // navigation that unmounts the screen which triggered it.
+  await expect(page.getByTestId("home-title")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("celebration")).toBeVisible();
+});
