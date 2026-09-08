@@ -17,11 +17,11 @@ Después:
 
 ```bash
 pnpm web                 # target web, http://localhost:8081
-pnpm build:android       # dev build nativo (Android) — la plataforma de destino
-pnpm expo run:ios        # dev build nativo (iOS)
+pnpm android             # dev build nativo (Android) — la plataforma de destino
+pnpm ios                 # dev build nativo (iOS)
 ```
 
-El sign-in con Google necesita un dev build nativo (`pnpm build:android` / `expo run:ios`), no Expo Go — el flujo de OAuth usa un redirect de esquema personalizado que Expo Go no soporta. Ver el porqué en [`docs/supabase-setup.md`](docs/supabase-setup.md).
+El sign-in con Google necesita un dev build nativo (`pnpm android` / `pnpm ios`), no Expo Go — el flujo de OAuth usa un redirect de esquema personalizado que Expo Go no soporta. Ver el porqué en [`docs/supabase-setup.md`](docs/supabase-setup.md).
 
 ## Secretos
 
@@ -45,10 +45,9 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 
 | Script            | Descripción                                              |
 | ----------------- | --------------------------------------------------------- |
-| `pnpm start`       | Arranca el servidor de desarrollo de Expo                 |
-| `pnpm android`     | Arranca el servidor de desarrollo apuntando a Android      |
-| `pnpm build:android` | Compila e instala el dev build nativo de Android (`expo run:android`) |
-| `pnpm ios`         | Arranca el servidor de desarrollo apuntando a iOS          |
+| `pnpm start`       | Arranca el servidor de Expo. Pulsa `a` para abrir en un dev build de Android ya instalado |
+| `pnpm android`     | Compila, instala y lanza el dev build nativo de Android (`expo run:android`) |
+| `pnpm ios`         | Compila, instala y lanza el dev build nativo de iOS (`expo run:ios`)        |
 | `pnpm web`         | Arranca el servidor de desarrollo apuntando a web          |
 | `pnpm lint`        | `expo lint` — **actualmente roto** (ver nota abajo)        |
 | `pnpm typecheck`   | `tsc --noEmit` — comprobación de tipos de todo el proyecto |

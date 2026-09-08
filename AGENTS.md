@@ -10,7 +10,9 @@ This file provides guidance to agentic AI tools when working with code in this r
 - Screens must never import `@supabase/supabase-js`. The only import site in app code is `lib/supabase.ts` — `e2e/auth.ts` also uses `createClient` directly, but that is test setup, not app runtime.
 - Conventional Commits for every commit (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `build:`).
 - **v0 auth is Google OAuth only.** Magic links are out of scope for v0. There is **no development-mode auth bypass** — every environment, including local dev, requires a real Google sign-in. Do not add one, and do not write code or docs that imply one exists.
-- **Google OAuth requires a native dev build.** Expo Go cannot handle the custom-scheme redirect this flow needs. `pnpm expo run:ios` / `pnpm expo run:android` produces the dev build; the web target runs under `pnpm web`.
+- **Google OAuth requires a native dev build.** Expo Go cannot handle the custom-scheme redirect this flow needs. `pnpm android` / `pnpm ios` produces the dev build; the web target runs under `pnpm web`.
+- **The Android toolchain needs JDK 17.** A newer JDK fails the CMake configuration tasks with "A restricted method in java.lang.System has been called": JEP 472 escalates native access from an unnamed module to an error from JDK 24 on, and AGP trips it. Gradle 9.3.1 itself supports up to JDK 25, so this is AGP against the JDK rather than a Gradle limit. Point `JAVA_HOME` at a JDK 17.
+- **`android/` and `ios/` are generated and gitignored.** After changing `scheme`, `android.package` or anything else identity-shaped in `app.json`, regenerate with `npx expo prebuild --clean -p android` — an existing directory keeps the old values.
 
 ## Secrets
 
@@ -27,8 +29,10 @@ This file provides guidance to agentic AI tools when working with code in this r
 pnpm install            # install deps (wires the pre-commit hook via `prepare`)
 pnpm start              # expo start
 pnpm web                # expo start --web
-pnpm ios                # expo start --ios (requires a native dev build for Google sign-in)
-pnpm android            # expo start --android (requires a native dev build for Google sign-in)
+pnpm android            # expo run:android — compiles, installs and launches the native dev build
+pnpm ios                # expo run:ios — same for iOS
+                        # `pnpm start` then `a` attaches to an already-installed dev build
+                        # without recompiling. Google sign-in needs one of these, never Expo Go.
 pnpm test               # Jest — pure domain logic (pet validation, RPC mapping)
 pnpm test:e2e           # Playwright end-to-end
 pnpm test:e2e:ui        # Playwright end-to-end, UI mode / trace viewer
