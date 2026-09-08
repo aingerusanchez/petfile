@@ -17,6 +17,7 @@ const draft: PetDraft = {
   name: "Loki",
   sex: "male",
   breedPrimary: "Husky Siberiano",
+  breedSecondary: null,
   isMixed: false,
   birthDate: "2025-09-14",
   birthDateApproximate: false,
@@ -54,6 +55,17 @@ describe("createPet", () => {
     expect(mockRpc).not.toHaveBeenCalled();
     expect(result.petId).toBeNull();
     expect(result.error).toBe("El nombre es obligatorio");
+  });
+
+  it("sends the second breed only when the dog is marked mixed", async () => {
+    mockRpc.mockResolvedValue({ data: { id: "pet-2" }, error: null });
+
+    await createPet({ ...draft, isMixed: true, breedSecondary: "Beagle" });
+
+    expect(mockRpc.mock.calls[0][1].pet).toMatchObject({
+      is_mixed: true,
+      breed_secondary: "Beagle",
+    });
   });
 
   it("surfaces a database error message", async () => {

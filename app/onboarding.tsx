@@ -1,15 +1,29 @@
 import { Redirect, useRouter } from "expo-router";
+import { Mars, Plus, Venus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
+import { Text, View } from "react-native";
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+  BreedField,
+  Button,
+  Checkbox,
+  Chip,
+  ChipGroup,
+  DateField,
+  FieldLabel,
+  Group,
+  LoadingScreen,
+  Screen,
+  TextField,
+  useToast,
+} from "../components/ui";
 import { useAuth } from "../lib/auth";
-import { createPet, getMyPet, type PetDraft } from "../lib/pets";
+import { parseISO, toApproximateISO } from "../lib/dates";
+import {
+  createPet,
+  getMyPet,
+  validatePetDraft,
+  type PetDraft,
+} from "../lib/pets";
 
 const ACTIVITY: PetDraft["activityLevel"][] = ["low", "moderate", "high"];
 const ACTIVITY_LABEL: Record<PetDraft["activityLevel"], string> = {
@@ -21,10 +35,12 @@ const ACTIVITY_LABEL: Record<PetDraft["activityLevel"], string> = {
 export default function Onboarding() {
   const { session, loading } = useAuth();
   const router = useRouter();
+  const toast = useToast();
   const [draft, setDraft] = useState<PetDraft>({
     name: "",
     sex: null,
     breedPrimary: null,
+    breedSecondary: null,
     isMixed: false,
     birthDate: null,
     birthDateApproximate: false,
@@ -36,8 +52,11 @@ export default function Onboarding() {
   // as "untouched" — this flag is what keeps no chip pre-selected until the
   // user actually picks one.
   const [neuteredTouched, setNeuteredTouched] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  // The optional tier stays collapsed by default. Its fields exist to feed
+  // weight tracking and future nutrition guidance, and the intended path is to
+  // ask for each one when a flow that needs it starts — not at signup.
+  const [showOptional, setShowOptional] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [hasPet, setHasPet] = useState<boolean | null>(null);
   const [petCheckError, setPetCheckError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -86,240 +105,289 @@ export default function Onboarding() {
   // duplicate pet) or leave the spinner spinning forever.
   if (petCheckError) {
     return (
-      <View className="flex-1 items-center justify-center bg-base px-6">
-        <Text className="mb-4 text-center text-error">{petCheckError}</Text>
-        <Pressable
-          testID="onboarding-retry"
-          onPress={retry}
-          className="rounded-xl border border-border-strong px-6 py-3"
+      <Screen center>
+        <Text
+          accessibilityLiveRegion="polite"
+          className="mb-5 text-center text-error"
         >
-          <Text className="text-text-secondary">Reintentar</Text>
-        </Pressable>
-      </View>
+          {petCheckError}
+        </Text>
+        <Button testID="onboarding-retry" label="Reintentar" onPress={retry} />
+      </Screen>
     );
   }
 
-  if (loading || (session && hasPet === null)) {
-    return (
-      <View className="flex-1 items-center justify-center bg-base">
-        <ActivityIndicator color="#A5F2F3" />
-      </View>
-    );
-  }
+  if (loading || (session && hasPet === null)) return <LoadingScreen />;
 
   if (!session) return <Redirect href="/login" />;
   if (hasPet) return <Redirect href="/(tabs)" />;
 
-  // A write failure must always surface an error and re-enable the button.
-  // Without the catch, a throw (e.g. the RPC returning no row) left `busy`
-  // stuck on forever: no error, no retry, and the typed-in draft lost.
-  async function submit() {
-    setBusy(true);
-    setError(null);
+  /**
+   * Ticking "only the month and year" rewrites any day already chosen to the
+   * 1st, so the stored value can never carry a day the tutor did not mean.
+   * Unticking leaves the value alone — the picker will ask for a day next.
+   */
+  function setApproximate(next: boolean) {
+    setDraft((d) => {
+      if (!next) return { ...d, birthDateApproximate: false };
+      const parts = parseISO(d.birthDate);
+      return {
+        ...d,
+        birthDateApproximate: true,
+        birthDate: parts
+          ? toApproximateISO(parts.year, parts.month)
+          : d.birthDate,
+      };
+    });
+  }
+
+  /**
+   * Reports its own outcome: `Button` runs the loading state, blocks a second
+   * press for the whole cycle, and shows a check or an alert from what this
+   * resolves to. Throwing counts as failure, so there is no `finally` needed
+   * to unstick a busy flag any more — the button owns that.
+   */
+  async function submit(): Promise<boolean> {
+    // Validate here first so every invalid field gets its own message. Going
+    // straight to createPet would surface one error at a time, at the bottom
+    // of the form, for a field that may be scrolled off-screen.
+    const errors = validatePetDraft(draft);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      // No toast here on purpose: each invalid field already says what is
+      // wrong right where it is wrong, and a toast repeating "revisa el
+      // formulario" would add noise without adding information. The button's
+      // alert icon is the only extra signal needed.
+      // Any invalid field in the collapsed tier must be visible to be fixed.
+      if (errors.spayedNeutered || errors.activityLevel) setShowOptional(true);
+      return false;
+    }
+
+    // The button shows an alert icon on failure, but an icon is not a reason.
+    // A throw has to become a sentence too: `createPet` returns its error for
+    // an expected failure and throws for an unexpected one (an RPC returning
+    // no row, a constraint the app did not anticipate), and letting the throw
+    // escape would leave the user with a red flash and no explanation.
     try {
       const { petId, error: failure } = await createPet(draft);
       if (petId) {
+        // The toast host lives above the Stack, so this survives the
+        // navigation that immediately unmounts this screen — which is the
+        // whole reason the flow no longer has to stall to be understood.
+        toast.show({
+          variant: "success",
+          message: `${petName} ya está en la app.`,
+        });
         router.replace("/(tabs)");
-        return;
+        return true;
       }
-      setError(failure);
+      // A failed write is something the tutor must deal with, not something to
+      // glance at, so it persists and offers the retry rather than draining
+      // away on a timer.
+      toast.show({
+        variant: "error",
+        message: failure ?? "No se pudo guardar la ficha.",
+        persist: true,
+        action: { label: "Reintentar", onPress: () => void submit() },
+      });
+      return false;
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Ha ocurrido un error inesperado",
-      );
-    } finally {
-      setBusy(false);
+      toast.show({
+        variant: "error",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Ha ocurrido un error inesperado",
+        persist: true,
+      });
+      return false;
     }
   }
 
+  /**
+   * The primary action greets the animal by name as soon as there is one.
+   *
+   * It is the only place in the flow where the name is read back to the tutor,
+   * and it turns a generic commit into something that belongs to this app:
+   * "Guardar" could end any form in any product.
+   */
+  const petName = draft.name.trim();
+  const submitLabel = petName ? `¡Vamos ${petName}!` : "Añadir mascota";
+
   return (
-    <ScrollView
-      className="flex-1 bg-base"
-      contentContainerClassName="px-6 py-12"
-    >
+    <Screen scroll>
       <Text className="mb-8 text-3xl font-bold text-text-primary">
         ¿Quién vive contigo?
       </Text>
 
-      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
-        Nombre
-      </Text>
-      <TextInput
-        testID="onboarding-name"
-        value={draft.name}
-        onChangeText={(name) => setDraft((d) => ({ ...d, name }))}
-        placeholder="Loki"
-        placeholderTextColor="#64748B"
-        className="mb-5 rounded-xl border border-border-default bg-surface px-4 py-3 text-text-primary"
-      />
+      {/* Everything visible at start lives in one group on purpose: the tutor
+          should read these as one set of facts about their animal, of equal
+          standing, even though breed is skippable. The tiering shows in what
+          blocks a save and in the `opcional` marker, not in the grouping. */}
+      <Group testID="onboarding-group-main">
+        <TextField
+          testID="onboarding-name"
+          label="Nombre"
+          value={draft.name}
+          onChangeText={(name) => setDraft((d) => ({ ...d, name }))}
+          placeholder="Loki"
+          error={fieldErrors.name}
+          autoCapitalize="words"
+          autoCorrect={false}
+          returnKeyType="next"
+          maxLength={40}
+        />
 
-      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
-        Sexo
-      </Text>
-      <View className="mb-5 flex-row gap-3">
-        {(["male", "female"] as const).map((sex) => (
-          <Pressable
-            key={sex}
-            testID={`onboarding-sex-${sex}`}
-            onPress={() => setDraft((d) => ({ ...d, sex }))}
-            className={`flex-1 items-center rounded-xl border py-3 ${
-              draft.sex === sex
-                ? "border-accent-primary bg-elevated"
-                : "border-border-default bg-surface"
-            }`}
+        <FieldLabel>Sexo</FieldLabel>
+        <ChipGroup label="Sexo" className={fieldErrors.sex ? "mb-2" : "mb-5"}>
+          {(
+            [
+              { value: "male", label: "Macho", icon: Mars },
+              { value: "female", label: "Hembra", icon: Venus },
+            ] as const
+          ).map(({ value, label, icon }) => (
+            <Chip
+              key={value}
+              testID={`onboarding-sex-${value}`}
+              label={label}
+              icon={icon}
+              selected={draft.sex === value}
+              onPress={() => setDraft((d) => ({ ...d, sex: value }))}
+            />
+          ))}
+        </ChipGroup>
+        {fieldErrors.sex ? (
+          <Text
+            testID="onboarding-sex-error"
+            accessibilityLiveRegion="polite"
+            className="mb-5 text-xs text-error"
           >
-            <Text className="text-text-primary">
-              {sex === "male" ? "♂ Macho" : "♀ Hembra"}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+            {fieldErrors.sex}
+          </Text>
+        ) : null}
 
-      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
-        Raza
-      </Text>
-      <TextInput
-        testID="onboarding-breed"
-        value={draft.breedPrimary ?? ""}
-        onChangeText={(value) =>
-          setDraft((d) => ({ ...d, breedPrimary: value || null }))
-        }
-        placeholder="Husky Siberiano"
-        placeholderTextColor="#64748B"
-        className="mb-5 rounded-xl border border-border-default bg-surface px-4 py-3 text-text-primary"
-      />
+        <DateField
+          testID="onboarding-birthdate"
+          label="Fecha de nacimiento"
+          value={draft.birthDate}
+          onChange={(iso) => setDraft((d) => ({ ...d, birthDate: iso }))}
+          approximate={draft.birthDateApproximate}
+          error={fieldErrors.birthDate}
+        />
+        <View className="mb-5 -mt-3">
+          <Checkbox
+            testID="onboarding-birthdate-approx"
+            label="Aproximado"
+            checked={draft.birthDateApproximate}
+            onChange={setApproximate}
+          />
+        </View>
 
-      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
-        ¿Es mestizo?
-      </Text>
-      <View className="mb-5 flex-row gap-3">
-        {(
-          [
-            { value: false, label: "No" },
-            { value: true, label: "Sí" },
-          ] as const
-        ).map(({ value, label }) => (
-          <Pressable
-            key={String(value)}
-            testID={`onboarding-mixed-${value ? "yes" : "no"}`}
-            onPress={() => setDraft((d) => ({ ...d, isMixed: value }))}
-            className={`flex-1 items-center rounded-xl border py-3 ${
-              draft.isMixed === value
-                ? "border-accent-primary bg-elevated"
-                : "border-border-default bg-surface"
-            }`}
-          >
-            <Text className="text-text-primary">{label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
-        Fecha de nacimiento
-      </Text>
-      <TextInput
-        testID="onboarding-birthdate"
-        value={draft.birthDate ?? ""}
-        onChangeText={(value) =>
-          setDraft((d) => ({ ...d, birthDate: value || null }))
-        }
-        placeholder="AAAA-MM-DD"
-        placeholderTextColor="#64748B"
-        className="mb-5 rounded-xl border border-border-default bg-surface px-4 py-3 text-text-primary"
-      />
-
-      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
-        ¿Fecha aproximada?
-      </Text>
-      <View className="mb-5 flex-row gap-3">
-        {(
-          [
-            { value: false, label: "No" },
-            { value: true, label: "Sí" },
-          ] as const
-        ).map(({ value, label }) => (
-          <Pressable
-            key={String(value)}
-            testID={`onboarding-birthdate-approx-${value ? "yes" : "no"}`}
-            onPress={() =>
-              setDraft((d) => ({ ...d, birthDateApproximate: value }))
+        <BreedField
+          testID="onboarding-breed"
+          label="Raza"
+          optional
+          value={draft.breedPrimary}
+          onChange={(breed) => setDraft((d) => ({ ...d, breedPrimary: breed }))}
+          placeholder="Husky Siberiano"
+          error={fieldErrors.breedPrimary}
+        />
+        <View className="-mt-3">
+          <Checkbox
+            testID="onboarding-mixed"
+            label="Es mestizo"
+            checked={draft.isMixed}
+            onChange={(isMixed) =>
+              setDraft((d) => ({
+                ...d,
+                isMixed,
+                // Clear the second breed when the flag comes back off, so the
+                // record can never claim a cross it is no longer marked for.
+                breedSecondary: isMixed ? d.breedSecondary : null,
+              }))
             }
-            className={`flex-1 items-center rounded-xl border py-3 ${
-              draft.birthDateApproximate === value
-                ? "border-accent-primary bg-elevated"
-                : "border-border-default bg-surface"
-            }`}
-          >
-            <Text className="text-text-primary">{label}</Text>
-          </Pressable>
-        ))}
+          />
+        </View>
+
+        {draft.isMixed ? (
+          <View className="mt-3">
+            <BreedField
+              testID="onboarding-breed-secondary"
+              label="Segunda raza"
+              optional
+              value={draft.breedSecondary}
+              onChange={(breed) =>
+                setDraft((d) => ({ ...d, breedSecondary: breed }))
+              }
+              placeholder="Pastor Alemán"
+              error={fieldErrors.breedSecondary}
+            />
+          </View>
+        ) : (
+          <View className="mb-4" />
+        )}
+      </Group>
+
+      {/* The deferrable fields get their own group rather than joining the one
+          above: they are a different kind of fact — what the app will use for
+          weight and nutrition later — and they arrive at a different moment. */}
+      {showOptional ? (
+        <Group testID="onboarding-optional" title="Salud y actividad">
+          <FieldLabel optional>¿Esterilizado?</FieldLabel>
+          <ChipGroup label="¿Esterilizado?">
+            {(
+              [
+                { value: true, label: "Sí", testId: "yes" },
+                { value: false, label: "No", testId: "no" },
+                { value: null, label: "No sé", testId: "unknown" },
+              ] as const
+            ).map(({ value, label, testId }) => (
+              <Chip
+                key={testId}
+                testID={`onboarding-neutered-${testId}`}
+                label={label}
+                selected={neuteredTouched && draft.spayedNeutered === value}
+                onPress={() => {
+                  setNeuteredTouched(true);
+                  setDraft((d) => ({ ...d, spayedNeutered: value }));
+                }}
+              />
+            ))}
+          </ChipGroup>
+
+          <FieldLabel optional>Nivel de actividad</FieldLabel>
+          <ChipGroup label="Nivel de actividad">
+            {ACTIVITY.map((level) => (
+              <Chip
+                key={level}
+                testID={`onboarding-activity-${level}`}
+                label={ACTIVITY_LABEL[level]}
+                selected={draft.activityLevel === level}
+                onPress={() =>
+                  setDraft((d) => ({ ...d, activityLevel: level }))
+                }
+              />
+            ))}
+          </ChipGroup>
+        </Group>
+      ) : (
+        <Button
+          testID="onboarding-more"
+          variant="link"
+          icon={Plus}
+          label="Añadir salud y actividad"
+          onPress={() => setShowOptional(true)}
+        />
+      )}
+
+      <View className="mt-10">
+        <Button
+          testID="onboarding-submit"
+          variant="primary"
+          label={submitLabel}
+          onPress={submit}
+        />
       </View>
-
-      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
-        ¿Esterilizado?
-      </Text>
-      <View className="mb-5 flex-row gap-3">
-        {(
-          [
-            { value: true, label: "Sí", testId: "yes" },
-            { value: false, label: "No", testId: "no" },
-            { value: null, label: "No sé", testId: "unknown" },
-          ] as const
-        ).map(({ value, label, testId }) => (
-          <Pressable
-            key={testId}
-            testID={`onboarding-neutered-${testId}`}
-            onPress={() => {
-              setNeuteredTouched(true);
-              setDraft((d) => ({ ...d, spayedNeutered: value }));
-            }}
-            className={`flex-1 items-center rounded-xl border py-3 ${
-              neuteredTouched && draft.spayedNeutered === value
-                ? "border-accent-primary bg-elevated"
-                : "border-border-default bg-surface"
-            }`}
-          >
-            <Text className="text-text-primary">{label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text className="mb-2 text-xs font-semibold uppercase text-text-tertiary">
-        Nivel de actividad
-      </Text>
-      <View className="mb-8 flex-row gap-3">
-        {ACTIVITY.map((level) => (
-          <Pressable
-            key={level}
-            testID={`onboarding-activity-${level}`}
-            onPress={() => setDraft((d) => ({ ...d, activityLevel: level }))}
-            className={`flex-1 items-center rounded-xl border py-3 ${
-              draft.activityLevel === level
-                ? "border-accent-primary bg-elevated"
-                : "border-border-default bg-surface"
-            }`}
-          >
-            <Text className="text-text-primary">{ACTIVITY_LABEL[level]}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {error ? (
-        <Text testID="onboarding-error" className="mb-3 text-error">
-          {error}
-        </Text>
-      ) : null}
-
-      <Pressable
-        testID="onboarding-submit"
-        disabled={busy}
-        onPress={submit}
-        className="items-center rounded-xl bg-accent-primary py-4"
-      >
-        <Text className="font-semibold text-on-accent">
-          {busy ? "Guardando..." : "Guardar"}
-        </Text>
-      </Pressable>
-    </ScrollView>
+    </Screen>
   );
 }
