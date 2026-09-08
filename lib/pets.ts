@@ -18,7 +18,15 @@ export type PetDraft = {
   birthDate: string | null;
   birthDateApproximate: boolean;
   spayedNeutered: boolean | null;
-  activityLevel: "low" | "moderate" | "high";
+  /**
+   * Null until the tutor chooses. It used to default to "moderate", which the
+   * database then stored as if it had been answered — the same failure the
+   * `spayedNeutered` tri-state exists to avoid. Requires
+   * `0004_activity_level_optional.sql`: without it the column is
+   * `not null default 'moderate'` and the RPC coalesces a missing value, so a
+   * null here still lands as "moderate".
+   */
+  activityLevel: "low" | "moderate" | "high" | null;
 };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;

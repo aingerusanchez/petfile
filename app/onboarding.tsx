@@ -27,12 +27,44 @@ import {
   type PetDraft,
 } from "../lib/pets";
 
-const ACTIVITY: PetDraft["activityLevel"][] = ["low", "moderate", "high"];
-const ACTIVITY_LABEL: Record<PetDraft["activityLevel"], string> = {
-  low: "Bajo",
-  moderate: "Moderado",
-  high: "Alto",
-};
+type ActivityLevel = NonNullable<PetDraft["activityLevel"]>;
+
+/**
+ * Each level carries a line the tutor can hold against their own dog.
+ *
+ * The point is contrast, not instruction: "Moderado" means nothing on its own,
+ * and a tutor guessing between three abstractions will pick the middle one —
+ * which is exactly the fabricated "moderate" this field used to record by
+ * default. A concrete walk count is checkable in a second.
+ *
+ * The numbers are pitched at what most breeds and ages actually get in Spain:
+ * two or three walks a day is the norm, not the high end, so "moderado" sits
+ * there rather than above three. The voice is plural — the tutor and the dog
+ * go out together.
+ */
+const ACTIVITY: {
+  value: ActivityLevel;
+  /** The chip label: the scale itself, short enough for a 3-up row. */
+  label: string;
+  /** Shown only for the chosen option, below the row. */
+  hint: string;
+}[] = [
+  {
+    value: "low",
+    label: "Bajo",
+    hint: "😴 Dormilón. Salimos una o dos veces al día, paseos cortos. Con eso va servido.",
+  },
+  {
+    value: "moderate",
+    label: "Moderado",
+    hint: "🎾 Juguetón. Dos o tres paseos, alguno de media hora, y jugamos un rato.",
+  },
+  {
+    value: "high",
+    label: "Alto",
+    hint: "💪 Incansable. Tres o más paseos largos, o alguno de una hora. Necesita quemar.",
+  },
+];
 
 export default function Onboarding() {
   const { session, loading } = useAuth();
@@ -48,7 +80,9 @@ export default function Onboarding() {
     birthDate: null,
     birthDateApproximate: false,
     spayedNeutered: null,
-    activityLevel: "moderate",
+    // Null, not "moderate": a pre-selected default is indistinguishable from
+    // an answer, and this feeds weight and nutrition later.
+    activityLevel: null,
   });
   // spayedNeutered is a true boolean | null tri-state where null is itself a
   // legitimate answer ("no lo sé"), so the draft's initial null can't double
@@ -488,19 +522,28 @@ export default function Onboarding() {
           </ChipGroup>
 
           <FieldLabel>Nivel de actividad</FieldLabel>
-          <ChipGroup label="Nivel de actividad">
-            {ACTIVITY.map((level) => (
+          <ChipGroup label="Nivel de actividad" className="mb-2">
+            {ACTIVITY.map(({ value, label }) => (
               <Chip
-                key={level}
-                testID={`onboarding-activity-${level}`}
-                label={ACTIVITY_LABEL[level]}
-                selected={draft.activityLevel === level}
+                key={value}
+                testID={`onboarding-activity-${value}`}
+                label={label}
+                selected={draft.activityLevel === value}
                 onPress={() =>
-                  setDraft((d) => ({ ...d, activityLevel: level }))
+                  setDraft((d) => ({ ...d, activityLevel: value }))
                 }
               />
             ))}
           </ChipGroup>
+          {/* One hint at a time, for the chosen option only. Printing all
+              three at once explains in bulk what the tutor has not chosen,
+              which is the load this app deliberately does not charge. With
+              nothing chosen the line invites a choice rather than describing
+              options that are not active. */}
+          <Text testID="onboarding-activity-hint" className="mb-5 text-xs text-text-tertiary">
+            {ACTIVITY.find((a) => a.value === draft.activityLevel)?.hint ??
+              "Elige el que más se parezca a vuestro día a día."}
+          </Text>
         </Group>
       ) : (
         <Button

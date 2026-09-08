@@ -68,6 +68,16 @@ describe("createPet", () => {
     });
   });
 
+  it("sends a null activity level rather than inventing one", async () => {
+    mockRpc.mockResolvedValue({ data: { id: "pet-3" }, error: null });
+
+    await createPet({ ...draft, activityLevel: null });
+
+    // The RPC used to coalesce a missing value to "moderate", so an untouched
+    // selector was stored as if answered. 0004 removed that.
+    expect(mockRpc.mock.calls[0][1].pet.activity_level).toBeNull();
+  });
+
   it("surfaces a database error message", async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: "not authenticated" } });
 

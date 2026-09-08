@@ -34,6 +34,10 @@ describe("validatePetDraft", () => {
     expect(validatePetDraft({ ...valid, sex: null }, today)).toEqual({});
   });
 
+  it("does not require an activity level", () => {
+    expect(validatePetDraft({ ...valid, activityLevel: null }, today)).toEqual({});
+  });
+
   it("does not require a breed", () => {
     expect(validatePetDraft({ ...valid, breedPrimary: null }, today)).toEqual({});
   });

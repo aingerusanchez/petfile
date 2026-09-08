@@ -367,6 +367,29 @@ test("keeps the generated sitemap in development", async ({ page }) => {
   await expect(page.getByText("System Information")).toBeVisible();
 });
 
+test("shows a hint only for the chosen activity level, and preselects none", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/onboarding");
+  await page.getByTestId("onboarding-more").click();
+
+  // Nothing preselected: a default here used to be stored as if answered.
+  const hint = page.getByTestId("onboarding-activity-hint");
+  await expect(hint).toContainText("Elige el que más se parezca");
+  await expect(hint).not.toContainText("Dormilón");
+  await expect(hint).not.toContainText("Incansable");
+
+  // One hint at a time, for the chosen option only.
+  await page.getByTestId("onboarding-activity-low").click();
+  await expect(hint).toContainText("Dormilón");
+  await expect(hint).not.toContainText("Incansable");
+
+  await page.getByTestId("onboarding-activity-high").click();
+  await expect(hint).toContainText("Incansable");
+  await expect(hint).not.toContainText("Dormilón");
+});
+
 test("offers Google sign-in as an outlined button carrying the brand mark", async ({
   page,
 }) => {
