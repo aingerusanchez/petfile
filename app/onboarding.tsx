@@ -336,7 +336,7 @@ export default function Onboarding() {
         {/* The space before the emoji is a non-breaking one (U+00A0). With an
             ordinary space the headline wrapped between "compi" and the emoji,
             leaving it orphaned on a line of its own. */}
-        {"Cuéntanos sobre tu compi\u00A0🐶"}
+        {"Preséntanos a tu compi\u00A0🐶"}
       </Text>
 
       {/* Everything visible at start lives in one group on purpose: the tutor

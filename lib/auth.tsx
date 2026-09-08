@@ -12,12 +12,53 @@ import {
 import { Platform } from "react-native";
 import { supabase } from "./supabase";
 
+/**
+ * Turns an OAuth callback URL into a session.
+ *
+ * Two things can deliver that URL on Android and both are legitimate:
+ * `WebBrowser.openAuthSessionAsync` resolves with it, *and* the OS may also
+ * hand `petfile://auth/callback` to the app as a deep link because the scheme
+ * is registered in the manifest. Whichever arrives first wins; the second is a
+ * no-op because the session is already set.
+ *
+ * Tokens come back in the URL fragment (#access_token=...), which only happens
+ * for the implicit flow — supabase-js's current default. If `lib/supabase.ts`
+ * ever sets `flowType: "pkce"` (Supabase's own recommendation for native), the
+ * callback carries `?code=...` in the query string instead and this must
+ * change with it.
+ */
+async function sessionFromCallbackUrl(
+  url: string,
+): Promise<{ error: string | null }> {
+  const fragment = url.split("#")[1] ?? "";
+  const params = new URLSearchParams(fragment);
+  const accessToken = params.get("access_token");
+  const refreshToken = params.get("refresh_token");
+
+  if (!accessToken || !refreshToken) {
+    return {
+      error: params.get("error_description") ?? "No se recibió la sesión",
+    };
+  }
+
+  const { error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  return { error: error?.message ?? null };
+}
+
 type AuthValue = {
   session: Session | null;
   loading: boolean;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   /** Resolves true when the session was cleared, false when Supabase refused. */
   signOut: () => Promise<boolean>;
+  /**
+   * Consume an OAuth callback URL that reached the app as a deep link rather
+   * than through the auth session. Safe to call with an already-used URL.
+   */
+  completeSignIn: (url: string) => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -60,29 +101,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) return { error: error.message };
         if (Platform.OS === "web") return { error: null }; // the page is redirecting
 
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectTo,
+        );
         if (result.type !== "success") return { error: null }; // user dismissed it
 
-        // Tokens come back in the URL fragment (#access_token=...), which only
-        // happens for the implicit flow — supabase-js's current default. If
-        // lib/supabase.ts ever sets `flowType: "pkce"` (Supabase's own
-        // recommended default for native), the callback carries `?code=...`
-        // in the query string instead, and this fragment parse must change too.
-        const fragment = result.url.split("#")[1] ?? "";
-        const params = new URLSearchParams(fragment);
-        const accessToken = params.get("access_token");
-        const refreshToken = params.get("refresh_token");
-
-        if (!accessToken || !refreshToken) {
-          return { error: params.get("error_description") ?? "No se recibió la sesión" };
-        }
-
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        return { error: sessionError?.message ?? null };
+        return sessionFromCallbackUrl(result.url);
       },
+      completeSignIn: sessionFromCallbackUrl,
       signOut: async () => {
         const { error } = await supabase.auth.signOut();
         return !error;

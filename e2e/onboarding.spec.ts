@@ -329,3 +329,32 @@ test("does not raise an error mid-typing for a field the tutor has not submitted
   await expect(page.getByTestId("onboarding-name-error")).toBeHidden();
   await expect(page.getByTestId("onboarding-birthdate-error")).toBeHidden();
 });
+
+test("has a route for the OAuth callback instead of an unmatched-route screen", async ({
+  page,
+}) => {
+  await seedSession(page);
+  // The redirect target the manifest registers. Without a route here, Expo
+  // Router showed its built-in debug screen mid-sign-in — with a link to the
+  // generated sitemap.
+  await page.goto("/auth/callback");
+
+  await expect(page.getByText("Unmatched Route")).toBeHidden();
+  // Already signed in, so the route gets out of the way immediately.
+  await expect(page.getByTestId("onboarding-name")).toBeVisible({
+    timeout: 15_000,
+  });
+});
+
+test("replaces the generated sitemap and not-found debug screens", async ({
+  page,
+}) => {
+  await seedSession(page);
+
+  await page.goto("/_sitemap");
+  await expect(page.getByText("System Information")).toBeHidden();
+
+  await page.goto("/esta-ruta-no-existe");
+  await expect(page.getByText("Unmatched Route")).toBeHidden();
+  await expect(page.getByText("Por aquí no hay nada")).toBeVisible();
+});
