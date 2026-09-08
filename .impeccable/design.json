@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-08T16:53:58Z",
+  "generatedAt": "2026-09-08T19:39:15Z",
   "title": "Design System: Petfile",
   "extensions": {
     "colorMeta": {
@@ -134,6 +134,7 @@
     "dos": [
       "Do use the single 12px radius (rounded-xl) on every new interactive control.",
       "Do pair a confirmation with the action that triggered it: the primary action calls the animal, the success toast answers.",
+      "Do validate on submit and forgive on input: an error clears the moment its own field becomes valid, and is never raised mid-typing.",
       "Do express state through a tonal step and the accent border, never a shadow.",
       "Do keep Outfit as the only typeface; differentiate by weight and size.",
       "Do use text-on-accent for any text on an Ice Blue Glacial surface — never text-base. The rule extends to status fills: #0B1120 on Error Red is 5.00:1 and passes AA, while the light text is 3.44:1 and fails.",

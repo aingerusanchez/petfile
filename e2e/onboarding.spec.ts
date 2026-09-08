@@ -291,3 +291,41 @@ test("scrolls to the first error, not the last, and reddens its asterisk", async
   expect(after).toBeLessThan(before);
   await expect(page.getByTestId("onboarding-name-error")).toBeInViewport();
 });
+
+test("clears a field's error as soon as that field becomes valid", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/onboarding");
+
+  await page.getByTestId("onboarding-submit").click();
+  await expect(page.getByTestId("onboarding-name-error")).toBeVisible();
+  await expect(page.getByTestId("onboarding-birthdate-error")).toBeVisible();
+
+  // Fixing the name clears only the name's error. No blur needed: an error
+  // that outlives the fix reads as the form not noticing.
+  await page.getByTestId("onboarding-name").fill("Loki");
+
+  await expect(page.getByTestId("onboarding-name-error")).toBeHidden();
+  await expect(page.getByTestId("onboarding-birthdate-error")).toBeVisible();
+
+  // And fixing the date clears the last one.
+  await pickExactBirthDate(page);
+  await expect(page.getByTestId("onboarding-birthdate-error")).toBeHidden();
+});
+
+test("does not raise an error mid-typing for a field the tutor has not submitted", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/onboarding");
+
+  // Typing and clearing the name must not conjure an error on its own: the
+  // form validates on submit, and only forgives on input.
+  await page.getByTestId("onboarding-name").fill("L");
+  await page.getByTestId("onboarding-name").fill("");
+  await page.getByTestId("onboarding-breed").fill("Beagle");
+
+  await expect(page.getByTestId("onboarding-name-error")).toBeHidden();
+  await expect(page.getByTestId("onboarding-birthdate-error")).toBeHidden();
+});

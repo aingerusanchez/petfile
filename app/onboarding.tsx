@@ -117,6 +117,38 @@ export default function Onboarding() {
     });
   }
 
+  /**
+   * Validate on submit, forgive on input.
+   *
+   * An error used to sit there until the next submit even after the tutor had
+   * fixed the field, which reads as the form not noticing. This clears an
+   * error the moment its field becomes valid — and only then, so a message
+   * cannot appear mid-typing for a field the tutor has not finished.
+   *
+   * It never *adds* an error: it walks the errors already on screen and keeps
+   * the ones that still hold, which is what makes it safe to run on every
+   * keystroke.
+   */
+  useEffect(() => {
+    setFieldErrors((previous) => {
+      const keys = Object.keys(previous);
+      if (keys.length === 0) return previous;
+
+      const current = validatePetDraft(draft);
+      const next: Record<string, string> = {};
+      for (const key of keys) {
+        if (current[key]) next[key] = current[key];
+      }
+
+      // Same keys and same messages means nothing changed; returning the same
+      // object keeps this from re-rendering on every keystroke.
+      const unchanged =
+        Object.keys(next).length === keys.length &&
+        keys.every((key) => next[key] === previous[key]);
+      return unchanged ? previous : next;
+    });
+  }, [draft]);
+
   const retry = useCallback(() => {
     setPetCheckError(null);
     setHasPet(null);
