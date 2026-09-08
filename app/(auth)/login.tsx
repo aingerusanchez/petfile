@@ -19,7 +19,10 @@ export default function Login() {
   return (
     <Screen className="justify-center">
       <Text className="mb-2 text-4xl font-bold text-text-primary">Petfile</Text>
-      <Text className="mb-10 text-text-tertiary">El día a día de Loki</Text>
+      {/* Not "de Loki": the login screen renders before there is a pet, and the
+          app is built to hold a second one later, so hardcoding a name here
+          would age badly. "Compi" matches the onboarding headline. */}
+      <Text className="mb-10 text-text-tertiary">El día a día con tu compi</Text>
 
       {error ? (
         <Text
