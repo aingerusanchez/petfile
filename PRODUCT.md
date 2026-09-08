@@ -16,6 +16,8 @@ Log a dog's daily routines (walks, meals, medication) and health events (weight,
 
 ## Positioning
 
+**The name is the product thesis.** "Petfile" reads as the animal's file — a dossier or CV: the accumulated record of walks, vaccines, weights and incidents, not just a logger for today. Copy should nod to that where it has room. The Spanish word that carries the same double meaning is *diario*, which is at once the daily act of logging and the notebook the history accumulates in, which is why the login screen reads "El diario de tu compi". Avoid *expediente* and *historial*: both are accurate and both sound like a vet's clipboard, against the household voice.
+
 Built on a relational data model from day one, so that adding a second tutor or a second pet later is additive — a new row, never a schema redesign.
 
 ## Operating Context

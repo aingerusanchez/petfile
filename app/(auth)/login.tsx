@@ -19,10 +19,11 @@ export default function Login() {
   return (
     <Screen className="justify-center">
       <Text className="mb-2 text-4xl font-bold text-text-primary">Petfile</Text>
-      {/* Not "de Loki": the login screen renders before there is a pet, and the
-          app is built to hold a second one later, so hardcoding a name here
-          would age badly. "Compi" matches the onboarding headline. */}
-      <Text className="mb-10 text-text-tertiary">El día a día con tu compi</Text>
+      {/* "Diario" is doing the same double duty in Spanish that "file" does in
+          the product's name: the daily act of logging, and the notebook the
+          history accumulates in. Not "de Loki" — this screen renders before
+          there is a pet, and a second one is an insert away. */}
+      <Text className="mb-10 text-text-tertiary">El diario de tu compi</Text>
 
       {error ? (
         <Text
