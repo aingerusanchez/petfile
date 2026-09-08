@@ -16,7 +16,8 @@ type AuthValue = {
   session: Session | null;
   loading: boolean;
   signInWithGoogle: () => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
+  /** Resolves true when the session was cleared, false when Supabase refused. */
+  signOut: () => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -83,7 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: sessionError?.message ?? null };
       },
       signOut: async () => {
-        await supabase.auth.signOut();
+        const { error } = await supabase.auth.signOut();
+        return !error;
       },
     }),
     [session, loading],
