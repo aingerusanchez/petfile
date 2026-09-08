@@ -125,7 +125,14 @@ export function Celebration({ onDone }: { onDone: () => void }) {
     <View
       testID="celebration"
       pointerEvents="none"
-      style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, overflow: "hidden" }}
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflow: "hidden",
+      }}
     >
       {Array.from({ length: PIECES }, (_, i) => (
         <Piece key={i} index={i} width={width} height={height} />

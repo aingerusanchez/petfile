@@ -59,9 +59,7 @@ export function Chip({
           color={selected ? colors.textPrimary : colors.textTertiary}
         />
       ) : null}
-      <Text
-        className={`text-text-primary${selected ? " font-bold" : ""}`}
-      >
+      <Text className={`text-text-primary${selected ? " font-bold" : ""}`}>
         {label}
       </Text>
     </Pressable>
@@ -80,7 +78,11 @@ type ChipGroupProps = {
  * Exposes the set as a single radio group so the selected option is announced
  * in context rather than as a series of unrelated buttons.
  */
-export function ChipGroup({ children, label, className = "mb-5" }: ChipGroupProps) {
+export function ChipGroup({
+  children,
+  label,
+  className = "mb-5",
+}: ChipGroupProps) {
   return (
     <View
       accessibilityRole="radiogroup"

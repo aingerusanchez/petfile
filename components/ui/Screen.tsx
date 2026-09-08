@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PAGE_GUTTER, spacing } from "./tokens";
@@ -22,6 +22,15 @@ type ScreenProps = {
   gutter?: number;
   /** Vertical padding added on top of the safe-area insets. Defaults to the 32px section step. */
   padY?: number;
+  /**
+   * Handle on the ScrollView, so a screen can scroll a field into view.
+   * Only meaningful together with `scroll`.
+   */
+  scrollRef?: RefObject<ScrollView | null>;
+  /** Current vertical scroll offset, for deciding whether a field is in view. */
+  onScrollOffset?: (offset: number) => void;
+  /** The scroll viewport's height, reported once it is laid out. */
+  onViewportHeight?: (height: number) => void;
   /** Appended to the container's classes, for per-screen alignment. */
   className?: string;
   testID?: string;
@@ -50,6 +59,9 @@ export function Screen({
   edges = BOTH,
   gutter = PAGE_GUTTER,
   padY = spacing.lg,
+  scrollRef,
+  onScrollOffset,
+  onViewportHeight,
   className = "",
   testID,
 }: ScreenProps) {
@@ -65,10 +77,22 @@ export function Screen({
   if (scroll) {
     return (
       <ScrollView
+        ref={scrollRef}
         testID={testID}
         className={`flex-1 bg-base${className ? ` ${className}` : ""}`}
         contentContainerStyle={padding}
         keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onScroll={
+          onScrollOffset
+            ? (e) => onScrollOffset(e.nativeEvent.contentOffset.y)
+            : undefined
+        }
+        onLayout={
+          onViewportHeight
+            ? (e) => onViewportHeight(e.nativeEvent.layout.height)
+            : undefined
+        }
       >
         {children}
       </ScrollView>

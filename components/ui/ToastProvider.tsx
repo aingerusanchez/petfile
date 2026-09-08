@@ -73,9 +73,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             left: PAGE_GUTTER + insets.left,
             right: PAGE_GUTTER + insets.right,
             bottom:
-              spacing.md +
-              insets.bottom +
-              (clearsTabBar ? TAB_BAR_HEIGHT : 0),
+              spacing.md + insets.bottom + (clearsTabBar ? TAB_BAR_HEIGHT : 0),
             gap: spacing.sm,
           }}
         >

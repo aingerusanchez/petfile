@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
-import { Text, View } from "react-native";
+import { Text, View, type LayoutChangeEvent } from "react-native";
 
 type GroupProps = {
   children: ReactNode;
   /** Optional section heading, for a group whose purpose is not self-evident. */
   title?: string;
   className?: string;
+  /** Reports the group's offset within its parent, for scroll-to-field. */
+  onLayout?: (event: LayoutChangeEvent) => void;
   testID?: string;
 };
 
@@ -31,10 +33,17 @@ type GroupProps = {
  * group's own padding and leave a visibly deeper gap at the bottom of every
  * group. `pb-1` lets the last child's margin do that work.
  */
-export function Group({ children, title, className = "mb-5", testID }: GroupProps) {
+export function Group({
+  children,
+  title,
+  className = "mb-5",
+  onLayout,
+  testID,
+}: GroupProps) {
   return (
     <View
       testID={testID}
+      onLayout={onLayout}
       className={`rounded-xl border border-border-default px-5 pb-1 pt-5 ${className}`}
     >
       {title ? (

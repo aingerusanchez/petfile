@@ -74,6 +74,8 @@ type DateFieldProps = {
    */
   approximate?: boolean;
   required?: boolean;
+  /** Reports the field's offset within its parent, for scroll-to-error. */
+  onLayout?: (event: import("react-native").LayoutChangeEvent) => void;
   error?: string | null;
   testID?: string;
 };
@@ -84,6 +86,7 @@ export function DateField({
   onChange,
   approximate = false,
   required = false,
+  onLayout,
   error = null,
   testID,
 }: DateFieldProps) {
@@ -97,9 +100,7 @@ export function DateField({
     const parts = parseISO(value);
     setDraftYear(parts?.year ?? today.getFullYear());
     setDraftMonth(parts?.month ?? today.getMonth() + 1);
-    setDraft(
-      parts ? new Date(parts.year, parts.month - 1, parts.day) : today,
-    );
+    setDraft(parts ? new Date(parts.year, parts.month - 1, parts.day) : today);
     setOpen(true);
   }
 
@@ -119,8 +120,10 @@ export function DateField({
   const display = formatDisplayDate(value, approximate);
 
   return (
-    <View className="mb-5">
-      <FieldLabel required={required}>{label}</FieldLabel>
+    <View className="mb-5" onLayout={onLayout}>
+      <FieldLabel required={required} errored={!!error}>
+        {label}
+      </FieldLabel>
 
       <Pressable
         testID={testID}

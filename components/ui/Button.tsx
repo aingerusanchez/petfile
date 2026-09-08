@@ -147,7 +147,10 @@ export function Button({
       className={`${shape}${disabled ? " opacity-50" : ""}`}
     >
       {status === "loading" ? (
-        <ActivityIndicator testID={testID ? `${testID}-loading` : undefined} color={iconColor} />
+        <ActivityIndicator
+          testID={testID ? `${testID}-loading` : undefined}
+          color={iconColor}
+        />
       ) : status === "success" ? (
         <Animated.View
           testID={testID ? `${testID}-success` : undefined}

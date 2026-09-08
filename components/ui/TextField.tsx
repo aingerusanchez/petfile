@@ -3,10 +3,15 @@ import { Text, TextInput, type TextInputProps, View } from "react-native";
 import { FieldLabel } from "./FieldLabel";
 import { PLACEHOLDER_COLOR } from "./tokens";
 
-type TextFieldProps = Omit<TextInputProps, "className" | "placeholderTextColor"> & {
+type TextFieldProps = Omit<
+  TextInputProps,
+  "className" | "placeholderTextColor"
+> & {
   label: string;
   /** Marks the field as one that blocks a save. */
   required?: boolean;
+  /** Reports the field's offset within its parent, for scroll-to-error. */
+  onLayout?: (event: import("react-native").LayoutChangeEvent) => void;
   /** Per-field validation message. Renders below the input and drives the error border. */
   error?: string | null;
   className?: string;
@@ -35,6 +40,7 @@ type TextFieldProps = Omit<TextInputProps, "className" | "placeholderTextColor">
 export function TextField({
   label,
   required = false,
+  onLayout,
   error = null,
   className = "mb-5",
   ...inputProps
@@ -42,8 +48,8 @@ export function TextField({
   const labelID = useId();
 
   return (
-    <View className={className}>
-      <FieldLabel nativeID={labelID} required={required}>
+    <View className={className} onLayout={onLayout}>
+      <FieldLabel nativeID={labelID} required={required} errored={!!error}>
         {label}
       </FieldLabel>
       <TextInput

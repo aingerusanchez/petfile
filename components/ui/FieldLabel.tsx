@@ -19,6 +19,12 @@ type FieldLabelProps = {
    * marker says what blocks a save, not what matters.
    */
   required?: boolean;
+  /**
+   * This field's own error state — never a sibling's. The asterisk turns Error
+   * Red so the label carries the fault too, which matters once the message
+   * below it has scrolled out of view.
+   */
+  errored?: boolean;
 };
 
 /**
@@ -32,6 +38,7 @@ export function FieldLabel({
   children,
   nativeID,
   required = false,
+  errored = false,
 }: FieldLabelProps) {
   return (
     <Text
@@ -42,11 +49,19 @@ export function FieldLabel({
       // "act here" (The One Accent Rule).
       className="mb-2 text-xs font-semibold uppercase tracking-[0.05em] text-text-tertiary"
       // Screen readers get the word, not a punctuation mark read aloud.
-      accessibilityLabel={required ? `${children}, obligatorio` : children}
+      accessibilityLabel={
+        required
+          ? `${children}, obligatorio${errored ? ", con error" : ""}`
+          : children
+      }
     >
       {children}
       {required ? (
-        <Text style={{ color: colors.accentSecondary }}> *</Text>
+        <Text
+          style={{ color: errored ? colors.error : colors.accentSecondary }}
+        >
+          {" *"}
+        </Text>
       ) : null}
     </Text>
   );

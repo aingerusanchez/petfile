@@ -12,7 +12,10 @@ type LoadingScreenProps = {
  * The full-screen busy state, previously duplicated across four route files
  * (`index`, `onboarding`, `(auth)/login`, `(tabs)/_layout`).
  */
-export function LoadingScreen({ label = "Cargando", testID }: LoadingScreenProps) {
+export function LoadingScreen({
+  label = "Cargando",
+  testID,
+}: LoadingScreenProps) {
   return (
     <Screen center testID={testID}>
       <ActivityIndicator

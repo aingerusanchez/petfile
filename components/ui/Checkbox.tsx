@@ -64,12 +64,12 @@ export function Checkbox({
             : "border-border-strong bg-surface"
         }`}
       >
-        {checked ? <Check size={16} strokeWidth={3} color={colors.onAccent} /> : null}
+        {checked ? (
+          <Check size={16} strokeWidth={3} color={colors.onAccent} />
+        ) : null}
       </View>
       <View className="flex-1">
-        <Text
-          className={`text-text-primary${checked ? " font-semibold" : ""}`}
-        >
+        <Text className={`text-text-primary${checked ? " font-semibold" : ""}`}>
           {label}
         </Text>
         {hint ? (

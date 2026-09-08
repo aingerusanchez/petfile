@@ -37,6 +37,7 @@ export function CelebrationProvider({ children }: { children: ReactNode }) {
 
 export function useCelebration(): CelebrationApi {
   const api = useContext(CelebrationContext);
-  if (!api) throw new Error("useCelebration must be used inside CelebrationProvider");
+  if (!api)
+    throw new Error("useCelebration must be used inside CelebrationProvider");
   return api;
 }

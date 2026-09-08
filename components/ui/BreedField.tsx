@@ -9,6 +9,8 @@ type BreedFieldProps = {
   value: string | null;
   onChange: (breed: string | null) => void;
   required?: boolean;
+  /** Reports the field's offset within its parent, for scroll-to-error. */
+  onLayout?: (event: import("react-native").LayoutChangeEvent) => void;
   error?: string | null;
   placeholder?: string;
   testID?: string;
@@ -32,6 +34,7 @@ export function BreedField({
   value,
   onChange,
   required = false,
+  onLayout,
   error = null,
   placeholder,
   testID,
@@ -43,8 +46,8 @@ export function BreedField({
   const recognised = text.trim().length > 0 && isKnownBreed(text);
 
   return (
-    <View className="mb-5">
-      <FieldLabel nativeID={labelID} required={required}>
+    <View className="mb-5" onLayout={onLayout}>
+      <FieldLabel nativeID={labelID} required={required} errored={!!error}>
         {label}
       </FieldLabel>
 
@@ -98,7 +101,9 @@ export function BreedField({
       {/* Confirms the typed value landed on a known breed. Free text is valid,
           so this is reassurance, never a warning about being off-list. */}
       {recognised && !focused ? (
-        <Text className="mt-2 text-xs text-text-tertiary">Esa la conocemos</Text>
+        <Text className="mt-2 text-xs text-text-tertiary">
+          Esa la conocemos
+        </Text>
       ) : null}
 
       {error ? (

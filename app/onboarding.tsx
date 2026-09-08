@@ -1,7 +1,7 @@
 import { Redirect, useRouter } from "expo-router";
 import { Mars, Plus, Venus } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Text, View, type ScrollView } from "react-native";
 import {
   BreedField,
   Button,
@@ -14,6 +14,7 @@ import {
   LoadingScreen,
   Screen,
   TextField,
+  spacing,
   useCelebration,
   useToast,
 } from "../components/ui";
@@ -62,6 +63,59 @@ export default function Onboarding() {
   const [hasPet, setHasPet] = useState<boolean | null>(null);
   const [petCheckError, setPetCheckError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+
+  /**
+   * Scroll-to-error plumbing.
+   *
+   * `onLayout` reports a view's offset within its *parent*, so a field's
+   * position in the scroll content is the group's offset plus the field's
+   * offset inside it. One group holds every field that can fail, which keeps
+   * this to a single extra term rather than a walk up the tree.
+   */
+  const scrollRef = useRef<ScrollView>(null);
+  const groupY = useRef(0);
+  const fieldY = useRef<Record<string, number>>({});
+  const scrollOffset = useRef(0);
+  const viewportHeight = useRef(0);
+
+  /** Visual order, which is the order a tutor reads and fixes them in. */
+  const FIELD_ORDER = ["name", "birthDate", "breedPrimary", "breedSecondary"];
+
+  function scrollToFirstError(errors: Record<string, string>) {
+    const first = FIELD_ORDER.find((key) => errors[key]);
+    if (!first) return;
+
+    // Deferred a frame on purpose. Scrolling in the same tick as
+    // `setFieldErrors` scrolls the pre-error layout, and then the error
+    // messages mount and the browser's scroll anchoring adjusts the offset to
+    // preserve what was on screen — which cancels the scroll. Measured: the
+    // jump landed at the original offset plus exactly one message's height.
+    // Waiting for the frame lets the messages lay out first, so the offsets
+    // below are the ones the tutor will actually see.
+    requestAnimationFrame(() => {
+      const y = fieldY.current[first];
+      if (y === undefined || !scrollRef.current) return;
+
+      // A margin above the field so its label comes with it. An error you can
+      // see but whose field name you cannot is half an answer.
+      const target = Math.max(groupY.current + y - spacing.lg, 0);
+
+      // Only move if the field is not already comfortably on screen. Yanking
+      // the view when the tutor could already see the field costs them their
+      // place — and on this form the first required field is near the top, so
+      // scrolling unconditionally hid the headline for nothing.
+      const top = scrollOffset.current;
+      const bottom = top + viewportHeight.current;
+      const fieldTop = groupY.current + y;
+      const alreadyVisible =
+        viewportHeight.current > 0 &&
+        fieldTop >= top &&
+        fieldTop + spacing.xl <= bottom;
+      if (alreadyVisible) return;
+
+      scrollRef.current.scrollTo({ y: target, animated: true });
+    });
+  }
 
   const retry = useCallback(() => {
     setPetCheckError(null);
@@ -156,6 +210,9 @@ export default function Onboarding() {
     const errors = validatePetDraft(draft);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
+      // Always the first error, never the last one reported: with several
+      // invalid fields the tutor should land on the topmost one and work down.
+      scrollToFirstError(errors);
       // No toast here on purpose: each invalid field already says what is
       // wrong right where it is wrong, and a toast repeating "revisa el
       // formulario" would add noise without adding information. The button's
@@ -228,7 +285,16 @@ export default function Onboarding() {
   const submitLabel = petName ? `¡Vamos, ${petName}!` : "Añadir mascota";
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      scrollRef={scrollRef}
+      onScrollOffset={(y) => {
+        scrollOffset.current = y;
+      }}
+      onViewportHeight={(h) => {
+        viewportHeight.current = h;
+      }}
+    >
       {/* "Compi" over "mascota": the animal is someone the tutor lives with,
           not something they own. The emoji is a deliberate fallback to the
           system emoji font, which is a different thing from The No-Glyph Rule
@@ -245,9 +311,17 @@ export default function Onboarding() {
           should read these as one set of facts about their animal, of equal
           standing, even though breed is skippable. The tiering shows in what
           blocks a save and in the `opcional` marker, not in the grouping. */}
-      <Group testID="onboarding-group-main">
+      <Group
+        testID="onboarding-group-main"
+        onLayout={(e) => {
+          groupY.current = e.nativeEvent.layout.y;
+        }}
+      >
         <TextField
           testID="onboarding-name"
+          onLayout={(e) => {
+            fieldY.current.name = e.nativeEvent.layout.y;
+          }}
           label="Nombre"
           required
           value={draft.name}
@@ -280,6 +354,9 @@ export default function Onboarding() {
         </ChipGroup>
         <DateField
           testID="onboarding-birthdate"
+          onLayout={(e) => {
+            fieldY.current.birthDate = e.nativeEvent.layout.y;
+          }}
           label="Fecha de nacimiento"
           required
           value={draft.birthDate}
@@ -298,6 +375,9 @@ export default function Onboarding() {
 
         <BreedField
           testID="onboarding-breed"
+          onLayout={(e) => {
+            fieldY.current.breedPrimary = e.nativeEvent.layout.y;
+          }}
           label="Raza"
           value={draft.breedPrimary}
           onChange={(breed) => setDraft((d) => ({ ...d, breedPrimary: breed }))}
@@ -321,8 +401,17 @@ export default function Onboarding() {
           />
         </View>
 
+        {/* onLayout sits on the wrapper below, not on the field: onLayout
+            reports an offset relative to the parent, so measuring the field
+            inside that View would report ~0 instead of its position in the
+            group. */}
         {draft.isMixed ? (
-          <View className="mt-3">
+          <View
+            className="mt-3"
+            onLayout={(e) => {
+              fieldY.current.breedSecondary = e.nativeEvent.layout.y;
+            }}
+          >
             <BreedField
               testID="onboarding-breed-secondary"
               label="Segunda raza"

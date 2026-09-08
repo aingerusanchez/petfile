@@ -250,3 +250,44 @@ test("celebrates a successful registration, above the navigator", async ({
   await expect(page.getByTestId("home-title")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("celebration")).toBeVisible();
 });
+
+test("scrolls to the first error, not the last, and reddens its asterisk", async ({
+  page,
+}) => {
+  // A viewport short enough that the form genuinely scrolls — at 411dp the
+  // whole form fits, so a test there would prove nothing.
+  await page.setViewportSize({ width: 360, height: 520 });
+  await seedSession(page);
+  await page.goto("/onboarding");
+
+  // Fill the second required field and leave the first empty, so the first
+  // error is above the fold once we scroll down.
+  await page.getByTestId("onboarding-breed").fill("Beagle");
+  await page.mouse.wheel(0, 2000);
+  await page.waitForTimeout(400);
+
+  const before = await page.evaluate(() =>
+    Math.round(
+      Math.max(
+        ...[...document.querySelectorAll("*")].map((e) => e.scrollTop || 0),
+      ),
+    ),
+  );
+  expect(before).toBeGreaterThan(0);
+
+  await page.getByTestId("onboarding-submit").click();
+  await page.waitForTimeout(900);
+
+  const after = await page.evaluate(() =>
+    Math.round(
+      Math.max(
+        ...[...document.querySelectorAll("*")].map((e) => e.scrollTop || 0),
+      ),
+    ),
+  );
+
+  // It went back up towards the name field rather than staying where the
+  // tutor happened to be.
+  expect(after).toBeLessThan(before);
+  await expect(page.getByTestId("onboarding-name-error")).toBeInViewport();
+});
