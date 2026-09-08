@@ -160,7 +160,7 @@ test("greets the animal by name on the primary action once there is one", async 
 
   // The only place in the flow where the name is read back to the tutor.
   await expect(page.getByTestId("onboarding-submit")).toContainText(
-    "¡Vamos Loki!",
+    "¡Vamos, Loki!",
   );
 });
 
@@ -221,7 +221,12 @@ test("confirms a successful save with a toast that survives the navigation", asy
   // whole reason the host is mounted in the root layout.
   await expect(page.getByTestId("home-title")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("toast-success")).toBeVisible();
-  await expect(page.getByTestId("toast-success")).toContainText("Loki");
+  // The toast answers the button: "¡Vamos, Loki!" is the call, this is the dog
+  // arriving. Pinning the exact wording keeps the pair from drifting apart,
+  // which is the whole point of it.
+  await expect(page.getByTestId("toast-success")).toContainText(
+    "¡Loki ya está contigo!",
+  );
   await expect(page.getByTestId("toast-success-countdown")).toBeVisible();
 });
 

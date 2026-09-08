@@ -30,7 +30,9 @@ export function validatePetDraft(
   const errors: Record<string, string> = {};
 
   if (!draft.name.trim()) {
-    errors.name = "El nombre es obligatorio";
+    // A question is friendlier than a regulation and says the same thing:
+    // the field is empty and the form needs it filled.
+    errors.name = "¿Cómo se llama?";
   }
 
   // Sex stays required. It was briefly made optional on the reasoning that it
@@ -39,7 +41,7 @@ export function validatePetDraft(
   // relaxing it here alone produces a save the database rejects. Revisit
   // together with that migration, not before.
   if (!draft.sex) {
-    errors.sex = "Indica el sexo";
+    errors.sex = "¿Macho o hembra?";
   }
 
   // The birth date is required, unlike the fields that only matter once a
@@ -49,16 +51,18 @@ export function validatePetDraft(
   // pins the day to the 1st, which `birthDateApproximate` marks as a
   // placeholder rather than a fact.
   if (!draft.birthDate) {
-    errors.birthDate = "La fecha de nacimiento es obligatoria";
+    errors.birthDate = "¿Cuándo nació?";
   } else {
     if (!ISO_DATE.test(draft.birthDate)) {
-      errors.birthDate = "Fecha no válida";
+      errors.birthDate = "Esa fecha no existe";
     } else {
       const parsed = new Date(`${draft.birthDate}T00:00:00Z`);
       if (Number.isNaN(parsed.getTime())) {
-        errors.birthDate = "Fecha no válida";
+        errors.birthDate = "Esa fecha no existe";
       } else if (parsed.getTime() > today.getTime()) {
-        errors.birthDate = "La fecha no puede ser futura";
+        // Warmer than "la fecha no puede ser futura", and it names the actual
+        // problem more precisely than a rule about valid ranges does.
+        errors.birthDate = "Todavía no ha nacido";
       }
     }
   }
@@ -66,7 +70,7 @@ export function validatePetDraft(
   // A second breed only means something on a mixed dog. Rather than silently
   // dropping it, say so — the tutor typed it deliberately.
   if (draft.breedSecondary && !draft.isMixed) {
-    errors.breedSecondary = "Marca \"Es mestizo\" para añadir una segunda raza";
+    errors.breedSecondary = "Marca \"Es mestizo\" para poder añadir otra raza";
   }
 
   return errors;

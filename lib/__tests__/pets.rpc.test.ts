@@ -54,7 +54,7 @@ describe("createPet", () => {
 
     expect(mockRpc).not.toHaveBeenCalled();
     expect(result.petId).toBeNull();
-    expect(result.error).toBe("El nombre es obligatorio");
+    expect(result.error).toBe("¿Cómo se llama?");
   });
 
   it("sends the second breed only when the dog is marked mixed", async () => {

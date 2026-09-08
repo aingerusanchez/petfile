@@ -8,8 +8,10 @@ export default function Home() {
       <Text testID="home-title" className="text-2xl text-text-primary">
         Hoy
       </Text>
+      {/* An empty state, not a roadmap note: it says what will live here in
+          the tutor's terms rather than naming an internal plan. */}
       <Text className="mt-2 text-center text-text-tertiary">
-        El checklist del día llega en el plan de rutinas
+        Aquí irá el día de tu perro: paseos, comidas y medicación.
       </Text>
     </Screen>
   );

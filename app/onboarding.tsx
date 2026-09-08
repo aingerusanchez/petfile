@@ -94,7 +94,7 @@ export default function Onboarding() {
         setPetCheckError(
           err instanceof Error
             ? err.message
-            : "No se pudo comprobar tu mascota",
+            : "No hemos podido encontrar a tu perro",
         );
       });
 
@@ -182,7 +182,7 @@ export default function Onboarding() {
         celebrate();
         toast.show({
           variant: "success",
-          message: `${petName} ya está en la app.`,
+          message: `¡${petName} ya está contigo!`,
         });
         router.replace("/(tabs)");
         return true;
@@ -192,7 +192,7 @@ export default function Onboarding() {
       // away on a timer.
       toast.show({
         variant: "error",
-        message: failure ?? "No se pudo guardar la ficha.",
+        message: failure ?? `No hemos podido guardar a ${petName}.`,
         persist: true,
         action: { label: "Reintentar", onPress: () => void submit() },
       });
@@ -203,7 +203,7 @@ export default function Onboarding() {
         message:
           err instanceof Error
             ? err.message
-            : "Ha ocurrido un error inesperado",
+            : "Algo ha ido mal por nuestro lado. Vuelve a intentarlo.",
         persist: true,
       });
       return false;
@@ -211,14 +211,16 @@ export default function Onboarding() {
   }
 
   /**
-   * The primary action greets the animal by name as soon as there is one.
+   * The primary action calls the animal by name as soon as there is one, and
+   * the success toast answers it: "¡Vamos, Loki!" → "¡Loki ya está contigo!"
    *
-   * It is the only place in the flow where the name is read back to the tutor,
-   * and it turns a generic commit into something that belongs to this app:
-   * "Guardar" could end any form in any product.
+   * The pair is a recall — the call on a walk and the dog arriving — which is
+   * the product's own world rather than decoration borrowed from elsewhere. It
+   * also makes the confirmation read as an answer instead of a log line, and
+   * it is the only place in the flow the tutor sees their input read back.
    */
   const petName = draft.name.trim();
-  const submitLabel = petName ? `¡Vamos ${petName}!` : "Añadir mascota";
+  const submitLabel = petName ? `¡Vamos, ${petName}!` : "Añadir mascota";
 
   return (
     <Screen scroll>

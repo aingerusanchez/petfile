@@ -98,7 +98,7 @@ export function BreedField({
       {/* Confirms the typed value landed on a known breed. Free text is valid,
           so this is reassurance, never a warning about being off-list. */}
       {recognised && !focused ? (
-        <Text className="mt-2 text-xs text-text-tertiary">Raza reconocida</Text>
+        <Text className="mt-2 text-xs text-text-tertiary">Esa la conocemos</Text>
       ) : null}
 
       {error ? (

@@ -37,7 +37,7 @@ export default function Index() {
       .catch((err: unknown) => {
         if (cancelled) return;
         setPetCheckError(
-          err instanceof Error ? err.message : "No se pudo comprobar tu mascota",
+          err instanceof Error ? err.message : "No hemos podido encontrar a tu perro",
         );
       });
 
