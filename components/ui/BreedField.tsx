@@ -1,6 +1,10 @@
 import { useId, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
-import { isKnownBreed, meansMixedBreed, searchBreeds } from "../../lib/breeds";
+import {
+  isKnownBreed,
+  meansMixedBreed,
+  searchBreeds,
+} from "../../lib/breeds";
 import { FieldLabel } from "./FieldLabel";
 import { PLACEHOLDER_COLOR } from "./tokens";
 import { Text } from "./Text";
@@ -19,6 +23,11 @@ type BreedFieldProps = {
    * a breed. Passed only by the field that owns the mixed flag.
    */
   onMixedIntent?: () => void;
+  /**
+   * Called when the field takes focus, so the screen can bring it and the
+   * suggestions it is about to open above the keyboard.
+   */
+  onFocus?: () => void;
   testID?: string;
 };
 
@@ -44,6 +53,7 @@ export function BreedField({
   error = null,
   placeholder,
   onMixedIntent,
+  onFocus,
   testID,
 }: BreedFieldProps) {
   const labelID = useId();
@@ -66,7 +76,10 @@ export function BreedField({
         testID={testID}
         value={text}
         onChangeText={(next) => onChange(next || null)}
-        onFocus={() => setFocused(true)}
+        onFocus={() => {
+          setFocused(true);
+          onFocus?.();
+        }}
         // Delay the blur so a tap on a suggestion lands before the list unmounts.
         onBlur={() => setTimeout(() => setFocused(false), 120)}
         placeholder={placeholder}

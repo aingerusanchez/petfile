@@ -153,6 +153,29 @@ export default function Onboarding() {
   }
 
   /**
+   * Brings a field to the top of the viewport.
+   *
+   * For the breed fields, which open a suggestion list *below* themselves.
+   * Under edge-to-edge the keyboard does not resize the window, so a field
+   * sitting low on the page has its list open behind the keyboard — measured
+   * on device, all six suggestions were off screen with nothing on screen
+   * changing, which reads as the field having no autocomplete at all. Moving
+   * the field up gives the list the whole band above the keyboard.
+   *
+   * Unconditional, unlike `scrollToFirstError`: here the point is not to
+   * reveal the field, which the tutor is already looking at, but to clear
+   * room under it.
+   */
+  function revealField(key: string) {
+    requestAnimationFrame(() => {
+      const y = fieldY.current[key];
+      if (y === undefined || !scrollRef.current) return;
+      const target = Math.max(groupY.current + y - spacing.sm, 0);
+      scrollRef.current.scrollTo({ y: target, animated: true });
+    });
+  }
+
+  /**
    * Validate on submit, forgive on input.
    *
    * An error used to sit there until the next submit even after the tutor had
@@ -451,6 +474,7 @@ export default function Onboarding() {
           // Answering "Mestizo" here ticks the flag below instead of storing a
           // non-breed: the record ends up saying the same thing, truthfully.
           onMixedIntent={() => setDraft((d) => ({ ...d, isMixed: true }))}
+          onFocus={() => revealField("breedPrimary")}
           placeholder="Husky Siberiano"
           error={fieldErrors.breedPrimary}
         />
@@ -489,6 +513,7 @@ export default function Onboarding() {
               onChange={(breed) =>
                 setDraft((d) => ({ ...d, breedSecondary: breed }))
               }
+              onFocus={() => revealField("breedSecondary")}
               placeholder="Pastor Alemán"
               error={fieldErrors.breedSecondary}
             />
