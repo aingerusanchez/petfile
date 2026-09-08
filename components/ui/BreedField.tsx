@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
-import { isKnownBreed, searchBreeds } from "../../lib/breeds";
+import { isKnownBreed, meansMixedBreed, searchBreeds } from "../../lib/breeds";
 import { FieldLabel } from "./FieldLabel";
 import { PLACEHOLDER_COLOR } from "./tokens";
 import { Text } from "./Text";
@@ -14,6 +14,11 @@ type BreedFieldProps = {
   onLayout?: (event: import("react-native").LayoutChangeEvent) => void;
   error?: string | null;
   placeholder?: string;
+  /**
+   * Called when the tutor answers the breed question with "mestizo" instead of
+   * a breed. Passed only by the field that owns the mixed flag.
+   */
+  onMixedIntent?: () => void;
   testID?: string;
 };
 
@@ -38,12 +43,17 @@ export function BreedField({
   onLayout,
   error = null,
   placeholder,
+  onMixedIntent,
   testID,
 }: BreedFieldProps) {
   const labelID = useId();
   const [focused, setFocused] = useState(false);
   const text = value ?? "";
-  const suggestions = focused ? searchBreeds(text) : [];
+  // "Mestizo" is an answer to the breed question, not a breed. When the field
+  // owns the mixed flag, offer to record it as what it is instead of storing a
+  // non-breed in breed_primary.
+  const mixedIntent = focused && !!onMixedIntent && meansMixedBreed(text);
+  const suggestions = focused && !mixedIntent ? searchBreeds(text) : [];
   const recognised = text.trim().length > 0 && isKnownBreed(text);
 
   return (
@@ -74,6 +84,25 @@ export function BreedField({
           error ? "border-error" : "border-border-default"
         }`}
       />
+
+      {mixedIntent ? (
+        <Pressable
+          testID={testID ? `${testID}-mixed-intent` : undefined}
+          onPress={() => {
+            onChange(null);
+            setFocused(false);
+            onMixedIntent?.();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Mestizo, sin raza concreta"
+          className="mt-2 rounded-xl border border-border-default bg-elevated px-4 py-3"
+        >
+          <Text className="text-text-primary">Mestizo, sin raza concreta</Text>
+          <Text className="mt-1 text-xs text-text-tertiary">
+            Lo marcamos aquí abajo y dejamos la raza en blanco
+          </Text>
+        </Pressable>
+      ) : null}
 
       {suggestions.length > 0 ? (
         <View

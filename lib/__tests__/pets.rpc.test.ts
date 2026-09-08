@@ -79,10 +79,36 @@ describe("createPet", () => {
   });
 
   it("surfaces a database error message", async () => {
-    mockRpc.mockResolvedValue({ data: null, error: { message: "not authenticated" } });
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: "not authenticated" },
+    });
 
     const result = await createPet(draft);
 
     expect(result).toEqual({ petId: null, error: "not authenticated" });
+  });
+  it('records a typed "Mestizo" as the mixed flag, not as a breed', async () => {
+    mockRpc.mockResolvedValue({ data: { id: "pet-1" }, error: null });
+
+    await createPet({ ...draft, breedPrimary: "Mestizo", isMixed: false });
+
+    const payload = mockRpc.mock.calls[0][1].pet;
+    expect(payload.breed_primary).toBeNull();
+    expect(payload.is_mixed).toBe(true);
+  });
+
+  it("keeps the second breed when the flag arrives from the typed value", async () => {
+    mockRpc.mockResolvedValue({ data: { id: "pet-1" }, error: null });
+
+    await createPet({
+      ...draft,
+      breedPrimary: "mestizo",
+      breedSecondary: "Beagle",
+      isMixed: false,
+    });
+
+    const payload = mockRpc.mock.calls[0][1].pet;
+    expect(payload.breed_secondary).toBe("Beagle");
   });
 });

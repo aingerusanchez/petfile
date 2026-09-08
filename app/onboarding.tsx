@@ -448,6 +448,9 @@ export default function Onboarding() {
           label="Raza"
           value={draft.breedPrimary}
           onChange={(breed) => setDraft((d) => ({ ...d, breedPrimary: breed }))}
+          // Answering "Mestizo" here ticks the flag below instead of storing a
+          // non-breed: the record ends up saying the same thing, truthfully.
+          onMixedIntent={() => setDraft((d) => ({ ...d, isMixed: true }))}
           placeholder="Husky Siberiano"
           error={fieldErrors.breedPrimary}
         />
@@ -481,7 +484,7 @@ export default function Onboarding() {
           >
             <BreedField
               testID="onboarding-breed-secondary"
-              label="Segunda raza"
+              label="Mezcla con"
               value={draft.breedSecondary}
               onChange={(breed) =>
                 setDraft((d) => ({ ...d, breedSecondary: breed }))

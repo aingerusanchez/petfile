@@ -1,4 +1,9 @@
-import { foldForSearch, isKnownBreed, searchBreeds } from "../breeds";
+import {
+  foldForSearch,
+  isKnownBreed,
+  searchBreeds,
+  meansMixedBreed,
+} from "../breeds";
 
 describe("foldForSearch", () => {
   it("strips accents and case so phone-keyboard input matches", () => {
@@ -44,5 +49,30 @@ describe("isKnownBreed", () => {
   it("rejects free text that is not on the list", () => {
     expect(isKnownBreed("Perro de mi barrio")).toBe(false);
     expect(isKnownBreed("")).toBe(false);
+  });
+});
+
+describe("meansMixedBreed", () => {
+  it('recognises the ways a tutor says "mixed" in the breed field', () => {
+    expect(meansMixedBreed("Mestizo")).toBe(true);
+    expect(meansMixedBreed("mestiza")).toBe(true);
+    expect(meansMixedBreed("  CRUCE ")).toBe(true);
+    expect(meansMixedBreed("sin raza")).toBe(true);
+    // Folded like every other breed comparison, so an accent cannot slip past.
+    expect(meansMixedBreed("desconocída")).toBe(true);
+  });
+
+  it("leaves real breeds alone", () => {
+    expect(meansMixedBreed("Husky Siberiano")).toBe(false);
+    expect(meansMixedBreed("Pastor Alemán")).toBe(false);
+    // A breed the list does not know is still a breed, not a mixed answer.
+    expect(meansMixedBreed("Perro de mi barrio")).toBe(false);
+    expect(meansMixedBreed(null)).toBe(false);
+    expect(meansMixedBreed("")).toBe(false);
+  });
+
+  it("is absent from the suggestion list, so the app never offers it as one", () => {
+    expect(searchBreeds("mestizo")).toEqual([]);
+    expect(isKnownBreed("Mestizo")).toBe(false);
   });
 });

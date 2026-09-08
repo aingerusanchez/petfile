@@ -126,3 +126,52 @@ export function isKnownBreed(value: string): boolean {
   const folded = foldForSearch(value);
   return BREEDS_ES.some((breed) => foldForSearch(breed) === folded);
 }
+
+/**
+ * Words a tutor types into the breed field when the answer is "mixed".
+ *
+ * Not breeds, and deliberately absent from `BREEDS_ES`: "mestizo" answers the
+ * breed question without naming a breed. An adopted dog often has no known
+ * ancestry at all, so this is the honest answer rather than a gap — and it
+ * already has a home in the record, the `is_mixed` flag.
+ */
+const MIXED_BREED_TERMS = [
+  "mestizo",
+  "mestiza",
+  "mestizos",
+  "mestizas",
+  "mezcla",
+  "mezclado",
+  "mezclada",
+  "cruce",
+  "cruzado",
+  "cruzada",
+  "mixto",
+  "mixta",
+  "sin raza",
+  "raza indefinida",
+  "desconocida",
+  "desconocido",
+  "no lo sabemos",
+  "no lo se",
+  "ni idea",
+  "chucho",
+  "callejero",
+  "callejera",
+];
+
+/**
+ * True when the text is a way of saying "mixed" rather than a breed.
+ *
+ * **Why this exists.** The breed field takes free text, so nothing stopped a
+ * tutor answering "Mestizo" — which reads perfectly ("Hulk — Mestizo") but
+ * records a non-breed in `breed_primary` while `is_mixed` stays false. The
+ * same fact then has two encodings, one of them wrong, and any later
+ * breed-based calculation has to guess which. The display is legitimate; only
+ * the storage was, so this recognises the intent and the flag carries it.
+ */
+export function meansMixedBreed(value: string | null): boolean {
+  const folded = foldForSearch(value ?? "");
+  if (!folded) return false;
+  return MIXED_BREED_TERMS.includes(folded);
+}

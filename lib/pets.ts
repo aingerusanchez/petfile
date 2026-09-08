@@ -1,3 +1,4 @@
+import { meansMixedBreed } from "./breeds";
 import { supabase } from "./supabase";
 import type { Database } from "./database.types";
 
@@ -77,12 +78,26 @@ export function validatePetDraft(
   }
 
   // A second breed only means something on a mixed dog. Rather than silently
-  // dropping it, say so — the tutor typed it deliberately.
-  if (draft.breedSecondary && !draft.isMixed) {
-    errors.breedSecondary = "Marca \"Es mestizo\" para poder añadir otra raza";
+  // dropping it, say so — the tutor typed it deliberately. "Mixed" counts the
+  // typed form too, so this layer and the RPC boundary below agree on what
+  // makes a dog mixed.
+  if (draft.breedSecondary && !isMixedDraft(draft)) {
+    errors.breedSecondary = 'Marca "Es mestizo" para poder añadir otra raza';
   }
 
   return errors;
+}
+
+/**
+ * Whether the draft describes a mixed dog, by the flag or by the breed field.
+ *
+ * Both readings have to agree: validation refuses a second breed on a dog that
+ * is not marked mixed, and the payload builder drops one for the same reason.
+ * If only one of them recognised a typed "Mestizo", a draft could pass
+ * validation and lose data on the way out, or vice versa.
+ */
+function isMixedDraft(draft: PetDraft): boolean {
+  return draft.isMixed || meansMixedBreed(draft.breedPrimary);
 }
 
 export async function createPet(
@@ -94,13 +109,22 @@ export async function createPet(
     return { petId: null, error: firstError };
   }
 
+  // "Mestizo" is an answer to the breed question, not a breed, and the field
+  // takes free text — so the tutor can reach here having typed it past the
+  // offer to record it as the flag. Normalising at the boundary keeps the same
+  // fact in one place: `is_mixed`, with no breed named. Nothing is lost, since
+  // a mixed dog with no breeds reads back as "Mestizo" anyway.
+  const typedMixed = meansMixedBreed(draft.breedPrimary);
+  const isMixed = isMixedDraft(draft);
+  const breedPrimary = typedMixed ? null : draft.breedPrimary;
+
   const { data, error } = await supabase.rpc("create_pet_with_owner", {
     pet: {
       name: draft.name.trim(),
       sex: draft.sex,
-      breed_primary: draft.breedPrimary,
-      breed_secondary: draft.isMixed ? draft.breedSecondary : null,
-      is_mixed: draft.isMixed,
+      breed_primary: breedPrimary,
+      breed_secondary: isMixed ? draft.breedSecondary : null,
+      is_mixed: isMixed,
       birth_date: draft.birthDate,
       birth_date_approximate: draft.birthDateApproximate,
       spayed_neutered: draft.spayedNeutered,

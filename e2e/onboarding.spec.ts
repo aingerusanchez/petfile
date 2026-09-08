@@ -57,7 +57,9 @@ test("reports every missing required field at once, beside the field", async ({
   await expect(page.getByTestId("onboarding-birthdate-error")).toBeVisible();
 });
 
-test("keeps the optional fields collapsed until asked for", async ({ page }) => {
+test("keeps the optional fields collapsed until asked for", async ({
+  page,
+}) => {
   await seedSession(page);
   await page.goto("/onboarding");
 
@@ -81,6 +83,37 @@ test("reveals a second breed field only when the dog is marked mixed", async ({
   await page.getByTestId("onboarding-mixed").click();
 
   await expect(page.getByTestId("onboarding-breed-secondary")).toBeVisible();
+  // "Mezcla con", not "Segunda raza": a cross has two halves, and numbering
+  // them ranks one parent above the other.
+  await expect(page.getByText("Mezcla con")).toBeVisible();
+  await expect(page.getByText("Segunda raza")).toBeHidden();
+});
+
+test('turns a breed field answered "Mestizo" into the mixed flag', async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/onboarding");
+
+  await page.getByTestId("onboarding-breed").fill("Mestizo");
+
+  // Offered as what it is, rather than accepted as a breed.
+  const offer = page.getByTestId("onboarding-breed-mixed-intent");
+  await expect(offer).toBeVisible();
+  await offer.click();
+
+  // The breed field is empty and the flag carries the fact instead.
+  await expect(page.getByTestId("onboarding-breed")).toHaveValue("");
+  await expect(page.getByTestId("onboarding-breed-secondary")).toBeVisible();
+});
+
+test("does not offer the mixed flag for an actual breed", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/onboarding");
+
+  await page.getByTestId("onboarding-breed").fill("Husky Siberiano");
+
+  await expect(page.getByTestId("onboarding-breed-mixed-intent")).toBeHidden();
 });
 
 test("asks for month and year only when the date is approximate", async ({
@@ -181,7 +214,9 @@ test("registers a pet with only the required fields and lands on the day view", 
   await expect(page.getByTestId("home-title")).toBeVisible({ timeout: 15_000 });
 });
 
-test("runs the whole feedback cycle on the primary action", async ({ page }) => {
+test("runs the whole feedback cycle on the primary action", async ({
+  page,
+}) => {
   await seedSession(page);
   await page.goto("/onboarding");
 
