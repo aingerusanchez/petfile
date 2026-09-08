@@ -53,9 +53,22 @@ Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `build:`, …
 Expo Router file-based routing over a Supabase backend.
 
 ```
-app/                     → Expo Router routes
+app/                     → Expo Router routes (routes only — no shared UI)
   (auth)/                → login
   (tabs)/                → authenticated shell (home, health, profile)
+components/ui/            → the design-system primitives every screen composes
+  Screen.tsx              → page container; the only place window insets are consumed
+  Chip.tsx                → selector chip + ChipGroup (exclusive single-select row)
+  Group.tsx               → hairline-outlined form section
+  Toast.tsx               → transient message; ToastProvider hosts it above the navigator
+  Checkbox.tsx            → voluntary boolean flag, unchecked by default
+  DateField.tsx           → date display + in-house picker (month+year when approximate)
+  BreedField.tsx          → breed combobox: suggests from a list, accepts free text
+  TextField.tsx           → labelled input, label linked for screen readers
+  FieldLabel.tsx          → the uppercase field label
+  Button.tsx              → secondary / ghost button
+  LoadingScreen.tsx       → full-screen busy state
+  tokens.ts               → Nordic Ice values for RN props className can't reach
 lib/                      → domain logic and data access
   supabase.ts             → the only import site for @supabase/supabase-js in app code
   auth.tsx                → session context / Google OAuth
@@ -69,6 +82,10 @@ All database access goes through `lib/supabase.ts`; screens never import `@supab
 There is no `households` concept in the data model. `pets` relates to users through the `pet_owners` join table (RLS-protected), which is what makes multi-user sharing in a future version an `insert` into `pet_owners`, not a schema redesign.
 
 Pure validation logic lives in `lib/` and is unit-tested with Jest; user-facing flows are tested with Playwright against the Expo web build.
+
+Dates cross the app/database boundary in exactly one format: **ISO `YYYY-MM-DD`**, because `pets.birth_date` is a Postgres `date` and the RPC casts with `::date`, where Postgres's DateStyle makes a `DD/MM/AAAA` string ambiguous. The UI shows and collects the Spanish locale's `DD/MM/AAAA`; `lib/dates.ts` converts at the edge and is the only place that builds or parses a date string. An approximate birth date stores the 1st of the month with `birth_date_approximate = true` — **anything computing a due date must read that flag**, because the day is a placeholder, not data.
+
+Shared UI lives in `components/ui/`, never in `app/` — `app/` holds routes. Two invariants come with it: **window insets are consumed only in `Screen`** (no screen reaches for `useSafeAreaInsets()` on its own, which is what keeps the primary action clear of the Android navigation bar in one place), and **a colour needed by a React Native prop comes from `components/ui/tokens.ts`**, never a retyped hex literal. `global.css`'s `@theme` block stays the source of truth for anything a `className` can reach.
 
 ## Documentation maintenance
 

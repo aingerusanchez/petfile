@@ -17,11 +17,11 @@ Después:
 
 ```bash
 pnpm web                 # target web, http://localhost:8081
+pnpm build:android       # dev build nativo (Android) — la plataforma de destino
 pnpm expo run:ios        # dev build nativo (iOS)
-pnpm expo run:android    # dev build nativo (Android)
 ```
 
-El sign-in con Google necesita un dev build nativo (`expo run:ios` / `expo run:android`), no Expo Go — el flujo de OAuth usa un redirect de esquema personalizado que Expo Go no soporta. Ver el porqué en [`docs/supabase-setup.md`](docs/supabase-setup.md).
+El sign-in con Google necesita un dev build nativo (`pnpm build:android` / `expo run:ios`), no Expo Go — el flujo de OAuth usa un redirect de esquema personalizado que Expo Go no soporta. Ver el porqué en [`docs/supabase-setup.md`](docs/supabase-setup.md).
 
 ## Secretos
 
@@ -36,7 +36,7 @@ Esta app **no tiene bypass de autenticación en modo desarrollo**. Todos los ent
 Los tests end-to-end de Playwright usan una cuenta de Supabase dedicada, identificada solo por email: `loki-e2e@example.com` (la contraseña nunca se documenta aquí — vive únicamente en `.env`, ver `E2E_EMAIL` / `E2E_PASSWORD` en `.env.example`).
 
 ```bash
-pnpm test          # Jest — lógica de dominio pura (validación de mascotas, mapeo de RPC)
+pnpm test          # Jest — lógica de dominio pura (validación, mapeo de RPC, fechas, razas)
 pnpm test:e2e       # Playwright — flujo completo (login, onboarding)
 pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el trace viewer
 ```
@@ -47,6 +47,7 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 | ----------------- | --------------------------------------------------------- |
 | `pnpm start`       | Arranca el servidor de desarrollo de Expo                 |
 | `pnpm android`     | Arranca el servidor de desarrollo apuntando a Android      |
+| `pnpm build:android` | Compila e instala el dev build nativo de Android (`expo run:android`) |
 | `pnpm ios`         | Arranca el servidor de desarrollo apuntando a iOS          |
 | `pnpm web`         | Arranca el servidor de desarrollo apuntando a web          |
 | `pnpm lint`        | `expo lint` — **actualmente roto** (ver nota abajo)        |
@@ -69,6 +70,10 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 | Estilos                  | NativeWind             | 5.0.0-preview.4 |
 | Estilos                  | Tailwind CSS           | 4.3.3       |
 | Estilos                  | `react-native-css`     | 3.0.7       |
+| Iconos                   | `lucide-react-native`  | ^1.41.0 |
+| Iconos                   | `react-native-svg`     | 15.15.4 |
+| Fechas                   | `react-native-ui-datepicker` | ^3.3.0 |
+| Insets                   | `react-native-safe-area-context` | ~5.7.0 |
 | Backend                  | `@supabase/supabase-js` | ^2.112.4  |
 | Tests unitarios          | Jest (`jest-expo`)     | ~29.7.0 (preset ~57.0.5) |
 | Tests e2e                | Playwright             | ^1.62.1     |
@@ -76,9 +81,22 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 ## Arquitectura
 
 ```
-app/                     → Expo Router: rutas por archivo
+app/                     → Expo Router: rutas por archivo (solo rutas, sin UI compartida)
   (auth)/                → login
   (tabs)/                → shell autenticado (home, health, profile)
+components/ui/            → primitivos del sistema de diseño que componen las pantallas
+  Screen.tsx              → contenedor de página; único sitio que consume los insets
+  Chip.tsx                → chip selector + ChipGroup (fila de selección única)
+  Group.tsx               → sección de formulario con contorno hairline
+  Toast.tsx               → mensaje transitorio; ToastProvider lo monta sobre el navegador
+  Checkbox.tsx            → flag booleano voluntario, sin marcar por defecto
+  DateField.tsx           → fecha + picker propio (mes+año si es aproximada)
+  BreedField.tsx          → combobox de raza: sugiere de una lista, acepta texto libre
+  TextField.tsx           → input con etiqueta, asociada para lectores de pantalla
+  FieldLabel.tsx          → la etiqueta de campo en mayúsculas
+  Button.tsx              → botón secundario / ghost
+  LoadingScreen.tsx       → estado de carga a pantalla completa
+  tokens.ts               → valores Nordic Ice para props de RN que className no alcanza
 lib/                      → lógica de dominio y acceso a datos
   supabase.ts             → único punto de import de @supabase/supabase-js en el código de app
   auth.tsx                → contexto de sesión / OAuth de Google
@@ -88,6 +106,8 @@ e2e/                       → specs de Playwright + helpers de sign-in
 ```
 
 **Invariante clave:** las pantallas nunca importan `@supabase/supabase-js` directamente — dentro del código de la app, solo `lib/supabase.ts` lo hace. Cualquier acceso a datos pasa por `lib/`. (`e2e/auth.ts` también usa `createClient` directamente, pero es código de test: crea su propio cliente para sembrar la sesión y limpiar datos, fuera del runtime de la app.)
+
+**Invariantes del sistema de diseño:** la UI compartida vive en `components/ui/`, nunca en `app/`, que es solo para rutas. Los insets de ventana se consumen **únicamente** en `Screen` — ninguna pantalla llama a `useSafeAreaInsets()` por su cuenta, y eso es lo que mantiene la acción principal fuera de la barra de navegación de Android en un solo sitio. Y cualquier color que necesite una prop de React Native sale de `components/ui/tokens.ts`, nunca de un hex reescrito a mano; `global.css` sigue siendo la fuente de verdad para todo lo que alcance un `className`.
 
 El modelo de datos en Postgres no tiene concepto de "household": `pets` pertenece a uno o más usuarios a través de la tabla de unión `pet_owners`, protegida con RLS. Esto significa que compartir una mascota entre varios usuarios en el futuro es un `insert` en `pet_owners`, no un rediseño del esquema. La creación de una mascota es atómica vía una función RPC `security definer` (`create_pet_with_owner`) que escribe `pets` y `pet_owners` en la misma transacción.
 
