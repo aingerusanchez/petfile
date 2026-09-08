@@ -1,10 +1,16 @@
 import { Check, CircleAlert, type LucideIcon } from "lucide-react-native";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { ActivityIndicator, Pressable, Text } from "react-native";
 import Animated, { ZoomIn, useReducedMotion } from "react-native-reanimated";
 import { colors } from "./tokens";
 
-export type ButtonVariant = "primary" | "secondary" | "link";
+export type ButtonVariant = "primary" | "outlined" | "secondary" | "link";
 
 /** How long the check or alert stays up before the button returns to rest. */
 const RESULT_HOLD_MS = 1400;
@@ -23,6 +29,11 @@ type ButtonProps = {
   variant?: ButtonVariant;
   /** Leading icon. Ignored while the button is showing a status. */
   icon?: LucideIcon;
+  /**
+   * Arbitrary leading content, for a mark an icon set cannot supply — the
+   * Google "G", for instance. Ignored while the button is showing a status.
+   */
+  leading?: ReactNode;
   /**
    * What the button says once the action resolved. The icon alone is a signal,
    * not an explanation — a red button with a warning glyph tells the user
@@ -60,6 +71,7 @@ export function Button({
   onPress,
   variant = "secondary",
   icon: Icon,
+  leading,
   successLabel = "¡Listo!",
   errorLabel = "Algo no ha salido bien",
   disabled = false,
@@ -103,6 +115,12 @@ export function Button({
   }, [onPress, status]);
 
   const isLink = variant === "link";
+  // `outlined` is a primary-weight action that is not ours to claim: full
+  // width and a legible label, but no accent fill, because the accent means
+  // "this is the one thing to do here" *in this app*. Federated sign-in is the
+  // third party's affordance, and dressing it in our accent makes it look like
+  // a Petfile button that happens to mention them.
+  const isOutlined = variant === "outlined";
   const locked = status !== "idle";
   const inert = disabled || locked;
 
@@ -119,7 +137,9 @@ export function Button({
       "min-h-12 flex-row items-center gap-2 self-start py-3"
     : variant === "primary"
       ? `min-h-12 flex-row items-center justify-center gap-2 rounded-xl py-4 ${fill}`
-      : "min-h-12 flex-row items-center justify-center gap-2 rounded-xl border border-border-strong px-6 py-3";
+      : isOutlined
+        ? `min-h-12 flex-row items-center justify-center gap-3 rounded-xl border border-border-strong py-4 ${status === "error" ? fill : ""}`
+        : "min-h-12 flex-row items-center justify-center gap-2 rounded-xl border border-border-strong px-6 py-3";
 
   // On both the accent fill and the error fill the readable colour is the dark
   // navy, not the light text: #0B1120 measures 14.88:1 on Ice Blue Glacial and
@@ -129,7 +149,9 @@ export function Button({
     ? "font-semibold text-accent-secondary"
     : onFill
       ? "font-semibold text-on-accent"
-      : "text-text-secondary";
+      : isOutlined
+        ? "font-semibold text-text-primary"
+        : "text-text-secondary";
   const iconColor = isLink
     ? colors.accentSecondary
     : onFill
@@ -171,6 +193,7 @@ export function Button({
         </Animated.View>
       ) : (
         <>
+          {leading}
           {Icon ? <Icon size={16} strokeWidth={2.5} color={iconColor} /> : null}
           <Text className={labelClass}>{label}</Text>
         </>

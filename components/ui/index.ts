@@ -6,6 +6,7 @@ export { CelebrationProvider, useCelebration } from "./CelebrationProvider";
 export { Chip, ChipGroup } from "./Chip";
 export { DateField } from "./DateField";
 export { FieldLabel } from "./FieldLabel";
+export { GoogleMark } from "./GoogleMark";
 export { Group } from "./Group";
 export { LoadingScreen } from "./LoadingScreen";
 export { Screen } from "./Screen";

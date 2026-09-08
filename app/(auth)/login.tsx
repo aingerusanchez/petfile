@@ -1,28 +1,17 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, Text } from "react-native";
-import { Screen, colors } from "../../components/ui";
+import { Text } from "react-native";
+import { Button, GoogleMark, Screen } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 
 export default function Login() {
   const { signInWithGoogle } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function submit() {
-    setBusy(true);
-    setError(null);
-    const { error: failure } = await signInWithGoogle();
-    setError(failure);
-    setBusy(false);
-  }
 
   return (
     <Screen className="justify-center">
       <Text className="mb-2 text-4xl font-bold text-text-primary">Petfile</Text>
-      {/* "Diario" is doing the same double duty in Spanish that "file" does in
-          the product's name: the daily act of logging, and the notebook the
-          history accumulates in. Not "de Loki" — this screen renders before
-          there is a pet, and a second one is an insert away. */}
+      {/* "Diario" does in Spanish what "file" does in the name: the daily act
+          of logging, and the notebook the history accumulates in. */}
       <Text className="mb-10 text-text-tertiary">El diario de tu compi</Text>
 
       {error ? (
@@ -35,21 +24,23 @@ export default function Login() {
         </Text>
       ) : null}
 
-      <Pressable
+      {/* Outlined, not accent-filled: signing in with Google is the third
+          party's affordance, and the accent means "the one thing to do here"
+          *in this app*. The mark keeps its own brand colours — see
+          GoogleMark. */}
+      <Button
         testID="login-google"
-        disabled={busy}
-        onPress={submit}
-        accessibilityRole="button"
-        accessibilityLabel="Continuar con Google"
-        accessibilityState={{ disabled: busy, busy }}
-        className="items-center rounded-xl bg-accent-primary py-4"
-      >
-        {busy ? (
-          <ActivityIndicator color={colors.onAccent} />
-        ) : (
-          <Text className="font-semibold text-on-accent">Continuar con Google</Text>
-        )}
-      </Pressable>
+        variant="outlined"
+        leading={<GoogleMark size={20} />}
+        label="Continuar con Google"
+        errorLabel="No se pudo iniciar sesión"
+        onPress={async () => {
+          setError(null);
+          const { error: failure } = await signInWithGoogle();
+          setError(failure);
+          return !failure;
+        }}
+      />
     </Screen>
   );
 }

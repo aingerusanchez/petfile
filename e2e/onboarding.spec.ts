@@ -367,3 +367,16 @@ test("keeps the generated sitemap in development", async ({ page }) => {
   await expect(page.getByText("System Information")).toBeVisible();
 });
 
+test("offers Google sign-in as an outlined button carrying the brand mark", async ({
+  page,
+}) => {
+  await page.goto("/login");
+
+  await expect(page.getByTestId("login-google")).toBeVisible();
+  // The official four-colour G, in Google's own brand colours rather than
+  // ours: on an auth button the user has to recognise the third party.
+  const brandPaths = await page.evaluate(
+    () => document.querySelectorAll('svg path[fill="#EA4335"]').length,
+  );
+  expect(brandPaths).toBeGreaterThan(0);
+});
