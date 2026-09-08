@@ -1,5 +1,5 @@
 ---
-name: Petlife
+name: Petfile
 description: Seguimiento diario y de salud de un perro, con calma funcional y precisión nórdica.
 colors:
   base: "#0b1120"
@@ -96,13 +96,13 @@ components:
     size: "24px"
 ---
 
-# Design System: Petlife
+# Design System: Petfile
 
 ## Overview
 
 **Creative North Star: "Nordic Ice"**
 
-Petlife runs dark-mode-only, deep navy fading toward black, cut through by a single ice-blue accent used sparingly. The personality is cold, precise, and minimal: no shadows, no gradients, no decoration that isn't load-bearing. Every screen so far is a plain vertical stack — a title, a short set of fields, one primary action — because the product's own principle is low-friction retrospective logging, not a showcase interface. Depth comes entirely from tone (four fixed surface steps, darkest to lightest), never from a shadow.
+Petfile runs dark-mode-only, deep navy fading toward black, cut through by a single ice-blue accent used sparingly. The personality is cold, precise, and minimal: no shadows, no gradients, no decoration that isn't load-bearing. Every screen so far is a plain vertical stack — a title, a short set of fields, one primary action — because the product's own principle is low-friction retrospective logging, not a showcase interface. Depth comes entirely from tone (four fixed surface steps, darkest to lightest), never from a shadow.
 
 Within that cold restraint, interactive elements are tactile and confident rather than timid: a filled ice-blue button, a visibly elevated selected state on chips, a full-width primary action that's unmissable. The coldness is in the palette and the absence of ornament; the confidence is in how directly each control commits to its state.
 
@@ -151,7 +151,7 @@ Almost monochrome by design — a deep navy neutral scale carries nearly the who
 
 ### Hierarchy
 
-- **Display** (700, 2.25rem/36px, line-height 1.15): the single largest text in the app — the "Petlife" wordmark on the login screen.
+- **Display** (700, 2.25rem/36px, line-height 1.15): the single largest text in the app — the "Petfile" wordmark on the login screen.
 - **Headline** (700, 1.875rem/30px, line-height 1.2): a screen's primary question or title (e.g. the onboarding prompt).
 - **Title** (500, 1.5rem/24px, line-height 1.3): tab-screen headers ("Hoy", "Salud", "Perfil") — deliberately Medium weight, not Bold; a title is a location marker, not an announcement.
 - **Body** (500, 1rem/16px, line-height 1.5): standard reading text, subtitles, secondary/ghost button labels.

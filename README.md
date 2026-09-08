@@ -1,4 +1,4 @@
-# Petlife
+# Petfile
 
 Track your pet's daily routines and health, backed by Supabase.
 
@@ -6,7 +6,7 @@ Track your pet's daily routines and health, backed by Supabase.
 
 ```bash
 git clone <repo-url>
-cd petlife
+cd petfile
 pnpm install
 cp .env.example .env
 ```
@@ -123,6 +123,6 @@ El modelo de datos en Postgres no tiene concepto de "household": `pets` pertenec
 
 ## Documentación
 
-- Spec de diseño: [`docs/superpowers/specs/2026-09-02-petlife-design.md`](docs/superpowers/specs/2026-09-02-petlife-design.md)
-- Planes de implementación: [`docs/superpowers/plans/`](docs/superpowers/plans/)
 - Setup de Supabase y Google OAuth: [`docs/supabase-setup.md`](docs/supabase-setup.md)
+- Sistema de diseño: [`DESIGN.md`](DESIGN.md) — tokens, componentes y las reglas con nombre
+- Contexto de producto: [`PRODUCT.md`](PRODUCT.md) — a quién sirve, qué está decidido y qué no

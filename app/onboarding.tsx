@@ -235,7 +235,10 @@ export default function Onboarding() {
           — that bans text glyphs expected to match Outfit, like the ♂/♀ the
           sex chips used to carry. */}
       <Text className="mb-8 text-3xl font-bold text-text-primary">
-        Cuéntanos sobre tu compi 😊
+        {/* The space before the emoji is a non-breaking one (U+00A0). With an
+            ordinary space the headline wrapped between "compi" and the emoji,
+            leaving it orphaned on a line of its own. */}
+        {"Cuéntanos sobre tu compi\u00A0🐶"}
       </Text>
 
       {/* Everything visible at start lives in one group on purpose: the tutor

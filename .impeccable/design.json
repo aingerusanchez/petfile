@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-09-08T16:53:58Z",
-  "title": "Design System: Petlife",
+  "title": "Design System: Petfile",
   "extensions": {
     "colorMeta": {
       "base": { "role": "neutral", "displayName": "Polar Night", "canonical": "#0b1120", "tonalRamp": ["#141e39", "#21325f", "#2e4785", "#3b5bab", "#5474c4", "#7a93d1", "#b3c1e5", "#ecf0f8"] },
@@ -116,7 +116,7 @@
   ],
   "narrative": {
     "northStar": "Nordic Ice",
-    "overview": "Petlife runs dark-mode-only, deep navy fading toward black, cut through by a single ice-blue accent used sparingly. The personality is cold, precise, and minimal: no shadows, no gradients, no decoration that isn't load-bearing. Every screen so far is a plain vertical stack — a title, a short set of fields, one primary action — because the product's own principle is low-friction retrospective logging, not a showcase interface. Depth comes entirely from tone (four fixed surface steps, darkest to lightest), never from a shadow.\n\nWithin that cold restraint, interactive elements are tactile and confident rather than timid: a filled ice-blue button, a visibly elevated selected state on chips, a full-width primary action that's unmissable. The coldness is in the palette and the absence of ornament; the confidence is in how directly each control commits to its state.",
+    "overview": "Petfile runs dark-mode-only, deep navy fading toward black, cut through by a single ice-blue accent used sparingly. The personality is cold, precise, and minimal: no shadows, no gradients, no decoration that isn't load-bearing. Every screen so far is a plain vertical stack — a title, a short set of fields, one primary action — because the product's own principle is low-friction retrospective logging, not a showcase interface. Depth comes entirely from tone (four fixed surface steps, darkest to lightest), never from a shadow.\n\nWithin that cold restraint, interactive elements are tactile and confident rather than timid: a filled ice-blue button, a visibly elevated selected state on chips, a full-width primary action that's unmissable. The coldness is in the palette and the absence of ornament; the confidence is in how directly each control commits to its state.",
     "keyCharacteristics": [
       "Dark-mode-only, one accent hue (ice blue), used almost exclusively on primary actions and active states.",
       "Flat by construction — tonal layering substitutes for shadows everywhere.",
