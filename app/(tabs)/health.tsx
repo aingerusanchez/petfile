@@ -1,11 +1,12 @@
-import { Text, View } from "react-native";
+import { Text } from "react-native";
+import { Screen } from "../../components/ui";
 
 export default function Health() {
   return (
-    <View className="flex-1 items-center justify-center bg-base">
+    <Screen center edges={["top"]}>
       <Text testID="health-title" className="text-2xl text-text-primary">
         Salud
       </Text>
-    </View>
+    </Screen>
   );
 }

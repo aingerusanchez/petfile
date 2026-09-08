@@ -1,17 +1,11 @@
 import { Redirect, Tabs } from "expo-router";
-import { ActivityIndicator, View } from "react-native";
+import { LoadingScreen, colors } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 
 export default function TabsLayout() {
   const { session, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-base">
-        <ActivityIndicator color="#A5F2F3" />
-      </View>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   if (!session) return <Redirect href="/login" />;
 
@@ -19,9 +13,12 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { backgroundColor: "#0D1525", borderTopColor: "#1E293B" },
-        tabBarActiveTintColor: "#A5F2F3",
-        tabBarInactiveTintColor: "#64748B",
+        tabBarStyle: {
+          backgroundColor: colors.nav,
+          borderTopColor: colors.borderDefault,
+        },
+        tabBarActiveTintColor: colors.accentPrimary,
+        tabBarInactiveTintColor: colors.textMuted,
       }}
     >
       <Tabs.Screen name="index" options={{ title: "Hoy" }} />
