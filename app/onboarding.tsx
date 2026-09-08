@@ -1,7 +1,7 @@
 import { Redirect, useRouter } from "expo-router";
 import { Mars, Plus, Venus } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Text, View, type ScrollView } from "react-native";
+import { View, type ScrollView } from "react-native";
 import {
   BreedField,
   Button,
@@ -13,8 +13,9 @@ import {
   Group,
   LoadingScreen,
   Screen,
-  TextField,
   spacing,
+  Text,
+  TextField,
   useCelebration,
   useToast,
 } from "../components/ui";
@@ -540,7 +541,10 @@ export default function Onboarding() {
               which is the load this app deliberately does not charge. With
               nothing chosen the line invites a choice rather than describing
               options that are not active. */}
-          <Text testID="onboarding-activity-hint" className="mb-5 text-xs text-text-tertiary">
+          <Text
+            testID="onboarding-activity-hint"
+            className="mb-5 text-xs text-text-tertiary"
+          >
             {ACTIVITY.find((a) => a.value === draft.activityLevel)?.hint ??
               "Elige el que más se parezca a vuestro día a día."}
           </Text>

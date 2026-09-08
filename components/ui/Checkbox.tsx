@@ -1,6 +1,7 @@
 import { Check } from "lucide-react-native";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { colors } from "./tokens";
+import { Text } from "./Text";
 
 type CheckboxProps = {
   label: string;

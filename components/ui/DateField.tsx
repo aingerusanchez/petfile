@@ -1,7 +1,7 @@
 import "dayjs/locale/es";
 import { CalendarDays, X } from "lucide-react-native";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, View } from "react-native";
 import DateTimePicker from "react-native-ui-datepicker";
 import {
   MONTHS_ES_SHORT,
@@ -13,6 +13,7 @@ import {
 import { Chip } from "./Chip";
 import { FieldLabel } from "./FieldLabel";
 import { colors } from "./tokens";
+import { Text } from "./Text";
 
 /**
  * Nordic Ice theming for `react-native-ui-datepicker`.
@@ -40,20 +41,22 @@ const NORDIC_ICE: CalendarClassNames = {
   weekday_label: "text-xs font-semibold uppercase text-text-tertiary",
   day_cell: "p-0.5",
   day: "rounded-xl",
-  day_label: "text-text-primary",
+  // The library renders its own Text nodes, so the typeface reaches them
+  // through these classNames rather than through the Text primitive.
+  day_label: "font-sans text-text-primary",
   today: "rounded-xl border border-border-strong",
-  today_label: "text-text-primary",
+  today_label: "font-sans text-text-primary",
   selected: "rounded-xl border border-accent-primary bg-elevated",
   selected_label: "font-bold text-text-primary",
-  outside_label: "text-text-tertiary opacity-50",
+  outside_label: "font-sans text-text-tertiary opacity-50",
   disabled: "opacity-40",
-  disabled_label: "text-text-tertiary",
+  disabled_label: "font-sans text-text-tertiary",
   month: "rounded-xl",
-  month_label: "text-text-primary",
+  month_label: "font-sans text-text-primary",
   selected_month: "rounded-xl border border-accent-primary bg-elevated",
   selected_month_label: "font-bold text-text-primary",
   year: "rounded-xl",
-  year_label: "text-text-primary",
+  year_label: "font-sans text-text-primary",
   selected_year: "rounded-xl border border-accent-primary bg-elevated",
   selected_year_label: "font-bold text-text-primary",
 };

@@ -1,5 +1,4 @@
-import { Text } from "react-native";
-import { Screen } from "../../components/ui";
+import { Screen, Text } from "../../components/ui";
 
 export default function Health() {
   return (

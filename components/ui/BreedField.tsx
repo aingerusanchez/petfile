@@ -1,8 +1,9 @@
 import { useId, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, TextInput, View } from "react-native";
 import { isKnownBreed, searchBreeds } from "../../lib/breeds";
 import { FieldLabel } from "./FieldLabel";
 import { PLACEHOLDER_COLOR } from "./tokens";
+import { Text } from "./Text";
 
 type BreedFieldProps = {
   label: string;
@@ -69,7 +70,7 @@ export function BreedField({
         autoComplete="off"
         returnKeyType="next"
         maxLength={60}
-        className={`rounded-xl border bg-surface px-4 py-3 text-text-primary ${
+        className={`rounded-xl border bg-surface px-4 py-3 font-sans text-text-primary ${
           error ? "border-error" : "border-border-default"
         }`}
       />

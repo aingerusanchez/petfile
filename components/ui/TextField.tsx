@@ -1,7 +1,8 @@
 import { useId } from "react";
-import { Text, TextInput, type TextInputProps, View } from "react-native";
+import { TextInput, type TextInputProps, View } from "react-native";
 import { FieldLabel } from "./FieldLabel";
 import { PLACEHOLDER_COLOR } from "./tokens";
+import { Text } from "./Text";
 
 type TextFieldProps = Omit<
   TextInputProps,
@@ -57,7 +58,7 @@ export function TextField({
         accessibilityLabel={label}
         accessibilityLabelledBy={labelID}
         placeholderTextColor={PLACEHOLDER_COLOR}
-        className={`rounded-xl border bg-surface px-4 py-3 text-text-primary ${
+        className={`rounded-xl border bg-surface px-4 py-3 font-sans text-text-primary ${
           error ? "border-error" : "border-border-default"
         }`}
       />

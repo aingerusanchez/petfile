@@ -1,6 +1,5 @@
 import { Link } from "expo-router";
-import { Text } from "react-native";
-import { Screen } from "../components/ui";
+import { Screen, Text } from "../components/ui";
 
 /**
  * Our own not-found screen.

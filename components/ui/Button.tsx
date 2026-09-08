@@ -6,9 +6,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ActivityIndicator, Pressable, Text } from "react-native";
+import { ActivityIndicator, Pressable } from "react-native";
 import Animated, { ZoomIn, useReducedMotion } from "react-native-reanimated";
 import { colors } from "./tokens";
+import { Text } from "./Text";
 
 export type ButtonVariant = "primary" | "outlined" | "secondary" | "link";
 

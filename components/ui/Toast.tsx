@@ -6,7 +6,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react-native";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import Animated, {
   Easing,
   FadeIn,
@@ -20,6 +20,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useEffect } from "react";
 import { colors } from "./tokens";
+import { Text } from "./Text";
 
 export type ToastVariant = "success" | "warning" | "error" | "info";
 

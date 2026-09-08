@@ -1,7 +1,8 @@
 import type { LucideIcon } from "lucide-react-native";
 import type { ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { colors } from "./tokens";
+import { Text } from "./Text";
 
 type ChipProps = {
   label: string;

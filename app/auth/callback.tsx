@@ -1,8 +1,7 @@
 import * as Linking from "expo-linking";
 import { Redirect, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Text } from "react-native";
-import { Button, LoadingScreen, Screen } from "../../components/ui";
+import { Button, LoadingScreen, Screen, Text } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 
 /**

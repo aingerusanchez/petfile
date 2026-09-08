@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Text, View, type LayoutChangeEvent } from "react-native";
+import { View, type LayoutChangeEvent } from "react-native";
+import { Text } from "./Text";
 
 type GroupProps = {
   children: ReactNode;

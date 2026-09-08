@@ -12,5 +12,6 @@ export { LoadingScreen } from "./LoadingScreen";
 export { Screen } from "./Screen";
 export { Toast, type ToastOptions, type ToastVariant } from "./Toast";
 export { ToastProvider, useToast } from "./ToastProvider";
+export { Text } from "./Text";
 export { TextField } from "./TextField";
 export { colors, spacing, PAGE_GUTTER, PLACEHOLDER_COLOR } from "./tokens";

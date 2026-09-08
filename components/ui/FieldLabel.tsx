@@ -1,5 +1,5 @@
-import { Text } from "react-native";
 import { colors } from "./tokens";
+import { Text } from "./Text";
 
 type FieldLabelProps = {
   children: string;

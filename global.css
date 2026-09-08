@@ -21,13 +21,23 @@
 
 @import "tailwindcss/utilities.css";
 
-/* Platform-specific font families */
+/*
+ * Platform-specific font families.
+ *
+ * `--font-sans` is deliberately absent here. These blocks are unlayered, and
+ * an unlayered declaration beats anything in a cascade layer, so the
+ * `--font-sans: "Outfit_500Medium"` in the @theme block below (which lives in
+ * `@layer theme`) lost to a platform override no matter the source order. The
+ * result was Outfit on the web and the platform's own face on the device:
+ * every bit of body text on Android rendered in Roboto while the headings,
+ * which use --font-bold, stayed in Outfit. One typeface is a design rule, so
+ * the platform values are the ones that go.
+ */
 @media android {
   :root {
     --font-mono: monospace;
     --font-rounded: normal;
     --font-serif: serif;
-    --font-sans: normal;
   }
 }
 
@@ -35,7 +45,6 @@
   :root {
     --font-mono: ui-monospace;
     --font-serif: ui-serif;
-    --font-sans: system-ui;
     --font-rounded: ui-rounded;
   }
 }

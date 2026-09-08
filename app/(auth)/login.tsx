@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Text } from "react-native";
-import { Button, GoogleMark, Screen } from "../../components/ui";
+import { Button, GoogleMark, Screen, Text } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 
 export default function Login() {
