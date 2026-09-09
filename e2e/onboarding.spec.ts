@@ -492,3 +492,50 @@ test("keeps emoji out of every accessible name", async ({ page }) => {
   expect(spoken).not.toContain("💪");
   expect(spoken).toContain("Incansable");
 });
+
+test("keeps every control at Android's 48dp touch-target floor", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/onboarding");
+
+  const floor = async (id: string) => {
+    const box = await page.getByTestId(id).boundingBox();
+    expect(box, `${id} should be visible`).not.toBeNull();
+    expect(
+      box!.height,
+      `${id} is ${box!.height}px tall`,
+    ).toBeGreaterThanOrEqual(48);
+  };
+
+  // Measured before the disclosure opens, because opening it replaces this
+  // control with the group it reveals.
+  await floor("onboarding-more");
+
+  await page.getByTestId("onboarding-more").click();
+  await page.getByTestId("onboarding-mixed").click();
+
+  // Measured on device before this floor existed, every one of these came out
+  // 42.8dp: `min-h-12` is 3rem, and native resolves 1rem to 14, so the class
+  // that meant 48 delivered 42. The floor is a literal now, which is why it
+  // holds here too.
+  const controls = [
+    "onboarding-name",
+    "onboarding-breed",
+    "onboarding-breed-secondary",
+    "onboarding-birthdate",
+    "onboarding-birthdate-approx",
+    "onboarding-mixed",
+    "onboarding-sex-male",
+    "onboarding-sex-female",
+    "onboarding-activity-low",
+    "onboarding-activity-moderate",
+    "onboarding-activity-high",
+    "onboarding-neutered-yes",
+    "onboarding-neutered-no",
+    "onboarding-neutered-unknown",
+    "onboarding-submit",
+  ];
+
+  for (const id of controls) await floor(id);
+});
