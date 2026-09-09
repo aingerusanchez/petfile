@@ -72,56 +72,32 @@ test("keeps the optional fields collapsed until asked for", async ({
   await expect(page.getByTestId("onboarding-activity-low")).toBeVisible();
 });
 
-test("reveals a second breed field only when the dog is marked mixed", async ({
+test("keeps the mixed flag and the breed field saying the same thing", async ({
   page,
 }) => {
   await seedSession(page);
   await page.goto("/onboarding");
 
-  await expect(page.getByTestId("onboarding-breed-secondary")).toBeHidden();
-
+  // Ticking the box writes the word into the field.
   await page.getByTestId("onboarding-mixed").click();
+  await expect(page.getByTestId("onboarding-breed")).toHaveValue("Mestizo");
 
-  await expect(page.getByTestId("onboarding-breed-secondary")).toBeVisible();
-  // "Mezcla con", not "Segunda raza": a cross has two halves, and numbering
-  // them ranks one parent above the other.
-  await expect(page.getByText("Mezcla con")).toBeVisible();
-  await expect(page.getByText("Segunda raza")).toBeHidden();
-});
-
-test('turns a breed field answered "Mestizo" into the mixed flag', async ({
-  page,
-}) => {
-  await seedSession(page);
-  await page.goto("/onboarding");
-
-  // From the third letter, like the rest of the autocomplete: waiting for the
-  // whole word means the tutor sees nothing and assumes there is no list.
-  await page.getByTestId("onboarding-breed").fill("Mest");
-
-  // Offered as what it is, rather than accepted as a breed.
-  const offer = page.getByTestId("onboarding-breed-mixed-intent");
-  await expect(offer).toBeVisible();
-  await offer.click();
-
-  // The breed field is empty and the flag carries the fact instead.
+  // Unticking takes it away again, rather than leaving a breed nobody typed.
+  await page.getByTestId("onboarding-mixed").click();
   await expect(page.getByTestId("onboarding-breed")).toHaveValue("");
-  await expect(page.getByTestId("onboarding-breed-secondary")).toBeVisible();
-});
 
-test("does not offer the mixed flag for an actual breed", async ({ page }) => {
-  await seedSession(page);
-  await page.goto("/onboarding");
+  // And typing it ticks the box, so neither control can contradict the other.
+  await page.getByTestId("onboarding-breed").fill("mestizo");
+  await expect(page.getByTestId("onboarding-mixed")).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
 
-  await page.getByTestId("onboarding-breed").fill("Husky Siberiano");
-
-  await expect(page.getByTestId("onboarding-breed-mixed-intent")).toBeHidden();
-
-  // Two letters is still too early to hand the field to the flag: "c" is on
-  // its way to Caniche as often as to "cruce".
-  await page.getByTestId("onboarding-breed").fill("Ca");
-  await expect(page.getByTestId("onboarding-breed-mixed-intent")).toBeHidden();
-  await expect(page.getByTestId("breed-suggestion-Caniche")).toBeVisible();
+  // No second breed on this form: naming the halves of a cross is a real
+  // thing to collect and a worse thing to ask for here, so it waits for the
+  // profile's edit surface.
+  await expect(page.getByTestId("onboarding-breed-secondary")).toBeHidden();
+  await expect(page.getByText("Mezcla con")).toBeHidden();
 });
 
 test("asks for month and year only when the date is approximate", async ({
@@ -513,7 +489,6 @@ test("keeps every control at Android's 48dp touch-target floor", async ({
   await floor("onboarding-more");
 
   await page.getByTestId("onboarding-more").click();
-  await page.getByTestId("onboarding-mixed").click();
 
   // Measured on device before this floor existed, every one of these came out
   // 42.8dp: `min-h-12` is 3rem, and native resolves 1rem to 14, so the class
@@ -522,7 +497,6 @@ test("keeps every control at Android's 48dp touch-target floor", async ({
   const controls = [
     "onboarding-name",
     "onboarding-breed",
-    "onboarding-breed-secondary",
     "onboarding-birthdate",
     "onboarding-birthdate-approx",
     "onboarding-mixed",

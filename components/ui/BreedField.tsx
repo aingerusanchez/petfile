@@ -1,10 +1,6 @@
 import { useId, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
-import {
-  isKnownBreed,
-  looksLikeMixedBreed,
-  searchBreeds,
-} from "../../lib/breeds";
+import { isKnownBreed, searchBreeds } from "../../lib/breeds";
 import { FieldLabel } from "./FieldLabel";
 import { PLACEHOLDER_COLOR, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
@@ -18,11 +14,6 @@ type BreedFieldProps = {
   onLayout?: (event: import("react-native").LayoutChangeEvent) => void;
   error?: string | null;
   placeholder?: string;
-  /**
-   * Called when the tutor answers the breed question with "mestizo" instead of
-   * a breed. Passed only by the field that owns the mixed flag.
-   */
-  onMixedIntent?: () => void;
   /**
    * Called when the field takes focus, so the screen can bring it and the
    * suggestions it is about to open above the keyboard.
@@ -52,18 +43,12 @@ export function BreedField({
   onLayout,
   error = null,
   placeholder,
-  onMixedIntent,
   onFocus,
   testID,
 }: BreedFieldProps) {
   const labelID = useId();
   const [focused, setFocused] = useState(false);
   const text = value ?? "";
-  // "Mestizo" is an answer to the breed question, not a breed. When the field
-  // owns the mixed flag, offer to record it as what it is instead of storing a
-  // non-breed in breed_primary. It sits above the breed suggestions rather
-  // than replacing them: a prefix can be on its way to both.
-  const mixedIntent = focused && !!onMixedIntent && looksLikeMixedBreed(text);
   const suggestions = focused ? searchBreeds(text) : [];
   const recognised = text.trim().length > 0 && isKnownBreed(text);
 
@@ -102,25 +87,6 @@ export function BreedField({
           error ? "border-error" : "border-border-default"
         }`}
       />
-
-      {mixedIntent ? (
-        <Pressable
-          testID={testID ? `${testID}-mixed-intent` : undefined}
-          onPress={() => {
-            onChange(null);
-            setFocused(false);
-            onMixedIntent?.();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Mestizo, sin raza concreta"
-          className="mt-2 rounded-xl border border-border-default bg-elevated px-4 py-3"
-        >
-          <Text className="text-text-primary">Mestizo, sin raza concreta</Text>
-          <Text className="mt-1 text-xs text-text-tertiary">
-            Lo marcamos aquí abajo y dejamos la raza en blanco
-          </Text>
-        </Pressable>
-      ) : null}
 
       {suggestions.length > 0 ? (
         <View

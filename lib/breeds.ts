@@ -161,6 +161,16 @@ const MIXED_BREED_TERMS = [
 ];
 
 /**
+ * The word the breed field shows when the dog is marked mixed.
+ *
+ * A label, not a stored value: the boundary in `lib/pets.ts` strips it and
+ * sets `is_mixed` instead, so nothing in the database ever holds it as a
+ * breed. It reads back the same way — a mixed dog with no breed named is a
+ * "Mestizo".
+ */
+export const MIXED_BREED_LABEL = "Mestizo";
+
+/**
  * True when the text is a way of saying "mixed" rather than a breed.
  *
  * **Why this exists.** The breed field takes free text, so nothing stopped a
@@ -174,23 +184,4 @@ export function meansMixedBreed(value: string | null): boolean {
   const folded = foldForSearch(value ?? "");
   if (!folded) return false;
   return MIXED_BREED_TERMS.includes(folded);
-}
-
-/**
- * True while the text is on its way to one of those terms.
- *
- * The offer in the field has to behave like the rest of the autocomplete,
- * which suggests from the third letter: waiting for the whole word means a
- * tutor typing "Mest" sees nothing at all and concludes the field has no
- * suggestions — measured on device, that is exactly what happened. Three
- * letters is also what keeps a single "c" from hijacking the field on its way
- * to "Caniche".
- *
- * Deliberately more generous than `meansMixedBreed`: this one only *offers*,
- * while that one silently rewrites what gets stored, so it stays exact.
- */
-export function looksLikeMixedBreed(value: string | null): boolean {
-  const folded = foldForSearch(value ?? "");
-  if (folded.length < 3) return false;
-  return MIXED_BREED_TERMS.some((term) => term.startsWith(folded));
 }

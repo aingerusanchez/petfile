@@ -19,6 +19,7 @@ import {
   useCelebration,
   useToast,
 } from "../components/ui";
+import { MIXED_BREED_LABEL, meansMixedBreed } from "../lib/breeds";
 import { useAuth } from "../lib/auth";
 import { parseISO, toApproximateISO } from "../lib/dates";
 import {
@@ -135,7 +136,7 @@ export default function Onboarding() {
   const topInset = useRef(0);
 
   /** Visual order, which is the order a tutor reads and fixes them in. */
-  const FIELD_ORDER = ["name", "birthDate", "breedPrimary", "breedSecondary"];
+  const FIELD_ORDER = ["name", "birthDate", "breedPrimary"];
 
   function scrollToFirstError(errors: Record<string, string>) {
     const first = FIELD_ORDER.find((key) => errors[key]);
@@ -174,6 +175,39 @@ export default function Onboarding() {
 
       scrollRef.current.scrollTo({ y: target, animated: true });
     });
+  }
+
+  /**
+   * "Es mestizo" and the breed field are two faces of one fact.
+   *
+   * They used to be two controls saying the same thing, plus a third path — a
+   * suggestion row — that offered to translate between them. Ticking the box
+   * now writes "Mestizo" into the field, and typing it ticks the box, so
+   * whichever one the tutor reaches for, the screen ends up in a single state
+   * they can see. Untick clears the word again.
+   *
+   * The second breed is gone from the form with it. Naming the halves of a
+   * cross is a real thing to collect and a worse thing to ask for here, so it
+   * waits for the profile's edit surface — `breed_secondary` stays in the
+   * schema, unwritten, rather than being dropped.
+   *
+   * What reaches the database is unchanged and still honest: the boundary in
+   * `lib/pets.ts` recognises the word, sets `is_mixed` and stores no breed, so
+   * "Mestizo" is a thing the screen says and never a thing the record claims.
+   */
+  const mixed = draft.isMixed || meansMixedBreed(draft.breedPrimary);
+
+  function setMixed(next: boolean) {
+    setDraft((d) => ({
+      ...d,
+      isMixed: next,
+      breedPrimary: next
+        ? MIXED_BREED_LABEL
+        : meansMixedBreed(d.breedPrimary)
+          ? null
+          : d.breedPrimary,
+      breedSecondary: null,
+    }));
   }
 
   /**
@@ -510,56 +544,19 @@ export default function Onboarding() {
           label="Raza"
           value={draft.breedPrimary}
           onChange={(breed) => setDraft((d) => ({ ...d, breedPrimary: breed }))}
-          // Answering "Mestizo" here ticks the flag below instead of storing a
-          // non-breed: the record ends up saying the same thing, truthfully.
-          onMixedIntent={() => setDraft((d) => ({ ...d, isMixed: true }))}
           onFocus={() => revealField("breedPrimary")}
           placeholder="Husky Siberiano"
           error={fieldErrors.breedPrimary}
         />
-        <View className="-mt-3">
+        <View className="mb-4 -mt-3">
           <Checkbox
             testID="onboarding-mixed"
             label="Es mestizo"
-            checked={draft.isMixed}
-            onChange={(isMixed) =>
-              setDraft((d) => ({
-                ...d,
-                isMixed,
-                // Clear the second breed when the flag comes back off, so the
-                // record can never claim a cross it is no longer marked for.
-                breedSecondary: isMixed ? d.breedSecondary : null,
-              }))
-            }
+            accessibilityLabel="Es mestizo, sin raza concreta"
+            checked={mixed}
+            onChange={setMixed}
           />
         </View>
-
-        {/* onLayout sits on the wrapper below, not on the field: onLayout
-            reports an offset relative to the parent, so measuring the field
-            inside that View would report ~0 instead of its position in the
-            group. */}
-        {draft.isMixed ? (
-          <View
-            className="mt-3"
-            onLayout={(e) => {
-              fieldY.current.breedSecondary = e.nativeEvent.layout.y;
-            }}
-          >
-            <BreedField
-              testID="onboarding-breed-secondary"
-              label="Mezcla con"
-              value={draft.breedSecondary}
-              onChange={(breed) =>
-                setDraft((d) => ({ ...d, breedSecondary: breed }))
-              }
-              onFocus={() => revealField("breedSecondary")}
-              placeholder="Pastor Alemán"
-              error={fieldErrors.breedSecondary}
-            />
-          </View>
-        ) : (
-          <View className="mb-4" />
-        )}
       </Group>
 
       {/* The deferrable fields get their own group rather than joining the one
