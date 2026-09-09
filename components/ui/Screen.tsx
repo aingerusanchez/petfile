@@ -31,6 +31,16 @@ type ScreenProps = {
   onScrollOffset?: (offset: number) => void;
   /** The scroll viewport's height, reported once it is laid out. */
   onViewportHeight?: (height: number) => void;
+  /**
+   * The top window inset this screen is consuming.
+   *
+   * A scrolled ScrollView passes *under* the status bar — the top padding
+   * scrolls away with the content — so a screen that scrolls something into
+   * view has to clear that band itself or land its target under the clock.
+   * Reported here rather than read per screen, so `useSafeAreaInsets()` stays
+   * in this one file.
+   */
+  onTopInset?: (inset: number) => void;
   /** Appended to the container's classes, for per-screen alignment. */
   className?: string;
   testID?: string;
@@ -92,16 +102,23 @@ export function Screen({
   scrollRef,
   onScrollOffset,
   onViewportHeight,
+  onTopInset,
   className = "",
   testID,
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardInset();
+  const topInset = edges.includes("top") ? insets.top : 0;
+
+  useEffect(() => {
+    onTopInset?.(topInset);
+  }, [onTopInset, topInset]);
+
   const bottomInset = edges.includes("bottom") ? insets.bottom : 0;
   const padding = {
     paddingLeft: gutter + insets.left,
     paddingRight: gutter + insets.right,
-    paddingTop: padY + (edges.includes("top") ? insets.top : 0),
+    paddingTop: padY + topInset,
     // The keyboard's height is measured from the bottom of the screen, so it
     // already covers the navigation-bar inset — the larger of the two, never
     // their sum.

@@ -124,6 +124,15 @@ export default function Onboarding() {
   const fieldY = useRef<Record<string, number>>({});
   const scrollOffset = useRef(0);
   const viewportHeight = useRef(0);
+  /**
+   * The status-bar band the scroll target has to clear.
+   *
+   * A scrolled ScrollView runs under the status bar, and this device's inset
+   * (40dp) is larger than the margin below — so without it, scrolling to the
+   * first error landed the field's label under the clock, which is the one
+   * thing that margin exists to prevent.
+   */
+  const topInset = useRef(0);
 
   /** Visual order, which is the order a tutor reads and fixes them in. */
   const FIELD_ORDER = ["name", "birthDate", "breedPrimary", "breedSecondary"];
@@ -145,7 +154,10 @@ export default function Onboarding() {
 
       // A margin above the field so its label comes with it. An error you can
       // see but whose field name you cannot is half an answer.
-      const target = Math.max(groupY.current + y - spacing.lg, 0);
+      const target = Math.max(
+        groupY.current + y - spacing.lg - topInset.current,
+        0,
+      );
 
       // Only move if the field is not already comfortably on screen. Yanking
       // the view when the tutor could already see the field costs them their
@@ -182,7 +194,10 @@ export default function Onboarding() {
     requestAnimationFrame(() => {
       const y = fieldY.current[key];
       if (y === undefined || !scrollRef.current) return;
-      const target = Math.max(groupY.current + y - spacing.sm, 0);
+      const target = Math.max(
+        groupY.current + y - spacing.sm - topInset.current,
+        0,
+      );
       scrollRef.current.scrollTo({ y: target, animated: true });
     });
   }
@@ -396,6 +411,9 @@ export default function Onboarding() {
       }}
       onViewportHeight={(h) => {
         viewportHeight.current = h;
+      }}
+      onTopInset={(inset) => {
+        topInset.current = inset;
       }}
     >
       {/* "Compi" over "mascota": the animal is someone the tutor lives with,
