@@ -547,3 +547,33 @@ test("answers a press on every kind of control", async ({ page }) => {
     await expect(control).toHaveCSS("opacity", "1");
   }
 });
+
+test("keeps the primary action on one line whatever the name", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/onboarding");
+
+  const submit = page.getByTestId("onboarding-submit");
+  const oneLine = (await submit.boundingBox())!.height;
+
+  await page.getByTestId("onboarding-name").fill("Loki");
+  await expect(submit).toContainText("¡Vamos, Loki!");
+  expect((await submit.boundingBox())!.height).toBe(oneLine);
+
+  // A name too long for the recall gives the label back rather than being
+  // truncated inside it — a cut-off name in a call reads worse than no call.
+  await page
+    .getByTestId("onboarding-name")
+    .fill("Condesa Eufrasia de los Montes Nevados");
+  await expect(submit).toContainText("Añadir mascota");
+  expect((await submit.boundingBox())!.height).toBe(oneLine);
+
+  // Emoji are a name too, and they must not reach the accessible one. Their
+  // line box is taller than the Latin one, so this checks the button has not
+  // *wrapped* rather than that it has not moved at all.
+  await page.getByTestId("onboarding-name").fill("🐺 Loki 🐺");
+  await expect(submit).toContainText("¡Vamos, 🐺 Loki 🐺!");
+  await expect(submit).toHaveAttribute("aria-label", "Registrar mascota");
+  expect((await submit.boundingBox())!.height).toBeLessThan(oneLine * 1.5);
+});
