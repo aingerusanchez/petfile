@@ -1,6 +1,6 @@
 import { Check } from "lucide-react-native";
 import { Pressable, View } from "react-native";
-import { colors } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 type CheckboxProps = {
@@ -53,6 +53,16 @@ type CheckboxProps = {
  */
 const BOX = 24;
 
+/**
+ * Padding that makes the row exactly one touch target tall.
+ *
+ * Derived rather than picked: 12 + a 24dp box + 12 is 48, so a single-line row
+ * meets Android's minimum *and* centres the box by construction — no minHeight
+ * leaving slack at the bottom. `py-3` was the intent and delivered 10.5dp,
+ * which is where the measured 44.9dp came from.
+ */
+const PAD_Y = (TOUCH_TARGET - BOX) / 2;
+
 export function Checkbox({
   label,
   checked,
@@ -69,8 +79,8 @@ export function Checkbox({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={hint}
       accessibilityState={{ checked }}
-      // 48dp minimum touch target (Android): 12px padding + a 24px box.
-      className="flex-row items-start gap-3 rounded-xl py-3"
+      style={{ paddingVertical: PAD_Y }}
+      className="flex-row items-start gap-3 rounded-xl"
     >
       {/* The first recorded exception to The One Radius Rule, and it is forced:
           12px on a 24px box is a circle, which reads as a radio button and

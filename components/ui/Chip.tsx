@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
-import { colors } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 type ChipProps = {
@@ -47,6 +47,7 @@ export function Chip({
       accessibilityRole="radio"
       accessibilityLabel={label}
       accessibilityState={{ selected, checked: selected }}
+      style={{ minHeight: TOUCH_TARGET }}
       className={`${className} ${
         selected
           ? "border-accent-primary bg-elevated"

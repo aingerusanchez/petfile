@@ -12,7 +12,7 @@ import {
 } from "../../lib/dates";
 import { Chip } from "./Chip";
 import { FieldLabel } from "./FieldLabel";
-import { colors } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 /**
@@ -35,12 +35,20 @@ const NORDIC_ICE: CalendarClassNames = {
   // header caption is the library's own, so this is the only hook for it.
   month_selector_label: "text-text-primary font-semibold capitalize",
   year_selector_label: "text-text-primary font-semibold",
-  button_prev: "rounded-xl border border-border-default bg-base p-2",
-  button_next: "rounded-xl border border-border-default bg-base p-2",
+  // Literal 48px minimums, not `h-12`/`p-3`: the month arrows measured
+  // 27x24dp on device, barely half Android's floor, and every rem-based
+  // utility would have landed at 42. These are the library's own pressables,
+  // so the size has to arrive through the classNames it accepts.
+  button_prev:
+    "min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border border-border-default bg-base",
+  button_next:
+    "min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border border-border-default bg-base",
+  month_selector: "min-h-[48px] justify-center px-2",
+  year_selector: "min-h-[48px] justify-center px-2",
   weekdays: "mb-1",
   weekday_label: "text-xs font-semibold uppercase text-text-tertiary",
   day_cell: "p-0.5",
-  day: "rounded-xl",
+  day: "min-h-[48px] rounded-xl",
   // The library renders its own Text nodes, so the typeface reaches them
   // through these classNames rather than through the Text primitive.
   day_label: "font-sans text-text-primary",
@@ -137,6 +145,7 @@ export function DateField({
             ? `${label}: ${display}. Pulsa para cambiar`
             : `${label}. Pulsa para elegir`
         }
+        style={{ minHeight: TOUCH_TARGET }}
         className={`flex-row items-center justify-between rounded-xl border bg-surface px-4 py-3 ${
           error ? "border-error" : "border-border-default"
         }`}
@@ -183,7 +192,10 @@ export function DateField({
                 onPress={() => setOpen(false)}
                 accessibilityRole="button"
                 accessibilityLabel="Cerrar sin guardar"
-                className="h-12 w-12 items-center justify-center rounded-xl"
+                // A literal square, not `h-12 w-12`: those are 3rem, which
+                // native resolves to 42dp.
+                style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
+                className="items-center justify-center rounded-xl"
               >
                 <X size={20} color={colors.textTertiary} />
               </Pressable>
@@ -217,7 +229,7 @@ export function DateField({
                       label={String(year)}
                       selected={draftYear === year}
                       onPress={() => setDraftYear(year)}
-                      className="items-center rounded-xl border px-5 py-3"
+                      className="shrink-0 items-center justify-center rounded-xl border px-5 py-3"
                     />
                   ))}
                 </ScrollView>
@@ -274,7 +286,8 @@ export function DateField({
                 onPress={() => setOpen(false)}
                 accessibilityRole="button"
                 accessibilityLabel="Cancelar"
-                className="flex-1 items-center rounded-xl border border-border-strong py-4"
+                style={{ minHeight: TOUCH_TARGET }}
+                className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4"
               >
                 <Text className="text-text-secondary">Cancelar</Text>
               </Pressable>
@@ -283,7 +296,8 @@ export function DateField({
                 onPress={confirm}
                 accessibilityRole="button"
                 accessibilityLabel="Confirmar"
-                className="flex-1 items-center rounded-xl bg-accent-primary py-4"
+                style={{ minHeight: TOUCH_TARGET }}
+                className="flex-1 items-center justify-center rounded-xl bg-accent-primary py-4"
               >
                 <Text className="font-semibold text-on-accent">Confirmar</Text>
               </Pressable>

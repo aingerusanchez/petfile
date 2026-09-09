@@ -8,7 +8,7 @@ import {
 } from "react";
 import { ActivityIndicator, Pressable } from "react-native";
 import Animated, { ZoomIn, useReducedMotion } from "react-native-reanimated";
-import { colors } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 export type ButtonVariant = "primary" | "outlined" | "secondary" | "link";
@@ -144,15 +144,16 @@ export function Button({
         ? "bg-accent-primary"
         : "";
 
+  // The 48dp floor is a literal in `style`, not `min-h-12`: that class is 3rem,
+  // and native resolves 1rem to 14, so it was quietly holding the hit area at
+  // 42dp while reading as 48 here. See TOUCH_TARGET in tokens.ts.
   const shape = isLink
-    ? // min-h-12 keeps the hit area at Android's 48dp minimum even though the
-      // visible target is only text.
-      "min-h-12 flex-row items-center gap-2 self-start py-3"
+    ? "flex-row items-center gap-2 self-start py-3"
     : variant === "primary"
-      ? `min-h-12 flex-row items-center justify-center gap-2 rounded-xl py-4 ${fill}`
+      ? `flex-row items-center justify-center gap-2 rounded-xl py-4 ${fill}`
       : isOutlined
-        ? `min-h-12 flex-row items-center justify-center gap-3 rounded-xl border border-border-strong py-4 ${status === "error" ? fill : ""}`
-        : "min-h-12 flex-row items-center justify-center gap-2 rounded-xl border border-border-strong px-6 py-3";
+        ? `flex-row items-center justify-center gap-3 rounded-xl border border-border-strong py-4 ${status === "error" ? fill : ""}`
+        : "flex-row items-center justify-center gap-2 rounded-xl border border-border-strong px-6 py-3";
 
   // On both the accent fill and the error fill the readable colour is the dark
   // navy, not the light text: #0B1120 measures 14.88:1 on Ice Blue Glacial and
@@ -192,6 +193,7 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={spokenName}
       accessibilityState={{ disabled: inert, busy: status === "loading" }}
+      style={{ minHeight: TOUCH_TARGET }}
       className={`${shape}${disabled ? " opacity-50" : ""}`}
     >
       {status === "loading" ? (

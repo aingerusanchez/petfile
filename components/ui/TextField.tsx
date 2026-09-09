@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { TextInput, type TextInputProps, View } from "react-native";
 import { FieldLabel } from "./FieldLabel";
-import { PLACEHOLDER_COLOR } from "./tokens";
+import { PLACEHOLDER_COLOR, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 type TextFieldProps = Omit<
@@ -58,6 +58,10 @@ export function TextField({
         accessibilityLabel={label}
         accessibilityLabelledBy={labelID}
         placeholderTextColor={PLACEHOLDER_COLOR}
+        // The 48dp floor, plus the vertical centring it needs: Android draws a
+        // TextInput's text from the top of its box, so a minHeight without
+        // this leaves the value riding above the field's middle.
+        style={{ minHeight: TOUCH_TARGET, textAlignVertical: "center" }}
         className={`rounded-xl border bg-surface pl-4 pr-4 py-3 font-sans text-text-primary ${
           error ? "border-error" : "border-border-default"
         }`}

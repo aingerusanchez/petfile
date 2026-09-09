@@ -6,7 +6,7 @@ import {
   searchBreeds,
 } from "../../lib/breeds";
 import { FieldLabel } from "./FieldLabel";
-import { PLACEHOLDER_COLOR } from "./tokens";
+import { PLACEHOLDER_COLOR, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 type BreedFieldProps = {
@@ -85,6 +85,10 @@ export function BreedField({
         onBlur={() => setTimeout(() => setFocused(false), 120)}
         placeholder={placeholder}
         placeholderTextColor={PLACEHOLDER_COLOR}
+        // The 48dp floor, plus the vertical centring it needs: Android draws a
+        // TextInput's text from the top of its box, so a minHeight without
+        // this leaves the value riding above the field's middle.
+        style={{ minHeight: TOUCH_TARGET, textAlignVertical: "center" }}
         accessibilityLabel={label}
         accessibilityLabelledBy={labelID}
         // A breed is a proper noun: sentence-case would lower-case the second

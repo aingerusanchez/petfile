@@ -45,3 +45,16 @@ export const PLACEHOLDER_COLOR = colors.textTertiary;
 
 /** Horizontal page margin (DESIGN.md Layout: 24px, `px-6`). */
 export const PAGE_GUTTER = 24;
+
+/**
+ * Android's minimum touch target, in dp.
+ *
+ * A literal, and applied through `style`, because the class that meant to do
+ * this could not: `min-h-12` is 3rem, and the native CSS compiler resolves
+ * 1rem to 14, so it delivered 42dp while reading as 48 in the source. Measured
+ * on device at font_scale 1.0, every control on the onboarding form came out
+ * 42.8dp — inputs, chips and the primary action alike — against Material's
+ * 48×48dp floor. A literal is also immune to the font scale, which is the
+ * other thing that moves these heights.
+ */
+export const TOUCH_TARGET = 48;
