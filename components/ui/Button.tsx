@@ -220,7 +220,9 @@ export function Button({
           className="flex-row items-center gap-2"
         >
           <Check size={20} strokeWidth={3} color={iconColor} />
-          <Text className={labelClass}>{successLabel}</Text>
+          <Text numberOfLines={1} className={labelClass}>
+            {successLabel}
+          </Text>
         </Animated.View>
       ) : status === "error" ? (
         <Animated.View
@@ -229,13 +231,17 @@ export function Button({
           className="flex-row items-center gap-2"
         >
           <CircleAlert size={20} strokeWidth={2.5} color={iconColor} />
-          <Text className={labelClass}>{errorLabel}</Text>
+          <Text numberOfLines={1} className={labelClass}>
+            {errorLabel}
+          </Text>
         </Animated.View>
       ) : (
         <>
           {leading}
           {Icon ? <Icon size={16} strokeWidth={2.5} color={iconColor} /> : null}
-          <Text className={labelClass}>{label}</Text>
+          <Text numberOfLines={1} className={labelClass}>
+            {label}
+          </Text>
         </>
       )}
     </Pressable>

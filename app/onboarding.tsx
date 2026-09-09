@@ -432,7 +432,17 @@ export default function Onboarding() {
    * it is the only place in the flow the tutor sees their input read back.
    */
   const petName = draft.name.trim();
-  const submitLabel = petName ? `¡Vamos, ${petName}!` : "Añadir mascota";
+  // The recall only works while the name fits inside it. "¡Vamos, Condesa
+  // Eufrasia de los Montes Nevados!" filled the button edge to edge at
+  // font_scale 1.0 and would be cut at 1.3, and a truncated name in a recall
+  // reads worse than not using one — so past this length the neutral label
+  // takes over. Twenty characters covers every name that fits at the largest
+  // scale the screen supports, which is every name a dog actually answers to.
+  const CALLABLE_NAME_LENGTH = 20;
+  const submitLabel =
+    petName && petName.length <= CALLABLE_NAME_LENGTH
+      ? `¡Vamos, ${petName}!`
+      : "Añadir mascota";
   const chosenActivity = ACTIVITY.find((a) => a.value === draft.activityLevel);
 
   return (
