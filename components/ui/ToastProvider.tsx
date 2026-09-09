@@ -67,9 +67,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {queue.length > 0 ? (
         <View
           testID="toast-host"
-          pointerEvents="box-none"
           style={{
             position: "absolute",
+            // In the style, not as a prop: the prop form is deprecated and
+            // warns on every render.
+            pointerEvents: "box-none",
             left: PAGE_GUTTER + insets.left,
             right: PAGE_GUTTER + insets.right,
             bottom:

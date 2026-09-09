@@ -103,7 +103,7 @@ function Piece({
  * zooming. That distinction is the rule: motion may enhance a state change,
  * never be the only thing communicating it.
  *
- * `pointerEvents="none"` throughout, so it never intercepts a tap on whatever
+ * `pointerEvents: "none"` throughout, so it never intercepts a tap on whatever
  * screen it is falling over.
  */
 export function Celebration({ onDone }: { onDone: () => void }) {
@@ -124,7 +124,6 @@ export function Celebration({ onDone }: { onDone: () => void }) {
   return (
     <View
       testID="celebration"
-      pointerEvents="none"
       // Decoration, and it says nothing a screen reader needs: the toast
       // announces the outcome. Hidden from the accessibility tree on both
       // platforms so 44 pieces of confetti cannot become 44 nodes to walk.
@@ -138,6 +137,9 @@ export function Celebration({ onDone }: { onDone: () => void }) {
         right: 0,
         bottom: 0,
         overflow: "hidden",
+        // In the style, not as a prop: the prop form is deprecated and warns
+        // on every render.
+        pointerEvents: "none",
       }}
     >
       {Array.from({ length: PIECES }, (_, i) => (
