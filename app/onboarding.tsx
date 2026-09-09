@@ -9,7 +9,6 @@ import {
   Chip,
   ChipGroup,
   DateField,
-  FieldLabel,
   Group,
   LoadingScreen,
   Screen,
@@ -19,8 +18,8 @@ import {
   useCelebration,
   useToast,
 } from "../components/ui";
-import { MIXED_BREED_LABEL, meansMixedBreed } from "../lib/breeds";
 import { useAuth } from "../lib/auth";
+import { meansMixedBreed, MIXED_BREED_LABEL } from "../lib/breeds";
 import { parseISO, toApproximateISO } from "../lib/dates";
 import {
   createPet,
@@ -460,13 +459,13 @@ export default function Onboarding() {
         // No emoji in an accessible name: a screen reader reads 🐶 out as
         // "cara de perro", which turns the screen's title into a description
         // of its own decoration.
-        accessibilityLabel="Preséntanos a tu compi"
+        accessibilityLabel="Preséntame a tu compi"
         className="mb-8 text-3xl font-bold text-text-primary"
       >
         {/* The space before the emoji is a non-breaking one (U+00A0). With an
             ordinary space the headline wrapped between "compi" and the emoji,
             leaving it orphaned on a line of its own. */}
-        {"Preséntanos a tu compi\u00A0🐶"}
+        {"Preséntame a tu compi\u00A0🐶"}
       </Text>
 
       {/* Everything visible at start lives in one group on purpose: the tutor
@@ -496,7 +495,6 @@ export default function Onboarding() {
           maxLength={40}
         />
 
-        <FieldLabel>Sexo</FieldLabel>
         <ChipGroup label="Sexo" className="mb-5">
           {(
             [
@@ -564,7 +562,6 @@ export default function Onboarding() {
           weight and nutrition later — and they arrive at a different moment. */}
       {showOptional ? (
         <Group testID="onboarding-optional" title="Salud y actividad">
-          <FieldLabel>¿Esterilizado?</FieldLabel>
           <ChipGroup label="¿Esterilizado?">
             {(
               [
@@ -586,7 +583,6 @@ export default function Onboarding() {
             ))}
           </ChipGroup>
 
-          <FieldLabel>Nivel de actividad</FieldLabel>
           <ChipGroup label="Nivel de actividad" className="mb-2">
             {ACTIVITY.map(({ value, label }) => (
               <Chip
