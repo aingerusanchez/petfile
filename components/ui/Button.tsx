@@ -8,7 +8,7 @@ import {
 } from "react";
 import { ActivityIndicator, Pressable } from "react-native";
 import Animated, { ZoomIn, useReducedMotion } from "react-native-reanimated";
-import { colors, TOUCH_TARGET } from "./tokens";
+import { colors, pressed, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 export type ButtonVariant = "primary" | "outlined" | "secondary" | "link";
@@ -137,11 +137,18 @@ export function Button({
   const locked = status !== "idle";
   const inert = disabled || locked;
 
+  // A disabled primary loses the accent instead of fading it. `opacity-50`
+  // over the accent fill put its own label at 2.21:1 — unreadable — and a
+  // half-transparent accent still reads as "the one thing to do here". A
+  // surface fill says the action is not available; the label steps down to
+  // `text-tertiary`, which measures 6.64:1 on that fill.
   const fill =
     status === "error"
       ? "bg-error"
       : variant === "primary"
-        ? "bg-accent-primary"
+        ? disabled
+          ? "bg-surface"
+          : "bg-accent-primary"
         : "";
 
   // The 48dp floor is a literal in `style`, not `min-h-12`: that class is 3rem,
@@ -158,14 +165,16 @@ export function Button({
   // On both the accent fill and the error fill the readable colour is the dark
   // navy, not the light text: #0B1120 measures 14.88:1 on Ice Blue Glacial and
   // 5.00:1 on Error Red, while #F1F5F9 on Error Red is 3.44:1 and fails AA.
-  const onFill = variant === "primary" || status === "error";
-  const labelClass = isLink
-    ? "font-semibold text-accent-secondary"
-    : onFill
-      ? "font-semibold text-on-accent"
-      : isOutlined
-        ? "font-semibold text-text-primary"
-        : "text-text-secondary";
+  const onFill = (variant === "primary" && !disabled) || status === "error";
+  const labelClass = disabled
+    ? "text-text-tertiary"
+    : isLink
+      ? "font-semibold text-accent-secondary"
+      : onFill
+        ? "font-semibold text-on-accent"
+        : isOutlined
+          ? "font-semibold text-text-primary"
+          : "text-text-secondary";
   const iconColor = isLink
     ? colors.accentSecondary
     : onFill
@@ -196,8 +205,8 @@ export function Button({
       // See Checkbox: the web renders the role and drops the state.
       aria-disabled={inert}
       aria-busy={status === "loading"}
-      style={{ minHeight: TOUCH_TARGET }}
-      className={`${shape}${disabled ? " opacity-50" : ""}`}
+      style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
+      className={shape}
     >
       {status === "loading" ? (
         <ActivityIndicator

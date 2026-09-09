@@ -1,7 +1,8 @@
 import type { LucideIcon } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
-import { colors, TOUCH_TARGET } from "./tokens";
+import { colors, pressed, TOUCH_TARGET } from "./tokens";
+import { FieldLabel } from "./FieldLabel";
 import { Text } from "./Text";
 
 type ChipProps = {
@@ -49,7 +50,7 @@ export function Chip({
       accessibilityState={{ selected, checked: selected }}
       // See Checkbox: the web renders the role and drops the state.
       aria-checked={selected}
-      style={{ minHeight: TOUCH_TARGET }}
+      style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
       className={`${className} ${
         selected
           ? "border-accent-primary bg-elevated"
@@ -79,7 +80,7 @@ export function Chip({
 
 type ChipGroupProps = {
   children: ReactNode;
-  /** Names the group for screen readers; pass the same text as the field label. */
+  /** The field label, rendered above the row and used to name the group. */
   label: string;
   className?: string;
 };
@@ -103,12 +104,19 @@ export function ChipGroup({
   className = "mb-5",
 }: ChipGroupProps) {
   return (
-    <View
-      accessibilityRole="radiogroup"
-      accessibilityLabel={label}
-      className={`flex-row flex-wrap gap-3 ${className}`}
-    >
-      {children}
+    <View className={className}>
+      {/* The label is rendered here rather than beside the group. Every call
+          site used to pass the same string twice — once as a `FieldLabel` and
+          once for the group's accessible name — which is two places to forget
+          and two chances for them to disagree. */}
+      <FieldLabel>{label}</FieldLabel>
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel={label}
+        className="flex-row flex-wrap gap-3"
+      >
+        {children}
+      </View>
     </View>
   );
 }

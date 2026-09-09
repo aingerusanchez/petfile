@@ -1,6 +1,6 @@
 import { Check } from "lucide-react-native";
 import { Pressable, View } from "react-native";
-import { colors, TOUCH_TARGET } from "./tokens";
+import { colors, pressed, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 type CheckboxProps = {
@@ -85,7 +85,7 @@ export function Checkbox({
       // `aria-checked`, so on the web target the box announced no state at
       // all. The web is only the review harness here, but a control that
       // cannot say whether it is ticked is worth two props.
-      style={{ paddingVertical: PAD_Y }}
+      style={(state) => [{ paddingVertical: PAD_Y }, pressed(state)]}
       className="flex-row items-start gap-3 rounded-xl"
     >
       {/* The first recorded exception to The One Radius Rule, and it is forced:

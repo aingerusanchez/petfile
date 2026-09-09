@@ -19,7 +19,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useEffect } from "react";
-import { colors } from "./tokens";
+import { colors, pressed, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 export type ToastVariant = "success" | "warning" | "error" | "info";
@@ -156,6 +156,10 @@ export function Toast({
               onDismiss();
             }}
             accessibilityRole="button"
+            style={(state) => [
+              { minHeight: TOUCH_TARGET, justifyContent: "center" },
+              pressed(state),
+            ]}
             accessibilityLabel={action.label}
             className="min-h-12 justify-center px-2"
           >
@@ -170,6 +174,10 @@ export function Toast({
             testID={testID ? `${testID}-dismiss` : undefined}
             onPress={onDismiss}
             accessibilityRole="button"
+            style={(state) => [
+              { minHeight: TOUCH_TARGET, justifyContent: "center" },
+              pressed(state),
+            ]}
             accessibilityLabel="Cerrar aviso"
             className="min-h-12 w-12 items-center justify-center"
           >

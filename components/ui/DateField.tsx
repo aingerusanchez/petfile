@@ -12,7 +12,7 @@ import {
 } from "../../lib/dates";
 import { Chip } from "./Chip";
 import { FieldLabel } from "./FieldLabel";
-import { colors, TOUCH_TARGET } from "./tokens";
+import { colors, pressed, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 /**
@@ -145,7 +145,7 @@ export function DateField({
             ? `${label}: ${display}. Pulsa para cambiar`
             : `${label}. Pulsa para elegir`
         }
-        style={{ minHeight: TOUCH_TARGET }}
+        style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
         className={`flex-row items-center justify-between rounded-xl border bg-surface px-4 py-3 ${
           error ? "border-error" : "border-border-default"
         }`}
@@ -194,7 +194,10 @@ export function DateField({
                 accessibilityLabel="Cerrar sin guardar"
                 // A literal square, not `h-12 w-12`: those are 3rem, which
                 // native resolves to 42dp.
-                style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
+                style={(state) => [
+                  { width: TOUCH_TARGET, height: TOUCH_TARGET },
+                  pressed(state),
+                ]}
                 className="items-center justify-center rounded-xl"
               >
                 <X size={20} color={colors.textTertiary} />
@@ -286,7 +289,7 @@ export function DateField({
                 onPress={() => setOpen(false)}
                 accessibilityRole="button"
                 accessibilityLabel="Cancelar"
-                style={{ minHeight: TOUCH_TARGET }}
+                style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
                 className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4"
               >
                 <Text className="text-text-secondary">Cancelar</Text>
@@ -296,7 +299,7 @@ export function DateField({
                 onPress={confirm}
                 accessibilityRole="button"
                 accessibilityLabel="Confirmar"
-                style={{ minHeight: TOUCH_TARGET }}
+                style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
                 className="flex-1 items-center justify-center rounded-xl bg-accent-primary py-4"
               >
                 <Text className="font-semibold text-on-accent">Confirmar</Text>

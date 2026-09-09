@@ -58,3 +58,26 @@ export const PAGE_GUTTER = 24;
  * other thing that moves these heights.
  */
 export const TOUCH_TARGET = 48;
+
+/**
+ * The press feedback for every control in the app.
+ *
+ * A tap with no visible response is the one interaction defect a screenshot
+ * cannot show, and DESIGN.md had this open: "no pressed treatment exists on
+ * any button yet and should be resolved deliberately, the first time it
+ * matters for a real interaction". It matters now.
+ *
+ * It is opacity rather than a tonal step because the palette cannot afford
+ * one here: Fjord Slate against Elevated Frost measures 1.16:1, the same
+ * imperceptible difference that forced the chips' selected state to carry a
+ * weight change instead of a fill. Dropping the whole control to 70% moves
+ * fill, border and label together, which reads on a dark screen in daylight.
+ * A transient press is also outside WCAG's contrast minimums, so nothing has
+ * to hold 4.5:1 mid-tap.
+ */
+export const PRESSED_OPACITY = 0.7;
+
+/** `style` for a Pressable, so press feedback is one rule and not per component. */
+export function pressed({ pressed }: { pressed: boolean }) {
+  return { opacity: pressed ? PRESSED_OPACITY : 1 };
+}

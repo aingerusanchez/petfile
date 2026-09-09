@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { isKnownBreed, searchBreeds } from "../../lib/breeds";
 import { FieldLabel } from "./FieldLabel";
-import { PLACEHOLDER_COLOR, TOUCH_TARGET } from "./tokens";
+import { PLACEHOLDER_COLOR, pressed, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 type BreedFieldProps = {
@@ -104,7 +104,8 @@ export function BreedField({
               }}
               accessibilityRole="button"
               accessibilityLabel={breed}
-              className="border-b border-border-default px-4 py-3 last:border-b-0"
+              style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
+              className="justify-center border-b border-border-default px-4 py-3 last:border-b-0"
             >
               <Text className="text-text-primary">{breed}</Text>
             </Pressable>
