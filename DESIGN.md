@@ -60,6 +60,11 @@ components:
     textColor: "{colors.on-accent}"
     rounded: "{rounded.md}"
     padding: "16px 24px"
+  button-primary-disabled:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text-tertiary}"
+    rounded: "{rounded.md}"
+    padding: "16px 24px"
   button-secondary:
     backgroundColor: "transparent"
     textColor: "{colors.text-secondary}"
@@ -78,12 +83,12 @@ components:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.text-primary}"
     rounded: "{rounded.md}"
-    padding: "12px 0"
+    padding: "12px 16px"
   chip-selector-active:
     backgroundColor: "{colors.elevated}"
     textColor: "{colors.text-primary}"
     rounded: "{rounded.md}"
-    padding: "12px 0"
+    padding: "12px 16px"
   checkbox:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.text-primary}"
@@ -169,11 +174,23 @@ Single-column, mobile-first. Screens are a plain vertical stack (`View`/`ScrollV
 
 Vertical rhythm is stepped by margin-bottom: 8px between a label and its field, 20px between fields, 32–40px between major sections (e.g. the login title block, or the gap before a screen's primary action). Grouped choices (the sex selector, the activity-level selector) sit in a `flex-row` with a fixed 12px gap, each option taking equal width (`flex-1`).
 
-**Open: every number above is web-measured, and the device renders them at 87.5%.** Tailwind's spacing, radius and font-size utilities are `rem`-based, and the native CSS compiler resolves `1rem` to **14** (it follows React Native's default font size) where the browser resolves it to 16. Measured on a 375×817dp device: the group's `px-5` padding lands at 17.5dp instead of 20dp, the 24px checkbox at 21dp, and the chips at ~41dp instead of the 47dp recorded here — further below Android's 48dp touch target than the audit says. `withNativewind`'s `inlineRem` option cannot fix it in this version (the metro wrapper stores compiler options at `config.transformer.reactNativeCSS` while its transformer reads `options.reactNativeCSS`, so they never arrive); expressing the theme's `--spacing`, `--radius-*` and `--text-*` in px would.
+### Named Rules
+
+**Every touch target is at least 48dp, and the 48 is a literal.** Android's floor, and the app was missing it everywhere: measured on device at `font_scale 1.0`, every control on the onboarding form came out **42.8dp** — inputs, chips, the date display — with the checkbox rows at 44.9 and the primary action at 45.8. The cause is not carelessness but the `rem` note below: the code already said `min-h-12`, which is 3rem, and native resolves 1rem to 14, so the class that meant 48 delivered 42. The floor therefore comes from `TOUCH_TARGET` in `tokens.ts` through a `style` prop, which no rem and no font scale can move. The checkbox derives its padding from it instead — `(48 − 24) / 2` — so its row is exactly one target tall and the box is centred by construction rather than by a minHeight leaving slack.
+
+Two things the floor cannot cover, both recorded rather than hidden. A `TextInput` needs `textAlignVertical: "center"` alongside it, or Android draws the value from the top of the taller box. And the date picker's **day cells are 44.6dp wide** (48 tall): seven columns of 48 do not fit a 375dp screen, and Material's own date picker uses 40dp day cells, so the grid is the one place the floor yields to the calendar.
+
+**The screen holds at `font_scale 1.3`**, which is the bar. Verified on device: every control lands at 49dp or above (text drives the height past the floor), the headline wraps to two lines with the emoji still attached, and the whole form remains reachable by scrolling. What broke at that scale was the chip row — see Chips.
+
+**Portrait only, and deliberately.** `app.json` pins `"orientation": "portrait"`. The scene is one hand, standing, just back from a walk or out of the vet's; there is no tablet in a two-tutor household with a phone each. If a tablet or a foldable ever enters, this is the decision to revisit and the work is a restructure, not a stretch: the form in two columns, and the picker sheet sized to the available height.
+
+**Open: every number above is web-measured, and the device renders them at 87.5%.** Tailwind's spacing, radius and font-size utilities are `rem`-based, and the native CSS compiler resolves `1rem` to **14** (it follows React Native's default font size) where the browser resolves it to 16. Measured on a 375×817dp device: the group's `px-5` padding lands at 17.5dp instead of 20dp, the 24px checkbox at 21dp, and the chips at ~41dp instead of the 47dp recorded here — further below Android's 48dp touch target than the audit says. `withNativewind`'s `inlineRem` option cannot fix it in this version (the metro wrapper stores compiler options at `config.transformer.reactNativeCSS` while its transformer reads `options.reactNativeCSS`, so they never arrive); expressing the theme's `--spacing`, `--radius-*` and `--text-*` in px would. Touch targets no longer depend on the answer — they are literals now — so what is left open is spacing and radii reading 12.5% tighter on device than this document claims.
+
+An arbitrary value in a class **does** reach native (`min-h-[48px]` compiles to a plain `min-height: 48px` and lands), which is how the date picker's own pressables get the floor through the `classNames` it accepts. That is not a licence to sprinkle arbitrary values: it is the escape hatch for a third party's internals, where a `style` prop cannot reach.
+
+One more thing about the numbers: the device they were taken on runs at **`font_scale` 0.9**, so every text measurement recorded before 2026-09-09 is 10% smaller than a default phone renders it.
 
 A second, sharper case of the same root: **`line-height` from a utility class does not survive at all.** Tailwind emits `calc(var(--spacing) * 6)` for `leading-6`, and the compiler's line-height parser warns and returns nothing for a `calc()`, so every `leading-*` class in the app is inert on device — not scaled, dropped. A literal `leading-[24px]` is dropped too, because the runtime path never receives it. Line height therefore comes from a `style` prop, which is the same rule `tokens.ts` already exists for. **Unresolved — it belongs to the platform-adaptation pass, because closing it moves every dimension on the device at once.**
-
-### Named Rules
 
 **The keyboard is a bottom inset, and `Screen` owns it.** Under edge-to-edge Android stops resizing the window when the keyboard opens, so a `ScrollView` keeps its full height and everything behind the keyboard becomes unreachable: measured on device, the breed field's six suggestions opened entirely below the keyboard, with nothing on screen changing to say a list had appeared. `Screen` listens for the keyboard and pads the scroll content by **the larger of the navigation-bar inset and the keyboard height** — never their sum, since the keyboard is measured from the bottom of the screen and already covers that inset. The non-scrolling variant keeps the resting inset, because padding buys nothing where content cannot move.
 
