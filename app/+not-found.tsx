@@ -14,14 +14,24 @@ import { Screen, Text } from "../components/ui";
 export default function NotFound() {
   return (
     <Screen center>
-      <Text className="mb-2 text-2xl font-bold text-text-primary">
+      <Text
+        accessibilityRole="header"
+        // The visible line is deliberately gentle; the accessible name has to
+        // report the state, because a screen reader user arriving here needs
+        // to know the route is missing, not that a place is empty.
+        accessibilityLabel="Página no encontrada"
+        className="mb-2 text-2xl font-bold text-text-primary"
+      >
         Por aquí no hay nada
       </Text>
       <Text className="mb-8 text-center text-text-tertiary">
         Puede que el enlace esté caducado.
       </Text>
       <Link href="/" replace asChild>
-        <Text className="font-semibold text-accent-secondary">
+        <Text
+          accessibilityRole="link"
+          className="font-semibold text-accent-secondary"
+        >
           Volver al inicio
         </Text>
       </Link>

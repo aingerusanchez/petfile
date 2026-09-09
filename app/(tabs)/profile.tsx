@@ -6,7 +6,11 @@ export default function Profile() {
 
   return (
     <Screen center edges={["top"]}>
-      <Text testID="profile-title" className="mb-8 text-2xl text-text-primary">
+      <Text
+        testID="profile-title"
+        accessibilityRole="header"
+        className="mb-8 text-2xl text-text-primary"
+      >
         Perfil
       </Text>
       <Button

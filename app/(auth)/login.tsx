@@ -8,7 +8,12 @@ export default function Login() {
 
   return (
     <Screen className="justify-center">
-      <Text className="mb-2 text-4xl font-bold text-text-primary">Petfile</Text>
+      <Text
+        accessibilityRole="header"
+        className="mb-2 text-4xl font-bold text-text-primary"
+      >
+        Petfile
+      </Text>
       {/* "Diario" does in Spanish what "file" does in the name: the daily act
           of logging, and the notebook the history accumulates in. */}
       <Text className="mb-10 text-text-tertiary">El diario de tu compi</Text>

@@ -125,6 +125,12 @@ export function Celebration({ onDone }: { onDone: () => void }) {
     <View
       testID="celebration"
       pointerEvents="none"
+      // Decoration, and it says nothing a screen reader needs: the toast
+      // announces the outcome. Hidden from the accessibility tree on both
+      // platforms so 44 pieces of confetti cannot become 44 nodes to walk.
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      aria-hidden
       style={{
         position: "absolute",
         top: 0,

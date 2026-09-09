@@ -47,25 +47,37 @@ const ACTIVITY: {
   value: ActivityLevel;
   /** The chip label: the scale itself, short enough for a 3-up row. */
   label: string;
+  /**
+   * Kept apart from the sentence rather than written into it: a screen reader
+   * announces 😴 as "cara durmiendo", so the emoji carries tone for the eye
+   * and noise for the ear. The hint is spoken without it.
+   */
+  emoji: string;
   /** Shown only for the chosen option, below the row. */
   hint: string;
 }[] = [
   {
     value: "low",
     label: "Bajo",
-    hint: "😴 Dormilón. Salimos una o dos veces al día, paseos cortos. Con eso va servido.",
+    emoji: "😴",
+    hint: "Dormilón. Salimos una o dos veces al día, paseos cortos. Con eso va servido.",
   },
   {
     value: "moderate",
     label: "Moderado",
-    hint: "🎾 Juguetón. Dos o tres paseos, alguno de media hora, y jugamos un rato.",
+    emoji: "🎾",
+    hint: "Juguetón. Dos o tres paseos, alguno de media hora, y jugamos un rato.",
   },
   {
     value: "high",
     label: "Alto",
-    hint: "💪 Incansable. Tres o más paseos largos, o alguno de una hora. Necesita quemar.",
+    emoji: "💪",
+    hint: "Incansable. Tres o más paseos largos, o alguno de una hora. Necesita quemar.",
   },
 ];
+
+/** Shown while nothing is chosen: an invitation, not a description. */
+const ACTIVITY_PROMPT = "Elige el que más se acerque a vuestro día a día.";
 
 export default function Onboarding() {
   const { session, loading } = useAuth();
@@ -373,6 +385,7 @@ export default function Onboarding() {
    */
   const petName = draft.name.trim();
   const submitLabel = petName ? `¡Vamos, ${petName}!` : "Añadir mascota";
+  const chosenActivity = ACTIVITY.find((a) => a.value === draft.activityLevel);
 
   return (
     <Screen
@@ -390,7 +403,14 @@ export default function Onboarding() {
           system emoji font, which is a different thing from The No-Glyph Rule
           — that bans text glyphs expected to match Outfit, like the ♂/♀ the
           sex chips used to carry. */}
-      <Text className="mb-8 text-3xl font-bold text-text-primary">
+      <Text
+        accessibilityRole="header"
+        // No emoji in an accessible name: a screen reader reads 🐶 out as
+        // "cara de perro", which turns the screen's title into a description
+        // of its own decoration.
+        accessibilityLabel="Preséntanos a tu compi"
+        className="mb-8 text-3xl font-bold text-text-primary"
+      >
         {/* The space before the emoji is a non-breaking one (U+00A0). With an
             ordinary space the headline wrapped between "compi" and the emoji,
             leaving it orphaned on a line of its own. */}
@@ -458,6 +478,7 @@ export default function Onboarding() {
           <Checkbox
             testID="onboarding-birthdate-approx"
             label="Aproximado"
+            accessibilityLabel="Fecha de nacimiento aproximada"
             checked={draft.birthDateApproximate}
             onChange={setApproximate}
           />
@@ -571,10 +592,14 @@ export default function Onboarding() {
               options that are not active. */}
           <Text
             testID="onboarding-activity-hint"
+            accessibilityLabel={
+              chosenActivity ? chosenActivity.hint : ACTIVITY_PROMPT
+            }
             className="mb-5 text-xs text-text-tertiary"
           >
-            {ACTIVITY.find((a) => a.value === draft.activityLevel)?.hint ??
-              "Elige el que más se parezca a vuestro día a día."}
+            {chosenActivity
+              ? `${chosenActivity.emoji} ${chosenActivity.hint}`
+              : ACTIVITY_PROMPT}
           </Text>
         </Group>
       ) : (
@@ -592,6 +617,10 @@ export default function Onboarding() {
           testID="onboarding-submit"
           variant="primary"
           label={submitLabel}
+          // The visible label is the app's voice; the accessible name is the
+          // action. "¡Vamos, Loki!" only reads as a control next to the form
+          // it submits.
+          accessibilityLabel="Registrar mascota"
           successLabel="¡Ya estáis dentro!"
           // Two different failures reach the same button, so it says which:
           // fields left blank, or a write that did not go through. The toast

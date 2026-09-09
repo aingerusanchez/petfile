@@ -419,7 +419,7 @@ test("shows a hint only for the chosen activity level, and preselects none", asy
 
   // Nothing preselected: a default here used to be stored as if answered.
   const hint = page.getByTestId("onboarding-activity-hint");
-  await expect(hint).toContainText("Elige el que más se parezca");
+  await expect(hint).toContainText("Elige el que más se acerque");
   await expect(hint).not.toContainText("Dormilón");
   await expect(hint).not.toContainText("Incansable");
 
@@ -445,4 +445,50 @@ test("offers Google sign-in as an outlined button carrying the brand mark", asyn
     () => document.querySelectorAll('svg path[fill="#EA4335"]').length,
   );
   expect(brandPaths).toBeGreaterThan(0);
+});
+
+test("says the action in its accessible name, whatever the label says", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/onboarding");
+
+  const submit = page.getByTestId("onboarding-submit");
+  await expect(submit).toHaveAttribute("aria-label", "Registrar mascota");
+
+  // The warm label is the tutor's, the accessible name is the action's — and
+  // the first must not leak into the second.
+  await page.getByTestId("onboarding-name").fill("Loki");
+  await expect(submit).toContainText("¡Vamos, Loki!");
+  await expect(submit).toHaveAttribute("aria-label", "Registrar mascota");
+
+  // The visible label changes with the phase, so the name follows it: the
+  // control the tutor hears has to be the one on screen.
+  await page.getByTestId("onboarding-name").fill("");
+  await submit.click();
+  await expect(submit).toHaveAttribute(
+    "aria-label",
+    "Faltan datos por rellenar",
+  );
+});
+
+test("keeps emoji out of every accessible name", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/onboarding");
+
+  // A screen reader reads 🐶 as "cara de perro", which describes the
+  // decoration instead of the screen.
+  const headline = page.getByText("Preséntanos a tu compi");
+  await expect(headline).toHaveAttribute(
+    "aria-label",
+    "Preséntanos a tu compi",
+  );
+
+  await page.getByTestId("onboarding-more").click();
+  await page.getByTestId("onboarding-activity-high").click();
+  const hint = page.getByTestId("onboarding-activity-hint");
+  await expect(hint).toContainText("💪");
+  const spoken = await hint.getAttribute("aria-label");
+  expect(spoken).not.toContain("💪");
+  expect(spoken).toContain("Incansable");
 });

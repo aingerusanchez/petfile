@@ -9,6 +9,12 @@ type CheckboxProps = {
   onChange: (next: boolean) => void;
   /** Secondary line under the label, for stating what ticking the box does. */
   hint?: string;
+  /**
+   * What a screen reader announces, when the visible label only makes sense
+   * next to the field above it — "Aproximado" on its own names nothing.
+   * Defaults to `label`.
+   */
+  accessibilityLabel?: string;
   testID?: string;
 };
 
@@ -52,6 +58,7 @@ export function Checkbox({
   checked,
   onChange,
   hint,
+  accessibilityLabel,
   testID,
 }: CheckboxProps) {
   return (
@@ -59,7 +66,7 @@ export function Checkbox({
       testID={testID}
       onPress={() => onChange(!checked)}
       accessibilityRole="checkbox"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={hint}
       accessibilityState={{ checked }}
       // 48dp minimum touch target (Android): 12px padding + a 24px box.

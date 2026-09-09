@@ -43,6 +43,17 @@ type ButtonProps = {
    */
   successLabel?: string;
   errorLabel?: string;
+  /**
+   * What a screen reader announces, when the visible label is written in the
+   * app's voice rather than as an action.
+   *
+   * "¡Vamos, Loki!" tells a tutor looking at the screen exactly what will
+   * happen, because the form above it is the context. Read out on its own it
+   * is an exclamation, not a control: the accessible name has to say
+   * "Registrar mascota". Defaults to `label`, so a button whose text is
+   * already literal needs nothing.
+   */
+  accessibilityLabel?: string;
   disabled?: boolean;
   testID?: string;
 };
@@ -75,6 +86,7 @@ export function Button({
   leading,
   successLabel = "¡Listo!",
   errorLabel = "Algo no ha salido bien",
+  accessibilityLabel,
   disabled = false,
   testID,
 }: ButtonProps) {
@@ -159,13 +171,26 @@ export function Button({
       ? colors.onAccent
       : colors.textSecondary;
 
+  // The visible label changes with the phase, so the accessible name follows
+  // it: a button reading "¡Ya estáis dentro!" that still announces "Registrar
+  // mascota" describes a control that is no longer there. The result labels
+  // are the caller's own words and already state the outcome, so they are
+  // spoken as they are — the toast carries the detail.
+  const restingName = accessibilityLabel ?? label;
+  const spokenName =
+    status === "success"
+      ? successLabel
+      : status === "error"
+        ? errorLabel
+        : restingName;
+
   return (
     <Pressable
       testID={testID}
       onPress={handlePress}
       disabled={inert}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={spokenName}
       accessibilityState={{ disabled: inert, busy: status === "loading" }}
       className={`${shape}${disabled ? " opacity-50" : ""}`}
     >
