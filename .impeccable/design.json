@@ -1,42 +1,325 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-08T19:39:15Z",
+  "generatedAt": "2026-09-09T22:59:15Z",
   "title": "Design System: Petfile",
   "extensions": {
     "colorMeta": {
-      "base": { "role": "neutral", "displayName": "Polar Night", "canonical": "#0b1120", "tonalRamp": ["#141e39", "#21325f", "#2e4785", "#3b5bab", "#5474c4", "#7a93d1", "#b3c1e5", "#ecf0f8"] },
-      "surface": { "role": "neutral", "displayName": "Fjord Slate", "canonical": "#131c2e", "tonalRamp": ["#162136", "#25375a", "#344d7e", "#4363a2", "#5d7cbc", "#8199cb", "#b7c5e1", "#edf0f8"] },
-      "elevated": { "role": "neutral", "displayName": "Elevated Frost", "canonical": "#1e293b", "tonalRamp": ["#1a2333", "#2b3b55", "#3c5276", "#4d6a98", "#6783b2", "#899fc3", "#bbc8dd", "#eef1f6"] },
-      "nav": { "role": "neutral", "displayName": "Deep Ice", "canonical": "#0d1525", "tonalRamp": ["#142039", "#21365e", "#2e4b84", "#3c60aa", "#557ac3", "#7b97d1", "#b4c4e4", "#ecf0f8"] },
-      "border-default": { "role": "neutral", "displayName": "Hairline Frost", "canonical": "#1e293b", "tonalRamp": ["#1a2333", "#2b3b55", "#3c5276", "#4d6a98", "#6783b2", "#899fc3", "#bbc8dd", "#eef1f6"] },
-      "border-strong": { "role": "neutral", "displayName": "Steel Frost", "canonical": "#334155", "tonalRamp": ["#1d2530", "#303d50", "#435570", "#566e8f", "#7087a9", "#8fa2bc", "#bfcad9", "#eff2f5"] },
-      "accent-primary": { "role": "primary", "displayName": "Ice Blue Glacial", "canonical": "#a5f2f3", "tonalRamp": ["#094343", "#0f6f70", "#159c9d", "#1bc8ca", "#35e2e4", "#62e8ea", "#a5f2f3", "#e9fcfc"] },
-      "accent-secondary": { "role": "secondary", "displayName": "Aqua Glaciar", "canonical": "#7dd3e8", "tonalRamp": ["#0b3741", "#135b6c", "#1b7f98", "#23a3c3", "#3cbddd", "#67cce4", "#a8e2f0", "#e9f8fb"] },
-      "on-accent": { "role": "neutral", "displayName": "On Accent (Polar Night)", "canonical": "#0b1120", "tonalRamp": ["#141e39", "#21325f", "#2e4785", "#3b5bab", "#5474c4", "#7a93d1", "#b3c1e5", "#ecf0f8"] },
-      "text-primary": { "role": "neutral", "displayName": "Snow White", "canonical": "#f1f5f9", "tonalRamp": ["#172636", "#264059", "#36597d", "#4573a1", "#5e8cba", "#82a6c9", "#b8cce0", "#edf2f7"] },
-      "text-secondary": { "role": "neutral", "displayName": "Frost Grey", "canonical": "#cbd5e1", "tonalRamp": ["#1c2531", "#2f3e51", "#415771", "#547092", "#6d89ab", "#8ea4be", "#becbda", "#eff2f6"] },
-      "text-tertiary": { "role": "neutral", "displayName": "Mist Grey", "canonical": "#94a3b8", "tonalRamp": ["#1f252e", "#333e4d", "#47566b", "#5c6f8a", "#7588a3", "#94a3b8", "#c2cad6", "#f0f2f5"] },
-      "text-muted": { "role": "neutral", "displayName": "Slate Mist", "canonical": "#64748b", "tonalRamp": ["#20252c", "#353e4a", "#4b5768", "#606f85", "#7a899f", "#97a3b4", "#c4cbd4", "#f0f2f4"] },
-      "success": { "role": "status", "displayName": "Success Green", "canonical": "#22c55e", "tonalRamp": ["#0b411f", "#136d34", "#1a9849", "#22c45d", "#3bdd77", "#67e595", "#a8f0c3", "#e9fbf0"] },
-      "warning": { "role": "status", "displayName": "Warning Amber", "canonical": "#f59e0b", "tonalRamp": ["#492f03", "#7a4f05", "#ab6e07", "#dc8e09", "#f6a723", "#f8bb54", "#fbd89d", "#fef5e7"] },
-      "error": { "role": "status", "displayName": "Error Red", "canonical": "#ef4444", "tonalRamp": ["#460606", "#750a0a", "#a40e0e", "#d31212", "#ed2c2c", "#f15b5b", "#f7a1a1", "#fde8e8"] },
-      "info": { "role": "status", "displayName": "Info Blue", "canonical": "#3b82f6", "tonalRamp": ["#031e49", "#06327a", "#0846ab", "#0a5adb", "#2473f5", "#5492f7", "#9dc1fb", "#e7effe"] }
+      "base": {
+        "role": "neutral",
+        "displayName": "Polar Night",
+        "canonical": "#0b1120",
+        "tonalRamp": [
+          "#141e39",
+          "#21325f",
+          "#2e4785",
+          "#3b5bab",
+          "#5474c4",
+          "#7a93d1",
+          "#b3c1e5",
+          "#ecf0f8"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Fjord Slate",
+        "canonical": "#131c2e",
+        "tonalRamp": [
+          "#162136",
+          "#25375a",
+          "#344d7e",
+          "#4363a2",
+          "#5d7cbc",
+          "#8199cb",
+          "#b7c5e1",
+          "#edf0f8"
+        ]
+      },
+      "elevated": {
+        "role": "neutral",
+        "displayName": "Elevated Frost",
+        "canonical": "#1e293b",
+        "tonalRamp": [
+          "#1a2333",
+          "#2b3b55",
+          "#3c5276",
+          "#4d6a98",
+          "#6783b2",
+          "#899fc3",
+          "#bbc8dd",
+          "#eef1f6"
+        ]
+      },
+      "nav": {
+        "role": "neutral",
+        "displayName": "Deep Ice",
+        "canonical": "#0d1525",
+        "tonalRamp": [
+          "#142039",
+          "#21365e",
+          "#2e4b84",
+          "#3c60aa",
+          "#557ac3",
+          "#7b97d1",
+          "#b4c4e4",
+          "#ecf0f8"
+        ]
+      },
+      "border-default": {
+        "role": "neutral",
+        "displayName": "Hairline Frost",
+        "canonical": "#1e293b",
+        "tonalRamp": [
+          "#1a2333",
+          "#2b3b55",
+          "#3c5276",
+          "#4d6a98",
+          "#6783b2",
+          "#899fc3",
+          "#bbc8dd",
+          "#eef1f6"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Steel Frost",
+        "canonical": "#334155",
+        "tonalRamp": [
+          "#1d2530",
+          "#303d50",
+          "#435570",
+          "#566e8f",
+          "#7087a9",
+          "#8fa2bc",
+          "#bfcad9",
+          "#eff2f5"
+        ]
+      },
+      "accent-primary": {
+        "role": "primary",
+        "displayName": "Ice Blue Glacial",
+        "canonical": "#a5f2f3",
+        "tonalRamp": [
+          "#094343",
+          "#0f6f70",
+          "#159c9d",
+          "#1bc8ca",
+          "#35e2e4",
+          "#62e8ea",
+          "#a5f2f3",
+          "#e9fcfc"
+        ]
+      },
+      "accent-secondary": {
+        "role": "secondary",
+        "displayName": "Aqua Glaciar",
+        "canonical": "#7dd3e8",
+        "tonalRamp": [
+          "#0b3741",
+          "#135b6c",
+          "#1b7f98",
+          "#23a3c3",
+          "#3cbddd",
+          "#67cce4",
+          "#a8e2f0",
+          "#e9f8fb"
+        ]
+      },
+      "on-accent": {
+        "role": "neutral",
+        "displayName": "On Accent (Polar Night)",
+        "canonical": "#0b1120",
+        "tonalRamp": [
+          "#141e39",
+          "#21325f",
+          "#2e4785",
+          "#3b5bab",
+          "#5474c4",
+          "#7a93d1",
+          "#b3c1e5",
+          "#ecf0f8"
+        ]
+      },
+      "text-primary": {
+        "role": "neutral",
+        "displayName": "Snow White",
+        "canonical": "#f1f5f9",
+        "tonalRamp": [
+          "#172636",
+          "#264059",
+          "#36597d",
+          "#4573a1",
+          "#5e8cba",
+          "#82a6c9",
+          "#b8cce0",
+          "#edf2f7"
+        ]
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "Frost Grey",
+        "canonical": "#cbd5e1",
+        "tonalRamp": [
+          "#1c2531",
+          "#2f3e51",
+          "#415771",
+          "#547092",
+          "#6d89ab",
+          "#8ea4be",
+          "#becbda",
+          "#eff2f6"
+        ]
+      },
+      "text-tertiary": {
+        "role": "neutral",
+        "displayName": "Mist Grey",
+        "canonical": "#94a3b8",
+        "tonalRamp": [
+          "#1f252e",
+          "#333e4d",
+          "#47566b",
+          "#5c6f8a",
+          "#7588a3",
+          "#94a3b8",
+          "#c2cad6",
+          "#f0f2f5"
+        ]
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "Slate Mist",
+        "canonical": "#64748b",
+        "tonalRamp": [
+          "#20252c",
+          "#353e4a",
+          "#4b5768",
+          "#606f85",
+          "#7a899f",
+          "#97a3b4",
+          "#c4cbd4",
+          "#f0f2f4"
+        ]
+      },
+      "success": {
+        "role": "status",
+        "displayName": "Success Green",
+        "canonical": "#22c55e",
+        "tonalRamp": [
+          "#0b411f",
+          "#136d34",
+          "#1a9849",
+          "#22c45d",
+          "#3bdd77",
+          "#67e595",
+          "#a8f0c3",
+          "#e9fbf0"
+        ]
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "Warning Amber",
+        "canonical": "#f59e0b",
+        "tonalRamp": [
+          "#492f03",
+          "#7a4f05",
+          "#ab6e07",
+          "#dc8e09",
+          "#f6a723",
+          "#f8bb54",
+          "#fbd89d",
+          "#fef5e7"
+        ]
+      },
+      "error": {
+        "role": "status",
+        "displayName": "Error Red",
+        "canonical": "#ef4444",
+        "tonalRamp": [
+          "#460606",
+          "#750a0a",
+          "#a40e0e",
+          "#d31212",
+          "#ed2c2c",
+          "#f15b5b",
+          "#f7a1a1",
+          "#fde8e8"
+        ]
+      },
+      "info": {
+        "role": "status",
+        "displayName": "Info Blue",
+        "canonical": "#3b82f6",
+        "tonalRamp": [
+          "#031e49",
+          "#06327a",
+          "#0846ab",
+          "#0a5adb",
+          "#2473f5",
+          "#5492f7",
+          "#9dc1fb",
+          "#e7effe"
+        ]
+      }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "The single largest text in the app — the wordmark on the login screen only." },
-      "headline": { "displayName": "Headline", "purpose": "A screen's primary question or title, e.g. the onboarding prompt." },
-      "title": { "displayName": "Title", "purpose": "Tab-screen headers (Hoy, Salud, Perfil) — Medium weight, a location marker not an announcement." },
-      "body": { "displayName": "Body", "purpose": "Standard reading text, subtitles, secondary/ghost button labels." },
-      "label": { "displayName": "Label", "purpose": "Uppercase field labels above form inputs." }
+      "display": {
+        "displayName": "Display",
+        "purpose": "The single largest text in the app — the wordmark on the login screen only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "A screen's primary question or title, e.g. the onboarding prompt."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Tab-screen headers (Hoy, Salud, Perfil) — Medium weight, a location marker not an announcement."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Standard reading text, subtitles, secondary/ghost button labels."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase field labels above form inputs."
+      }
     },
     "shadows": [
-      { "name": "none", "value": "none", "purpose": "Deliberate: measured at 1.03:1 over Polar Night, weaker than the palette's weakest tonal step (1.11:1). Depth is tonal, and grouping is an outline. See The Flat-By-Default Rule." }
+      {
+        "name": "none",
+        "value": "none",
+        "purpose": "Deliberate: measured at 1.03:1 over Polar Night, weaker than the palette's weakest tonal step (1.11:1). Depth is tonal, and grouping is an outline. See The Flat-By-Default Rule."
+      }
     ],
     "motion": [
-      { "name": "status-icon-in", "value": "ZoomIn 220ms", "purpose": "A button's check or alert arriving. Skipped entirely under the system remove-animations setting; the icon still appears." },
-      { "name": "toast-in", "value": "SlideInDown 240ms", "purpose": "Toast entry, falling back to a fade under reduced motion." },
-      { "name": "toast-out", "value": "SlideOutDown 180ms", "purpose": "Toast exit, falling back to a fade under reduced motion." },
-      { "name": "confetti-fall", "value": "2200ms Easing.in(quad), 700ms stagger", "purpose": "The one-shot registration celebration. Renders nothing at all under the system remove-animations setting, because confetti carries no information to preserve." }
+      {
+        "name": "press-feedback",
+        "value": "opacity 0.7, instant",
+        "purpose": "Every Pressable while held. Not animated on purpose — a press has to answer inside the touch — and opacity rather than a tonal step, because Fjord Slate against Elevated Frost is 1.16:1."
+      },
+      {
+        "name": "status-icon-in",
+        "value": "ZoomIn 220ms",
+        "purpose": "A button's check or alert arriving. Skipped entirely under the system remove-animations setting; the icon still appears."
+      },
+      {
+        "name": "result-hold",
+        "value": "1400ms",
+        "purpose": "How long the primary action holds its success or failure label before returning to rest. The press stays locked for the whole cycle."
+      },
+      {
+        "name": "toast-in",
+        "value": "SlideInDown 240ms",
+        "purpose": "Toast entry, falling back to a fade under reduced motion."
+      },
+      {
+        "name": "toast-out",
+        "value": "SlideOutDown 180ms",
+        "purpose": "Toast exit, falling back to a fade under reduced motion."
+      },
+      {
+        "name": "confetti-fall",
+        "value": "2200ms Easing.in(quad), 700ms stagger",
+        "purpose": "The one-shot registration celebration. Renders nothing at all under the system remove-animations setting, because confetti carries no information to preserve."
+      }
     ],
     "breakpoints": []
   },
@@ -45,73 +328,79 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Full-width primary action. Ice Blue Glacial fill, dark text, 12px radius.",
-      "html": "<button class=\"ds-btn-primary\">Continuar con Google</button>",
-      "css": ".ds-btn-primary { display: flex; align-items: center; justify-content: center; width: 100%; background: #a5f2f3; color: #0b1120; font-family: 'Outfit', system-ui, sans-serif; font-weight: 600; font-size: 1rem; padding: 16px 24px; border: none; border-radius: 12px; cursor: pointer; transition: opacity 0.15s ease; } .ds-btn-primary:hover { opacity: 0.92; } .ds-btn-primary:focus-visible { outline: 2px solid #a5f2f3; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.6; cursor: default; }"
+      "description": "The one action on a screen. Full width, accent fill, and the only place the accent hue is spent.",
+      "html": "<button class=\"ds-btn-primary\">¡Vamos, Loki!</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:12px;border:none;cursor:pointer;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:16px;font-weight:600;line-height:1.5;width:100%;padding:16px 24px;background:var(--color-accent-primary, #a5f2f3);color:var(--color-on-accent, #0b1120)}.ds-btn-primary:active{opacity:0.7}.ds-btn-primary:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:2px}.ds-btn-primary:disabled{background:var(--color-surface, #131c2e);color:var(--color-text-tertiary, #94a3b8);cursor:default}"
     },
     {
       "name": "Secondary Button",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "Lower-emphasis action (retry, sign out). Transparent fill, Steel Frost border.",
+      "description": "A real alternative action — retry, sign out. Never the primary action on a screen.",
       "html": "<button class=\"ds-btn-secondary\">Reintentar</button>",
-      "css": ".ds-btn-secondary { display: flex; align-items: center; justify-content: center; background: transparent; color: #cbd5e1; font-family: 'Outfit', system-ui, sans-serif; font-weight: 500; font-size: 1rem; padding: 12px 24px; border: 1px solid #334155; border-radius: 12px; cursor: pointer; transition: border-color 0.15s ease; } .ds-btn-secondary:hover { border-color: #a5f2f3; } .ds-btn-secondary:focus-visible { outline: 2px solid #a5f2f3; outline-offset: 2px; }"
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:12px;border:none;cursor:pointer;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:16px;font-weight:600;line-height:1.5;padding:12px 24px;background:transparent;color:var(--color-text-secondary, #cbd5e1);border:1px solid var(--color-border-strong, #334155)}.ds-btn-secondary:active{opacity:0.7}.ds-btn-secondary:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:2px}"
     },
     {
       "name": "Link Button (tertiary)",
       "kind": "button",
       "refersTo": "button-link",
-      "description": "Lowest-emphasis action: no border, no fill, sized to its text. Uses Aqua Glaciar so it never claims the primary accent's meaning.",
-      "html": "<button class=\"ds-btn-link\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"#7dd3e8\" stroke-width=\"2.5\" stroke-linecap=\"round\"><path d=\"M5 12h14M12 5v14\"/></svg>A\u00f1adir salud y actividad</button>",
-      "css": ".ds-btn-link { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 12px 0; background: none; border: none; color: #7dd3e8; font-family: 'Outfit', system-ui, sans-serif; font-weight: 600; font-size: 1rem; cursor: pointer; } .ds-btn-link:hover { opacity: 0.8; }"
+      "description": "A disclosure or a sideways move, carrying the second accent so it reads interactive without claiming the primary action.",
+      "html": "<button class=\"ds-btn-link\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"#7dd3e8\" stroke-width=\"2.5\" stroke-linecap=\"round\"><path d=\"M5 12h14M12 5v14\"/></svg><span>Añadir salud y actividad</span></button>",
+      "css": ".ds-btn-link{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:12px;border:none;cursor:pointer;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:16px;font-weight:600;line-height:1.5;padding:12px 0;background:transparent;align-self:flex-start;color:var(--color-accent-secondary, #7dd3e8)}.ds-btn-link:active{opacity:0.7}.ds-btn-link:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:2px}"
     },
     {
       "name": "Text Input",
       "kind": "input",
       "refersTo": "input-text",
-      "description": "Standard text field. Fjord Slate fill, hairline border, muted placeholder.",
-      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Loki\" />",
-      "css": ".ds-input { width: 100%; background: #131c2e; color: #f1f5f9; font-family: 'Outfit', system-ui, sans-serif; font-weight: 500; font-size: 1rem; padding: 12px 16px; border: 1px solid #1e293b; border-radius: 12px; box-sizing: border-box; } .ds-input::placeholder { color: #94a3b8; } .ds-input:focus { outline: none; border-color: #a5f2f3; } .ds-input[aria-invalid] { border-color: #ef4444; }"
+      "description": "Labelled field, its label linked to the input. An error swaps the hairline for Error Red and reddens the label's asterisk.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-input-name\">Nombre <span class=\"ds-req\">*</span></label><input id=\"ds-input-name\" class=\"ds-input\" placeholder=\"Loki\" /></div>",
+      "css": ".ds-field{display:flex;flex-direction:column}.ds-field-label{margin-bottom:8px;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--color-text-tertiary, #94a3b8)}.ds-req{color:var(--color-accent-secondary, #7dd3e8)}.ds-input{min-height:48px;padding:12px 16px;border-radius:12px;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-default, #1e293b);font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;color:var(--color-text-primary, #f1f5f9)}.ds-input::placeholder{color:var(--color-text-tertiary, #94a3b8)}.ds-input:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:1px}.ds-input[aria-invalid='true']{border-color:var(--color-error, #ef4444)}"
     },
     {
       "name": "Selector Chip",
       "kind": "chip",
       "refersTo": "chip-selector",
-      "description": "Exclusive single-select option within a small fixed set (sex, activity level). Unselected state.",
-      "html": "<button class=\"ds-chip\">Moderado</button>",
-      "css": ".ds-chip { flex: 1; text-align: center; background: #131c2e; color: #f1f5f9; font-family: 'Outfit', system-ui, sans-serif; font-weight: 500; font-size: 1rem; padding: 12px 0; border: 1px solid #1e293b; border-radius: 12px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; } .ds-chip:hover { border-color: #334155; }"
+      "description": "One option in an exclusive row. Sizes to its content and shares the row's slack, so a long label is never squeezed.",
+      "html": "<button class=\"ds-chip\" role=\"radio\" aria-checked=\"false\">Moderado</button>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 16px;border-radius:12px;flex:1 0 auto;white-space:nowrap;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-default, #1e293b);font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;font-weight:500;color:var(--color-text-primary, #f1f5f9);cursor:pointer}.ds-chip:active{opacity:0.7}.ds-chip:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:2px}"
     },
     {
       "name": "Selector Chip (Active)",
       "kind": "chip",
       "refersTo": "chip-selector-active",
-      "description": "Selected state of the same chip — Elevated Frost fill, accent border.",
-      "html": "<button class=\"ds-chip-active\" aria-pressed=\"true\">Moderado</button>",
-      "css": ".ds-chip-active { flex: 1; text-align: center; background: #1e293b; color: #f1f5f9; font-family: 'Outfit', system-ui, sans-serif; font-weight: 700; font-size: 1rem; padding: 12px 0; border: 1px solid #a5f2f3; border-radius: 12px; cursor: pointer; }"
+      "description": "The selected option. The 700 weight is the load-bearing cue: the fill difference alone measures 1.16:1.",
+      "html": "<button class=\"ds-chip-active\" role=\"radio\" aria-checked=\"true\">Moderado</button>",
+      "css": ".ds-chip-active{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 16px;border-radius:12px;flex:1 0 auto;white-space:nowrap;background:var(--color-elevated, #1e293b);border:1px solid var(--color-accent-primary, #a5f2f3);font-family:Outfit_700Bold, system-ui, sans-serif;font-size:16px;font-weight:700;color:var(--color-text-primary, #f1f5f9);cursor:pointer}.ds-chip-active:active{opacity:0.7}"
     },
     {
       "name": "Checkbox",
       "kind": "custom",
       "refersTo": "checkbox",
-      "description": "A voluntary boolean flag, unchecked by default. 6px radius is the one recorded exception to The One Radius Rule: 12px on a 24px box is a circle and reads as a radio button.",
-      "html": "<label class=\"ds-check\"><span class=\"ds-check-box\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"#0b1120\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg></span><span class=\"ds-check-label\">Solo s\u00e9 el mes y el a\u00f1o</span></label>",
-      "css": ".ds-check { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; font-family: 'Outfit', system-ui, sans-serif; cursor: pointer; } .ds-check-box { flex: none; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: #a5f2f3; border: 1px solid #a5f2f3; border-radius: 6px; } .ds-check-label { color: #f1f5f9; font-weight: 600; font-size: 1rem; }"
+      "description": "A voluntary flag, unchecked by default. The row is exactly one touch target tall, so the box is centred by construction.",
+      "html": "<div class=\"ds-check-row\"><span class=\"ds-check-box\" role=\"checkbox\" aria-checked=\"false\"></span><span class=\"ds-check-label\">Aproximado</span></div><div class=\"ds-check-row\"><span class=\"ds-check-box ds-check-box--on\" role=\"checkbox\" aria-checked=\"true\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"#0b1120\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg></span><span class=\"ds-check-label ds-check-label--on\">Es mestizo</span></div>",
+      "css": ".ds-check-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-radius:12px;cursor:pointer}.ds-check-row:active{opacity:0.7}.ds-check-box{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;flex:0 0 auto;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-strong, #334155)}.ds-check-box--on{background:var(--color-accent-primary, #a5f2f3);border-color:var(--color-accent-primary, #a5f2f3)}.ds-check-label{font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:24px;color:var(--color-text-primary, #f1f5f9)}.ds-check-label--on{font-family:Outfit_600SemiBold, system-ui, sans-serif;font-weight:600}"
+    },
+    {
+      "name": "Date Field",
+      "kind": "custom",
+      "refersTo": "input-text",
+      "description": "A value display that opens a picker — never a text input, because the field once demanded ISO from a reader who writes DD/MM/AAAA.",
+      "html": "<button class=\"ds-datefield\"><span class=\"ds-datefield-value\">DD/MM/AAAA</span><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"#94a3b8\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4M16 2v4M3 10h18\"/><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01\"/></svg></button>",
+      "css": ".ds-datefield{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;padding:12px 16px;border-radius:12px;cursor:pointer;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-default, #1e293b)}.ds-datefield-value{font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;color:var(--color-text-tertiary, #94a3b8)}.ds-datefield:active{opacity:0.7}.ds-datefield:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:2px}"
     },
     {
       "name": "Toast (success)",
       "kind": "custom",
-      "refersTo": "toast",
-      "description": "Transient message above the whole app, in success/warning/error/info. Elevated Frost fill with a status-coloured border and no shadow; the draining bar shows an auto-hide is coming. A persistent variant drops the bar and offers an action instead.",
-      "html": "<div class=\"ds-toast\" role=\"alert\"><div class=\"ds-toast-row\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"#22c55e\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m9 12 2 2 4-4\"/></svg><span class=\"ds-toast-msg\">Loki ya est\u00e1 en la app.</span></div><div class=\"ds-toast-bar\"></div></div>",
-      "css": ".ds-toast { overflow: hidden; border: 1px solid #22c55e; border-radius: 12px; background: #1e293b; font-family: 'Outfit', system-ui, sans-serif; } .ds-toast-row { display: flex; align-items: flex-start; gap: 12px; padding: 16px; } .ds-toast-msg { flex: 1; color: #f1f5f9; font-weight: 500; font-size: 1rem; } .ds-toast-bar { height: 2px; width: 62%; background: #22c55e; }"
+      "description": "Transient confirmation, hosted above the navigator so a screen's own navigation cannot unmount it. The bar drains for the toast's duration.",
+      "html": "<div class=\"ds-toast\" role=\"alert\"><span class=\"ds-toast-icon\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"#22c55e\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M9 12l2 2 4-4\"/></svg></span><span class=\"ds-toast-text\">¡Loki ya está contigo!</span><span class=\"ds-toast-bar\"></span></div>",
+      "css": ".ds-toast{position:relative;display:flex;align-items:center;gap:12px;overflow:hidden;padding:16px;border-radius:12px;background:var(--color-elevated, #1e293b);border:1px solid var(--color-success, #22c55e)}.ds-toast-icon{display:inline-flex;flex:0 0 auto}.ds-toast-text{font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;color:var(--color-text-primary, #f1f5f9)}.ds-toast-bar{position:absolute;left:0;bottom:0;height:2px;width:40%;background:var(--color-success, #22c55e)}"
     },
     {
       "name": "Bottom Tab Bar",
       "kind": "nav",
-      "refersTo": "navigation",
-      "description": "3-destination bottom navigation. Deep Ice background, active label in Ice Blue Glacial.",
-      "html": "<nav class=\"ds-tabbar\"><button class=\"ds-tab ds-tab--active\">Hoy</button><button class=\"ds-tab\">Salud</button><button class=\"ds-tab\">Perfil</button></nav>",
-      "css": ".ds-tabbar { display: flex; background: #0d1525; border-top: 1px solid #1e293b; padding: 8px 0; } .ds-tab { flex: 1; background: none; border: none; color: #64748b; font-family: 'Outfit', system-ui, sans-serif; font-weight: 500; font-size: 0.75rem; padding: 8px 0; cursor: pointer; } .ds-tab--active { color: #a5f2f3; }"
+      "description": "The app's only permanent navigation: three text destinations on their own near-black plane.",
+      "html": "<nav class=\"ds-tabbar\"><span class=\"ds-tab ds-tab--active\">Hoy</span><span class=\"ds-tab\">Salud</span><span class=\"ds-tab\">Perfil</span></nav>",
+      "css": ".ds-tabbar{display:flex;align-items:center;justify-content:space-around;padding:8px 0;background:var(--color-nav, #0d1525);border-top:1px solid var(--color-border-default, #1e293b)}.ds-tab{font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:12px;font-weight:600;letter-spacing:0.02em;color:var(--color-text-tertiary, #94a3b8)}.ds-tab--active{color:var(--color-accent-primary, #a5f2f3)}"
     }
   ],
   "narrative": {
@@ -122,34 +411,116 @@
       "Flat by construction — tonal layering substitutes for shadows everywhere.",
       "One typeface (Outfit) carries every role; hierarchy is built from weight and size, never a second font.",
       "One corner radius (12px) on every interactive control, no exceptions yet.",
-      "Android is the primary adaptation target \u2014 the app ships to and is used on Android, so layout answers to Android insets (status bar, system navigation bar or gesture inset, back-gesture edges, the Android density range). The browser is the development and review harness and a secondary export."
+      "Nordic Ice governs every platform as one uniform system — it is adapted to each platform's physical constraints (safe areas, gesture zones), never replaced by native-per-OS components (SF Symbols, Material 3 widgets) to satisfy strict HIG/Material conformance. **Android is the primary adaptation target:** the app ships to and is used on Android, so the insets that shape layout are Android's (status bar, system navigation bar or gesture inset, back-gesture edges, and the Android density range). The browser is the development and review harness and a secondary export — a screen that looks right at a desktop width is not yet verified; Android is where it has to hold."
     ],
     "rules": [
-      { "name": "The One Accent Rule", "body": "Ice Blue Glacial is the only color that means \"act here.\" It appears on the primary button, the active tab, and a selected chip's border — nowhere else.", "section": "colors" },
-      { "name": "The Text-On-Accent Rule", "body": "Any text placed on an Ice Blue Glacial surface uses on-accent (#0B1120), never text-base — text-base is Tailwind's font-size utility, not a color.", "section": "colors" },
-      { "name": "The One Family Rule", "body": "Outfit is the only typeface. Reach for a heavier weight or larger size before considering a second family.", "section": "typography" },
-      { "name": "The Flat-By-Default Rule", "body": "No drop shadows, no glassmorphism, no blur. A component that needs to signal 'raised' moves up one tonal step instead.", "section": "elevation" },
-      { "name": "The One Radius Rule", "body": "12px is the only corner radius in the system. A new component defaults to it rather than picking a fresh value.", "section": "shapes" }
+      {
+        "name": "The One Accent Rule",
+        "body": "Ice Blue Glacial is the only color that means \"act here.\" It appears on the primary button, the active tab, and a selected chip's border — nowhere else. Diluting it into a general-purpose brand color would cost it its signal.",
+        "section": "colors"
+      },
+      {
+        "name": "The Text-On-Accent Rule",
+        "body": "Any text placed on an Ice Blue Glacial surface uses `on-accent` (#0B1120), never `text-base` — `text-base` is Tailwind's font-size utility, not a color, and silently fails to apply one.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "Outfit is the only typeface. If a future screen ever needs a visually distinct moment (a stat, a number), reach for a heavier Outfit weight or a larger size before considering a second family.",
+        "section": "typography"
+      },
+      {
+        "name": "The family is applied, never inherited",
+        "body": "A rule that depends on every call site restating it is not a rule, and this one broke exactly that way: on the web, `global.css` makes Outfit the default with a `[dir=\"auto\"]` rule, which works because react-native-web stamps that attribute on every rendered `<Text>`. Native has no such hook — the CSS compiler supports class selectors and drops universal and type selectors — so on Android a bare `<Text>` inherited nothing and rendered in **Roboto**, while headings, which name `font-bold` explicitly, stayed in Outfit. Measured on device: the whole form was the platform's face, the title was ours. The family is therefore applied once, in `components/ui/Text.tsx`, and **app code imports `Text` from the design system, never from `react-native`**. Components that render text through a third party (the date picker's own labels) pass `font-sans` in the classNames they hand it.",
+        "section": "typography"
+      },
+      {
+        "name": "Every touch target is at least 48dp, and the 48 is a literal",
+        "body": "Android's floor, and the app was missing it everywhere: measured on device at `font_scale 1.0`, every control on the onboarding form came out **42.8dp** — inputs, chips, the date display — with the checkbox rows at 44.9 and the primary action at 45.8. The cause is not carelessness but the `rem` note below: the code already said `min-h-12`, which is 3rem, and native resolves 1rem to 14, so the class that meant 48 delivered 42. The floor therefore comes from `TOUCH_TARGET` in `tokens.ts` through a `style` prop, which no rem and no font scale can move. The checkbox derives its padding from it instead — `(48 − 24) / 2` — so its row is exactly one target tall and the box is centred by construction rather than by a minHeight leaving slack.",
+        "section": "layout"
+      },
+      {
+        "name": "The screen holds at `font_scale 1.3`",
+        "body": ", which is the bar. Verified on device: every control lands at 49dp or above (text drives the height past the floor), the headline wraps to two lines with the emoji still attached, and the whole form remains reachable by scrolling. What broke at that scale was the chip row — see Chips.",
+        "section": "layout"
+      },
+      {
+        "name": "Portrait only, and deliberately",
+        "body": "`app.json` pins `\"orientation\": \"portrait\"`. The scene is one hand, standing, just back from a walk or out of the vet's; there is no tablet in a two-tutor household with a phone each. If a tablet or a foldable ever enters, this is the decision to revisit and the work is a restructure, not a stretch: the form in two columns, and the picker sheet sized to the available height.",
+        "section": "layout"
+      },
+      {
+        "name": "Open: every number above is web-measured, and the device renders them at 87.5%",
+        "body": "Tailwind's spacing, radius and font-size utilities are `rem`-based, and the native CSS compiler resolves `1rem` to **14** (it follows React Native's default font size) where the browser resolves it to 16. Measured on a 375×817dp device: the group's `px-5` padding lands at 17.5dp instead of 20dp, the 24px checkbox at 21dp, and the chips at ~41dp instead of the 47dp recorded here — further below Android's 48dp touch target than the audit says. `withNativewind`'s `inlineRem` option cannot fix it in this version (the metro wrapper stores compiler options at `config.transformer.reactNativeCSS` while its transformer reads `options.reactNativeCSS`, so they never arrive); expressing the theme's `--spacing`, `--radius-*` and `--text-*` in px would. Touch targets no longer depend on the answer — they are literals now — so what is left open is spacing and radii reading 12.5% tighter on device than this document claims.",
+        "section": "layout"
+      },
+      {
+        "name": "The keyboard is a bottom inset, and `Screen` owns it",
+        "body": "Under edge-to-edge Android stops resizing the window when the keyboard opens, so a `ScrollView` keeps its full height and everything behind the keyboard becomes unreachable: measured on device, the breed field's six suggestions opened entirely below the keyboard, with nothing on screen changing to say a list had appeared. `Screen` listens for the keyboard and pads the scroll content by **the larger of the navigation-bar inset and the keyboard height** — never their sum, since the keyboard is measured from the bottom of the screen and already covers that inset. The non-scrolling variant keeps the resting inset, because padding buys nothing where content cannot move.",
+        "section": "layout"
+      },
+      {
+        "name": "A field that opens an overlay list scrolls itself to the top on focus",
+        "body": "Room below is the point, not visibility: the tutor is already looking at the field. This is the one scroll in the app that is unconditional — `scrollToFirstError` deliberately does the opposite and stays put when the field is already on screen.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "No drop shadows, no glassmorphism, no blur. If a future component needs to signal \"raised,\" it moves up one tonal step — it does not reach for a shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "This is a consequence of the palette, not a preference",
+        "body": "It was tested: a black shadow at 25% effective alpha composited over Polar Night yields **1.03:1** — weaker than the _weakest_ tonal step the palette already has (page → surface, 1.11:1). The same shadow on a light ground gives 1.83:1. On a near-black page a shadow has nothing to contrast against, so it costs render work and buys almost nothing. Two shadowed variants of the onboarding form were built and rejected on this evidence; what looked like depth in them was the tonal step doing the work.",
+        "section": "elevation"
+      },
+      {
+        "name": "Grouping is the fifth depth role, and it is an outline",
+        "body": "A form section is bounded by a 1px Hairline Frost border (1.29:1 against the page) with 20px padding and the system radius — the `Group` component. It is deliberately _not_ a filled card: the four tones are already spoken for (page, content surface, selected state, tab bar), so a filled grouping card would have to take one of those roles and push every other component's tone down a step. A filled variant was built and it did exactly that, costing the field and chip tones. An outline groups without spending a tone, so nothing else has to move.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One Radius Rule",
+        "body": "12px is the only corner radius in the system. A new component defaults to it rather than picking a fresh value.",
+        "section": "shapes"
+      },
+      {
+        "name": "The one recorded exception is the checkbox",
+        "body": ", and it is forced rather than chosen: 12px on a 24px box is a full circle, which reads as a radio button and therefore means the wrong thing. It uses **6px — exactly half the system radius**, proportional to the control instead of a fresh arbitrary value. Any future control small enough to be swallowed by a 12px radius follows the same halving rule; nothing else invents a radius.",
+        "section": "shapes"
+      },
+      {
+        "name": "The No-Glyph Rule",
+        "body": "An icon is never a Unicode character. Outfit's charset does not cover the symbol ranges, so a glyph silently falls back to another typeface and breaks The One Family Rule — which is exactly what the old `♂`/`♀` sex chips did, in the middle of the form. Those are now the words \"Macho\" and \"Hembra\".",
+        "section": "iconography"
+      }
     ],
     "dos": [
-      "Do use the single 12px radius (rounded-xl) on every new interactive control.",
-      "Do pair a confirmation with the action that triggered it: the primary action calls the animal, the success toast answers.",
-      "Do validate on submit and forgive on input: an error clears the moment its own field becomes valid, and is never raised mid-typing.",
-      "Do express state through a tonal step and the accent border, never a shadow.",
-      "Do keep Outfit as the only typeface; differentiate by weight and size.",
-      "Do use text-on-accent for any text on an Ice Blue Glacial surface — never text-base. The rule extends to status fills: #0B1120 on Error Red is 5.00:1 and passes AA, while the light text is 3.44:1 and fails.",
-      "Do resolve every color through a Nordic Ice token; a raw hex value in a component className is a defect."
+      "**Do** use the single 12px radius (`rounded-xl`) on every new interactive control — inputs, buttons, chips alike.",
+      "**Do** express state (selected, active) through a tonal step (Elevated Frost) and the accent border, never a shadow.",
+      "**Do** keep Outfit as the only typeface; differentiate by weight and size.",
+      "**Do** mark an optional field as optional. Nothing marked required works better here than asterisks everywhere: the required fields lead the form, and only the skippable ones carry the word. It is also the honest thing to do — a tutor is entitled to know which data they can decline to give.",
+      "**Do** make every animation optional. Android's \"remove animations\" setting is honoured through `useReducedMotion()`, and the rule is that motion may only ever _enhance_ a state change, never be the only thing that communicates it: the button's status icon still appears when motion is off, it simply does not zoom. This binds anything decorative added later — a celebration effect included: it must degrade to nothing, not to a broken half-animation.",
+      "**Do** scroll the _first_ error into view on submit, in visual order rather than the order the validator reported them, and only when the field is not already on screen — moving the view for a field the tutor can already see costs them their place. Defer it a frame: scrolling in the same tick as the error state scrolls the pre-error layout, and the browser's scroll anchoring then cancels it.",
+      "**Do** confirm a write. Every CRUD action owes the user a visible result: the button's own check or alert for the press, and a toast for what actually happened to their data. A screen that navigates on success without a word leaves the tutor guessing whether the thing they came to do worked.",
+      "**Do** pair a confirmation with the action that triggered it. \"¡Vamos, Loki!\" is answered by \"¡Loki ya está contigo!\" — a recall, the call on a walk and the dog arriving. The pair makes the feedback read as an _answer_ rather than a log line, and it draws on the product's own world instead of borrowed charm. Write the two together or they drift apart.",
+      "**Do** let a control explain itself. Ticking \"Aproximado\" turns the picker into month and year; that demonstration replaces the sentence that would have described it.",
+      "**Do** use `text-on-accent` for any text on an Ice Blue Glacial surface — never `text-base`, which is Tailwind's font-size utility, not a color, and silently produces no text color at all.",
+      "**Do** resolve every color through a Nordic Ice token; a raw hex value in a component `className` is a defect, not a shortcut (enforced in `AGENTS.md`)."
     ],
     "donts": [
-      "Don't add drop shadows, glassmorphism, or blur.",
-      "Don't introduce a second accent hue outside Ice Blue Glacial / Aqua Glaciar.",
-      "Don't communicate state by color alone - pair it with a non-chromatic cue. A selected chip's fill against an unselected chip's measures 1.16:1, so the selected label is set to 700 weight; the accent border alone is not enough.",
-      "Don't write a sentence where an intuitive control would do; explanatory text the average reader skips is clutter, and extra detail should be reachable rather than in everyone's way.",
-      "Don't explain a collapsed or inactive block from the outside \u2014 that is cognitive load charged to every reader, including the majority who never open it.",
-      "Don't state what the context already carries.",
-      "Don't let wit cost an error its clarity. The voice may reach a failure while the way out stays explicit; the test is whether the tutor knows what to do next.",
-      "Don't put the voice in a label; structural text stays literal.",
-      "Don't reach for platform-native components (Material 3 FABs, Material filled text fields, Android date-picker dialogs) to satisfy per-OS conformance. Being an Android app does not make Material 3 the house style."
+      "**Don't** add drop shadows, glassmorphism, or blur — depth here is tonal, never shadow-based.",
+      "**Don't** introduce a second accent hue outside Ice Blue Glacial / Aqua Glaciar; the accent family is deliberately narrow so it keeps its meaning.",
+      "**Don't** communicate success/error/selected state by color alone — pair it with a non-chromatic cue. This is not theoretical: a selected chip's Elevated Frost fill against an unselected chip's Fjord Slate fill measures **1.16:1**, so the tonal step is imperceptible and, on its own, selection rested entirely on the 1px accent border. `Chip` therefore sets its selected label to 700 weight, which reads in daylight and for a color-blind viewer while staying inside The One Family Rule. Every new stateful component owes the same: a weight, a glyph, or a genuinely visible tonal step — never the accent alone.",
+      "**Don't** let wit cost an error its clarity. The voice may reach a failure — \"Parece que Loki no contesta a su nombre… ¡vuelve a intentarlo!\" keeps the recall metaphor the button opened — but only while the way out stays explicit and the message persists until the user acts on it. The test is not tone, it is whether the tutor knows what to do next. Two shapes that pass it: a question where a rule would do (\"¿Cómo se llama?\" for an empty field, \"¿Aún no ha nacido?\" for a future date, which treats a slip as the slip it almost always is), and taking responsibility when the fault is ours (\"Algo ha ido mal por nuestro lado\").",
+      "**Don't** let the voice be the accessible name. The visible label speaks like a household; **the accessible name states the action** — \"¡Vamos, Loki!\" reads as a control only next to the form it submits, so the button announces \"Registrar mascota\". Three corollaries. No emoji in an accessible name: a screen reader turns 🐶 into \"cara de perro\", so the headline and the activity hints keep their emoji on screen and out of the spoken string. A label whose visible text changes with a phase carries its name with it — a button reading \"¡Ya estáis dentro!\" that still announces \"Registrar mascota\" describes a control that is no longer there. And a warm line that reports a state has to report it: \"Por aquí no hay nada\" announces \"Página no encontrada\". Decoration that says nothing is hidden outright — the confetti is out of the accessibility tree on both platforms.",
+      "**Don't** trust one accessibility API to cover both targets. `accessibilityState` is what Android reads, and react-native-web renders the _role_ from it while dropping `aria-checked` — so on the web the checkbox and the chips announced a role with no state, which is worse than no role at all. Selection controls pass both, and a control whose state is the whole point is worth two props.",
+      "**Don't** put the voice in a label. Field labels, chips, month names and dismiss controls stay literal: a label's whole job is to be read instantly, and personality there costs legibility for nothing. The voice belongs in headlines, primary actions, confirmations and empty states.",
+      "**Don't** name an internal plan in user-facing copy. An empty state says what will appear here in the tutor's terms, not what the roadmap calls it.",
+      "**Don't** write a sentence where an intuitive control would do. The average reader skips body copy, so explanatory text is not documentation — it is clutter that pushes the real controls down. Detail a genuinely interested user might want should be _reachable_, not placed in everyone's way.",
+      "**Don't** explain a collapsed or inactive block from the outside. Describing what sits behind \"Rellenar más datos\" charges cognitive load to every reader, including the majority who will never open it. The explanation belongs inside, once the block is open.",
+      "**Don't** state what the context already carries. A screen inside a pet app, asking for a pet's details, does not need a sentence announcing that it is asking for a pet's details.",
+      "**Don't** reach for platform-native components (Material 3 FABs, Material filled text fields, Android date-picker dialogs — or their iOS equivalents) to satisfy per-OS conformance. Being an Android app does not make Material 3 the house style: Nordic Ice is deliberately one uniform world. Adapt it to Android's physical constraints; don't replace it with Android's native kit."
     ]
   }
 }
