@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { Platform } from "react-native";
+import { describeFailure, withTimeout } from "./failures";
 import { supabase } from "./supabase";
 
 /**
@@ -68,13 +69,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth
-      .getSession()
+    // Bounded: `getSession` reads the stored session and, when it has expired,
+    // refreshes it over the network — and `supabase-js` sets no timeout, so a
+    // phone that has dropped off the network leaves this pending and the app
+    // on its loading screen indefinitely. Measured on device: minutes of
+    // spinner with AuthRetryableFetchError in the log and nothing on screen.
+    // Timing out here lands on the signed-out screen, which is the honest
+    // answer when we cannot tell whether there is a session.
+    withTimeout(supabase.auth.getSession(), "getSession")
       .then(({ data }) => {
         setSession(data.session);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((cause: unknown) => {
+        describeFailure(cause, "getSession");
+        setLoading(false);
+      });
 
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => setSession(nextSession),

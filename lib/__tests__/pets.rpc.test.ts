@@ -78,7 +78,7 @@ describe("createPet", () => {
     expect(mockRpc.mock.calls[0][1].pet.activity_level).toBeNull();
   });
 
-  it("surfaces a database error message", async () => {
+  it("answers a rejected save in the app's voice, not the transport's", async () => {
     mockRpc.mockResolvedValue({
       data: null,
       error: { message: "not authenticated" },
@@ -86,7 +86,24 @@ describe("createPet", () => {
 
     const result = await createPet(draft);
 
-    expect(result).toEqual({ petId: null, error: "not authenticated" });
+    // The raw message names neither the problem nor the recovery for a tutor;
+    // it goes to the console instead.
+    expect(result.petId).toBeNull();
+    expect(result.error).toBe(
+      "Algo ha ido mal por nuestro lado. Vuelve a intentarlo.",
+    );
+  });
+
+  it("names a lost connection as one", async () => {
+    mockRpc.mockRejectedValue(
+      new Error("Network request failed: java.net.ConnectException"),
+    );
+
+    const result = await createPet(draft);
+
+    expect(result.error).toBe(
+      "Parece que no hay conexión. Inténtalo otra vez cuando vuelva.",
+    );
   });
   it('records a typed "Mestizo" as the mixed flag, not as a breed', async () => {
     mockRpc.mockResolvedValue({ data: { id: "pet-1" }, error: null });

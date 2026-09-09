@@ -1,4 +1,5 @@
 import { meansMixedBreed } from "./breeds";
+import { describeFailure, withTimeout } from "./failures";
 import { supabase } from "./supabase";
 import type { Database } from "./database.types";
 
@@ -118,7 +119,7 @@ export async function createPet(
   const isMixed = isMixedDraft(draft);
   const breedPrimary = typedMixed ? null : draft.breedPrimary;
 
-  const { data, error } = await supabase.rpc("create_pet_with_owner", {
+  const call = supabase.rpc("create_pet_with_owner", {
     pet: {
       name: draft.name.trim(),
       sex: draft.sex,
@@ -132,11 +133,17 @@ export async function createPet(
     },
   });
 
-  if (error) {
-    return { petId: null, error: error.message };
+  // Bounded, and the failure answers in the app's voice: a save that never
+  // comes back is indistinguishable from a hang, and the transport's own
+  // message names neither the problem nor the recovery.
+  try {
+    const { data, error } = await withTimeout(call, "create_pet_with_owner");
+    if (error)
+      return { petId: null, error: describeFailure(error, "createPet") };
+    return { petId: (data as { id: string }).id, error: null };
+  } catch (cause) {
+    return { petId: null, error: describeFailure(cause, "createPet") };
   }
-
-  return { petId: (data as { id: string }).id, error: null };
 }
 
 export async function getMyPet(): Promise<{
@@ -145,16 +152,18 @@ export async function getMyPet(): Promise<{
 }> {
   // Explicit ordering: without it, `limit(1)` picks an arbitrary row once the
   // account has more than one pet, so "the" pet would differ between calls.
-  const { data, error } = await supabase
+  const query = supabase
     .from("pets")
     .select("*")
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
-  if (error) {
-    return { pet: null, error: error.message };
+  try {
+    const { data, error } = await withTimeout(query, "getMyPet");
+    if (error) return { pet: null, error: describeFailure(error, "getMyPet") };
+    return { pet: data, error: null };
+  } catch (cause) {
+    return { pet: null, error: describeFailure(cause, "getMyPet") };
   }
-
-  return { pet: data, error: null };
 }
