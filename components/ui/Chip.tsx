@@ -11,8 +11,8 @@ type ChipProps = {
   /** Leading icon, drawn in the label's colour. */
   icon?: LucideIcon;
   /**
-   * Replaces the default equal-width sizing. Chips normally fill a `ChipGroup`
-   * row via `flex-1`; a horizontally scrolling strip needs intrinsic width
+   * Replaces the default sizing. Chips normally grow to share their
+   * `ChipGroup` row; a horizontally scrolling strip needs intrinsic width
    * instead.
    */
   className?: string;
@@ -37,7 +37,7 @@ export function Chip({
   selected,
   onPress,
   icon: Icon,
-  className = "flex-1 flex-row items-center justify-center gap-2 rounded-xl border py-3",
+  className = "grow shrink-0 flex-row items-center justify-center gap-2 rounded-xl border py-3",
   testID,
 }: ChipProps) {
   return (
@@ -61,7 +61,14 @@ export function Chip({
           color={selected ? colors.textPrimary : colors.textTertiary}
         />
       ) : null}
-      <Text className={`text-text-primary${selected ? " font-bold" : ""}`}>
+      {/* One line, always. `shrink-0` above keeps the chip from being squeezed
+          below its label, and this keeps the label from breaking mid-word if
+          it ever is: at font_scale 1.3 a three-up row rendered "Moderado" as
+          "Moderad / o", which is worse than a wrapped row. */}
+      <Text
+        numberOfLines={1}
+        className={`text-text-primary${selected ? " font-bold" : ""}`}
+      >
         {label}
       </Text>
     </Pressable>
@@ -76,7 +83,15 @@ type ChipGroupProps = {
 };
 
 /**
- * The equal-width row a set of chips sits in: `flex-1` siblings, 12px gap.
+ * The row a set of chips sits in: growing siblings, 12px gap, and it **wraps**.
+ *
+ * Chips used to be equal-width `flex-1` siblings, which squeezed the longest
+ * label instead of yielding: at font_scale 1.3 "Moderado" broke across two
+ * lines inside its own chip. They now size to their content and share the
+ * slack, so a row that no longer fits flows onto a second line — the label is
+ * never the thing that gives. Equal widths were the nicer default and are the
+ * thing being traded; a fragmented word is not a trade worth making.
+ *
  * Exposes the set as a single radio group so the selected option is announced
  * in context rather than as a series of unrelated buttons.
  */
@@ -89,7 +104,7 @@ export function ChipGroup({
     <View
       accessibilityRole="radiogroup"
       accessibilityLabel={label}
-      className={`flex-row gap-3 ${className}`}
+      className={`flex-row flex-wrap gap-3 ${className}`}
     >
       {children}
     </View>
