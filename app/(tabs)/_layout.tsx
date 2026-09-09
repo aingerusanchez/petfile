@@ -18,7 +18,12 @@ export default function TabsLayout() {
           borderTopColor: colors.borderDefault,
         },
         tabBarActiveTintColor: colors.accentPrimary,
-        tabBarInactiveTintColor: colors.textMuted,
+        // `textTertiary`, not `textMuted`: Slate Mist on Deep Ice measures
+        // 3.83:1, which fails AA for a label this small — and a tab label is
+        // the app's only permanent navigation, so it is the last text that
+        // should be hard to read. This measures 7.12:1 and still sits far
+        // below the active label's 14.42:1, so the distinction survives.
+        tabBarInactiveTintColor: colors.textTertiary,
       }}
     >
       <Tabs.Screen name="index" options={{ title: "Hoy" }} />

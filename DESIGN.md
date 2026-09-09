@@ -310,7 +310,9 @@ A transient message that floats above the whole app, in four variants: **success
 
 ### Navigation
 
-Bottom tab bar, 3 destinations (Hoy / Salud / Perfil), text-only (no icons implemented yet). Deep Ice background, Hairline Frost top border, active label in Ice Blue Glacial, inactive label in Slate Mist.
+Bottom tab bar, 3 destinations (Hoy / Salud / Perfil), text-only (no icons implemented yet). Deep Ice background, Hairline Frost top border, active label in Ice Blue Glacial (14.42:1), **inactive label in Mist Grey** (7.12:1).
+
+The inactive label was Slate Mist, which measures **3.83:1** on Deep Ice and fails AA at the size a tab label is drawn. It was the last text in the app that should be hard to read: the tab bar is the only permanent navigation, and it is read at a glance rather than studied. Mist Grey still sits far enough below the active label for the distinction to carry without the failure.
 
 ## Iconography
 
