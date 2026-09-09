@@ -78,7 +78,13 @@ export function Checkbox({
       accessibilityRole="checkbox"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={hint}
+      aria-checked={checked}
       accessibilityState={{ checked }}
+      // Both, on purpose. `accessibilityState` is what Android reads;
+      // react-native-web renders `role="checkbox"` from it but leaves out
+      // `aria-checked`, so on the web target the box announced no state at
+      // all. The web is only the review harness here, but a control that
+      // cannot say whether it is ticked is worth two props.
       style={{ paddingVertical: PAD_Y }}
       className="flex-row items-start gap-3 rounded-xl"
     >

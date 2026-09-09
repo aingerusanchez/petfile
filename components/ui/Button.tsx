@@ -193,6 +193,9 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={spokenName}
       accessibilityState={{ disabled: inert, busy: status === "loading" }}
+      // See Checkbox: the web renders the role and drops the state.
+      aria-disabled={inert}
+      aria-busy={status === "loading"}
       style={{ minHeight: TOUCH_TARGET }}
       className={`${shape}${disabled ? " opacity-50" : ""}`}
     >

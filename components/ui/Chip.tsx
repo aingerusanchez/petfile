@@ -47,6 +47,8 @@ export function Chip({
       accessibilityRole="radio"
       accessibilityLabel={label}
       accessibilityState={{ selected, checked: selected }}
+      // See Checkbox: the web renders the role and drops the state.
+      aria-checked={selected}
       style={{ minHeight: TOUCH_TARGET }}
       className={`${className} ${
         selected
