@@ -454,11 +454,8 @@ test("keeps emoji out of every accessible name", async ({ page }) => {
 
   // A screen reader reads 🐶 as "cara de perro", which describes the
   // decoration instead of the screen.
-  const headline = page.getByText("Preséntanos a tu compi");
-  await expect(headline).toHaveAttribute(
-    "aria-label",
-    "Preséntanos a tu compi",
-  );
+  const headline = page.getByText("Preséntame a tu compi");
+  await expect(headline).toHaveAttribute("aria-label", "Preséntame a tu compi");
 
   await page.getByTestId("onboarding-more").click();
   await page.getByTestId("onboarding-activity-high").click();
@@ -512,4 +509,41 @@ test("keeps every control at Android's 48dp touch-target floor", async ({
   ];
 
   for (const id of controls) await floor(id);
+});
+
+test("answers a press on every kind of control", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/onboarding");
+
+  // A tap with no visible response is the one interaction defect a screenshot
+  // cannot show. The feedback is opacity rather than a tonal step because the
+  // palette cannot afford one: Fjord Slate against Elevated Frost is 1.16:1.
+  for (const id of [
+    "onboarding-submit",
+    "onboarding-sex-male",
+    "onboarding-mixed",
+    "onboarding-more",
+    "onboarding-birthdate",
+  ]) {
+    const control = page.getByTestId(id);
+    // The mouse takes viewport coordinates, so a control below the fold has to
+    // come into view first or the press lands on whatever is there instead.
+    await control.scrollIntoViewIfNeeded();
+    const box = await control.boundingBox();
+    expect(box, `${id} should be visible`).not.toBeNull();
+
+    await expect(control).toHaveCSS("opacity", "1");
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await expect(control).toHaveCSS("opacity", "0.7");
+
+    // Released away from the control on purpose: pressing these for real
+    // toggles a checkbox, opens a sheet or replaces the link with the group it
+    // reveals, and none of that is what this test is about. Leaving first also
+    // checks the other half of the rule — the press lets go when the finger
+    // slides off.
+    await page.mouse.move(0, 0);
+    await page.mouse.up();
+    await expect(control).toHaveCSS("opacity", "1");
+  }
 });
