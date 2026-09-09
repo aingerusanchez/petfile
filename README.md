@@ -23,6 +23,8 @@ pnpm ios                 # dev build nativo (iOS)
 
 El sign-in con Google necesita un dev build nativo (`pnpm android` / `pnpm ios`), no Expo Go — el flujo de OAuth usa un redirect de esquema personalizado que Expo Go no soporta. Ver el porqué en [`docs/supabase-setup.md`](docs/supabase-setup.md).
 
+`pnpm android` lanza la app apuntando al servidor por la **IP de la LAN**, así que el móvil tiene que alcanzar el Mac por WiFi: si cae a datos móviles, entra en otra red o el firewall bloquea el puerto 8081, la app se queda en el splash **sin ningún error**. `pnpm android:usb` evita esa dependencia por completo — sirve en `127.0.0.1` a través de `adb reverse`, sobre el cable, y abre el dev build (nunca Expo Go). No recompila, así que es también la forma rápida de volver a entrar tras un cambio solo de JS.
+
 ## Secretos
 
 - `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_KEY` **no son secretos**: cualquier variable `EXPO_PUBLIC_*` se incrusta en el bundle del cliente y es extraíble por cualquiera con la app instalada. Los datos están protegidos por las políticas de RLS en `supabase/migrations/`, no por ocultar esta clave.
@@ -43,39 +45,40 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 
 ## Scripts
 
-| Script            | Descripción                                              |
-| ----------------- | --------------------------------------------------------- |
+| Script             | Descripción                                                                               |
+| ------------------ | ----------------------------------------------------------------------------------------- |
 | `pnpm start`       | Arranca el servidor de Expo. Pulsa `a` para abrir en un dev build de Android ya instalado |
-| `pnpm android`     | Compila, instala y lanza el dev build nativo de Android (`expo run:android`) |
-| `pnpm ios`         | Compila, instala y lanza el dev build nativo de iOS (`expo run:ios`)        |
-| `pnpm web`         | Arranca el servidor de desarrollo apuntando a web          |
-| `pnpm lint`        | `expo lint` — **actualmente roto** (ver nota abajo)        |
-| `pnpm typecheck`   | `tsc --noEmit` — comprobación de tipos de todo el proyecto |
-| `pnpm test`        | Ejecuta la suite de Jest                                   |
-| `pnpm test:e2e`    | Ejecuta la suite end-to-end de Playwright                  |
-| `pnpm test:e2e:ui` | Ejecuta Playwright en UI mode (trace viewer)                |
+| `pnpm android`     | Compila, instala y lanza el dev build nativo de Android (`expo run:android`)              |
+| `pnpm android:usb` | Vuelve a lanzar el dev build ya instalado **por cable**, sin recompilar                   |
+| `pnpm ios`         | Compila, instala y lanza el dev build nativo de iOS (`expo run:ios`)                      |
+| `pnpm web`         | Arranca el servidor de desarrollo apuntando a web                                         |
+| `pnpm lint`        | `expo lint` — **actualmente roto** (ver nota abajo)                                       |
+| `pnpm typecheck`   | `tsc --noEmit` — comprobación de tipos de todo el proyecto                                |
+| `pnpm test`        | Ejecuta la suite de Jest                                                                  |
+| `pnpm test:e2e`    | Ejecuta la suite end-to-end de Playwright                                                 |
+| `pnpm test:e2e:ui` | Ejecuta Playwright en UI mode (trace viewer)                                              |
 
 > **`pnpm lint` no funciona todavía.** El repo no tiene configuración de ESLint (`eslint.config.js` / `.eslintrc`), y su instalador automático (`expo lint`) ha causado problemas en más de una ocasión. Es un hueco conocido, fuera de alcance de esta tarea — no lo ejecutes esperando que funcione, y no intentes arreglarlo sin más contexto.
 
 ## Stack tecnológico
 
-| Capa                   | Tecnología           | Versión     |
-| ---------------------- | --------------------- | ----------- |
-| Framework               | Expo                   | ~57.0.19    |
-| Routing                 | Expo Router            | ~57.0.18    |
-| UI                       | React Native           | 0.86.3      |
-| UI                       | React                  | 19.2.3      |
-| Lenguaje                 | TypeScript             | ~6.0.3      |
-| Estilos                  | NativeWind             | 5.0.0-preview.4 |
-| Estilos                  | Tailwind CSS           | 4.3.3       |
-| Estilos                  | `react-native-css`     | 3.0.7       |
-| Iconos                   | `lucide-react-native`  | ^1.41.0 |
-| Iconos                   | `react-native-svg`     | 15.15.4 |
-| Fechas                   | `react-native-ui-datepicker` | ^3.3.0 |
-| Insets                   | `react-native-safe-area-context` | ~5.7.0 |
-| Backend                  | `@supabase/supabase-js` | ^2.112.4  |
-| Tests unitarios          | Jest (`jest-expo`)     | ~29.7.0 (preset ~57.0.5) |
-| Tests e2e                | Playwright             | ^1.62.1     |
+| Capa            | Tecnología                       | Versión                  |
+| --------------- | -------------------------------- | ------------------------ |
+| Framework       | Expo                             | ~57.0.19                 |
+| Routing         | Expo Router                      | ~57.0.18                 |
+| UI              | React Native                     | 0.86.3                   |
+| UI              | React                            | 19.2.3                   |
+| Lenguaje        | TypeScript                       | ~6.0.3                   |
+| Estilos         | NativeWind                       | 5.0.0-preview.4          |
+| Estilos         | Tailwind CSS                     | 4.3.3                    |
+| Estilos         | `react-native-css`               | 3.0.7                    |
+| Iconos          | `lucide-react-native`            | ^1.41.0                  |
+| Iconos          | `react-native-svg`               | 15.15.4                  |
+| Fechas          | `react-native-ui-datepicker`     | ^3.3.0                   |
+| Insets          | `react-native-safe-area-context` | ~5.7.0                   |
+| Backend         | `@supabase/supabase-js`          | ^2.112.4                 |
+| Tests unitarios | Jest (`jest-expo`)               | ~29.7.0 (preset ~57.0.5) |
+| Tests e2e       | Playwright                       | ^1.62.1                  |
 
 ## Arquitectura
 

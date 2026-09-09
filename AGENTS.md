@@ -11,6 +11,7 @@ This file provides guidance to agentic AI tools when working with code in this r
 - Conventional Commits for every commit (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `build:`).
 - **v0 auth is Google OAuth only.** Magic links are out of scope for v0. There is **no development-mode auth bypass** — every environment, including local dev, requires a real Google sign-in. Do not add one, and do not write code or docs that imply one exists.
 - **Google OAuth requires a native dev build.** Expo Go cannot handle the custom-scheme redirect this flow needs. `pnpm android` / `pnpm ios` produces the dev build; the web target runs under `pnpm web`.
+- **`pnpm android` depends on the phone reaching the Mac over WiFi.** It launches the app pointed at the dev server's **LAN IP**, so mobile data, another network or a firewalled port 8081 leaves the app sitting on the splash screen with no error at all — nothing in the log says the bundle never arrived. `pnpm android:usb` (`expo start --localhost --dev-client --android`) serves on `127.0.0.1` through the `adb reverse` Expo sets up itself, so it works on the cable alone. `--dev-client` is not optional there: without it the CLI opens `exp://`, which lands in **Expo Go** on a phone that has it installed, and Google sign-in cannot work there.
 - **The Android toolchain needs JDK 17.** A newer JDK fails the CMake configuration tasks with "A restricted method in java.lang.System has been called": JEP 472 escalates native access from an unnamed module to an error from JDK 24 on, and AGP trips it. Gradle 9.3.1 itself supports up to JDK 25, so this is AGP against the JDK rather than a Gradle limit. Point `JAVA_HOME` at a JDK 17.
 - **`android/` and `ios/` are generated and gitignored.** After changing `scheme`, `android.package` or anything else identity-shaped in `app.json`, regenerate with `npx expo prebuild --clean -p android` — an existing directory keeps the old values.
 
@@ -30,6 +31,7 @@ pnpm install            # install deps (wires the pre-commit hook via `prepare`)
 pnpm start              # expo start
 pnpm web                # expo start --web
 pnpm android            # expo run:android — compiles, installs and launches the native dev build
+pnpm android:usb        # relaunch the installed dev build over the cable, no rebuild
 pnpm ios                # expo run:ios — same for iOS
                         # `pnpm start` then `a` attaches to an already-installed dev build
                         # without recompiling. Google sign-in needs one of these, never Expo Go.
