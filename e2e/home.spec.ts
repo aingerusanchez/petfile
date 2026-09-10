@@ -482,8 +482,10 @@ test("opens the calendar from the date and says what each day carried", async ({
       .first(),
   ).toBeVisible();
 
-  // The legend names the threshold the bar is measured against.
-  await expect(page.getByTestId("home-calendar")).toContainText("Cumplió");
+  // The legend names all three marks, so none of them is colour alone.
+  for (const name of ["Objetivo conseguido", "Medicación", "Incidencia"]) {
+    await expect(page.getByTestId("home-calendar")).toContainText(name);
+  }
 
   // Choosing a day navigates and closes.
   await page

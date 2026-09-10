@@ -62,6 +62,12 @@ const KINDS: Record<
     editAction: string;
     icon: LucideIcon;
     /**
+     * The icon's colour in the log, where the calendar marks that day in the
+     * same one. Absent for the two everyday kinds, which stay in the
+     * column's own tone — see `Entry`.
+     */
+    tone?: string;
+    /**
      * The one free-text field this kind asks for. The walk has none: it asks
      * for a time range instead, which the sheet renders on its own.
      */
@@ -99,6 +105,7 @@ const KINDS: Record<
     action: "Añadir medicación",
     editAction: "Editar medicación",
     icon: Pill,
+    tone: colors.warning,
     field: { label: "Qué le habéis dado", placeholder: "Apoquel, media" },
     describe: (event) => detail(event, "what"),
   },
@@ -107,6 +114,7 @@ const KINDS: Record<
     action: "Añadir incidencia",
     editAction: "Editar incidencia",
     icon: TriangleAlert,
+    tone: colors.error,
     field: { label: "Qué ha pasado", placeholder: "Cojea de la pata derecha" },
     describe: (event) => detail(event, "what"),
   },
@@ -405,11 +413,6 @@ export default function Home() {
             goalMinutes={goal}
             value={day}
             maxDate={today}
-            goalLabel={
-              goal === null
-                ? null
-                : formatDuration(goal, settings.durationFormat)
-            }
             onMonthChange={setMarksMonth}
             onSelect={(picked) => {
               setDay(picked);
@@ -493,11 +496,24 @@ function Entry({
       <View className="shrink-0 items-start gap-1">
         <Text className="text-text-tertiary">{time}</Text>
         {Icon ? (
-          // The same tone as the time above it: they are one column, read as
-          // one thing. Mist Grey measured 3.96:1 here — enough for a
-          // non-text indicator, but visibly fainter than the time it pairs
-          // with, which made the pair read as two weights.
-          <Icon size={18} strokeWidth={2} color={colors.textTertiary} />
+          // **The two rare kinds wear the colour the calendar marks them in.**
+          // Nothing tied a red dot on the 9th to the row that put it there:
+          // the calendar spoke in dots and rings, the log in glyphs and words,
+          // and the only shared mark was the goal bar. The mark cannot carry a
+          // 6px glyph, so colour is the channel that fits — amber is
+          // medication and red is an incident on both surfaces, and the
+          // legend's words are the row's own label.
+          //
+          // A walk and a meal stay in the column's tone. They are as common
+          // here as they are on the calendar, where they get no hue either,
+          // and four coloured rows would leave the two that matter competing.
+          // The icon is decorative in the accessibility tree — the row names
+          // its kind in text — so no meaning rests on the colour alone.
+          <Icon
+            size={18}
+            strokeWidth={2}
+            color={spec?.tone ?? colors.textTertiary}
+          />
         ) : null}
       </View>
       <View className="flex-1">

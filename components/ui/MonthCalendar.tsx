@@ -24,8 +24,6 @@ type MonthCalendarProps = {
   onSelect: (day: Date) => void;
   /** Fires when the visible month changes, so the caller can fetch its marks. */
   onMonthChange: (month: Date) => void;
-  /** How the goal reads, for the legend. */
-  goalLabel?: string | null;
   testID?: string;
 };
 
@@ -88,7 +86,6 @@ export function MonthCalendar({
   maxDate,
   onSelect,
   onMonthChange,
-  goalLabel,
   testID,
 }: MonthCalendarProps) {
   const [shown, setShown] = useState(value);
@@ -203,13 +200,16 @@ export function MonthCalendar({
         }}
       />
 
-      {/* The legend names the threshold, because the bar is measured against
-          the *current* goal — a past day is judged by today's target, and a
-          mark whose rule is invisible is a mark nobody can trust. */}
+      {/* **The legend names the mark, not the rule.** It carried the
+          threshold — "Cumplió 1h" — on the argument that the bar is measured
+          against the *current* goal and an invisible rule cannot be trusted.
+          But the goal is already on the screen underneath, spelled out over
+          the day's own bar, and a legend that restates it is answering a
+          question nobody asked of a legend. Three labels, three marks. */}
       <View className="mt-2 flex-row flex-wrap items-center gap-x-4 gap-y-2">
         <Legend
           className="h-[4px] w-[16px] rounded-xl bg-accent-secondary"
-          label={goalLabel ? `Cumplió ${goalLabel}` : "Objetivo cumplido"}
+          label="Objetivo conseguido"
         />
         <Legend
           className="h-[6px] w-[6px] rounded-[3px] border border-warning"
