@@ -1,7 +1,7 @@
 {
   "name": "petfile",
   "main": "expo-router/entry",
-  "version": "1.2.0",
+  "version": "0.2.0",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "start": "expo start",
