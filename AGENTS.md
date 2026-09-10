@@ -173,6 +173,14 @@ Three platform gotchas the browser hides, all measured on device and recorded in
 
 The web target hides all three, so **a change that has to hold on the device is verified on the device**, with a screenshot (`adb exec-out screencap -p`) rather than by eye in the browser.
 
+## Tests
+
+**`e2e/home.spec.ts` assumes a working day, and ten of its tests fail before about 09:00.** They fill real clock times — 08:30, 09:15, 10:45 — and the entry sheet refuses a time in the future, correctly; the quarter-hour steppers have the mirror problem, since counting 45 minutes back from 00:20 lands on yesterday, which the sheet also refuses. A red suite at 01:00 therefore says nothing about the code, and the failures all read "¿Todavía no habéis vuelto?" or "Tiene que ser antes de la hora de vuelta".
+
+**Playwright's clock is not the way out**, and both halves were measured here: `page.clock.setFixedTime` stops Reanimated dead — the button's status animation reads its progress from `Date.now()` and never finishes, so Playwright waits forever for a control that never stops moving — and `page.clock.install` + `resume` patches the timers the app captures at module load, after which the day view never renders at all. The fix is to derive every time in that file from a "now" the test owns, and to give the steppers a fixture whose day has time behind it.
+
+**The Expo web dev server dies during long runs.** Three times in one session a suite failed in bulk with `net::ERR_CONNECTION_REFUSED at http://localhost:8081/` — nothing to do with the code under test. A mass failure whose first error is that one is a dead server: `pkill -f "expo start"`, then run again.
+
 ## Documentation maintenance
 
 Update README.md whenever you touch one of these:
