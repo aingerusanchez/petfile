@@ -1,5 +1,6 @@
 import {
   dayBounds,
+  formatTimeInput,
   formatTimeOfDay,
   parseTimeOfDay,
   MAX_WALK_MINUTES,
@@ -186,6 +187,60 @@ describe("shiftMinutes", () => {
     const from = new Date(2026, 8, 10, 7, 5);
     for (const minutes of [1, 30, 137]) {
       expect(minutesBetween(from, shiftMinutes(from, minutes))).toBe(minutes);
+    }
+  });
+});
+
+describe("formatTimeInput", () => {
+  it("puts the colon in as the digits arrive", () => {
+    // Typed one key at a time, which is how it actually happens.
+    let value = "";
+    for (const [key, shown] of [
+      ["9", "9"],
+      ["0", "90"],
+      ["0", "9:00"],
+    ] as const) {
+      value = formatTimeInput(value + key, value);
+      expect(value).toBe(shown);
+    }
+  });
+
+  it("groups the last two digits as the minutes, whatever the hour", () => {
+    expect(formatTimeInput("930")).toBe("9:30");
+    expect(formatTimeInput("0930")).toBe("09:30");
+    expect(formatTimeInput("1230")).toBe("12:30");
+    expect(formatTimeInput("2359")).toBe("23:59");
+  });
+
+  it("leaves one and two digits alone: there is nothing to group yet", () => {
+    expect(formatTimeInput("")).toBe("");
+    expect(formatTimeInput("9")).toBe("9");
+    expect(formatTimeInput("09")).toBe("09");
+  });
+
+  it("ignores anything that is not a digit, colon included", () => {
+    expect(formatTimeInput("09:15")).toBe("09:15");
+    expect(formatTimeInput("09.15")).toBe("09:15");
+    // Three digits, so the hour keeps its single digit.
+    expect(formatTimeInput("9h15")).toBe("9:15");
+  });
+
+  it("stops at four digits", () => {
+    expect(formatTimeInput("091500")).toBe("09:15");
+  });
+
+  it("does not group a deletion, which would scramble it", () => {
+    // "09:15" losing its last digit is "091", not "0:91".
+    expect(formatTimeInput("09:1", "09:15")).toBe("091");
+    expect(formatTimeInput("09", "091")).toBe("09");
+  });
+
+  it("hands the parser something it accepts", () => {
+    const day = new Date(2026, 8, 10, 18, 0);
+    for (const typed of ["900", "0900", "930"]) {
+      const at = parseTimeOfDay(formatTimeInput(typed), day);
+      expect(at).not.toBeNull();
+      expect(formatTimeOfDay(at!)).toBe(typed === "930" ? "09:30" : "09:00");
     }
   });
 });

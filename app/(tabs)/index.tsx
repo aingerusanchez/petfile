@@ -25,6 +25,7 @@ import { formatDuration, parseDuration } from "../../lib/duration";
 import {
   deleteEvent,
   eventsForDay,
+  formatTimeInput,
   formatTimeOfDay,
   logEvent,
   minutesBetween,
@@ -489,20 +490,36 @@ function EntrySheet({
     [day],
   );
 
+  /**
+   * The colon arrives on its own: the number pad has none, so a tutor who
+   * tried to type one could not, and the field was showing one anyway. See
+   * `formatTimeInput`.
+   */
   const editAt = useCallback(
     (text: string) => {
-      setAt(text);
-      showDuration(from, text);
+      const next = formatTimeInput(text, at);
+      setAt(next);
+      showDuration(from, next);
     },
-    [showDuration, from],
+    [showDuration, from, at],
   );
 
   const editFrom = useCallback(
     (text: string) => {
-      setFrom(text);
-      showDuration(text, at);
+      const next = formatTimeInput(text, from);
+      setFrom(next);
+      showDuration(next, at);
     },
-    [showDuration, at],
+    [showDuration, at, from],
+  );
+
+  /** Tidies a half-typed time once focus leaves: "900" becomes "09:00". */
+  const tidyTime = useCallback(
+    (text: string, set: (value: string) => void) => {
+      const parsed = parseTimeOfDay(text, day);
+      if (parsed) set(formatTimeOfDay(parsed));
+    },
+    [day],
   );
 
   /**
@@ -652,6 +669,7 @@ function EntrySheet({
                     label="Desde"
                     value={from}
                     onChangeText={editFrom}
+                    onBlur={() => tidyTime(from, setFrom)}
                     placeholder="09:15"
                     error={fromError}
                     keyboardType="number-pad"
@@ -664,6 +682,7 @@ function EntrySheet({
                     label="Hasta"
                     value={at}
                     onChangeText={editAt}
+                    onBlur={() => tidyTime(at, setAt)}
                     placeholder="09:45"
                     error={atError}
                     keyboardType="number-pad"
@@ -718,6 +737,7 @@ function EntrySheet({
               label="Hora"
               value={at}
               onChangeText={editAt}
+              onBlur={() => tidyTime(at, setAt)}
               placeholder="09:15"
               error={atError}
               keyboardType="number-pad"

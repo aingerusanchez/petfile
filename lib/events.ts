@@ -94,6 +94,33 @@ export function parseTimeOfDay(text: string, day: Date): Date | null {
   return at;
 }
 
+/**
+ * What a time field shows while it is being typed into.
+ *
+ * **The number pad has no colon.** The field displayed "09:15" and the
+ * placeholder asked for it, so a tutor reasonably tried to type one and could
+ * not — on Android a `number-pad` keyboard offers digits and nothing else, and
+ * `decimal-pad` would only add a full stop. The parser had accepted `900` and
+ * `0900` all along; nothing on screen said so. Now the colon arrives on its
+ * own, so the question never comes up.
+ *
+ * The grouping is the parser's own rule, seen from the other side: the last
+ * two digits are the minutes and whatever precedes them is the hour, so `930`
+ * is 9:30 and `0930` is 09:30. Three digits are ambiguous in principle — `123`
+ * could be meant as 12:3… — and the fourth keystroke settles it, which is how
+ * every calendar handles this.
+ *
+ * **It only groups while the field is growing.** Masking a deletion turns
+ * "09:15" into "0:91" as the last digit goes, which is worse than no mask at
+ * all: `previous` is what tells the two apart.
+ */
+export function formatTimeInput(text: string, previous = ""): string {
+  const digits = text.replace(/\D/g, "").slice(0, 4);
+  if (text.length < previous.length) return digits;
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, digits.length - 2)}:${digits.slice(-2)}`;
+}
+
 /** The time of day a stored instant happened, for display and for the field. */
 export function formatTimeOfDay(at: Date): string {
   return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;

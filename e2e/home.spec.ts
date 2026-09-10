@@ -250,6 +250,47 @@ test("deletes an entry from its own sheet, asking once", async ({ page }) => {
   await expect(page.getByTestId("home-empty")).toBeVisible();
 });
 
+test("puts the colon in for a keyboard that has none", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await add(page, "walk");
+  const to = page.getByTestId("entry-to");
+
+  // Typed a key at a time on a number pad, which offers no ":". The last two
+  // digits become the minutes the moment there are three of them.
+  await to.fill("");
+  await to.pressSequentially("9");
+  await expect(to).toHaveValue("9");
+  await to.pressSequentially("0");
+  await expect(to).toHaveValue("90");
+  await to.pressSequentially("0");
+  await expect(to).toHaveValue("9:00");
+
+  // A deletion is not re-grouped: one keystroke removes one character, and
+  // with two digits left there is nothing to separate. Re-grouping here is
+  // what would turn "09:15" into "0:91".
+  await to.press("Backspace");
+  await expect(to).toHaveValue("90");
+
+  // Four digits read as HH:MM.
+  await to.fill("");
+  await to.pressSequentially("0930");
+  await expect(to).toHaveValue("09:30");
+
+  // And a half-typed time is tidied when focus leaves.
+  await to.fill("");
+  await to.pressSequentially("800");
+  await expect(to).toHaveValue("8:00");
+  await page.getByTestId("entry-note").click();
+  await expect(to).toHaveValue("08:00");
+
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("08:00");
+});
+
 test("refuses an end that comes before its start", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
