@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { Mars, Pencil, Trash2, Venus } from "lucide-react-native";
+import { Mars, Pencil, Power, Trash2, Venus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Modal, Pressable, View } from "react-native";
 import {
@@ -83,7 +83,7 @@ function Row({
     <View
       accessible
       accessibilityLabel={`${label}: ${value}`}
-      className="mb-4 flex-row items-baseline justify-between gap-4"
+      className="flex-row items-baseline justify-between gap-4 mb-4"
     >
       <Text className="text-xs font-semibold uppercase tracking-[0.05em] text-text-tertiary">
         {label}
@@ -390,13 +390,13 @@ export default function Profile() {
   return (
     <Screen scroll edges={["top"]}>
       {/* The file's cover: who this is, at a glance, before any control. */}
-      <View className="mb-8 flex-row items-center gap-5">
+      <View className="flex-row items-center gap-5 mb-8">
         <Avatar
           testID="profile-avatar"
           uri={photoUri}
           name={name}
           onPress={() => setEditingPhoto(true)}
-          actionLabel={pet.photo_url ? "Cambiar" : "Añadir"}
+          actionLabel={pet.photo_url ? "Editar" : "Añadir"}
           accessibilityLabel={
             pet.photo_url
               ? `Cambiar la foto de ${name}`
@@ -404,12 +404,12 @@ export default function Profile() {
           }
         />
         <View className="flex-1">
-          <View className="mb-1 flex-row items-center gap-2">
+          <View className="flex-row items-center gap-2 mb-1">
             <Text
               testID="profile-title"
               accessibilityRole="header"
               numberOfLines={1}
-              className="shrink text-2xl font-bold text-text-primary"
+              className="text-2xl font-bold shrink text-text-primary"
             >
               {name}
             </Text>
@@ -560,7 +560,7 @@ export default function Profile() {
                 bottom of it: the action that ends the file should not be
                 reachable from a screen someone opened to look at their dog.
                 Outlined rather than filled — it is available, not invited. */}
-          <View className="mb-5 mt-8 border-t border-border-default pt-6">
+          <View className="pt-6 mt-8 mb-5 border-t border-border-default">
             <Button
               testID="profile-delete"
               variant="outlined"
@@ -693,9 +693,10 @@ export default function Profile() {
 
       {/* Signing out is routine and reversible, so it keeps its place on the
           page — and it is now the only exit that does, which is the point. */}
-      <View className="mt-6 border-t border-border-default pt-8">
+      <View className="pt-8 mt-6 border-t border-border-default">
         <Button
           testID="profile-signout"
+          icon={Power}
           label="Cerrar sesión"
           onPress={signOut}
         />
@@ -721,11 +722,11 @@ export default function Profile() {
         <Pressable
           testID="profile-delete-scrim"
           onPress={() => setConfirmingDelete(false)}
-          className="flex-1 justify-end bg-base/80"
+          className="justify-end flex-1 bg-base/80"
         >
           <Pressable
             onPress={(event) => event.stopPropagation()}
-            className="rounded-xl border border-error bg-surface p-5"
+            className="p-5 border rounded-xl border-error bg-surface"
           >
             {/* The file is what gets deleted, and the wording says so. A tutor
                 reaching this screen may have lost the animal, and "borrar a
@@ -761,7 +762,7 @@ export default function Profile() {
                 accessibilityRole="button"
                 accessibilityLabel="Cancelar"
                 style={(state) => [{ minHeight: 48 }, pressed(state)]}
-                className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4"
+                className="items-center justify-center flex-1 py-4 border rounded-xl border-border-strong"
               >
                 <Text className="text-text-secondary">Cancelar</Text>
               </Pressable>
@@ -829,7 +830,7 @@ function SectionActions({
   onCancel: () => void;
 }) {
   return (
-    <View className="mt-1 flex-row items-center gap-4">
+    <View className="flex-row items-center gap-4 mt-1">
       <View className="flex-1">
         <Button
           testID="profile-save"

@@ -1,5 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
-import { HeartPulse, PawPrint, Trees } from "lucide-react-native";
+import { Footprints, HeartPulse, PawPrint } from "lucide-react-native";
 import { LoadingScreen, colors } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 
@@ -40,17 +40,17 @@ export default function TabsLayout() {
           anyway. Lucide at 24dp, tinted by the same active/inactive colours as
           the label. */}
       {/* "Diario", not "Hoy": the tab names the section and the screen names
-          the day it is showing. Its icon is the park rather than a notebook
-          because the entries are almost all outings — and a park says "we went
-          out" without implying a route, which is what a trail or a set of
-          footprints would. Footprints were also out for a second reason: they
-          would collide with the paw print two tabs along. Two trees rather
-          than one: a single tree is a tree, a pair reads as a place. */}
+          the day it is showing. Its icon is the same `Footprints` the walk
+          action carries, which is the point rather than a clash — walks are
+          most of what the diary holds, and a tutor who has learnt the glyph
+          from the sheet reads it here for free. It survives next to the paw
+          print two tabs along because the two are different drawings: a trail
+          of prints going somewhere against one pad seen head-on. */}
       <Tabs.Screen
         name="index"
         options={{
           title: "Diario",
-          tabBarIcon: ({ color }) => <Trees size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Footprints size={24} color={color} />,
         }}
       />
       <Tabs.Screen

@@ -5,28 +5,32 @@ import {
   Modal,
   PanResponder,
   Pressable,
-  View,
   useWindowDimensions,
+  View,
   type GestureResponderEvent,
   type PanResponderGestureState,
 } from "react-native";
-import { Avatar } from "./Avatar";
-import { Button } from "./Button";
 import {
   centredFrame,
   clampOffset,
-  cropRect,
   coverScale,
+  cropRect,
   MAX_ZOOM,
   rezoom,
   type Frame,
   type Natural,
 } from "../../lib/framing";
-import { colors, pressed, TOUCH_TARGET } from "./tokens";
+import { Avatar } from "./Avatar";
+import { Button } from "./Button";
+import { Slider } from "./Slider";
 import { Text } from "./Text";
+import { colors, pressed, TOUCH_TARGET } from "./tokens";
 
 /** How much a tap on − or + moves the zoom. */
 const ZOOM_STEP = 0.5;
+
+/** The slider's resolution. Finer than the buttons, which are for precision. */
+const ZOOM_GRAIN = 0.1;
 
 type AvatarEditorProps = {
   name: string;
@@ -66,13 +70,17 @@ function pinchDistance(
  * into a frame that wants more. The editor says so and offers the picker
  * instead, which is the honest version of the same action.
  *
- * **Zoom has buttons as well as a pinch.** A pinch is the natural gesture and
- * the only one on the device, but it is unreachable with a screen reader and
- * unavailable with a mouse, so the capability cannot live in the gesture
- * alone. Both go through `rezoom`, which zooms about the middle of the circle:
- * one predictable rule rather than two that nearly agree. Repositioning is
- * still drag-only — the default is a centred cover crop, which is a complete
- * result on its own, so nothing is unreachable, only un-nudgeable.
+ * **Zoom has three controls, and they are not redundant.** A pinch is the
+ * natural gesture but is unreachable with a screen reader and unavailable with
+ * a mouse. The slider is the one that shows the range — how far in you can go,
+ * and where you are in it — and it is the fast way across that range. The
+ * buttons are the precise way, a fixed step each, and the only one that works
+ * with a keyboard. All three go through `rezoom`, which zooms about the middle
+ * of the circle: one predictable rule rather than three that nearly agree.
+ *
+ * Repositioning is still drag-only — the default is a centred cover crop,
+ * which is a complete result on its own, so nothing is unreachable, only
+ * un-nudgeable.
  */
 export function AvatarEditor({
   name,
@@ -184,15 +192,18 @@ export function AvatarEditor({
     });
   }, [onPick, apply]);
 
-  const zoomBy = useCallback(
-    (delta: number) => {
+  const zoomTo = useCallback(
+    (zoom: number) => {
       const image = naturalRef.current;
       if (!image) return;
-      apply(
-        rezoom(image, stage, frameRef.current, frameRef.current.zoom + delta),
-      );
+      apply(rezoom(image, stage, frameRef.current, zoom));
     },
     [apply, stage],
+  );
+
+  const zoomBy = useCallback(
+    (delta: number) => zoomTo(frameRef.current.zoom + delta),
+    [zoomTo],
   );
 
   const save = useCallback(async () => {
@@ -208,21 +219,23 @@ export function AvatarEditor({
       <Pressable
         testID="avatar-editor-scrim"
         onPress={onClose}
-        className="flex-1 justify-end bg-base/80"
+        className="justify-end flex-1 bg-base/80"
       >
         <Pressable
           testID="avatar-editor"
           onPress={(event) => event.stopPropagation()}
-          className="rounded-xl border border-border-default bg-surface p-5"
+          className="p-5 border rounded-xl border-border-default bg-surface"
         >
+          {/* Centred, so it sits over the portrait rather than off to its
+              left: the sheet is about one round thing in the middle of it. */}
           <Text
             accessibilityRole="header"
-            className="mb-5 text-xl font-bold text-text-primary"
+            className="mb-5 text-center text-xl font-bold text-text-primary"
           >
-            {`La foto de ${name}`}
+            {`Foto de ${name}`}
           </Text>
 
-          <View className="mb-5 items-center">
+          <View className="items-center mb-5">
             {framing ? (
               <View
                 testID="avatar-editor-stage"
@@ -260,7 +273,7 @@ export function AvatarEditor({
 
           {framing ? (
             <>
-              <View className="mb-3 flex-row items-center justify-center gap-5">
+              <View className="flex-row items-center gap-4">
                 <ZoomButton
                   testID="avatar-editor-zoom-out"
                   label="Alejar"
@@ -268,14 +281,18 @@ export function AvatarEditor({
                   disabled={frame.zoom <= 1}
                   onPress={() => zoomBy(-ZOOM_STEP)}
                 />
-                <Text
-                  testID="avatar-editor-zoom"
-                  accessibilityLiveRegion="polite"
-                  accessibilityLabel={`Zoom ${frame.zoom.toFixed(1)} aumentos`}
-                  className="w-16 text-center text-text-tertiary"
-                >
-                  {`${frame.zoom.toFixed(1)}×`}
-                </Text>
+                <View className="flex-1">
+                  <Slider
+                    testID="avatar-editor-slider"
+                    value={frame.zoom}
+                    min={1}
+                    max={MAX_ZOOM}
+                    step={ZOOM_GRAIN}
+                    onChange={zoomTo}
+                    accessibilityLabel="Zoom"
+                    accessibilityValueText={`${frame.zoom.toFixed(1)} aumentos`}
+                  />
+                </View>
                 <ZoomButton
                   testID="avatar-editor-zoom-in"
                   label="Acercar"
@@ -284,20 +301,32 @@ export function AvatarEditor({
                   onPress={() => zoomBy(ZOOM_STEP)}
                 />
               </View>
-              <Text className="mb-5 text-center text-xs text-text-tertiary">
-                Arrástrala para colocarla y pellízcala para acercar. Así es como
-                se verá.
+              <Text
+                testID="avatar-editor-zoom"
+                accessibilityLiveRegion="polite"
+                accessibilityLabel={`Zoom ${frame.zoom.toFixed(1)} aumentos`}
+                className="mb-3 text-center text-text-tertiary"
+              >
+                {`${frame.zoom.toFixed(1)}×`}
+              </Text>
+              {/* `text-balance` evens the two lines on the web; the native CSS
+                  compiler has no `text-wrap`, so the non-breaking space is
+                  what stops "se verá." orphaning a line there. */}
+              <Text className="mb-5 text-balance text-center text-xs text-text-tertiary">
+                {
+                  "Arrástrala para colocarla y pellízcala para acercar. Así es como se\u00A0verá."
+                }
               </Text>
             </>
           ) : (
-            <Text className="mb-5 text-center text-xs text-text-tertiary">
+            <Text className="mb-5 text-xs text-center text-text-tertiary">
               {currentUri
                 ? "Para reencuadrarla, vuelve a elegir la foto."
                 : `Elige una foto y encuádrala como quieras.`}
             </Text>
           )}
 
-          <View className="mb-5 flex-row items-center justify-between">
+          <View className="flex-row items-center justify-between mb-5">
             <Button
               testID="avatar-editor-pick"
               variant="link"
@@ -321,14 +350,14 @@ export function AvatarEditor({
             ) : null}
           </View>
 
-          <View className="mt-1 flex-row gap-3">
+          <View className="flex-row gap-3 mt-1">
             <Pressable
               testID="avatar-editor-cancel"
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Cancelar"
               style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-              className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4"
+              className="items-center justify-center flex-1 py-4 border rounded-xl border-border-strong"
             >
               <Text className="text-text-secondary">Cancelar</Text>
             </Pressable>
@@ -377,7 +406,7 @@ function ZoomButton({
         { minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET },
         pressed(state),
       ]}
-      className="items-center justify-center rounded-xl border border-border-strong"
+      className="items-center justify-center border rounded-xl border-border-strong"
     >
       <Icon
         size={20}
