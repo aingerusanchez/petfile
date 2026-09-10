@@ -1,10 +1,15 @@
 import { Plus, X, type LucideIcon } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
-import { BackHandler, Pressable, View } from "react-native";
+import { BackHandler, Pressable, StyleSheet, View } from "react-native";
 import { colors, pressed, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
-/** The side of the floating action, in dp. Material's own figure. */
+/**
+ * The side of the floating action, in dp. Material's own figure.
+ *
+ * Kept in step with the `h-[56px] w-[56px] rounded-[28px]` on the button
+ * itself: this constant only feeds the clearance a page has to leave.
+ */
 const FAB_SIZE = 56;
 
 /**
@@ -84,29 +89,18 @@ export function Fab({ position, label, actions, testID }: FabProps) {
           onPress={close}
           accessibilityRole="button"
           accessibilityLabel="Cerrar"
-          // `auto`, because the container above passes taps through: see
-          // `Screen`'s overlay slot.
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            pointerEvents: "auto",
-          }}
+          style={StyleSheet.absoluteFill}
           className="bg-base/80"
         />
       ) : null}
 
       <View
         // Anchored to the corner with no width of its own, so it wraps the
-        // button and the pills and covers nothing else — which is what makes
-        // `auto` safe here.
+        // button and the pills and covers nothing else.
         style={{
           position: "absolute",
           right: position.right,
           bottom: position.bottom,
-          pointerEvents: "auto",
         }}
         className="items-end"
       >
@@ -145,11 +139,15 @@ export function Fab({ position, label, actions, testID }: FabProps) {
           accessibilityLabel={open ? "Cerrar" : label}
           accessibilityState={{ expanded: open }}
           aria-expanded={open}
-          style={(state) => [
-            { width: FAB_SIZE, height: FAB_SIZE, borderRadius: FAB_SIZE / 2 },
-            pressed(state),
-          ]}
-          className="items-center justify-center bg-accent-primary"
+          style={pressed}
+          // Size and radius come from the className, not from the style
+          // function. On the device this button rendered square while the same
+          // numbers in a `style` array worked in the browser, so the shape now
+          // travels the path every other shape in the app travels — and as
+          // arbitrary pixel values, because `rounded-full` compiles to a
+          // `calc()` that the native CSS compiler discards and `h-14` is 3.5
+          // rem, which resolves to 49 rather than 56.
+          className="h-[56px] w-[56px] items-center justify-center rounded-[28px] bg-accent-primary"
         >
           {open ? (
             <X size={24} strokeWidth={2.5} color={colors.onAccent} />

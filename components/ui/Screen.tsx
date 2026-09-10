@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode, type RefObject } from "react";
-import { Keyboard, ScrollView, View } from "react-native";
+import { Keyboard, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PAGE_GUTTER, spacing } from "./tokens";
 
@@ -140,25 +140,25 @@ export function Screen({
   const alignment = center ? "items-center justify-center" : "";
 
   const floating = overlay ? (
-    <View
-      // `pointerEvents` in `style`, not as a prop: the prop is deprecated in
-      // this React Native version and logs a warning per render.
-      //
-      // And `none` rather than `box-none`, which is the value that reads
-      // correctly here but is not CSS: react-native-web passes it straight
-      // through as `pointer-events: box-none`, the browser drops the
-      // declaration, and this full-screen container swallowed every tap on the
-      // page behind it — measured, it made the day's entries unclickable.
-      // `none` is valid in both, and a child that needs taps asks for `auto`.
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        pointerEvents: "none",
-      }}
-    >
+    // `box-none` — the value that means "not me, but my children" — and it has
+    // to come from a **registered** style to work on both targets. The three
+    // wrong ways, all tried:
+    //
+    //   * the `pointerEvents` prop: deprecated in this React Native version,
+    //     and it logs a warning per render;
+    //   * `box-none` in an inline style: react-native-web writes it straight
+    //     into the style attribute, where `pointer-events: box-none` is not
+    //     CSS and the browser drops the declaration — measured, this
+    //     full-screen container then swallowed every tap on the page;
+    //   * `none` in an inline style: valid CSS, and a child can opt back in
+    //     with `auto` on the web — but in React Native `none` excludes the
+    //     whole subtree, so on the device the floating action could not be
+    //     pressed at all. That is the bug this replaces.
+    //
+    // Registered, react-native-web's StyleSheet compiler expands `box-none`
+    // into `pointer-events: none` on the element plus `auto` on its children,
+    // which is exactly the native meaning.
+    <View style={styles.floating}>
       {overlay({
         right: gutter + insets.right,
         // A floating action sits at the section step from the window's edge,
@@ -212,3 +212,14 @@ export function Screen({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  floating: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: "box-none",
+  },
+});
