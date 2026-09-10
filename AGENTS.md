@@ -91,6 +91,8 @@ app/                     → Expo Router routes (routes only — no shared UI)
 components/ui/            → the design-system primitives every screen composes
   Screen.tsx              → page container; one of the two places window insets are consumed
   Sheet.tsx               → bottom sheet: scrim, panel, and the keyboard inset a Modal needs
+  MonthCalendar.tsx       → a month of days, each saying what happened on it
+  calendar.ts             → the Nordic Ice theming both date pickers share
   Version.tsx             → the build's version, at the foot of login and Ajustes
   keyboard.ts             → how much of the screen the software keyboard covers
   Fab.tsx                 → the floating action, and the menu it opens
@@ -147,6 +149,10 @@ Pure validation logic lives in `lib/` and is unit-tested with Jest; user-facing 
 Dates cross the app/database boundary in exactly one format: **ISO `YYYY-MM-DD`**, because `pets.birth_date` is a Postgres `date` and the RPC casts with `::date`, where Postgres's DateStyle makes a `DD/MM/AAAA` string ambiguous. The UI shows and collects the Spanish locale's `DD/MM/AAAA`; `lib/dates.ts` converts at the edge and is the only place that builds or parses a date string. An approximate birth date stores the 1st of the month with `birth_date_approximate = true` — **anything computing a due date must read that flag**, because the day is a placeholder, not data.
 
 Shared UI lives in `components/ui/`, never in `app/` — `app/` holds routes. Three invariants come with it: **window insets are consumed only in `Screen` and `Sheet`** — the two page-level containers, and no screen reaches for `useSafeAreaInsets()` on its own. `Screen` keeps the primary action clear of the Android navigation bar; `Sheet` keeps a panel clear of the keyboard, which a `Modal` cannot inherit from `Screen`, **a colour needed by a React Native prop comes from `components/ui/tokens.ts`**, never a retyped hex literal, and **`Text` is imported from `components/ui`, never from `react-native`** — that wrapper is the only thing applying the typeface on native, where a bare `<Text>` falls back to Roboto (`grep -rnE '\bText\b' app components | grep 'from "react-native"'` should return nothing outside `components/ui/Text.tsx` — the word boundaries keep `TextInput` out). `global.css`'s `@theme` block stays the source of truth for anything a `className` can reach.
+
+**`react-native-ui-datepicker` hands a `CalendarDay` an _instant_, not a date.** `day.date` arrives as `"2026-08-31T22:00:00.000Z"` for the 1st of September — Madrid is UTC+2, so local midnight is the previous day in UTC. Slicing the first ten characters looks safe and is wrong by a day for every timezone east of Greenwich, which marks the wrong cell and raises nothing. It has to go through local getters (`dayKey(new Date(day.date))`).
+
+**A custom `components.Day` replaces the library's cell content**, so `classNames.selected` and `classNames.today` never reach it. A calendar with a custom day has to draw its own selection.
 
 Three platform gotchas the browser hides, all measured on device and recorded in DESIGN.md:
 

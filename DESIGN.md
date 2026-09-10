@@ -404,6 +404,33 @@ Every modal surface in the app is one component: a Polar-Night-at-80% scrim, a p
 - **Four ways out**, the contract the date picker set: the scrim, Android's Back, the footer's own cancel, and the X where there is one. Nothing in a sheet commits anything by itself.
 - **A sheet that carries a consequence changes only its border** — Error Red on the delete confirmation — because the panel's shape and behaviour are not what is different about it.
 
+### Day Navigation & Month Calendar
+
+The diary's header stopped being a title. Navigating between days was the one thing the screen could not do, and the date is where a person reaches for it: **‹ · the day, tappable · ›**, keeping the two lines so the rhythm holds. The headline names the day as somebody would say it — "Hoy", "Ayer", then the weekday, because nobody says "anteayer" out loud any more — and the line below carries the date.
+
+- **No future.** The forward step is disabled on today rather than hidden: a control that disappears takes its own explanation with it, and "there is no tomorrow yet" is worth leaving visible.
+- **The calendar comes from the top**, not from the thumb. It is the one modal surface in the app that is opened by the header, so it is the one that is not a bottom sheet — it drops out of the date it replaces and goes back up into it. That is what `Sheet`'s `anchor="top"` exists for.
+- **The entry sheet says which day it writes to** when that is not today. No validation changed for retroactive logging: every time check compares an instant against the real now, so any hour of a past day is already past and today's future is still refused. What changed is that the form no longer looks identical whichever day it lands on.
+- **A past day's empty state cannot say "todavía".** That word assumes the day is still going.
+
+**The marks: hue is reserved for what is rare.** Measured against the household's own pattern — about one incident and one medication a month against eleven days short of the goal and eighteen that met it — the three everyday states are the background texture of a month and the two rare ones are events. So the everyday states differ in **weight alone**, and any hue at all means something happened.
+
+| state          | mark                       | colour         | on Fjord Slate |
+| -------------- | -------------------------- | -------------- | -------------- |
+| Met the goal   | a bar under the number     | Aqua Glaciar   | 10.02:1        |
+| Fell short     | the number, no bar         | `text-primary` | 15.54:1        |
+| Nothing logged | the number, dimmed         | `text-muted`   | 3.58:1         |
+| Medication     | a ring in the corner       | Warning Amber  | 7.93:1         |
+| Incident       | a filled dot in the corner | Error Red      | 4.53:1         |
+
+- **Snow White was the first proposal for "fell short" and was measured out of it.** At 15.54:1 it is three and a half times the red alert's 4.53:1 — on the most common state of the month, which would have made failure the loudest mark on the calendar and the alarm the quietest.
+- **The bar is the day view's own progress bar, in miniature.** Same element, same colour, same meaning, so it needs no learning.
+- **The event mark and the goal bar are different elements**, which is what lets a day say "met the goal _and_ had an incident". Only the two corner marks collapse: an incident outranks a medication, because a day has one headline.
+- **Shape carries the meaning as well as colour**, and the day's accessible name says it in words — "9, objetivo sin cumplir, con incidencia". This would otherwise be the app's first surface communicating by colour alone.
+- **Selection is drawn by the cell, not inherited.** A custom `Day` replaces the library's cell content, so its `selected` styling never reaches the number and the chosen day was indistinguishable from any other. Same vocabulary as the chips: the accent fills what is chosen, a hairline marks today when it is not.
+- **The legend names the threshold** — "Cumplió 1h". The bar is measured against the _current_ goal, so a past day is judged by today's target; a mark whose rule is invisible is a mark nobody can trust.
+- **Every mark is sized in arbitrary pixels**, never rem: `h-7` is 24.5dp on the device against 28 in the browser, and `rounded-full` compiles to a `calc()` the native compiler discards, which would leave the selected day a square.
+
 ### Day Log & Entry Sheet
 
 The diary: the day's heading, the exercise goal, the four kinds each one tap away, and the entries.
