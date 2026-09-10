@@ -477,7 +477,7 @@ test("opens the calendar from the date and says what each day carried", async ({
   await expect(
     page
       .getByLabel(
-        `${yesterday.getDate()}, objetivo sin cumplir, con incidencia`,
+        `${yesterday.getDate()}, objetivo sin conseguir, con incidencia`,
       )
       .first(),
   ).toBeVisible();
@@ -545,7 +545,7 @@ test("marks the goal met, once", async ({ page }) => {
   await page.getByTestId("entry-save").click();
 
   await expect(page.getByTestId("home-goal")).toContainText(
-    "Objetivo cumplido",
+    "Objetivo conseguido",
   );
   // The goal reads in hours on both sides of the "de".
   await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");

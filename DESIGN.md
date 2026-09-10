@@ -413,18 +413,18 @@ The diary's header stopped being a title. Navigating between days was the one th
 - **The entry sheet says which day it writes to** when that is not today. No validation changed for retroactive logging: every time check compares an instant against the real now, so any hour of a past day is already past and today's future is still refused. What changed is that the form no longer looks identical whichever day it lands on.
 - **A past day's empty state cannot say "todavía".** That word assumes the day is still going.
 
-**The marks: hue is reserved for what is rare.** Measured against the household's own pattern — about one incident and one medication a month against eleven days short of the goal and eighteen that met it — the three everyday states are the background texture of a month and the two rare ones are events. So the everyday states differ in **weight alone**, and any hue at all means something happened.
+**The marks: an alert hue is reserved for what is rare.** Measured against the household's own pattern — about one incident and one medication a month against eleven days short of the goal and eighteen that met it — red and amber are the two rare ones, and the two commonest states differ in **weight alone**. Green is not an alert: it is the everyday reading of a month that went well, and it is the colour the day view already gives that exact state.
 
 | state          | mark                       | colour         | on Fjord Slate |
 | -------------- | -------------------------- | -------------- | -------------- |
-| Met the goal   | a bar under the number     | Aqua Glaciar   | 10.02:1        |
+| Met the goal   | a bar under the number     | Success Green  | 7.48:1         |
 | Fell short     | the number, no bar         | `text-primary` | 15.54:1        |
 | Nothing logged | the number, dimmed         | `text-muted`   | 3.58:1         |
 | Medication     | a ring in the corner       | Warning Amber  | 7.93:1         |
 | Incident       | a filled dot in the corner | Error Red      | 4.53:1         |
 
 - **Snow White was the first proposal for "fell short" and was measured out of it.** At 15.54:1 it is three and a half times the red alert's 4.53:1 — on the most common state of the month, which would have made failure the loudest mark on the calendar and the alarm the quietest.
-- **The bar is the day view's own progress bar, in miniature.** Same element, same colour, same meaning, so it needs no learning.
+- **The bar is the day view's own goal bar, in miniature.** It shipped in Aqua Glaciar, which is that bar's colour _in progress_ — so the calendar drew a day in aqua that the day view then drew in green under the words "Objetivo conseguido". Of the five marks this was the only one already claiming to quote another screen, and it was quoting the wrong half. Same element, same colour, same words: nothing to learn.
 - **The event mark and the goal bar are different elements**, which is what lets a day say "met the goal _and_ had an incident". Only the two corner marks collapse: an incident outranks a medication, because a day has one headline.
 - **Shape carries the meaning as well as colour**, and the day's accessible name says it in words — "9, objetivo sin cumplir, con incidencia". This would otherwise be the app's first surface communicating by colour alone.
 - **Selection is drawn by the cell, not inherited.** A custom `Day` replaces the library's cell content, so its `selected` styling never reaches the number and the chosen day was indistinguishable from any other. Same vocabulary as the chips: the accent fills what is chosen, a hairline marks today when it is not.

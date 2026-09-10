@@ -52,16 +52,23 @@ function keyOf(date: string): string {
  * everyday states differ in **weight**, not colour, and any hue at all means
  * something happened:
  *
- * | | device | colour |
+ * | | mark | colour |
  * |---|---|---|
- * | Met the goal | a bar under the number | Aqua Glaciar |
+ * | Met the goal | a bar under the number | Success Green |
  * | Fell short | the number, no bar | `text-primary` |
  * | Nothing logged | the number, dimmed | `text-muted` |
  * | Medication | a ring | Warning Amber |
  * | Incident | a filled dot | Error Red |
  *
- * **The bar is the day view's own progress bar, in miniature** — same element,
- * same colour, same meaning, so it needs no learning.
+ * The rule is about **alert** hues: red and amber are the rare ones, and green
+ * is the everyday reading of a month that went well. Which leaves the two
+ * common states — short of the goal, and nothing logged — differing in weight
+ * alone.
+ *
+ * **The bar is the day view's own goal bar, in miniature** — same element,
+ * same colour, same words, so it needs no learning. That is also what makes
+ * every other mark legible: the calendar and the log share one vocabulary, so
+ * an amber ring on the 8th is the amber pill in the 8th's own list.
  *
  * **The event dot and the goal bar are different elements**, which is what
  * lets a day say "met the goal *and* had an incident". Only the two dots
@@ -73,7 +80,7 @@ function keyOf(date: string): string {
  * colour alone, which is the one thing its own rules forbid.
  *
  * Contrast on the sheet's Fjord Slate, all above the 3:1 a non-text indicator
- * needs: Error Red 4.53:1, Warning Amber 7.93:1, Aqua Glaciar 10.02:1, Mist
+ * needs: Error Red 4.53:1, Warning Amber 7.93:1, Success Green 7.48:1, Mist
  * Grey 3.58:1. **Snow White was the first proposal for "fell short" and was
  * measured out of it at 15.54:1** — three and a half times the red alert, on
  * the most common state of the month, which would have made failure the
@@ -128,9 +135,9 @@ export function MonthCalendar({
             const said = [
               logged ? null : "sin registros",
               met
-                ? "objetivo cumplido"
+                ? "objetivo conseguido"
                 : logged
-                  ? "objetivo sin cumplir"
+                  ? "objetivo sin conseguir"
                   : null,
               mark?.hasIncident ? "con incidencia" : null,
               mark?.hasMedication ? "con medicación" : null,
@@ -188,10 +195,16 @@ export function MonthCalendar({
                   </Text>
                 </View>
 
-                {/* The day view's goal bar, in miniature. */}
+                {/* **The day view's goal bar, in miniature — in the colour
+                    that bar wears when the goal is met.** It was Aqua
+                    Glaciar, which is the colour of that bar *in progress*:
+                    the calendar said aqua for a day the day view then showed
+                    in green, under the words "Objetivo conseguido". Of all
+                    the marks this was the one already claiming to quote
+                    another screen, and it was quoting the wrong half. */}
                 <View className="mt-1 h-[4px] w-[16px] items-center">
                   {met ? (
-                    <View className="h-[4px] w-[16px] rounded-xl bg-accent-secondary" />
+                    <View className="h-[4px] w-[16px] rounded-xl bg-success" />
                   ) : null}
                 </View>
               </View>
@@ -208,7 +221,7 @@ export function MonthCalendar({
           question nobody asked of a legend. Three labels, three marks. */}
       <View className="mt-2 flex-row flex-wrap items-center gap-x-4 gap-y-2">
         <Legend
-          className="h-[4px] w-[16px] rounded-xl bg-accent-secondary"
+          className="h-[4px] w-[16px] rounded-xl bg-success"
           label="Objetivo conseguido"
         />
         <Legend

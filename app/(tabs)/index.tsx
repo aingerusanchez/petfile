@@ -333,7 +333,7 @@ export default function Home() {
             </Text>
             {met ? (
               <Text className="font-semibold text-xs text-success">
-                Objetivo cumplido
+                Objetivo conseguido
               </Text>
             ) : null}
           </View>
