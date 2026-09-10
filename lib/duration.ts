@@ -17,11 +17,20 @@
  * The unit word stays on the under-an-hour case because that is how the rest
  * of the app speaks ("40 min paseados"), and it is the only shape where the
  * number alone would be ambiguous — "1h 30m" needs no help.
+ *
+ * **`"minutes"` keeps everything in minutes**, for a tutor who thinks in them:
+ * "90 min" rather than "1h 30m". It is a per-device preference (see
+ * `lib/settings.tsx`), so the format is a parameter here rather than a lookup
+ * — this module stays pure and testable, and every call site says which
+ * format it is speaking.
  */
-export function formatDuration(minutes: number): string {
+export function formatDuration(
+  minutes: number,
+  format: "hours" | "minutes" = "hours",
+): string {
   if (!Number.isFinite(minutes) || minutes < 0) return "";
   const whole = Math.round(minutes);
-  if (whole < 60) return `${whole} min`;
+  if (format === "minutes" || whole < 60) return `${whole} min`;
 
   const hours = Math.floor(whole / 60);
   const rest = whole % 60;

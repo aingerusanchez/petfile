@@ -106,9 +106,26 @@ export function parseTimeOfDay(text: string, day: Date): Date | null {
   return at;
 }
 
-/** The time of day a stored instant happened, for display and for the field. */
-export function formatTimeOfDay(at: Date): string {
-  return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+/**
+ * The time of day a stored instant happened.
+ *
+ * **`"12h"` is for reading, never for a field.** Spanish writes 24-hour time
+ * and Android's number pad cannot express a meridiem, so the two time fields
+ * always speak `"24h"` — the preference changes how a time is written down,
+ * not how it is typed. Ajustes says so under the option.
+ */
+export function formatTimeOfDay(
+  at: Date,
+  format: "24h" | "12h" = "24h",
+): string {
+  const hours = at.getHours();
+  const minutes = String(at.getMinutes()).padStart(2, "0");
+
+  if (format === "12h") {
+    // Midnight and noon are 12, not 0 — the one place a modulo needs help.
+    return `${hours % 12 || 12}:${minutes} ${hours < 12 ? "a.m." : "p.m."}`;
+  }
+  return `${String(hours).padStart(2, "0")}:${minutes}`;
 }
 
 /**

@@ -189,3 +189,29 @@ describe("shiftMinutes", () => {
     }
   });
 });
+
+describe("formatTimeOfDay in 12h", () => {
+  const at = (h: number, m = 0) => new Date(2026, 8, 10, h, m);
+
+  it("reads the way a 12-hour clock does", () => {
+    expect(formatTimeOfDay(at(9, 15), "12h")).toBe("9:15 a.m.");
+    expect(formatTimeOfDay(at(15, 0), "12h")).toBe("3:00 p.m.");
+    expect(formatTimeOfDay(at(23, 59), "12h")).toBe("11:59 p.m.");
+  });
+
+  it("calls midnight and noon twelve, not zero", () => {
+    expect(formatTimeOfDay(at(0, 5), "12h")).toBe("12:05 a.m.");
+    expect(formatTimeOfDay(at(12, 5), "12h")).toBe("12:05 p.m.");
+  });
+
+  it("defaults to 24h, so an unqualified call is unchanged", () => {
+    expect(formatTimeOfDay(at(15, 0))).toBe("15:00");
+  });
+
+  it("stays parseable in 24h, which is the only form a field takes", () => {
+    const day = new Date(2026, 8, 10);
+    expect(parseTimeOfDay(formatTimeOfDay(at(15, 0)), day)?.getHours()).toBe(
+      15,
+    );
+  });
+});

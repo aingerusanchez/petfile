@@ -13,6 +13,7 @@ import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { CelebrationProvider, ToastProvider, colors } from "../components/ui";
 import { AuthProvider } from "../lib/auth";
+import { SettingsProvider } from "../lib/settings";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,19 +38,24 @@ export default function RootLayout() {
     // status bar or system navigation bar.
     <SafeAreaProvider>
       <AuthProvider>
-        {/* Above the Stack on purpose: a toast rendered by a screen would be
+        {/* Above the Stack because every screen reads it, and it is the first
+            thing a screen needs: a date or a duration rendered in the wrong
+            format and then corrected is a visible flicker. */}
+        <SettingsProvider>
+          {/* Above the Stack on purpose: a toast rendered by a screen would be
             unmounted by its own success navigation. */}
-        <ToastProvider>
-          <CelebrationProvider>
-            <StatusBar style="light" />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: colors.base },
-              }}
-            />
-          </CelebrationProvider>
-        </ToastProvider>
+          <ToastProvider>
+            <CelebrationProvider>
+              <StatusBar style="light" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: colors.base },
+                }}
+              />
+            </CelebrationProvider>
+          </ToastProvider>
+        </SettingsProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

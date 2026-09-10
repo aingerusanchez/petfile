@@ -8,6 +8,12 @@ import { Text } from "./Text";
 type ChipProps = {
   label: string;
   selected: boolean;
+  /**
+   * What a screen reader announces, when the visible label is a value rather
+   * than a choice. A format chip reading "15:30" announces a time, not "the
+   * 24-hour option" — the same gap `Button` closes for its warm labels.
+   */
+  accessibilityLabel?: string;
   onPress: () => void;
   /** Leading icon, drawn in the label's colour. */
   icon?: LucideIcon;
@@ -36,6 +42,7 @@ type ChipProps = {
 export function Chip({
   label,
   selected,
+  accessibilityLabel,
   onPress,
   icon: Icon,
   className = "grow shrink-0 flex-row items-center justify-center gap-2 rounded-xl border py-3",
@@ -46,7 +53,7 @@ export function Chip({
       testID={testID}
       onPress={onPress}
       accessibilityRole="radio"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ selected, checked: selected }}
       // See Checkbox: the web renders the role and drops the state.
       aria-checked={selected}

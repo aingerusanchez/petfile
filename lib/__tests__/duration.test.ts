@@ -82,3 +82,21 @@ describe("parseDuration", () => {
     expect(parseDuration("99h")).toBe(5940);
   });
 });
+
+describe("formatDuration in minutes", () => {
+  it("keeps everything in minutes for a tutor who thinks in them", () => {
+    expect(formatDuration(45, "minutes")).toBe("45 min");
+    expect(formatDuration(90, "minutes")).toBe("90 min");
+    expect(formatDuration(300, "minutes")).toBe("300 min");
+  });
+
+  it("still round-trips through the parser", () => {
+    for (const minutes of [45, 90, 300]) {
+      expect(parseDuration(formatDuration(minutes, "minutes"))).toBe(minutes);
+    }
+  });
+
+  it("defaults to hours, so an unqualified call is unchanged", () => {
+    expect(formatDuration(90)).toBe(formatDuration(90, "hours"));
+  });
+});
