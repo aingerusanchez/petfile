@@ -127,6 +127,45 @@ export async function resetE2EPets(): Promise<void> {
 }
 
 /**
+ * Puts entries straight into `pet_events`, for a spec that needs a month of
+ * them rather than a handful.
+ *
+ * Through the client rather than the UI: seeding thirty days of a realistic
+ * pattern by driving the sheet would take minutes and prove nothing about the
+ * sheet. Guarded by the same account check as everything else here, and the
+ * rows cascade away with the pet on `resetE2EPets`.
+ */
+export async function seedE2EEvents(
+  petId: string,
+  rows: {
+    kind: "walk" | "meal" | "medication" | "incident";
+    occurredAt: Date;
+    durationMinutes?: number | null;
+    note?: string | null;
+    what?: string | null;
+  }[],
+): Promise<void> {
+  if (email !== E2E_ACCOUNT_EMAIL) {
+    throw new Error(
+      `Refusing to seed events: E2E_EMAIL is not the dedicated test account (${E2E_ACCOUNT_EMAIL}).`,
+    );
+  }
+
+  const { client } = await signInE2EUser();
+  const { error } = await client.from("pet_events").insert(
+    rows.map((row) => ({
+      pet_id: petId,
+      kind: row.kind,
+      occurred_at: row.occurredAt.toISOString(),
+      duration_minutes: row.durationMinutes ?? null,
+      note: row.note ?? null,
+      details: row.what ? { what: row.what } : {},
+    })),
+  );
+  if (error) throw new Error(`Failed to seed e2e events: ${error.message}`);
+}
+
+/**
  * Creates the pet the profile specs edit.
  *
  * Through the same RPC the app uses, so the row is shaped exactly as a

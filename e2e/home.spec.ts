@@ -393,6 +393,107 @@ test("refuses a time that is not one", async ({ page }) => {
   );
 });
 
+test("walks back a day and forward again, and never into tomorrow", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/");
+
+  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
+  // Nothing to log about a day that has not happened.
+  await expect(page.getByTestId("home-next-day")).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+  await expect(page.getByTestId("home-next-day")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+
+  // From two days back a person reaches for the weekday, not "anteayer".
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText(
+    /^(Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo)$/,
+  );
+
+  await page.getByTestId("home-next-day").click();
+  await page.getByTestId("home-next-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
+});
+
+test("logs into the day on screen, not into today", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+  // A past day is not still going, so the empty state cannot say "todavía".
+  await expect(page.getByTestId("home-empty")).toContainText(
+    "Ese día no se apuntó nada",
+  );
+
+  await add(page, "meal");
+  // The sheet says which day it writes to: the same form, opened a day back,
+  // saves a day back.
+  await expect(page.getByTestId("entry-day")).toHaveText(/^Ayer, \d+ de /);
+  await page.getByTestId("entry-value").fill("Pienso de ayer");
+  await page.getByTestId("entry-save").click();
+
+  await expect(page.getByTestId("home-log")).toContainText("Pienso de ayer");
+
+  // And today does not have it.
+  await page.getByTestId("home-next-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
+  await expect(page.getByTestId("home-log")).toBeHidden();
+});
+
+test("opens the calendar from the date and says what each day carried", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // Put something on yesterday worth marking.
+  await page.getByTestId("home-prev-day").click();
+  await add(page, "incident");
+  await page.getByTestId("entry-value").fill("Cojea de la pata");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("Cojea");
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("home-calendar")).toBeVisible();
+
+  // The mark is not colour alone: the day says it in words too.
+  await expect(
+    page
+      .getByLabel(
+        `${yesterday.getDate()}, objetivo sin cumplir, con incidencia`,
+      )
+      .first(),
+  ).toBeVisible();
+
+  // The legend names the threshold the bar is measured against.
+  await expect(page.getByTestId("home-calendar")).toContainText("Cumplió");
+
+  // Choosing a day navigates and closes.
+  await page
+    .getByLabel(`${yesterday.getDate()},`, { exact: false })
+    .first()
+    .click();
+  await expect(page.getByTestId("home-calendar")).toBeHidden();
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+});
+
 test("keeps every control on the 48dp floor here too", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
@@ -408,7 +509,7 @@ test("keeps every control on the 48dp floor here too", async ({ page }) => {
     }
   };
 
-  await floor(["home-add"]);
+  await floor(["home-prev-day", "home-next-day", "home-day", "home-add"]);
   await page.getByTestId("home-add").click();
   await floor([
     "home-add-walk",
