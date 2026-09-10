@@ -38,6 +38,7 @@ import {
   type PetEventRow,
 } from "../../lib/events";
 import { getMyPet, type PetRow } from "../../lib/pets";
+import { useSettings, type DurationFormat } from "../../lib/settings";
 
 /**
  * What each kind asks for beyond a time and a note.
@@ -59,8 +60,14 @@ const KINDS: Record<
      * for a time range instead, which the sheet renders on its own.
      */
     field?: { label: string; placeholder: string };
-    /** The detail line under an entry in the list. */
-    describe: (event: PetEventRow) => string | null;
+    /**
+     * The detail line under an entry in the list.
+     *
+     * Takes the duration format because this is the *reading* side: a walk's
+     * length is written the way the tutor asked for in Ajustes. The fields
+     * that take a duration are unaffected — `parseDuration` accepts both.
+     */
+    describe: (event: PetEventRow, format: DurationFormat) => string | null;
   }
 > = {
   walk: {
@@ -68,8 +75,10 @@ const KINDS: Record<
     action: "Añadir paseo",
     editAction: "Editar paseo",
     icon: Footprints,
-    describe: (event) =>
-      event.duration_minutes ? formatDuration(event.duration_minutes) : null,
+    describe: (event, format) =>
+      event.duration_minutes
+        ? formatDuration(event.duration_minutes, format)
+        : null,
   },
   meal: {
     label: "Comida",
@@ -146,6 +155,7 @@ type Editing = { kind: EventKind; event: PetEventRow | null };
  */
 export default function Home() {
   const toast = useToast();
+  const { settings } = useSettings();
   const [day] = useState(() => new Date());
   const [pet, setPet] = useState<PetRow | null>(null);
   const [events, setEvents] = useState<PetEventRow[] | null>(null);
@@ -242,7 +252,7 @@ export default function Home() {
         <View testID="home-goal" className="mb-8">
           <View className="mb-2 flex-row items-baseline justify-between">
             <Text className="font-semibold text-text-primary">
-              {`${formatDuration(walked)} de ${formatDuration(goal)} paseados`}
+              {`${formatDuration(walked, settings.durationFormat)} de ${formatDuration(goal, settings.durationFormat)} paseados`}
             </Text>
             {met ? (
               <Text className="font-semibold text-xs text-success">
@@ -343,9 +353,15 @@ function Entry({
   event: PetEventRow;
   onPress: () => void;
 }) {
+  const { settings } = useSettings();
   const spec = KINDS[event.kind as EventKind];
-  const time = formatTimeOfDay(new Date(event.occurred_at));
-  const described = spec?.describe(event);
+  // The reading side, so both formats are the tutor's. The sheet below keeps
+  // 24-hour times, because that is the only form a number pad can express.
+  const time = formatTimeOfDay(
+    new Date(event.occurred_at),
+    settings.timeFormat,
+  );
+  const described = spec?.describe(event, settings.durationFormat);
   const Icon = spec?.icon;
 
   return (
@@ -360,7 +376,10 @@ function Entry({
       style={{ minHeight: TOUCH_TARGET }}
       className="mb-5 flex-row items-start gap-3 active:opacity-70"
     >
-      <View className="w-12 items-start gap-1">
+      {/* Wide enough for "12:05 p.m.", so the column does not move when the
+          format changes in Ajustes. An arbitrary value, because `w-20` is
+          rem-based and native resolves it to 70 rather than 80. */}
+      <View className="w-[80px] items-start gap-1">
         <Text className="text-text-tertiary">{time}</Text>
         {Icon ? (
           // The same tone as the time above it: they are one column, read as
@@ -441,6 +460,8 @@ function EntrySheet({
 }) {
   const spec = KINDS[kind];
   const isWalk = kind === "walk";
+  const { settings } = useSettings();
+  const durationFormat = settings.durationFormat;
 
   const occurred = event ? new Date(event.occurred_at) : null;
   const storedMinutes = event?.duration_minutes ?? null;
@@ -464,7 +485,7 @@ function EntrySheet({
   );
   /** What the duration field shows while it is being typed into. */
   const [durationText, setDurationText] = useState(() =>
-    storedMinutes ? formatDuration(storedMinutes) : "",
+    storedMinutes ? formatDuration(storedMinutes, durationFormat) : "",
   );
   const [value, setValue] = useState(
     () => (event && detail(event, "what")) || "",
@@ -487,9 +508,11 @@ function EntrySheet({
       const end = parseTimeOfDay(atText, day);
       if (!start || !end) return setDurationText("");
       const total = minutesBetween(start, end);
-      setDurationText(total === null ? "" : formatDuration(total));
+      setDurationText(
+        total === null ? "" : formatDuration(total, durationFormat),
+      );
     },
-    [day],
+    [day, durationFormat],
   );
 
   const editAt = useCallback(
@@ -548,11 +571,11 @@ function EntrySheet({
         return;
       }
       setDurationError(null);
-      setDurationText(formatDuration(total));
+      setDurationText(formatDuration(total, durationFormat));
       const end = parseTimeOfDay(at, day);
       if (end) setFrom(formatTimeOfDay(shiftMinutes(end, -total)));
     },
-    [at, day],
+    [at, day, durationFormat],
   );
 
   /**

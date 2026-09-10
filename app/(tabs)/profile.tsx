@@ -1,5 +1,12 @@
 import { useRouter } from "expo-router";
-import { Mars, Pencil, Power, Trash2, Venus } from "lucide-react-native";
+import {
+  Mars,
+  Pencil,
+  Power,
+  Settings2,
+  Trash2,
+  Venus,
+} from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import {
@@ -22,6 +29,7 @@ import {
 } from "../../components/ui";
 import { describeAge } from "../../lib/age";
 import { useAuth } from "../../lib/auth";
+import { useSettings } from "../../lib/settings";
 import { parseISO, toApproximateISO } from "../../lib/dates";
 import {
   DURATION_HINT,
@@ -146,6 +154,7 @@ function Row({
  */
 export default function Profile() {
   const { signOut } = useAuth();
+  const { settings } = useSettings();
   const router = useRouter();
   const toast = useToast();
 
@@ -228,13 +237,13 @@ export default function Profile() {
       setSubmitted([]);
       setGoalText(
         pet.exercise_goal_minutes
-          ? formatDuration(pet.exercise_goal_minutes)
+          ? formatDuration(pet.exercise_goal_minutes, settings.durationFormat)
           : "",
       );
       setGoalError(null);
       setEditing(section);
     },
-    [pet],
+    [pet, settings.durationFormat],
   );
 
   const closeSection = useCallback(() => {
@@ -668,7 +677,10 @@ export default function Profile() {
               onBlur={() =>
                 setGoalText(
                   edit.exerciseGoalMinutes
-                    ? formatDuration(edit.exerciseGoalMinutes)
+                    ? formatDuration(
+                        edit.exerciseGoalMinutes,
+                        settings.durationFormat,
+                      )
                     : "",
                 )
               }
@@ -720,7 +732,11 @@ export default function Profile() {
               label="Paseo al día"
               testID="profile-goal-value"
               muted={goal === null}
-              value={goal === null ? "Sin objetivo" : formatDuration(goal)}
+              value={
+                goal === null
+                  ? "Sin objetivo"
+                  : formatDuration(goal, settings.durationFormat)
+              }
             />
             <EditButton
               testID="profile-edit-health"
@@ -730,6 +746,15 @@ export default function Profile() {
           </>
         )}
       </Group>
+
+      {/* Ajustes is about the person, not the animal, so it sits with the
+          other thing on this page that is: below the file, above the exit. */}
+      <EditButton
+        testID="profile-settings"
+        label="Ajustes"
+        icon={Settings2}
+        onPress={() => router.push("/settings")}
+      />
 
       {/* Signing out is routine and reversible, so it keeps its place on the
           page — and it is now the only exit that does, which is the point. */}
@@ -819,14 +844,19 @@ export default function Profile() {
   );
 }
 
-/** The door into a block. Outlined, so it reads as available and not as urgent. */
+/**
+ * A door: into a block, or out to another screen. Outlined, so it reads as
+ * available rather than urgent.
+ */
 function EditButton({
   testID,
   label,
+  icon = Pencil,
   onPress,
 }: {
   testID: string;
   label: string;
+  icon?: typeof Pencil;
   onPress: () => void;
 }) {
   return (
@@ -834,7 +864,7 @@ function EditButton({
       <Button
         testID={testID}
         variant="outlined"
-        icon={Pencil}
+        icon={icon}
         label={label}
         onPress={onPress}
       />
