@@ -64,6 +64,8 @@ app/                     → Expo Router routes (routes only — no shared UI)
   (tabs)/                → authenticated shell (home, health, profile)
 components/ui/            → the design-system primitives every screen composes
   Screen.tsx              → page container; the only place window insets are consumed
+  Fab.tsx                 → the floating action, and the menu it opens
+  Slider.tsx              → one value along a range, in-house rather than native
   Chip.tsx                → selector chip + ChipGroup (exclusive single-select row)
   Group.tsx               → hairline-outlined form section
   Toast.tsx               → transient message; ToastProvider hosts it above the navigator
@@ -114,6 +116,8 @@ Three platform gotchas the browser hides, all measured on device and recorded in
 - A `TextInput` needs **`pl-4 pr-4` rather than `px-4`** — Android drops `padding-inline` on text inputs.
 - The native CSS compiler resolves **`1rem` to 14, not 16**, so every rem-based utility renders at 87.5% of what the browser shows.
 - **`leading-*` does nothing on native.** It arrives as a `calc()`, which that compiler discards, so line height comes from a `style` prop. Anything that has to line up with a class-sized box needs both sides as literals from one constant — see `components/ui/Checkbox.tsx`.
+- **`pointerEvents: "box-none"` is not CSS.** react-native-web passes it through as `pointer-events: box-none`, the browser drops the whole declaration, and the element stays clickable. A full-screen `box-none` container therefore swallows every tap on the page behind it — measured: `Screen`'s overlay slot made the day's entries unclickable. Use `none` on the container and `auto` on the children that need taps; both are valid in React Native and in CSS.
+- **A `TextInput` narrower than its content wants needs `minWidth: 0`.** On the web it is an `<input>`, whose intrinsic width is about twenty characters, and `flex-1` alone cannot shrink past it. Measured: a 128dp field rendered a 174dp input, so the row overflowed and the unit landed on the buttons beside it.
 - **Touch targets come from `TOUCH_TARGET` in `tokens.ts`, never from `min-h-12`.** That class is 3rem, so it silently held every control at 42dp while reading as 48 in the source. An arbitrary value (`min-h-[48px]`) does land on native and is the escape hatch for a third party's own pressables, where a `style` prop cannot reach.
 
 The web target hides all three, so **a change that has to hold on the device is verified on the device**, with a screenshot (`adb exec-out screencap -p`) rather than by eye in the browser.

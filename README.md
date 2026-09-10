@@ -102,6 +102,8 @@ components/ui/            → primitivos del sistema de diseño que componen las
   Button.tsx              → botón: primario / outlined / secundario / link, con tono danger
   Avatar.tsx              → foto de la mascota, o su inicial cuando no hay foto
   AvatarEditor.tsx        → encuadre de esa foto sobre el círculo en el que se verá
+  Fab.tsx                 → la acción flotante y el menú que abre
+  Slider.tsx              → un valor dentro de un rango, propio en lugar de nativo
   Text.tsx                → texto en la tipografía de la app; el único Text que importa la app
   LoadingScreen.tsx       → estado de carga a pantalla completa
   tokens.ts               → valores Nordic Ice para props de RN que className no alcanza
