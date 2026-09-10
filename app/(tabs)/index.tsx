@@ -6,7 +6,7 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import {
   Button,
   colors,
@@ -15,6 +15,7 @@ import {
   Group,
   LoadingScreen,
   Screen,
+  Sheet,
   Text,
   TextField,
   TOUCH_TARGET,
@@ -25,7 +26,6 @@ import { formatDuration, parseDuration } from "../../lib/duration";
 import {
   deleteEvent,
   eventsForDay,
-  formatTimeInput,
   formatTimeOfDay,
   logEvent,
   MAX_WALK_MINUTES,
@@ -492,30 +492,31 @@ function EntrySheet({
     [day],
   );
 
-  /**
-   * The colon arrives on its own: the number pad has none, so a tutor who
-   * tried to type one could not, and the field was showing one anyway. See
-   * `formatTimeInput`.
-   */
   const editAt = useCallback(
     (text: string) => {
-      const next = formatTimeInput(text, at);
-      setAt(next);
-      showDuration(from, next);
+      setAt(text);
+      showDuration(from, text);
     },
-    [showDuration, from, at],
+    [showDuration, from],
   );
 
   const editFrom = useCallback(
     (text: string) => {
-      const next = formatTimeInput(text, from);
-      setFrom(next);
-      showDuration(next, at);
+      setFrom(text);
+      showDuration(text, at);
     },
-    [showDuration, at, from],
+    [showDuration, at],
   );
 
-  /** Tidies a half-typed time once focus leaves: "900" becomes "09:00". */
+  /**
+   * Tidies a time once focus leaves: "900" becomes "09:00".
+   *
+   * **On blur, and only on blur.** The number pad has no colon, so the field
+   * has to take `900` — and inserting the colon as the digits arrive does not
+   * work: a focused `TextInput` on Android ignores a value JS rewrites, so
+   * `9000` stayed `9000` on the device while the browser showed `90:00`. This
+   * is the correction the platform does honour.
+   */
   const tidyTime = useCallback(
     (text: string, set: (value: string) => void) => {
       const parsed = parseTimeOfDay(text, day);
@@ -665,192 +666,183 @@ function EntrySheet({
   }, [event, onFailed, onSaved]);
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable
-        testID="entry-scrim"
-        onPress={onClose}
-        className="flex-1 justify-end bg-base/80"
-      >
-        <Pressable
-          onPress={(pressEvent) => pressEvent.stopPropagation()}
-          className="rounded-xl border border-border-default bg-surface p-5"
+    <Sheet onClose={onClose} scrimTestID="entry-scrim">
+      <>
+        <Text
+          testID="entry-title"
+          accessibilityRole="header"
+          className="mb-5 font-bold text-xl text-text-primary"
         >
-          <Text
-            testID="entry-title"
-            accessibilityRole="header"
-            className="mb-5 font-bold text-xl text-text-primary"
-          >
-            {event ? spec.editAction : spec.action}
-          </Text>
+          {event ? spec.editAction : spec.action}
+        </Text>
 
-          {isWalk ? (
-            <>
-              <View className="flex-row gap-3">
-                <View className="flex-1">
-                  <TextField
-                    testID="entry-from"
-                    label="Desde"
-                    value={from}
-                    onChangeText={editFrom}
-                    onBlur={() => tidyTime(from, setFrom)}
-                    placeholder="09:15"
-                    error={fromError}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                  />
-                </View>
-                <View className="flex-1">
-                  <TextField
-                    testID="entry-to"
-                    label="Hasta"
-                    value={at}
-                    onChangeText={editAt}
-                    onBlur={() => tidyTime(at, setAt)}
-                    placeholder="09:45"
-                    error={atError}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                  />
-                </View>
+        {isWalk ? (
+          <>
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <TextField
+                  testID="entry-from"
+                  label="Desde"
+                  value={from}
+                  onChangeText={editFrom}
+                  onBlur={() => tidyTime(from, setFrom)}
+                  placeholder="09:15"
+                  error={fromError}
+                  keyboardType="number-pad"
+                  maxLength={5}
+                />
               </View>
+              <View className="flex-1">
+                <TextField
+                  testID="entry-to"
+                  label="Hasta"
+                  value={at}
+                  onChangeText={editAt}
+                  onBlur={() => tidyTime(at, setAt)}
+                  placeholder="09:45"
+                  error={atError}
+                  keyboardType="number-pad"
+                  maxLength={5}
+                />
+              </View>
+            </View>
 
-              {/* The steppers sit hard right, nearest the thumb, and the field
+            {/* The steppers sit hard right, nearest the thumb, and the field
                   takes only the width its value needs. They used to sit beside
                   it and the unit landed underneath them. */}
-              <View className="mb-5 flex-row items-end justify-between">
-                <View style={{ width: 140 }}>
-                  <TextField
-                    testID="entry-duration"
-                    label="Duración"
-                    value={durationText}
-                    onChangeText={editDuration}
-                    onBlur={tidyDuration}
-                    placeholder="30 min"
-                    // A number pad, even though the field shows "1h 30m":
-                    // bare minutes always parse, so nothing here needs a
-                    // letter, and raising the alphabetic keyboard for a
-                    // digits-first task is the defect AGENTS.md names. The
-                    // readable form is what the field gives back, not what it
-                    // demands.
-                    error={durationError}
-                    keyboardType="number-pad"
-                    maxLength={10}
-                    className=""
+            <View className="mb-5 flex-row items-end justify-between">
+              <View style={{ width: 140 }}>
+                <TextField
+                  testID="entry-duration"
+                  label="Duración"
+                  value={durationText}
+                  onChangeText={editDuration}
+                  onBlur={tidyDuration}
+                  placeholder="30 min"
+                  // A number pad, even though the field shows "1h 30m":
+                  // bare minutes always parse, so nothing here needs a
+                  // letter, and raising the alphabetic keyboard for a
+                  // digits-first task is the defect AGENTS.md names. The
+                  // readable form is what the field gives back, not what it
+                  // demands.
+                  error={durationError}
+                  keyboardType="number-pad"
+                  maxLength={10}
+                  className=""
+                />
+              </View>
+              <View className="flex-row gap-3">
+                <Step
+                  testID="entry-duration-minus"
+                  label={`-${STEP_MINUTES}`}
+                  accessibilityLabel={`Quitar ${STEP_MINUTES} minutos`}
+                  disabled={minutes <= STEP_MINUTES}
+                  onPress={() => applyMinutes(minutes - STEP_MINUTES)}
+                />
+                <Step
+                  testID="entry-duration-plus"
+                  label={`+${STEP_MINUTES}`}
+                  accessibilityLabel={`Añadir ${STEP_MINUTES} minutos`}
+                  disabled={minutes + STEP_MINUTES > MAX_WALK_MINUTES}
+                  onPress={() => applyMinutes(minutes + STEP_MINUTES)}
+                />
+              </View>
+            </View>
+          </>
+        ) : (
+          <TextField
+            testID="entry-time"
+            label="Hora"
+            value={at}
+            onChangeText={editAt}
+            onBlur={() => tidyTime(at, setAt)}
+            placeholder="09:15"
+            error={atError}
+            keyboardType="number-pad"
+            maxLength={5}
+          />
+        )}
+
+        {spec.field ? (
+          <TextField
+            testID="entry-value"
+            label={spec.field.label}
+            value={value}
+            onChangeText={setValue}
+            placeholder={spec.field.placeholder}
+            maxLength={80}
+          />
+        ) : null}
+
+        <TextField
+          testID="entry-note"
+          label="Nota"
+          value={note}
+          onChangeText={setNote}
+          placeholder="¿Algo que contar?"
+          maxLength={200}
+        />
+
+        <View className="mt-2 flex-row gap-3">
+          <Pressable
+            testID="entry-cancel"
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Cancelar"
+            style={{ minHeight: TOUCH_TARGET }}
+            className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4 active:opacity-70"
+          >
+            <Text className="text-text-secondary">Cancelar</Text>
+          </Pressable>
+          <View className="flex-1">
+            <Button
+              testID="entry-save"
+              variant="primary"
+              label={event ? "Guardar cambios" : "Guardar"}
+              successLabel="Apuntado"
+              errorLabel="No se ha podido guardar"
+              onPress={save}
+            />
+          </View>
+        </View>
+
+        {event ? (
+          <View className="mt-6 border-t border-border-default pt-4">
+            {confirmingDelete ? (
+              <View className="flex-row items-center justify-between">
+                <Text className="text-text-secondary">¿Lo borro?</Text>
+                <View className="flex-row items-center gap-5">
+                  <Button
+                    testID="entry-delete-cancel"
+                    variant="link"
+                    label="No"
+                    accessibilityLabel="No borrarlo"
+                    onPress={() => setConfirmingDelete(false)}
                   />
-                </View>
-                <View className="flex-row gap-3">
-                  <Step
-                    testID="entry-duration-minus"
-                    label={`-${STEP_MINUTES}`}
-                    accessibilityLabel={`Quitar ${STEP_MINUTES} minutos`}
-                    disabled={minutes <= STEP_MINUTES}
-                    onPress={() => applyMinutes(minutes - STEP_MINUTES)}
-                  />
-                  <Step
-                    testID="entry-duration-plus"
-                    label={`+${STEP_MINUTES}`}
-                    accessibilityLabel={`Añadir ${STEP_MINUTES} minutos`}
-                    disabled={minutes + STEP_MINUTES > MAX_WALK_MINUTES}
-                    onPress={() => applyMinutes(minutes + STEP_MINUTES)}
+                  <Button
+                    testID="entry-delete-confirm"
+                    variant="link"
+                    tone="danger"
+                    label="Sí, bórralo"
+                    successLabel="Borrado"
+                    errorLabel="No se ha podido borrar"
+                    onPress={remove}
                   />
                 </View>
               </View>
-            </>
-          ) : (
-            <TextField
-              testID="entry-time"
-              label="Hora"
-              value={at}
-              onChangeText={editAt}
-              onBlur={() => tidyTime(at, setAt)}
-              placeholder="09:15"
-              error={atError}
-              keyboardType="number-pad"
-              maxLength={5}
-            />
-          )}
-
-          {spec.field ? (
-            <TextField
-              testID="entry-value"
-              label={spec.field.label}
-              value={value}
-              onChangeText={setValue}
-              placeholder={spec.field.placeholder}
-              maxLength={80}
-            />
-          ) : null}
-
-          <TextField
-            testID="entry-note"
-            label="Nota"
-            value={note}
-            onChangeText={setNote}
-            placeholder="¿Algo que contar?"
-            maxLength={200}
-          />
-
-          <View className="mt-2 flex-row gap-3">
-            <Pressable
-              testID="entry-cancel"
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Cancelar"
-              style={{ minHeight: TOUCH_TARGET }}
-              className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4 active:opacity-70"
-            >
-              <Text className="text-text-secondary">Cancelar</Text>
-            </Pressable>
-            <View className="flex-1">
+            ) : (
               <Button
-                testID="entry-save"
-                variant="primary"
-                label={event ? "Guardar cambios" : "Guardar"}
-                successLabel="Apuntado"
-                errorLabel="No se ha podido guardar"
-                onPress={save}
+                testID="entry-delete"
+                variant="link"
+                tone="danger"
+                label="Borrar este registro"
+                onPress={() => setConfirmingDelete(true)}
               />
-            </View>
+            )}
           </View>
-
-          {event ? (
-            <View className="mt-6 border-t border-border-default pt-4">
-              {confirmingDelete ? (
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-text-secondary">¿Lo borro?</Text>
-                  <View className="flex-row items-center gap-5">
-                    <Button
-                      testID="entry-delete-cancel"
-                      variant="link"
-                      label="No"
-                      accessibilityLabel="No borrarlo"
-                      onPress={() => setConfirmingDelete(false)}
-                    />
-                    <Button
-                      testID="entry-delete-confirm"
-                      variant="link"
-                      tone="danger"
-                      label="Sí, bórralo"
-                      successLabel="Borrado"
-                      errorLabel="No se ha podido borrar"
-                      onPress={remove}
-                    />
-                  </View>
-                </View>
-              ) : (
-                <Button
-                  testID="entry-delete"
-                  variant="link"
-                  tone="danger"
-                  label="Borrar este registro"
-                  onPress={() => setConfirmingDelete(true)}
-                />
-              )}
-            </View>
-          ) : null}
-        </Pressable>
-      </Pressable>
-    </Modal>
+        ) : null}
+      </>
+    </Sheet>
   );
 }
 

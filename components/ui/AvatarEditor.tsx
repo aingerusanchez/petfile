@@ -2,7 +2,6 @@ import { Minus, Plus } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
-  Modal,
   PanResponder,
   Pressable,
   useWindowDimensions,
@@ -22,6 +21,7 @@ import {
 } from "../../lib/framing";
 import { Avatar } from "./Avatar";
 import { Button } from "./Button";
+import { Sheet } from "./Sheet";
 import { Slider } from "./Slider";
 import { Text } from "./Text";
 import { colors, TOUCH_TARGET } from "./tokens";
@@ -237,167 +237,161 @@ export function AvatarEditor({
   const scale = natural ? coverScale(natural, stage) * frame.zoom : 1;
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable
-        testID="avatar-editor-scrim"
-        onPress={onClose}
-        className="flex-1 justify-end bg-base/80"
-      >
-        <Pressable
-          testID="avatar-editor"
-          onPress={(event) => event.stopPropagation()}
-          className="rounded-xl border border-border-default bg-surface p-5"
-        >
-          {/* Centred, so it sits over the portrait rather than off to its
+    <Sheet
+      onClose={onClose}
+      testID="avatar-editor"
+      scrimTestID="avatar-editor-scrim"
+    >
+      <>
+        {/* Centred, so it sits over the portrait rather than off to its
               left: the sheet is about one round thing in the middle of it. */}
-          <Text
-            accessibilityRole="header"
-            className="mb-5 text-center font-bold text-xl text-text-primary"
-          >
-            {`Foto de ${name}`}
-          </Text>
+        <Text
+          accessibilityRole="header"
+          className="mb-5 text-center font-bold text-xl text-text-primary"
+        >
+          {`Foto de ${name}`}
+        </Text>
 
-          <View className="mb-5 items-center">
-            {framing ? (
-              <View
-                testID="avatar-editor-stage"
-                accessibilityLabel="Arrastra la foto para colocarla"
-                style={{
-                  width: stage,
-                  height: stage,
-                  borderRadius: stage / 2,
-                }}
-                className="overflow-hidden border border-border-strong bg-elevated"
-                {...responder.panHandlers}
-              >
-                <Image
-                  testID="avatar-editor-preview"
-                  source={{ uri: picked! }}
-                  accessible={false}
-                  style={{
-                    position: "absolute",
-                    left: frame.x,
-                    top: frame.y,
-                    width: natural!.width * scale,
-                    height: natural!.height * scale,
-                  }}
-                />
-              </View>
-            ) : (
-              <Avatar
-                testID="avatar-editor-current"
-                uri={currentUri}
-                name={name}
-                size={stage}
-              />
-            )}
-          </View>
-
+        <View className="mb-5 items-center">
           {framing ? (
-            <>
-              <View className="flex-row items-center gap-4">
-                <ZoomButton
-                  testID="avatar-editor-zoom-out"
-                  label="Alejar"
-                  icon={Minus}
-                  disabled={frame.zoom <= 1}
-                  onPress={() => zoomBy(-ZOOM_STEP)}
-                />
-                <View className="flex-1">
-                  <Slider
-                    testID="avatar-editor-slider"
-                    value={frame.zoom}
-                    min={1}
-                    max={MAX_ZOOM}
-                    step={ZOOM_GRAIN}
-                    onChange={zoomTo}
-                    accessibilityLabel="Zoom"
-                    accessibilityValueText={`${frame.zoom.toFixed(1)} aumentos`}
-                  />
-                </View>
-                <ZoomButton
-                  testID="avatar-editor-zoom-in"
-                  label="Acercar"
-                  icon={Plus}
-                  disabled={frame.zoom >= MAX_ZOOM}
-                  onPress={() => zoomBy(ZOOM_STEP)}
-                />
-              </View>
-              <Text
-                testID="avatar-editor-zoom"
-                accessibilityLiveRegion="polite"
-                accessibilityLabel={`Zoom ${frame.zoom.toFixed(1)} aumentos`}
-                className="mb-3 text-center text-text-tertiary"
-              >
-                {`${frame.zoom.toFixed(1)}×`}
-              </Text>
-              {/* `text-balance` evens the two lines on the web; the native CSS
-                  compiler has no `text-wrap`, so the non-breaking space is
-                  what stops "se verá." orphaning a line there. */}
-              <Text className="mb-5 text-center text-xs text-balance text-text-tertiary">
-                {
-                  "Arrástrala para colocarla y pellízcala para acercar. Así es como se\u00A0verá."
-                }
-              </Text>
-            </>
-          ) : (
-            <Text className="mb-5 text-center text-xs text-text-tertiary">
-              {currentUri
-                ? "Para reencuadrarla, vuelve a elegir la foto."
-                : `Elige una foto y encuádrala como quieras.`}
-            </Text>
-          )}
-
-          <View className="mb-5 flex-row items-center justify-between">
-            <Button
-              testID="avatar-editor-pick"
-              variant="link"
-              label={picked || currentUri ? "Elegir otra foto" : "Elegir foto"}
-              accessibilityLabel={`Elegir una foto de ${name}`}
-              successLabel="Encuádrala"
-              errorLabel="No hemos podido abrirla"
-              onPress={pick}
-            />
-            {currentUri && !picked ? (
-              <Button
-                testID="avatar-editor-remove"
-                variant="link"
-                tone="danger"
-                label="Quitar"
-                accessibilityLabel={`Quitar la foto de ${name}`}
-                successLabel="Quitada"
-                errorLabel="No se pudo quitar"
-                onPress={onRemove}
-              />
-            ) : null}
-          </View>
-
-          <View className="mt-1 flex-row gap-3">
-            <Pressable
-              testID="avatar-editor-cancel"
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Cancelar"
-              style={{ minHeight: TOUCH_TARGET }}
-              className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4 active:opacity-70"
+            <View
+              testID="avatar-editor-stage"
+              accessibilityLabel="Arrastra la foto para colocarla"
+              style={{
+                width: stage,
+                height: stage,
+                borderRadius: stage / 2,
+              }}
+              className="overflow-hidden border border-border-strong bg-elevated"
+              {...responder.panHandlers}
             >
-              <Text className="text-text-secondary">Cancelar</Text>
-            </Pressable>
-            <View className="flex-1">
-              <Button
-                testID="avatar-editor-save"
-                variant="primary"
-                label="Guardar"
-                disabled={!framing}
-                successLabel="Guardada"
-                errorLabel="No se ha podido guardar"
-                onPress={save}
+              <Image
+                testID="avatar-editor-preview"
+                source={{ uri: picked! }}
+                accessible={false}
+                style={{
+                  position: "absolute",
+                  left: frame.x,
+                  top: frame.y,
+                  width: natural!.width * scale,
+                  height: natural!.height * scale,
+                }}
               />
             </View>
+          ) : (
+            <Avatar
+              testID="avatar-editor-current"
+              uri={currentUri}
+              name={name}
+              size={stage}
+            />
+          )}
+        </View>
+
+        {framing ? (
+          <>
+            <View className="flex-row items-center gap-4">
+              <ZoomButton
+                testID="avatar-editor-zoom-out"
+                label="Alejar"
+                icon={Minus}
+                disabled={frame.zoom <= 1}
+                onPress={() => zoomBy(-ZOOM_STEP)}
+              />
+              <View className="flex-1">
+                <Slider
+                  testID="avatar-editor-slider"
+                  value={frame.zoom}
+                  min={1}
+                  max={MAX_ZOOM}
+                  step={ZOOM_GRAIN}
+                  onChange={zoomTo}
+                  accessibilityLabel="Zoom"
+                  accessibilityValueText={`${frame.zoom.toFixed(1)} aumentos`}
+                />
+              </View>
+              <ZoomButton
+                testID="avatar-editor-zoom-in"
+                label="Acercar"
+                icon={Plus}
+                disabled={frame.zoom >= MAX_ZOOM}
+                onPress={() => zoomBy(ZOOM_STEP)}
+              />
+            </View>
+            <Text
+              testID="avatar-editor-zoom"
+              accessibilityLiveRegion="polite"
+              accessibilityLabel={`Zoom ${frame.zoom.toFixed(1)} aumentos`}
+              className="mb-3 text-center text-text-tertiary"
+            >
+              {`${frame.zoom.toFixed(1)}×`}
+            </Text>
+            {/* `text-balance` evens the two lines on the web; the native CSS
+                  compiler has no `text-wrap`, so the non-breaking space is
+                  what stops "se verá." orphaning a line there. */}
+            <Text className="mb-5 text-center text-xs text-balance text-text-tertiary">
+              {
+                "Arrástrala para colocarla y pellízcala para acercar. Así es como se\u00A0verá."
+              }
+            </Text>
+          </>
+        ) : (
+          <Text className="mb-5 text-center text-xs text-text-tertiary">
+            {currentUri
+              ? "Para reencuadrarla, vuelve a elegir la foto."
+              : `Elige una foto y encuádrala como quieras.`}
+          </Text>
+        )}
+
+        <View className="mb-5 flex-row items-center justify-between">
+          <Button
+            testID="avatar-editor-pick"
+            variant="link"
+            label={picked || currentUri ? "Elegir otra foto" : "Elegir foto"}
+            accessibilityLabel={`Elegir una foto de ${name}`}
+            successLabel="Encuádrala"
+            errorLabel="No hemos podido abrirla"
+            onPress={pick}
+          />
+          {currentUri && !picked ? (
+            <Button
+              testID="avatar-editor-remove"
+              variant="link"
+              tone="danger"
+              label="Quitar"
+              accessibilityLabel={`Quitar la foto de ${name}`}
+              successLabel="Quitada"
+              errorLabel="No se pudo quitar"
+              onPress={onRemove}
+            />
+          ) : null}
+        </View>
+
+        <View className="mt-1 flex-row gap-3">
+          <Pressable
+            testID="avatar-editor-cancel"
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Cancelar"
+            style={{ minHeight: TOUCH_TARGET }}
+            className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4 active:opacity-70"
+          >
+            <Text className="text-text-secondary">Cancelar</Text>
+          </Pressable>
+          <View className="flex-1">
+            <Button
+              testID="avatar-editor-save"
+              variant="primary"
+              label="Guardar"
+              disabled={!framing}
+              successLabel="Guardada"
+              errorLabel="No se ha podido guardar"
+              onPress={save}
+            />
           </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+        </View>
+      </>
+    </Sheet>
   );
 }
 

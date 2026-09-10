@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { Mars, Pencil, Power, Trash2, Venus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import {
   Avatar,
   AvatarEditor,
@@ -14,6 +14,7 @@ import {
   Group,
   LoadingScreen,
   Screen,
+  Sheet,
   Text,
   TextField,
   colors,
@@ -752,21 +753,13 @@ export default function Profile() {
         />
       ) : null}
 
-      <Modal
-        visible={confirmingDelete}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirmingDelete(false)}
-      >
-        <Pressable
-          testID="profile-delete-scrim"
-          onPress={() => setConfirmingDelete(false)}
-          className="flex-1 justify-end bg-base/80"
+      {confirmingDelete ? (
+        <Sheet
+          onClose={() => setConfirmingDelete(false)}
+          scrimTestID="profile-delete-scrim"
+          className="border-error"
         >
-          <Pressable
-            onPress={(event) => event.stopPropagation()}
-            className="rounded-xl border border-error bg-surface p-5"
-          >
+          <>
             {/* The file is what gets deleted, and the wording says so. A tutor
                 reaching this screen may have lost the animal, and "borrar a
                 Loki" asks them to confirm a sentence about their dog rather
@@ -819,9 +812,9 @@ export default function Profile() {
                 />
               </View>
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </>
+        </Sheet>
+      ) : null}
     </Screen>
   );
 }

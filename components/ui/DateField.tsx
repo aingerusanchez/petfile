@@ -2,7 +2,6 @@ import "dayjs/locale/es";
 import { CalendarDays, X } from "lucide-react-native";
 import { useState } from "react";
 import {
-  Modal,
   Pressable,
   ScrollView,
   View,
@@ -19,6 +18,7 @@ import {
 import { Chip } from "./Chip";
 import { FieldLabel } from "./FieldLabel";
 import { colors, TOUCH_TARGET } from "./tokens";
+import { Sheet } from "./Sheet";
 import { Text } from "./Text";
 
 /**
@@ -172,23 +172,11 @@ export function DateField({
         </Text>
       ) : null}
 
-      <Modal
-        visible={open}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setOpen(false)}
-      >
-        {/* Scrim tap, the X, Cancelar and Android's system Back all dismiss
-            without saving. The Back gesture is never trapped. */}
-        <Pressable
-          onPress={() => setOpen(false)}
-          accessibilityLabel="Cerrar"
-          className="flex-1 justify-end bg-base/80"
-        >
-          <Pressable
-            onPress={(event) => event.stopPropagation()}
-            className="rounded-xl border border-border-default bg-surface p-5"
-          >
+      {/* Scrim tap, the X, Cancelar and Android's system Back all dismiss
+          without saving. The Back gesture is never trapped. */}
+      {open ? (
+        <Sheet onClose={() => setOpen(false)}>
+          <>
             <View className="mb-4 flex-row items-center justify-between">
               <Text className="font-bold text-xl text-text-primary">
                 {approximate ? "Mes y año" : "Fecha de nacimiento"}
@@ -308,9 +296,9 @@ export function DateField({
                 <Text className="font-semibold text-on-accent">Confirmar</Text>
               </Pressable>
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </>
+        </Sheet>
+      ) : null}
     </View>
   );
 }

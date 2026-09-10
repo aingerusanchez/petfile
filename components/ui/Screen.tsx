@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode, type RefObject } from "react";
-import { Keyboard, ScrollView, StyleSheet, View } from "react-native";
+import { useEffect, type ReactNode, type RefObject } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useKeyboardInset } from "./keyboard";
 import { PAGE_GUTTER, spacing } from "./tokens";
 
 type Edge = "top" | "bottom";
@@ -59,36 +60,6 @@ type ScreenProps = {
 };
 
 const BOTH: readonly Edge[] = ["top", "bottom"];
-
-/**
- * How much of the screen the software keyboard is covering, in dp.
- *
- * Under edge-to-edge — which this app runs with — Android no longer resizes
- * the window when the keyboard opens, so a ScrollView keeps its full height
- * and everything behind the keyboard becomes unreachable: measured on device,
- * the breed field's suggestion list opened entirely below the keyboard with
- * no scroll room to bring it up. Treating the keyboard as a bottom inset
- * gives the content somewhere to go.
- *
- * The listeners never fire on the web, where the value stays 0 and the
- * browser handles its own layout.
- */
-function useKeyboardInset(): number {
-  const [inset, setInset] = useState(0);
-
-  useEffect(() => {
-    const shown = Keyboard.addListener("keyboardDidShow", (event) =>
-      setInset(event.endCoordinates.height),
-    );
-    const hidden = Keyboard.addListener("keyboardDidHide", () => setInset(0));
-    return () => {
-      shown.remove();
-      hidden.remove();
-    };
-  }, []);
-
-  return inset;
-}
 
 /**
  * The page container every screen sits in, and the single place window insets
