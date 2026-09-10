@@ -21,7 +21,7 @@ This file provides guidance to agentic AI tools when working with code in this r
 - `.env.example` is committed with placeholders only.
 - **`EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_KEY` are not secrets.** Every `EXPO_PUBLIC_*` variable is inlined into the client bundle and is extractable by anyone with the app. The anon/publishable key is a public identifier; data is protected by the RLS policies in `supabase/migrations/`, not by hiding it.
 - **Actual secrets, which never enter the repo or any agent's context:** the Supabase `service_role` key (unused in v0 — the app must never reference it) and the Google OAuth **client secret**, which is pasted directly into the Supabase dashboard so that Supabase performs the token exchange server-side.
-- The pre-commit hook (`.githooks/pre-commit`) blocks committing `.env` (or any `.env*` other than `.env.example`) and content shaped like a secret (`service_role` assignments, Supabase JWTs, `sb_secret_...`, `GOCSPX-...`). `pnpm install` wires it via the `prepare` script (`git config core.hooksPath .githooks`). Never bypass it with `--no-verify`.
+- The pre-commit hook (`.githooks/pre-commit`) also **formats what is being staged** with Prettier and re-stages it, so class order and code style are decided once rather than churning between editors. One sharp edge: a partially staged file (`git add -p`) gets the rest of its working copy staged too, because Prettier rewrites whole files. The hook blocks committing `.env` (or any `.env*` other than `.env.example`) and content shaped like a secret (`service_role` assignments, Supabase JWTs, `sb_secret_...`, `GOCSPX-...`). `pnpm install` wires it via the `prepare` script (`git config core.hooksPath .githooks`). Never bypass it with `--no-verify`.
 - For future EAS builds, secrets go in EAS environment variables (encrypted server-side), never in the repo.
 
 ## Commands
@@ -38,6 +38,10 @@ pnpm ios                # expo run:ios — same for iOS
 pnpm test               # Jest — pure domain logic (pet validation, RPC mapping)
 pnpm test:e2e           # Playwright end-to-end
 pnpm test:e2e:ui        # Playwright end-to-end, UI mode / trace viewer
+pnpm android:apk        # a standalone release APK, arm64 only — no Metro, no cable after install
+pnpm android:install    # adb install -r of that APK
+pnpm format             # prettier --write . (the pre-commit hook does this for staged files)
+pnpm format:check       # prettier --check .
 pnpm lint               # expo lint — currently broken, no ESLint config in the repo; do not attempt to fix as a side effect of another task
 ```
 
@@ -90,6 +94,7 @@ lib/                      → domain logic and data access
   dates.ts                → the ISO/DD-MM-AAAA conversion at the edge
   age.ts                  → the age from a birth date, and the life stage it lands in
   framing.ts              → the crop maths behind the avatar editor
+  duration.ts             → minutes in and out of "1h 30m"
   breeds.ts               → the breed list and what counts as "mestizo"
 supabase/migrations/      → Postgres schema, RLS policies, RPC functions
 e2e/                       → Playwright specs + sign-in helpers
@@ -104,6 +109,10 @@ Pure validation logic lives in `lib/` and is unit-tested with Jest; user-facing 
 **The pet's photo lives in Storage, and `pets.photo_url` holds an object path rather than a URL.** The `pet-photos` bucket is private (`0005_pet_photos_bucket.sql`), because a public bucket would be the one place where holding a link beats the RLS policies; `lib/photos.ts` signs a one-hour URL at render time. The path is `<pet_id>/avatar.<ext>` and writes upsert, so a pet has exactly one photo and a replacement leaves no orphan. Storage policies resolve ownership through `pet_owners`, the same join table the `pets` policies use.
 
 **The pet's photo is framed by the app, not by the OS.** `expo-image-picker` runs with `allowsEditing: false` so the whole image arrives, `components/ui/AvatarEditor.tsx` frames it against the circle it will appear in, and `lib/framing.ts` turns the stage geometry into a crop rectangle that `expo-image-manipulator` applies. The maths is in `lib/` and unit-tested for one reason: a wrong crop rectangle does not throw, it cuts the dog's ear off or asks for a pixel past the image's edge, which the native manipulator rejects outright. **`expo-image-manipulator` is a native module** — after pulling this change, a dev build has to be recompiled (`pnpm android`), not just reloaded.
+
+**`prettier-plugin-tailwindcss` will break a class string that carries its own separator.** It sorts the classes inside a quoted string and trims it, so `` `text-primary${on ? " font-bold" : ""}` `` becomes `` `text-primary${on ? "font-bold" : ""}` `` — which compiles to `text-primaryfont-bold` the moment the condition is true. It happened to the chip and the checkbox on the commit that added the plugin, silently. **Keep the separator in the template literal, never inside the quotes** (`` `...primary ${on ? "font-bold" : ""}` ``); a trailing space in a class list costs nothing. `components/__tests__/class-strings.test.ts` fails on any ``className={`…x${`` with no space before the interpolation, so this cannot come back unnoticed.
+
+**Installing on a phone without the Mac.** `pnpm android:apk` builds a standalone release APK (arm64 only, ~44 MB) with the JS bundle embedded, at `android/app/build/outputs/apk/release/app-release.apk`. `pnpm android:install` pushes it over `adb`, or copy the file to the phone and open it. It needs no Metro and no cable once installed, which is what makes the app usable during the day. Two things to know: the release build is signed with the **debug keystore** (Expo's template default), so `npx expo prebuild --clean` regenerates that key and Android will then refuse to install over the existing app — uninstall first; and `EXPO_PUBLIC_*` values are inlined at build time, so the APK carries whatever `.env` held when it was built.
 
 **One validator, two forms.** `validatePetDraft` takes `PetDraft | PetEdit` and both the registration and profile screens call it; the mixed-breed coupling (`isMixedShown`, `withMixed`) lives in `lib/pets.ts` for the same reason. The two screens duplicate their _layout_ deliberately — extracting a shared form is a pending job — but anything that would be a bug if it drifted is in `lib/` and unit-tested.
 
