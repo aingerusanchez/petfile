@@ -23,6 +23,7 @@ import {
   Text,
   TextField,
   TOUCH_TARGET,
+  useCelebration,
   useToast,
 } from "../../components/ui";
 import { daysAgo, formatDayDate, formatDayHeadline } from "../../lib/dates";
@@ -172,6 +173,7 @@ type Editing = { kind: EventKind; event: PetEventRow | null };
  */
 export default function Home() {
   const toast = useToast();
+  const { celebrate } = useCelebration();
   const { settings } = useSettings();
   /**
    * The day on screen, and the boundary it cannot pass.
@@ -438,9 +440,38 @@ export default function Home() {
           day={day}
           dayLabel={isToday ? null : `${headline}, ${formatDayDate(day)}`}
           onClose={() => setEditing(null)}
-          onSaved={() => {
+          onSaved={(walkMinutes) => {
+            // **The goal is a threshold, and this is the entry that crossed
+            // it.** Now that the bar no longer flashes green, the moment it
+            // is reached has nothing to mark it, and a bar quietly changing
+            // hue is not a moment. So the confetti — which used to fire once
+            // in an account's life, on registering the animal — fires again
+            // here, at most once a day.
+            //
+            // The arithmetic is exact rather than a re-sum: `walked` already
+            // counts the entry being edited, so its old minutes come out
+            // before the new ones go in. A non-walk contributes null on both
+            // sides and cannot cross anything. `!met` is what keeps a second
+            // walk on an already-finished day quiet.
+            //
+            // **Only on the day you are in.** Backfilling a forgotten
+            // Tuesday is bookkeeping, and a week of catch-up entries firing
+            // a week of confetti would be a party for paperwork. The cost is
+            // a walk logged after midnight, which lands on "Ayer" and gets
+            // nothing; that is the narrower mistake of the two.
+            const crossed =
+              isToday &&
+              goal !== null &&
+              goal > 0 &&
+              !met &&
+              walked -
+                (editing.event?.duration_minutes ?? 0) +
+                (walkMinutes ?? 0) >=
+                goal;
+
             setEditing(null);
             setAttempt((n) => n + 1);
+            if (crossed) celebrate();
           }}
           onFailed={(message) =>
             toast.show({ variant: "error", message, persist: true })
@@ -603,7 +634,8 @@ function EntrySheet({
   dayLabel: string | null;
   petId: string;
   onClose: () => void;
-  onSaved: () => void;
+  /** Reports the walk's minutes, so the day can tell whether it just won. */
+  onSaved: (walkMinutes: number | null) => void;
   onFailed: (message: string) => void;
 }) {
   const spec = KINDS[kind];
@@ -808,7 +840,7 @@ function EntrySheet({
       return false;
     }
 
-    onSaved();
+    onSaved(walkMinutes);
     return true;
   }, [
     at,
@@ -832,7 +864,8 @@ function EntrySheet({
       onFailed(error);
       return false;
     }
-    onSaved();
+    // A deletion never celebrates, whatever it does to the total.
+    onSaved(null);
     return true;
   }, [event, onFailed, onSaved]);
 

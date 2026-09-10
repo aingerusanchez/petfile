@@ -507,6 +507,71 @@ test("opens the calendar from the date and says what each day carried", async ({
   await expect(page.getByTestId("home-title")).toHaveText("Ayer");
 });
 
+test("throws confetti for the walk that reaches the goal, and only that one", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  // 45 of the 60-minute goal: close, and not there.
+  await add(page, "walk");
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal")).toContainText("45 min");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  // The walk that crosses it.
+  await add(page, "walk");
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  await expect(page.getByTestId("celebration")).toBeVisible();
+
+  // It reads as decoration, not as content: nothing to announce, nothing to
+  // tap through.
+  await expect(page.getByTestId("celebration")).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
+
+  await page.reload();
+  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  // A second walk on a day already won does not celebrate again.
+  await add(page, "walk");
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1h 15m");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+});
+
+test("does not celebrate a goal reached on a day that has passed", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-prev-day").click();
+  await add(page, "walk");
+  for (let i = 0; i < 4; i++) {
+    await page.getByTestId("entry-duration-plus").click();
+  }
+  await page.getByTestId("entry-save").click();
+
+  // Yesterday's goal is met, and filling in a day that has gone is
+  // bookkeeping rather than an achievement.
+  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+});
+
 test("keeps every control on the 48dp floor here too", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");

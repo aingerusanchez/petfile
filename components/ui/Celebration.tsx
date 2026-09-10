@@ -20,9 +20,10 @@ const STAGGER_MS = 700;
  * **This is the one place a Nordic Ice colour appears as decoration**, and it
  * is a deliberate, narrow exception to The One Accent Rule rather than an
  * oversight: every colour in this system is role-scoped to something
- * interactive, so any confetti would break some rule. It is scoped to a moment
- * that happens once in an account's life. Error Red is left out — a
- * celebration does not throw warnings.
+ * interactive, so any confetti would break some rule. What licenses the
+ * exception is that it passes: decoration in a moment, never decoration
+ * sitting on a screen. Error Red is left out — a celebration does not throw
+ * warnings.
  */
 const CONFETTI = [
   colors.accentPrimary,

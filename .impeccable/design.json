@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-10T22:40:00Z",
+  "generatedAt": "2026-09-11T00:10:00Z",
   "title": "Design System: Petfile",
   "extensions": {
     "colorMeta": {
@@ -583,7 +583,8 @@
       "Do let every option in a settings screen show its own answer — \"15:30\" and \"3:30 p.m.\", never \"24h\" and \"12h\".",
       "Do size a container around text to its content; a pixel width is a guess about a font scale.",
       "Do verify on the device anything the browser could be lying about: touch floors, press feedback, keyboards, and gestures.",
-      "**Do** size an indicator in literal pixels and let it stay that size. A 6px dot or a 4px bar is not text: it says something the row it sits in cannot grow to hold, and `rem` on native resolves to 14 rather than 16 anyway. Text inside a fixed grid cell is the mirror case — cap its scaling rather than let it clip."
+      "**Do** size an indicator in literal pixels and let it stay that size. A 6px dot or a 4px bar is not text: it says something the row it sits in cannot grow to hold, and `rem` on native resolves to 14 rather than 16 anyway. Text inside a fixed grid cell is the mirror case — cap its scaling rather than let it clip.",
+      "**Do** save the confetti for a threshold being crossed — registering the animal, the entry that reaches the day's exercise goal — never for an ordinary successful write, which gets the button's own tick. Decoration is licensed here because it passes; decoration that sits on a screen is not."
     ],
     "donts": [
       "**Don't** add drop shadows, glassmorphism, or blur — depth here is tonal, never shadow-based.",
