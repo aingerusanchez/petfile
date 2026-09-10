@@ -250,7 +250,9 @@ test("deletes an entry from its own sheet, asking once", async ({ page }) => {
   await expect(page.getByTestId("home-empty")).toBeVisible();
 });
 
-test("puts the colon in for a keyboard that has none", async ({ page }) => {
+test("takes a time typed without the colon a number pad has not got", async ({
+  page,
+}) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   await seedSession(page);
@@ -259,36 +261,20 @@ test("puts the colon in for a keyboard that has none", async ({ page }) => {
   await add(page, "walk");
   const to = page.getByTestId("entry-to");
 
-  // Typed a key at a time on a number pad, which offers no ":". The last two
-  // digits become the minutes the moment there are three of them.
+  // Android's number pad offers digits and nothing else, so "900" has to be
+  // first-class input. The last two digits are the minutes.
   await to.fill("");
-  await to.pressSequentially("9");
-  await expect(to).toHaveValue("9");
-  await to.pressSequentially("0");
-  await expect(to).toHaveValue("90");
-  await to.pressSequentially("0");
-  await expect(to).toHaveValue("9:00");
+  await to.pressSequentially("900");
+  await expect(to).toHaveValue("900");
 
-  // A deletion is not re-grouped: one keystroke removes one character, and
-  // with two digits left there is nothing to separate. Re-grouping here is
-  // what would turn "09:15" into "0:91".
-  await to.press("Backspace");
-  await expect(to).toHaveValue("90");
-
-  // Four digits read as HH:MM.
-  await to.fill("");
-  await to.pressSequentially("0930");
-  await expect(to).toHaveValue("09:30");
-
-  // And a half-typed time is tidied when focus leaves.
-  await to.fill("");
-  await to.pressSequentially("800");
-  await expect(to).toHaveValue("8:00");
+  // The colon arrives when focus leaves — the one correction the platform
+  // honours. Inserting it as the digits arrive does not work on the device:
+  // a focused TextInput on Android ignores a value JS rewrites.
   await page.getByTestId("entry-note").click();
-  await expect(to).toHaveValue("08:00");
+  await expect(to).toHaveValue("09:00");
 
   await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("home-log")).toContainText("08:00");
+  await expect(page.getByTestId("home-log")).toContainText("09:00");
 });
 
 test("refuses a duration longer than a day, at the field", async ({ page }) => {

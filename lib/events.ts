@@ -75,6 +75,18 @@ export function dayBounds(day: Date): { from: string; to: string } {
 /**
  * "09:15" on a given day, as an instant — or null when it is not a time.
  *
+ * **Permissive on purpose, because the keyboard is not.** Android's number pad
+ * offers digits and nothing else — `decimal-pad` would add only a full stop —
+ * so a tutor cannot type the colon the field displays. `900` and `0900` are
+ * therefore first-class input, and the last two digits are always the minutes.
+ *
+ * A live mask that inserted the colon as the digits arrived was written, tested
+ * and removed: **a focused `TextInput` on Android ignores a value the JS layer
+ * rewrites.** Typing `9000` left `9000` on screen while state held `90:00`.
+ * The browser applies the correction, so it worked on web and in the e2e suite
+ * and not on the phone. The field normalises on blur instead, which the
+ * platform does honour.
+ *
  * A typed time rather than a picker: the entry sheet opens with the current
  * time already in the field, so the common case is confirming it and the
  * retrospective case is changing two digits. A wheel would be more taps for
@@ -92,33 +104,6 @@ export function parseTimeOfDay(text: string, day: Date): Date | null {
   const at = new Date(day);
   at.setHours(hours, minutes, 0, 0);
   return at;
-}
-
-/**
- * What a time field shows while it is being typed into.
- *
- * **The number pad has no colon.** The field displayed "09:15" and the
- * placeholder asked for it, so a tutor reasonably tried to type one and could
- * not — on Android a `number-pad` keyboard offers digits and nothing else, and
- * `decimal-pad` would only add a full stop. The parser had accepted `900` and
- * `0900` all along; nothing on screen said so. Now the colon arrives on its
- * own, so the question never comes up.
- *
- * The grouping is the parser's own rule, seen from the other side: the last
- * two digits are the minutes and whatever precedes them is the hour, so `930`
- * is 9:30 and `0930` is 09:30. Three digits are ambiguous in principle — `123`
- * could be meant as 12:3… — and the fourth keystroke settles it, which is how
- * every calendar handles this.
- *
- * **It only groups while the field is growing.** Masking a deletion turns
- * "09:15" into "0:91" as the last digit goes, which is worse than no mask at
- * all: `previous` is what tells the two apart.
- */
-export function formatTimeInput(text: string, previous = ""): string {
-  const digits = text.replace(/\D/g, "").slice(0, 4);
-  if (text.length < previous.length) return digits;
-  if (digits.length <= 2) return digits;
-  return `${digits.slice(0, digits.length - 2)}:${digits.slice(-2)}`;
 }
 
 /** The time of day a stored instant happened, for display and for the field. */
