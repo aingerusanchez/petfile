@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-10T17:34:59Z",
+  "generatedAt": "2026-09-10T21:05:00Z",
   "title": "Design System: Petfile",
   "extensions": {
     "colorMeta": {
@@ -435,6 +435,14 @@
       "css": ".ds-sheet-scrim { display: flex; align-items: flex-end; min-height: 240px; background: color-mix(in srgb, var(--color-base, #0b1120) 80%, transparent); } .ds-sheet { width: 100%; background: var(--color-surface, #131c2e); border: 1px solid var(--color-border-default, #1e293b); border-radius: 12px; padding: 20px; } .ds-sheet-title { margin: 0 0 20px; font-size: 20px; font-weight: 700; color: var(--color-text-primary, #f1f5f9); } .ds-sheet-body { margin: 0; font-size: 14px; color: var(--color-text-tertiary, #94a3b8); }"
     },
     {
+      "name": "Calendar Day",
+      "kind": "custom",
+      "refersTo": "calendar-day",
+      "description": "One day of the month calendar, saying what happened on it: a Success Green bar for a goal met, a Warning Amber ring for medication, a filled Error Red dot for an incident, and weight alone for the two everyday states. Alert hue is reserved for what is rare.",
+      "html": "<div class=\"ds-cal-row\"><div class=\"ds-cal-day\"><span class=\"ds-cal-mark ds-cal-mark--med\"></span><span class=\"ds-cal-chip ds-cal-chip--selected\">8</span><span class=\"ds-cal-bar\"></span></div><div class=\"ds-cal-day\"><span class=\"ds-cal-mark ds-cal-mark--incident\"></span><span class=\"ds-cal-chip\">9</span><span class=\"ds-cal-bar ds-cal-bar--empty\"></span></div><div class=\"ds-cal-day\"><span class=\"ds-cal-chip ds-cal-chip--today\">10</span><span class=\"ds-cal-bar ds-cal-bar--empty\"></span></div><div class=\"ds-cal-day\"><span class=\"ds-cal-chip ds-cal-chip--quiet\">11</span><span class=\"ds-cal-bar ds-cal-bar--empty\"></span></div></div>",
+      "css": ".ds-cal-row { display: flex; gap: 8px; background: var(--color-surface, #131c2e); padding: 12px; border-radius: 12px; font-family: Outfit, system-ui, sans-serif; } .ds-cal-day { position: relative; width: 44px; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; } .ds-cal-day:active { opacity: 0.7; } .ds-cal-mark { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 3px; } .ds-cal-mark--incident { background: var(--color-error, #ef4444); } .ds-cal-mark--med { border: 1px solid var(--color-warning, #f59e0b); } .ds-cal-chip { min-width: 28px; min-height: 28px; padding: 0 5px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; color: var(--color-text-primary, #f8fafc); font-size: 14px; } .ds-cal-chip--selected { background: var(--color-accent-primary, #a5f2f3); color: var(--color-on-accent, #0b1120); font-weight: 700; } .ds-cal-chip--today { border: 1px solid var(--color-border-strong, #334155); } .ds-cal-chip--quiet { color: var(--color-text-muted, #64748b); } .ds-cal-bar { margin-top: 4px; width: 16px; height: 4px; border-radius: 12px; background: var(--color-success, #22c55e); } .ds-cal-bar--empty { background: transparent; }"
+    },
+    {
       "name": "Danger Button (outlined)",
       "kind": "button",
       "refersTo": "button-outlined-danger",
@@ -462,6 +470,16 @@
       {
         "name": "The Text-On-Accent Rule",
         "body": "Any text placed on an Ice Blue Glacial surface uses `on-accent` (#0B1120), never `text-base` — `text-base` is Tailwind's font-size utility, not a color, and silently fails to apply one.",
+        "section": "colors"
+      },
+      {
+        "name": "The Red-Means-Consequence Rule",
+        "body": "Error Red carries three things and nothing else: something went wrong in the app, something went wrong with the animal, or something is about to be destroyed. It is never an invitation — a destructive control wears it precisely so it reads as a warning rather than as the next step — and the accent never dresses a destructive action, because \"act here\" and \"this cannot be undone\" are opposite messages. The animal clause is the calendar's incident mark, and it is the honest extension rather than a loophole: a tutor scanning a month for trouble should find red, and the alternative was a fourth alarm colour nobody could learn.",
+        "section": "colors"
+      },
+      {
+        "name": "The Shared Mark Rule",
+        "body": "A mark that stands for a record wears the colour of that record wherever it appears, and the state it names is called the same thing on every surface. An incident is Error Red in the calendar's corner dot and on the log's row icon; a goal met is Success Green in the day's bar and in the calendar's miniature of it, and both say \"Objetivo conseguido\". The rule exists because the two surfaces are two taps apart: a mark whose colour changes on the way is not a summary of the record, it is a second thing to learn. A new surface adopts the vocabulary; it does not invent one.",
         "section": "colors"
       },
       {
@@ -559,7 +577,8 @@
       "**Do** use the single 12px radius (`rounded-xl`) on every new interactive control — inputs, buttons, chips alike.",
       "Do let every option in a settings screen show its own answer — \"15:30\" and \"3:30 p.m.\", never \"24h\" and \"12h\".",
       "Do size a container around text to its content; a pixel width is a guess about a font scale.",
-      "Do verify on the device anything the browser could be lying about: touch floors, press feedback, keyboards, and gestures."
+      "Do verify on the device anything the browser could be lying about: touch floors, press feedback, keyboards, and gestures.",
+      "**Do** size an indicator in literal pixels and let it stay that size. A 6px dot or a 4px bar is not text: it says something the row it sits in cannot grow to hold, and `rem` on native resolves to 14 rather than 16 anyway. Text inside a fixed grid cell is the mirror case — cap its scaling rather than let it clip."
     ],
     "donts": [
       "**Don't** add drop shadows, glassmorphism, or blur — depth here is tonal, never shadow-based.",
@@ -576,7 +595,8 @@
       "**Don't** write a sentence where an intuitive control would do. The average reader skips body copy, so explanatory text is not documentation — it is clutter that pushes the real controls down. Detail a genuinely interested user might want should be _reachable_, not placed in everyone's way.",
       "Don't explain what the controls already show.",
       "Don't give a Pressable a callback `style` — native drops it when a className is present.",
-      "Don't put a bottom sheet in a Modal without consuming the keyboard inset; the window is not resized under edge-to-edge."
+      "Don't put a bottom sheet in a Modal without consuming the keyboard inset; the window is not resized under edge-to-edge.",
+      "**Don't** give a state a second colour on a second surface, or a second name. The calendar's \"goal met\" bar shipped in Aqua Glaciar, which is the day view's colour for that same bar *in progress* — two taps apart, the app contradicted itself. See The Shared Mark Rule."
     ]
   }
 }
