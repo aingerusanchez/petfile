@@ -94,6 +94,7 @@ test("opens the photo editor from the portrait", async ({ page }) => {
   await expect(page.getByTestId("avatar-editor-pick")).toHaveText(
     "Elegir foto",
   );
+  await expect(page.getByTestId("avatar-editor-slider")).toBeHidden();
 
   await page.getByTestId("avatar-editor-cancel").click();
   await expect(page.getByTestId("avatar-editor")).toBeHidden();
@@ -121,6 +122,17 @@ test("frames a picked photo and stores the crop", async ({ page }) => {
 
   await page.getByTestId("avatar-editor-zoom-in").click();
   await expect(page.getByTestId("avatar-editor-zoom")).toHaveText("1.5×");
+
+  // Three controls for one value, none of them redundant: the slider shows
+  // the range, the buttons step it precisely, the pinch is the device's.
+  await expect(page.getByTestId("avatar-editor-slider")).toHaveAttribute(
+    "role",
+    "slider",
+  );
+  await expect(page.getByTestId("avatar-editor-slider")).toHaveAttribute(
+    "aria-valuenow",
+    "1.5",
+  );
   await expect(page.getByTestId("avatar-editor-zoom-out")).not.toHaveAttribute(
     "aria-disabled",
     "true",

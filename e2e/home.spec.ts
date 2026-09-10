@@ -16,6 +16,15 @@ import {
  */
 let ready = false;
 
+/**
+ * The four kinds live behind the floating action now, so every add is two
+ * taps. One helper rather than the pair spelled out twenty times.
+ */
+async function add(page: import("@playwright/test").Page, kind: string) {
+  await page.getByTestId("home-add").click();
+  await page.getByTestId(`home-add-${kind}`).click();
+}
+
 test.beforeAll(async () => {
   ready = await eventsTableExists();
 });
@@ -39,9 +48,17 @@ test("shows the day, the goal and a way to log each kind", async ({ page }) => {
   // The goal only appears once the profile has set one.
   await expect(page.getByTestId("home-goal")).toContainText("de 60 min");
 
+  // The kinds are behind the floating action, near the thumb, and the page
+  // shows none of them until it is asked.
+  await expect(page.getByTestId("home-add-walk")).toBeHidden();
+  await page.getByTestId("home-add").click();
   for (const kind of ["walk", "meal", "medication", "incident"]) {
     await expect(page.getByTestId(`home-add-${kind}`)).toBeVisible();
   }
+
+  // Four ways out; the scrim is one of them.
+  await page.getByTestId("home-add-scrim").click();
+  await expect(page.getByTestId("home-add-walk")).toBeHidden();
 });
 
 test("keeps the screen standing when the log cannot be read", async ({
@@ -56,7 +73,7 @@ test("keeps the screen standing when the log cannot be read", async ({
   // the goal and the four actions all come from the pet and stay.
   await expect(page.getByTestId("home-log-error")).toBeVisible();
   await expect(page.getByTestId("home-title")).toBeVisible();
-  await expect(page.getByTestId("home-add-walk")).toBeVisible();
+  await expect(page.getByTestId("home-add")).toBeVisible();
 });
 
 test("logs a walk from its two ends and counts it toward the goal", async ({
@@ -70,7 +87,7 @@ test("logs a walk from its two ends and counts it toward the goal", async ({
   await expect(page.getByTestId("home-empty")).toBeVisible();
   await expect(page.getByTestId("home-goal")).toContainText("0 de 60");
 
-  await page.getByTestId("home-add-walk").click();
+  await add(page, "walk");
 
   // The start comes prefilled with now; the other two open empty, because a
   // proposed duration would be a fabricated walk one tap away.
@@ -105,7 +122,7 @@ test("moves the end when the duration is what changed, never the start", async (
   await seedSession(page);
   await page.goto("/");
 
-  await page.getByTestId("home-add-walk").click();
+  await add(page, "walk");
   await page.getByTestId("entry-from").fill("10:00");
   await page.getByTestId("entry-duration").fill("45");
 
@@ -119,13 +136,98 @@ test("moves the end when the duration is what changed, never the start", async (
   await expect(page.getByTestId("entry-to")).toHaveValue("10:45");
 });
 
+test("counts a walk up in quarters of an hour", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+
+  // Nothing to take away from yet.
+  await expect(page.getByTestId("entry-duration-minus")).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-duration-plus").click();
+
+  await expect(page.getByTestId("entry-duration")).toHaveValue("45");
+  // The steppers write into the end, exactly as typing a duration does.
+  await expect(page.getByTestId("entry-to")).toHaveValue("09:45");
+  await expect(page.getByTestId("entry-from")).toHaveValue("09:00");
+
+  await page.getByTestId("entry-duration-minus").click();
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30");
+  await expect(page.getByTestId("entry-to")).toHaveValue("09:30");
+
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("30 min");
+});
+
+test("reopens an entry to correct it", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await add(page, "meal");
+  await page.getByTestId("entry-time").fill("08:00");
+  await page.getByTestId("entry-value").fill("Pienso, 200 g");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("Pienso, 200 g");
+
+  // The row is the way back in, and the sheet says it is an edit.
+  await page.getByTestId("home-log").getByRole("button").first().click();
+  await expect(page.getByTestId("entry-title")).toHaveText("Editar comida");
+  await expect(page.getByTestId("entry-value")).toHaveValue("Pienso, 200 g");
+  await expect(page.getByTestId("entry-time")).toHaveValue("08:00");
+
+  await page.getByTestId("entry-value").fill("Pienso, 250 g");
+  await page.getByTestId("entry-save").click();
+
+  await expect(page.getByTestId("home-log")).toContainText("Pienso, 250 g");
+  // A correction, not a second entry.
+  await expect(page.getByTestId("home-log")).not.toContainText("200 g");
+});
+
+test("deletes an entry from its own sheet, asking once", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await add(page, "medication");
+  await page.getByTestId("entry-value").fill("Apoquel");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("Apoquel");
+
+  await page.getByTestId("home-log").getByRole("button").first().click();
+  // Delete is in the sheet, never in the list: a row in a scrolling list is a
+  // mis-tap waiting to happen.
+  await page.getByTestId("entry-delete").click();
+  await expect(page.getByTestId("entry-delete-confirm")).toBeVisible();
+
+  // And backing out of the question leaves the entry alone.
+  await page.getByTestId("entry-delete-cancel").click();
+  await expect(page.getByTestId("entry-delete")).toBeVisible();
+
+  await page.getByTestId("entry-delete").click();
+  await page.getByTestId("entry-delete-confirm").click();
+
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+});
+
 test("refuses an end that comes before its start", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   await seedSession(page);
   await page.goto("/");
 
-  await page.getByTestId("home-add-walk").click();
+  await add(page, "walk");
   await page.getByTestId("entry-from").fill("10:00");
   await page.getByTestId("entry-to").fill("09:00");
   await page.getByTestId("entry-save").click();
@@ -141,7 +243,7 @@ test("still logs a walk nobody timed", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
 
-  await page.getByTestId("home-add-walk").click();
+  await add(page, "walk");
   await page.getByTestId("entry-from").fill("08:30");
   await page.getByTestId("entry-save").click();
 
@@ -163,7 +265,7 @@ test("logs the other three kinds without touching the goal", async ({
     ["medication", "Apoquel"],
     ["incident", "Cojea de la pata derecha"],
   ] as const) {
-    await page.getByTestId(`home-add-${kind}`).click();
+    await add(page, kind);
     // Only a walk is asked for as a range; the rest happened at a moment.
     await expect(page.getByTestId("entry-time")).not.toBeEmpty();
     await page.getByTestId("entry-value").fill(what);
@@ -184,7 +286,7 @@ test("reads the day forwards", async ({ page }) => {
   // Logged out of order on purpose: the list is chronological, not
   // most-recently-entered.
   for (const at of ["11:30", "08:00", "09:45"]) {
-    await page.getByTestId("home-add-meal").click();
+    await add(page, "meal");
     await page.getByTestId("entry-time").fill(at);
     await page.getByTestId("entry-value").fill(`Comida de ${at}`);
     await page.getByTestId("entry-save").click();
@@ -202,7 +304,7 @@ test("refuses a time that is not one", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
 
-  await page.getByTestId("home-add-walk").click();
+  await add(page, "walk");
   await page.getByTestId("entry-from").fill("99:99");
   await page.getByTestId("entry-save").click();
 
@@ -211,13 +313,50 @@ test("refuses a time that is not one", async ({ page }) => {
   );
 });
 
+test("keeps every control on the 48dp floor here too", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/");
+
+  const floor = async (ids: string[]) => {
+    for (const id of ids) {
+      const box = await page.getByTestId(id).boundingBox();
+      expect(box, `${id} should be visible`).not.toBeNull();
+      expect(
+        box!.height,
+        `${id} is ${box!.height}px tall`,
+      ).toBeGreaterThanOrEqual(48);
+    }
+  };
+
+  await floor(["home-add"]);
+  await page.getByTestId("home-add").click();
+  await floor([
+    "home-add-walk",
+    "home-add-meal",
+    "home-add-medication",
+    "home-add-incident",
+  ]);
+
+  await page.getByTestId("home-add-walk").click();
+  await floor([
+    "entry-from",
+    "entry-to",
+    "entry-duration",
+    "entry-duration-minus",
+    "entry-duration-plus",
+    "entry-note",
+    "entry-cancel",
+    "entry-save",
+  ]);
+});
+
 test("marks the goal met, once", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   await seedSession(page);
   await page.goto("/");
 
-  await page.getByTestId("home-add-walk").click();
+  await add(page, "walk");
   await page.getByTestId("entry-from").fill("09:00");
   await page.getByTestId("entry-duration").fill("60");
   await page.getByTestId("entry-save").click();
