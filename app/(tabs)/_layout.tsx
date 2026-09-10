@@ -1,4 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
+import { Dog, HeartPulse, Sun } from "lucide-react-native";
 import { LoadingScreen, colors } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 
@@ -26,9 +27,34 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: colors.textTertiary,
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "Hoy" }} />
-      <Tabs.Screen name="health" options={{ title: "Salud" }} />
-      <Tabs.Screen name="profile" options={{ title: "Perfil" }} />
+      {/* Real icons, because the alternative is not "no icons": with no
+          `tabBarIcon` the navigator renders its own placeholder, which on the
+          web target came out as a "⏷" glyph — inside the accessible name too
+          ("⏷ ⏷ Hoy"). A Unicode glyph standing in for an icon is the one thing
+          The No-Glyph Rule bans, and Material's navigation bar expects icons
+          anyway. Lucide at 24dp, tinted by the same active/inactive colours as
+          the label. */}
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Hoy",
+          tabBarIcon: ({ color }) => <Sun size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="health"
+        options={{
+          title: "Salud",
+          tabBarIcon: ({ color }) => <HeartPulse size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Perfil",
+          tabBarIcon: ({ color }) => <Dog size={24} color={color} />,
+        }}
+      />
     </Tabs>
   );
 }
