@@ -291,6 +291,29 @@ test("puts the colon in for a keyboard that has none", async ({ page }) => {
   await expect(page.getByTestId("home-log")).toContainText("08:00");
 });
 
+test("refuses a duration longer than a day, at the field", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await add(page, "walk");
+  await page.getByTestId("entry-to").fill("10:00");
+  await page.getByTestId("entry-duration").fill("99h");
+
+  // Counting back from the end would put DESDE on a previous day and render it
+  // as an ordinary time, so nothing moves and the field says why.
+  await expect(page.getByTestId("entry-duration-error")).toHaveText(
+    "Como mucho 24 horas",
+  );
+  await expect(page.getByTestId("entry-from")).toBeEmpty();
+
+  // Blurring discards it: the times are the truth.
+  await page.getByTestId("entry-note").click();
+  await expect(page.getByTestId("entry-duration")).toBeEmpty();
+  await expect(page.getByTestId("entry-duration-error")).toBeHidden();
+});
+
 test("refuses an end that comes before its start", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 

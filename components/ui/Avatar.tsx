@@ -1,4 +1,5 @@
 import { Camera } from "lucide-react-native";
+import { useState } from "react";
 import { Image, Pressable, View } from "react-native";
 import { colors } from "./tokens";
 import { Text } from "./Text";
@@ -33,6 +34,12 @@ type AvatarProps = {
  * was sound and the result was wrong, which is what testing with real content
  * is for. It is the system's second radius exception, and the last one.
  *
+ * **A photo that will not load falls back to the initial.** The URL is signed
+ * for an hour (see `lib/photos.ts`), so a profile left open longer than that
+ * has a dead `src` — and an `<Image>` whose source 403s renders nothing at
+ * all, which reads as a bug rather than as a dog without a photo. `onError`
+ * turns it back into the answer below.
+ *
  * **The initial is a complete answer, not a placeholder.** With nothing stored
  * it draws the name's initial in `text-primary` at two-fifths of the frame.
  * Most tutors will never add a photo, and a broken frame, a camera glyph or a
@@ -56,17 +63,27 @@ export function Avatar({
   accessibilityLabel,
   testID,
 }: AvatarProps) {
-  const initial = name.trim().charAt(0).toUpperCase();
+  // `Array.from`, not `charAt(0)`: an emoji is a surrogate pair, so taking the
+  // first UTF-16 unit of "🐶 Loki" yields half a character and the frame draws
+  // a broken glyph. The first *grapheme* is whatever the tutor put first, which
+  // is the honest initial — including when that is the emoji.
+  const initial = (Array.from(name.trim())[0] ?? "").toUpperCase();
   // A third of the portrait: big enough to read at 96dp, small enough that it
   // never competes with the face behind it.
   const badge = Math.round(size / 3);
+  // The URL that failed, not a boolean: a replacement photo arrives as a new
+  // signed URL, and a flag would keep the fallback showing for a picture that
+  // loads perfectly well.
+  const [brokenUri, setBrokenUri] = useState<string | null>(null);
+  const shown = uri && uri !== brokenUri ? uri : null;
 
   const portrait = (
     <>
-      {uri ? (
+      {shown ? (
         <Image
           testID={testID ? `${testID}-image` : undefined}
-          source={{ uri }}
+          source={{ uri: shown }}
+          onError={() => setBrokenUri(uri)}
           style={{ width: size, height: size }}
           resizeMode="cover"
           // The photo is the pet, and the screen already names it: announcing

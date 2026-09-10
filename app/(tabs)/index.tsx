@@ -28,6 +28,7 @@ import {
   formatTimeInput,
   formatTimeOfDay,
   logEvent,
+  MAX_WALK_MINUTES,
   minutesBetween,
   parseTimeOfDay,
   shiftMinutes,
@@ -471,6 +472,7 @@ function EntrySheet({
   const [note, setNote] = useState(() => event?.note ?? "");
   const [atError, setAtError] = useState<string | null>(null);
   const [fromError, setFromError] = useState<string | null>(null);
+  const [durationError, setDurationError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const parsedAt = parseTimeOfDay(at, day);
@@ -525,14 +527,26 @@ function EntrySheet({
   /**
    * The one direction that writes into a time, and it counts backwards from
    * the end — which is the time the tutor actually knows.
+   *
+   * **A duration longer than a day is refused here, not on save.** Counting
+   * back from the end would put DESDE on a previous day and render it as a
+   * plausible time of day, so the entry would look ordinary and be nonsense;
+   * `logEvent` would then reject it into a toast, which is the wrong place for
+   * a message about one field. Nothing moves and the field says why.
    */
   const applyMinutes = useCallback(
     (total: number) => {
       if (total <= 0) {
+        setDurationError(null);
         setFrom("");
         setDurationText("");
         return;
       }
+      if (total > MAX_WALK_MINUTES) {
+        setDurationError("Como mucho 24 horas");
+        return;
+      }
+      setDurationError(null);
       setDurationText(formatDuration(total));
       const end = parseTimeOfDay(at, day);
       if (end) setFrom(formatTimeOfDay(shiftMinutes(end, -total)));
@@ -549,18 +563,27 @@ function EntrySheet({
     (text: string) => {
       setDurationText(text);
       if (!text.trim()) {
+        setDurationError(null);
         setFrom("");
         return;
       }
       const total = parseDuration(text);
+      // Not a duration *yet* — mid-typing — is not an error to report.
       if (total === null || total <= 0) return;
+      if (total > MAX_WALK_MINUTES) {
+        setDurationError("Como mucho 24 horas");
+        return;
+      }
+      setDurationError(null);
       const end = parseTimeOfDay(at, day);
       if (end) setFrom(formatTimeOfDay(shiftMinutes(end, -total)));
     },
     [at, day],
   );
 
+  /** Blurring discards a refused duration: the times are the truth. */
   const tidyDuration = useCallback(() => {
+    setDurationError(null);
     showDuration(from, at);
   }, [showDuration, from, at]);
 
@@ -709,6 +732,7 @@ function EntrySheet({
                     // digits-first task is the defect AGENTS.md names. The
                     // readable form is what the field gives back, not what it
                     // demands.
+                    error={durationError}
                     keyboardType="number-pad"
                     maxLength={10}
                     className=""
@@ -726,6 +750,7 @@ function EntrySheet({
                     testID="entry-duration-plus"
                     label={`+${STEP_MINUTES}`}
                     accessibilityLabel={`Añadir ${STEP_MINUTES} minutos`}
+                    disabled={minutes + STEP_MINUTES > MAX_WALK_MINUTES}
                     onPress={() => applyMinutes(minutes + STEP_MINUTES)}
                   />
                 </View>

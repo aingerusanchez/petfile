@@ -181,6 +181,20 @@ test("takes the photo away again", async ({ page }) => {
   await expect(page.getByTestId("profile-avatar-initial")).toBeVisible();
 });
 
+test("keeps the initial whole when the name starts with an emoji", async ({
+  page,
+}) => {
+  await resetE2EPets();
+  await seedE2EPet({ name: "🐶 Loki" });
+
+  await seedSession(page);
+  await page.goto("/profile");
+
+  // `charAt(0)` on an emoji is half a surrogate pair, and the frame drew a
+  // broken glyph. The initial is the first grapheme, whatever it is.
+  await expect(page.getByTestId("profile-avatar-initial")).toHaveText("🐶");
+});
+
 test("opens a block, saves it, and the header follows", async ({ page }) => {
   await seedSession(page);
   await page.goto("/profile");
