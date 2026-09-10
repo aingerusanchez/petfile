@@ -18,7 +18,7 @@ import {
 } from "../../lib/dates";
 import { Chip } from "./Chip";
 import { FieldLabel } from "./FieldLabel";
-import { colors, pressed, TOUCH_TARGET } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 /**
@@ -151,8 +151,8 @@ export function DateField({
             ? `${label}: ${display}. Pulsa para cambiar`
             : `${label}. Pulsa para elegir`
         }
-        style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-        className={`flex-row items-center justify-between rounded-xl border bg-surface px-4 py-3 ${
+        style={{ minHeight: TOUCH_TARGET }}
+        className={`flex-row items-center justify-between rounded-xl border bg-surface px-4 py-3 active:opacity-70 ${
           error ? "border-error" : "border-border-default"
         }`}
       >
@@ -200,11 +200,8 @@ export function DateField({
                 accessibilityLabel="Cerrar sin guardar"
                 // A literal square, not `h-12 w-12`: those are 3rem, which
                 // native resolves to 42dp.
-                style={(state) => [
-                  { width: TOUCH_TARGET, height: TOUCH_TARGET },
-                  pressed(state),
-                ]}
-                className="items-center justify-center rounded-xl"
+                style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
+                className="items-center justify-center rounded-xl active:opacity-70"
               >
                 <X size={20} color={colors.textTertiary} />
               </Pressable>
@@ -295,8 +292,8 @@ export function DateField({
                 onPress={() => setOpen(false)}
                 accessibilityRole="button"
                 accessibilityLabel="Cancelar"
-                style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-                className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4"
+                style={{ minHeight: TOUCH_TARGET }}
+                className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4 active:opacity-70"
               >
                 <Text className="text-text-secondary">Cancelar</Text>
               </Pressable>
@@ -305,8 +302,8 @@ export function DateField({
                 onPress={confirm}
                 accessibilityRole="button"
                 accessibilityLabel="Confirmar"
-                style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-                className="flex-1 items-center justify-center rounded-xl bg-accent-primary py-4"
+                style={{ minHeight: TOUCH_TARGET }}
+                className="flex-1 items-center justify-center rounded-xl bg-accent-primary py-4 active:opacity-70"
               >
                 <Text className="font-semibold text-on-accent">Confirmar</Text>
               </Pressable>

@@ -1,7 +1,7 @@
 import { Plus, X, type LucideIcon } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { BackHandler, Pressable, StyleSheet, View } from "react-native";
-import { colors, pressed, TOUCH_TARGET } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 /**
@@ -116,8 +116,8 @@ export function Fab({ position, label, actions, testID }: FabProps) {
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
-                style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-                className="flex-row items-center gap-3 rounded-xl border border-border-strong bg-surface pr-4 pl-4"
+                style={{ minHeight: TOUCH_TARGET }}
+                className="flex-row items-center gap-3 rounded-xl border border-border-strong bg-surface pr-4 pl-4 active:opacity-70"
               >
                 <action.icon
                   size={20}
@@ -139,7 +139,6 @@ export function Fab({ position, label, actions, testID }: FabProps) {
           accessibilityLabel={open ? "Cerrar" : label}
           accessibilityState={{ expanded: open }}
           aria-expanded={open}
-          style={pressed}
           // Size and radius come from the className, not from the style
           // function. On the device this button rendered square while the same
           // numbers in a `style` array worked in the browser, so the shape now
@@ -147,7 +146,7 @@ export function Fab({ position, label, actions, testID }: FabProps) {
           // arbitrary pixel values, because `rounded-full` compiles to a
           // `calc()` that the native CSS compiler discards and `h-14` is 3.5
           // rem, which resolves to 49 rather than 56.
-          className="h-[56px] w-[56px] items-center justify-center rounded-[28px] bg-accent-primary"
+          className="h-[56px] w-[56px] items-center justify-center rounded-[28px] bg-accent-primary active:opacity-70"
         >
           {open ? (
             <X size={24} strokeWidth={2.5} color={colors.onAccent} />

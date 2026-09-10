@@ -24,7 +24,7 @@ import { Avatar } from "./Avatar";
 import { Button } from "./Button";
 import { Slider } from "./Slider";
 import { Text } from "./Text";
-import { colors, pressed, TOUCH_TARGET } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 
 /** How much a tap on − or + moves the zoom. */
 const ZOOM_STEP = 0.5;
@@ -378,8 +378,8 @@ export function AvatarEditor({
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Cancelar"
-              style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-              className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4"
+              style={{ minHeight: TOUCH_TARGET }}
+              className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4 active:opacity-70"
             >
               <Text className="text-text-secondary">Cancelar</Text>
             </Pressable>
@@ -424,11 +424,8 @@ function ZoomButton({
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
       aria-disabled={disabled}
-      style={(state) => [
-        { minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET },
-        pressed(state),
-      ]}
-      className="items-center justify-center rounded-xl border border-border-strong"
+      style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
+      className="items-center justify-center rounded-xl border border-border-strong active:opacity-70"
     >
       <Icon
         size={20}

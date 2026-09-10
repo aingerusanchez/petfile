@@ -17,7 +17,6 @@ import {
   Text,
   TextField,
   colors,
-  pressed,
   useToast,
 } from "../../components/ui";
 import { describeAge } from "../../lib/age";
@@ -801,8 +800,8 @@ export default function Profile() {
                 onPress={() => setConfirmingDelete(false)}
                 accessibilityRole="button"
                 accessibilityLabel="Cancelar"
-                style={(state) => [{ minHeight: 48 }, pressed(state)]}
-                className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4"
+                style={{ minHeight: 48 }}
+                className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4 active:opacity-70"
               >
                 <Text className="text-text-secondary">Cancelar</Text>
               </Pressable>

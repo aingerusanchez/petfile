@@ -1,6 +1,6 @@
 import { Camera } from "lucide-react-native";
 import { Image, Pressable, View } from "react-native";
-import { colors, pressed } from "./tokens";
+import { colors } from "./tokens";
 import { Text } from "./Text";
 
 type AvatarProps = {
@@ -117,7 +117,8 @@ export function Avatar({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={(state) => [frame, pressed(state)]}
+      style={frame}
+      className="active:opacity-70"
     >
       {clipped}
       <View

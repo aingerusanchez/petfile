@@ -8,7 +8,7 @@ import {
 } from "react";
 import { ActivityIndicator, Pressable } from "react-native";
 import Animated, { ZoomIn, useReducedMotion } from "react-native-reanimated";
-import { colors, pressed, TOUCH_TARGET } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 export type ButtonVariant = "primary" | "outlined" | "secondary" | "link";
@@ -233,8 +233,8 @@ export function Button({
       // See Checkbox: the web renders the role and drops the state.
       aria-disabled={inert}
       aria-busy={status === "loading"}
-      style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-      className={shape}
+      style={{ minHeight: TOUCH_TARGET }}
+      className={`${shape} active:opacity-70`}
     >
       {status === "loading" ? (
         <ActivityIndicator

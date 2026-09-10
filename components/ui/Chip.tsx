@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
-import { colors, pressed, TOUCH_TARGET } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 import { FieldLabel } from "./FieldLabel";
 import { Text } from "./Text";
 
@@ -50,8 +50,8 @@ export function Chip({
       accessibilityState={{ selected, checked: selected }}
       // See Checkbox: the web renders the role and drops the state.
       aria-checked={selected}
-      style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-      className={`${className} ${
+      style={{ minHeight: TOUCH_TARGET }}
+      className={`${className} active:opacity-70 ${
         selected
           ? "border-accent-primary bg-elevated"
           : "border-border-default bg-surface"

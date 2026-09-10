@@ -20,7 +20,6 @@ export { Text } from "./Text";
 export { TextField } from "./TextField";
 export {
   colors,
-  pressed,
   spacing,
   PAGE_GUTTER,
   PLACEHOLDER_COLOR,

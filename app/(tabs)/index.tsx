@@ -14,7 +14,6 @@ import {
   FAB_CLEARANCE,
   Group,
   LoadingScreen,
-  pressed,
   Screen,
   Text,
   TextField,
@@ -356,8 +355,8 @@ function Entry({
         .filter(Boolean)
         .join(", ")}
       accessibilityHint="Ábrelo para corregirlo o borrarlo"
-      style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-      className="mb-5 flex-row items-start gap-3"
+      style={{ minHeight: TOUCH_TARGET }}
+      className="mb-5 flex-row items-start gap-3 active:opacity-70"
     >
       <View className="w-12 items-start gap-1">
         <Text className="text-text-tertiary">{time}</Text>
@@ -752,8 +751,8 @@ function EntrySheet({
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Cancelar"
-              style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-              className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4"
+              style={{ minHeight: TOUCH_TARGET }}
+              className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4 active:opacity-70"
             >
               <Text className="text-text-secondary">Cancelar</Text>
             </Pressable>
@@ -833,11 +832,8 @@ function Step({
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
       aria-disabled={disabled}
-      style={(state) => [
-        { minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET },
-        pressed(state),
-      ]}
-      className="items-center justify-center rounded-xl border border-border-strong pr-3 pl-3"
+      style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
+      className="items-center justify-center rounded-xl border border-border-strong pr-3 pl-3 active:opacity-70"
     >
       {/* `text-tertiary` when disabled, not `text-muted`: the same choice the
           disabled button made, and 6.64:1 rather than 3.58:1 on this fill. */}
