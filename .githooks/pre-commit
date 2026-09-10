@@ -35,4 +35,34 @@ if git diff --cached -U0 | grep -qiE 'service_role[A-Za-z_]*[[:space:]]*[:=]|eyJ
   exit 1
 fi
 
+# ---------------------------------------------------------------------------
+# Format what is being committed.
+# ---------------------------------------------------------------------------
+#
+# After the secret checks, never before: formatting cannot introduce a secret,
+# and a commit that is going to be refused should be refused before anything
+# rewrites the working tree.
+#
+# `prettier-plugin-tailwindcss` is the reason this exists. Two editors with two
+# different class orders churn every file they touch, so the order is decided
+# here, once, for whoever commits.
+#
+# **Caveat worth knowing:** the files are re-staged after formatting, so a
+# partially staged file (`git add -p`) gets the rest of its working copy staged
+# too. Prettier rewrites whole files, so a partial stage was already going to
+# be inconsistent — but the surprise is real, and this is where it comes from.
+staged=$(mktemp)
+git diff --cached --name-only --diff-filter=ACMR -z > "$staged"
+
+if [ -s "$staged" ]; then
+  if ! xargs -0 npx prettier --write --ignore-unknown --log-level warn < "$staged"; then
+    echo "BLOCKED: prettier could not format the staged files." >&2
+    rm -f "$staged"
+    exit 1
+  fi
+  xargs -0 git add < "$staged"
+fi
+
+rm -f "$staged"
+
 exit 0
