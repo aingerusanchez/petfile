@@ -14,20 +14,67 @@ test.afterAll(async () => {
   await resetE2EPets();
 });
 
-test("loads the stored pet and stays quiet until something changes", async ({
+test("presents the file rather than a form", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/profile");
+
+  await expect(page.getByTestId("profile-title")).toHaveText("Loki");
+  await expect(page.getByTestId("profile-breed")).toHaveText("Husky Siberiano");
+  await expect(page.getByTestId("profile-birthdate-value")).toHaveText(
+    "14/09/2025",
+  );
+
+  // The age is derived, so the assertion is on its shape and not on a number
+  // that changes with the calendar.
+  await expect(page.getByTestId("profile-age")).toHaveText(
+    /^(Menos de un mes|(unos |un )?\d* ?(mes|meses|años)) · (Cachorro|Adolescente|Adulto|Senior)$/,
+  );
+
+  await expect(page.getByTestId("profile-neutered-value")).toHaveText("No");
+  await expect(page.getByTestId("profile-activity-value")).toHaveText("Alto");
+  await expect(page.getByTestId("profile-goal-value")).toHaveText(
+    "Sin objetivo",
+  );
+
+  // No fields, and above all no delete button, on a screen someone opened to
+  // look at their dog.
+  await expect(page.getByTestId("profile-name")).toBeHidden();
+  await expect(page.getByTestId("profile-delete")).toBeHidden();
+  await expect(page.getByTestId("profile-save")).toBeHidden();
+  await expect(page.getByTestId("profile-edit-main")).toBeVisible();
+  await expect(page.getByTestId("profile-edit-health")).toBeVisible();
+});
+
+test("invites the tutor to fill in what the header cannot show", async ({
   page,
 }) => {
   await seedSession(page);
   await page.goto("/profile");
 
-  await expect(page.getByTestId("profile-title")).toHaveText("Loki");
-  await expect(page.getByTestId("profile-name")).toHaveValue("Loki");
-  await expect(page.getByTestId("profile-breed")).toHaveValue(
-    "Husky Siberiano",
+  // The seeded pet has no photo, so the file is incomplete and says so.
+  await expect(page.getByTestId("profile-complete")).toBeVisible();
+  await page.getByTestId("profile-complete").click();
+  await expect(page.getByTestId("profile-name")).toBeVisible();
+  await expect(page.getByTestId("profile-photo")).toHaveText("Añadir foto");
+});
+
+test("says so when nobody has written down a breed", async ({ page }) => {
+  await resetE2EPets();
+  await seedE2EPet({ breed_primary: null });
+
+  await seedSession(page);
+  await page.goto("/profile");
+
+  await expect(page.getByTestId("profile-breed")).toHaveText(
+    "Aún no sabemos su raza",
   );
-  await expect(page.getByTestId("profile-birthdate")).toContainText(
-    "14/09/2025",
-  );
+});
+
+test("opens a block, saves it, and the header follows", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/profile");
+
+  await page.getByTestId("profile-edit-main").click();
 
   // Nothing to save yet, and the button says so rather than inviting a
   // pointless write.
@@ -36,36 +83,74 @@ test("loads the stored pet and stays quiet until something changes", async ({
     "true",
   );
 
-  await page.getByTestId("profile-name").fill("Loki II");
+  await page.getByTestId("profile-name").fill("Loki el Segundo");
   await expect(page.getByTestId("profile-save")).not.toHaveAttribute(
     "aria-disabled",
     "true",
   );
+  await page.getByTestId("profile-save").click();
+
+  await expect(page.getByText("está al día")).toBeVisible();
+
+  // Saving closes the block and the file reads back the new name, which is how
+  // the tutor sees the write landed without reading the toast.
+  await expect(page.getByTestId("profile-title")).toHaveText("Loki el Segundo");
+  await expect(page.getByTestId("profile-name")).toBeHidden();
+
+  await page.reload();
+  await expect(page.getByTestId("profile-title")).toHaveText("Loki el Segundo");
 });
 
-test("saves an edit and reads it back", async ({ page }) => {
+test("saves the health block, unit and all", async ({ page }) => {
   await seedSession(page);
   await page.goto("/profile");
 
-  await page.getByTestId("profile-name").fill("Loki el Segundo");
+  await page.getByTestId("profile-edit-health").click();
+
+  // The unit sits inside the field, so it survives typing where a placeholder
+  // would not.
+  await expect(page.getByText("min.").first()).toBeVisible();
+
   await page.getByTestId("profile-neutered-yes").click();
   await page.getByTestId("profile-activity-moderate").click();
   await page.getByTestId("profile-exercise-goal").fill("75");
   await page.getByTestId("profile-save").click();
 
-  await expect(page.getByText("está al día")).toBeVisible();
-
-  // The heading follows the name, which is how the tutor sees the save landed
-  // without reading the toast.
-  await expect(page.getByTestId("profile-title")).toHaveText("Loki el Segundo");
+  await expect(page.getByTestId("profile-goal-value")).toHaveText("75 min.");
+  await expect(page.getByTestId("profile-neutered-value")).toHaveText("Sí");
+  await expect(page.getByTestId("profile-activity-value")).toHaveText(
+    "Moderado",
+  );
 
   await page.reload();
-  await expect(page.getByTestId("profile-name")).toHaveValue("Loki el Segundo");
-  await expect(page.getByTestId("profile-exercise-goal")).toHaveValue("75");
-  await expect(page.getByTestId("profile-neutered-yes")).toHaveAttribute(
-    "aria-checked",
-    "true",
-  );
+  await expect(page.getByTestId("profile-goal-value")).toHaveText("75 min.");
+});
+
+test("discards an edit that was cancelled", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/profile");
+
+  await page.getByTestId("profile-edit-main").click();
+  await page.getByTestId("profile-name").fill("Nombre equivocado");
+  await page.getByTestId("profile-cancel").click();
+
+  await expect(page.getByTestId("profile-title")).toHaveText("Loki");
+
+  // And reopening shows the file as it is, not as it was left.
+  await page.getByTestId("profile-edit-main").click();
+  await expect(page.getByTestId("profile-name")).toHaveValue("Loki");
+});
+
+test("keeps one block open at a time", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/profile");
+
+  await page.getByTestId("profile-edit-main").click();
+  await expect(page.getByTestId("profile-name")).toBeVisible();
+
+  await page.getByTestId("profile-edit-health").click();
+  await expect(page.getByTestId("profile-exercise-goal")).toBeVisible();
+  await expect(page.getByTestId("profile-name")).toBeHidden();
 });
 
 test("refuses to save what registration would have refused", async ({
@@ -74,6 +159,7 @@ test("refuses to save what registration would have refused", async ({
   await seedSession(page);
   await page.goto("/profile");
 
+  await page.getByTestId("profile-edit-main").click();
   await page.getByTestId("profile-name").fill("");
   await page.getByTestId("profile-save").click();
 
@@ -90,6 +176,7 @@ test("caps a mistyped exercise goal", async ({ page }) => {
   await seedSession(page);
   await page.goto("/profile");
 
+  await page.getByTestId("profile-edit-health").click();
   await page.getByTestId("profile-exercise-goal").fill("600");
   await page.getByTestId("profile-save").click();
 
@@ -104,19 +191,22 @@ test("keeps the mixed flag and the breed field saying the same thing", async ({
   await seedSession(page);
   await page.goto("/profile");
 
+  await page.getByTestId("profile-edit-main").click();
+
   // The same coupling as onboarding, because it lives in lib/pets.ts rather
   // than in either screen.
   await page.getByTestId("profile-mixed").click();
-  await expect(page.getByTestId("profile-breed")).toHaveValue("Mestizo");
+  await expect(page.getByTestId("profile-breed-input")).toHaveValue("Mestizo");
 
   await page.getByTestId("profile-mixed").click();
-  await expect(page.getByTestId("profile-breed")).toHaveValue("");
+  await expect(page.getByTestId("profile-breed-input")).toHaveValue("");
 });
 
-test("asks for the dog's name before deleting him", async ({ page }) => {
+test("asks for the name before deleting the file", async ({ page }) => {
   await seedSession(page);
   await page.goto("/profile");
 
+  await page.getByTestId("profile-edit-main").click();
   await page.getByTestId("profile-delete").click();
 
   // The ceremony is the point: a destructive action nobody can trigger by
@@ -132,6 +222,7 @@ test("asks for the dog's name before deleting him", async ({ page }) => {
     "true",
   );
 
+  // Case is not part of the test the tutor has to pass.
   await page.getByTestId("profile-delete-name").fill("loki");
   await expect(page.getByTestId("profile-delete-confirm")).not.toHaveAttribute(
     "aria-disabled",
@@ -150,25 +241,42 @@ test("keeps every control on the 48dp floor here too", async ({ page }) => {
   await seedSession(page);
   await page.goto("/profile");
 
-  for (const id of [
+  const floor = async (ids: string[]) => {
+    for (const id of ids) {
+      const box = await page.getByTestId(id).boundingBox();
+      expect(box, `${id} should be visible`).not.toBeNull();
+      expect(
+        box!.height,
+        `${id} is ${box!.height}px tall`,
+      ).toBeGreaterThanOrEqual(48);
+    }
+  };
+
+  await floor([
+    "profile-complete",
+    "profile-edit-main",
+    "profile-edit-health",
+    "profile-signout",
+  ]);
+
+  await page.getByTestId("profile-edit-main").click();
+  await floor([
+    "profile-photo",
     "profile-name",
     "profile-sex-male",
     "profile-birthdate",
     "profile-birthdate-approx",
-    "profile-breed",
+    "profile-breed-input",
     "profile-mixed",
+    "profile-save",
+    "profile-cancel",
+    "profile-delete",
+  ]);
+
+  await page.getByTestId("profile-edit-health").click();
+  await floor([
     "profile-neutered-yes",
     "profile-activity-low",
     "profile-exercise-goal",
-    "profile-save",
-    "profile-signout",
-    "profile-delete",
-  ]) {
-    const box = await page.getByTestId(id).boundingBox();
-    expect(box, `${id} should be visible`).not.toBeNull();
-    expect(
-      box!.height,
-      `${id} is ${box!.height}px tall`,
-    ).toBeGreaterThanOrEqual(48);
-  }
+  ]);
 });
