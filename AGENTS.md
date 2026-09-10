@@ -42,11 +42,25 @@ pnpm android:apk        # a standalone release APK, arm64 only — no Metro, no 
 pnpm android:install    # adb install -r of that APK
 pnpm format             # prettier --write . (the pre-commit hook does this for staged files)
 pnpm format:check       # prettier --check .
-pnpm lint               # expo lint — currently broken, no ESLint config in the repo; do not attempt to fix as a side effect of another task
+pnpm lint               # eslint . — flat config on eslint-config-expo, plus this project's invariants
+pnpm lint:fix           # eslint . --fix
 ```
+
+## Linting
+
+`eslint.config.js` extends `eslint-config-expo/flat` and adds the rules that matter here. Three of them enforce invariants this file used to state and nobody could check:
+
+- **`Text` is never imported from `react-native`** outside `components/ui/Text.tsx` — the wrapper is the only thing applying the typeface on native.
+- **`@supabase/supabase-js` is never imported** from `app/` or `components/`.
+- **No `any`** in committed code.
+
+Two more are errors rather than Expo's default warnings, because they catch defects that look like data bugs: `react-hooks/exhaustive-deps` and the React Compiler rules (`react-hooks/refs`, `react-hooks/set-state-in-effect`). The last one is worth knowing about before writing an effect: **an effect that keeps one piece of state in step with another is almost always derived state**, and it will be reported. Both forms' "forgive on input" and both has-pet checks were rewritten that way.
+
+**ESLint is pinned to 9.** `eslint-plugin-react` (via `eslint-config-expo`) is not compatible with 10 — it fails with `contextOrFilename.getFilename is not a function` before linting a single file.
 
 ## Definition of done
 
+- `pnpm lint` passes.
 - `pnpm test` passes.
 - `pnpm test:e2e` passes.
 - No new raw hex colours; only Nordic Ice tokens.
@@ -125,7 +139,12 @@ Three platform gotchas the browser hides, all measured on device and recorded in
 - A `TextInput` needs **`pl-4 pr-4` rather than `px-4`** — Android drops `padding-inline` on text inputs.
 - The native CSS compiler resolves **`1rem` to 14, not 16**, so every rem-based utility renders at 87.5% of what the browser shows.
 - **`leading-*` does nothing on native.** It arrives as a `calc()`, which that compiler discards, so line height comes from a `style` prop. Anything that has to line up with a class-sized box needs both sides as literals from one constant — see `components/ui/Checkbox.tsx`.
-- **`pointerEvents: "box-none"` is not CSS.** react-native-web passes it through as `pointer-events: box-none`, the browser drops the whole declaration, and the element stays clickable. A full-screen `box-none` container therefore swallows every tap on the page behind it — measured: `Screen`'s overlay slot made the day's entries unclickable. Use `none` on the container and `auto` on the children that need taps; both are valid in React Native and in CSS.
+- **`pointerEvents` needs `box-none` from a _registered_ style, and nothing else works on both targets.** All three wrong ways were tried, and each looked right on one platform:
+  - the **prop** is deprecated in this React Native version and logs a warning per render;
+  - `box-none` in an **inline** style: react-native-web writes it straight into the style attribute, where `pointer-events: box-none` is not CSS and the browser drops the declaration — a full-screen container then swallows every tap on the page (measured: the day view's entries became unclickable);
+  - `none` in an inline style: valid CSS, and a child _can_ opt back in with `auto` on the web — but in React Native `none` excludes the whole subtree, so the floating action could not be pressed at all on the device.
+    Registered via `StyleSheet.create`, react-native-web's compiler expands `box-none` into `pointer-events: none` on the element plus `auto` on its children, which is exactly the native meaning. See `components/ui/Screen.tsx`.
+- **A shape's radius travels through `className`, not through a `style` function.** The floating action set `width`/`height`/`borderRadius` in a Pressable's `style` callback and rendered a **square on the device** while the browser drew a circle. Arbitrary pixel values in the class list (`h-[56px] w-[56px] rounded-[28px]`) are the path every other shape here takes; `rounded-full` is not an option, because Tailwind 4 emits it as a `calc()` and the native compiler discards those, and `h-14` is 3.5rem, which resolves to 49 rather than 56. The mechanism behind the original failure is not established — treat this as the working path rather than as an explanation.
 - **A `TextInput` narrower than its content wants needs `minWidth: 0`.** On the web it is an `<input>`, whose intrinsic width is about twenty characters, and `flex-1` alone cannot shrink past it. Measured: a 128dp field rendered a 174dp input, so the row overflowed and the unit landed on the buttons beside it.
 - **Touch targets come from `TOUCH_TARGET` in `tokens.ts`, never from `min-h-12`.** That class is 3rem, so it silently held every control at 42dp while reading as 48 in the source. An arbitrary value (`min-h-[48px]`) does land on native and is the escape hatch for a third party's own pressables, where a `style` prop cannot reach.
 

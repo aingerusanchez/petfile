@@ -69,7 +69,8 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 | `pnpm android:install` | Instala ese APK por `adb`                                                                 |
 | `pnpm ios`             | Compila, instala y lanza el dev build nativo de iOS (`expo run:ios`)                      |
 | `pnpm web`             | Arranca el servidor de desarrollo apuntando a web                                         |
-| `pnpm lint`            | `expo lint` — **actualmente roto** (ver nota abajo)                                       |
+| `pnpm lint`            | `eslint .` — config plana sobre `eslint-config-expo` más las invariantes del proyecto     |
+| `pnpm lint:fix`        | `eslint . --fix`                                                                          |
 | `pnpm format`          | `prettier --write .` — el hook de pre-commit ya lo hace sobre lo que se stagea            |
 | `pnpm format:check`    | `prettier --check .`                                                                      |
 | `pnpm typecheck`       | `tsc --noEmit` — comprobación de tipos de todo el proyecto                                |
@@ -77,7 +78,7 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 | `pnpm test:e2e`        | Ejecuta la suite end-to-end de Playwright                                                 |
 | `pnpm test:e2e:ui`     | Ejecuta Playwright en UI mode (trace viewer)                                              |
 
-> **`pnpm lint` no funciona todavía.** El repo no tiene configuración de ESLint (`eslint.config.js` / `.eslintrc`), y su instalador automático (`expo lint`) ha causado problemas en más de una ocasión. Es un hueco conocido, fuera de alcance de esta tarea — no lo ejecutes esperando que funcione, y no intentes arreglarlo sin más contexto.
+> **Qué añade el lint sobre la config de Expo.** Tres invariantes del proyecto pasan de ser greps en AGENTS.md a ser errores: `Text` no se importa de `react-native` fuera del wrapper que aplica la tipografía, `@supabase/supabase-js` no se importa desde `app/` ni `components/`, y no hay `any`. Y dos reglas suben de warning a error porque cazan defectos que parecen bugs de datos: `react-hooks/exhaustive-deps` y las del React Compiler (`react-hooks/refs`, `react-hooks/set-state-in-effect`). **ESLint está fijado a 9**: `eslint-plugin-react` no es compatible con 10 y falla antes de analizar un solo fichero.
 
 ## Stack tecnológico
 
@@ -99,6 +100,7 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 | Insets          | `react-native-safe-area-context`         | ~5.7.0                   |
 | Backend         | `@supabase/supabase-js`                  | ^2.112.4                 |
 | Formato         | Prettier + `prettier-plugin-tailwindcss` | 3.9.6 / 0.8.1            |
+| Linting         | ESLint + `eslint-config-expo`            | 9.39.5 / 57.0.2          |
 | Tests unitarios | Jest (`jest-expo`)                       | ~29.7.0 (preset ~57.0.5) |
 | Tests e2e       | Playwright                               | ^1.62.1                  |
 
