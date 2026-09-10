@@ -10,7 +10,7 @@ export default function Login() {
     <Screen className="justify-center">
       <Text
         accessibilityRole="header"
-        className="mb-2 text-4xl font-bold text-text-primary"
+        className="mb-2 font-bold text-4xl text-text-primary"
       >
         Petfile
       </Text>

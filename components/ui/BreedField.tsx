@@ -83,7 +83,7 @@ export function BreedField({
         autoComplete="off"
         returnKeyType="next"
         maxLength={60}
-        className={`rounded-xl border bg-surface pl-4 pr-4 py-3 font-sans text-text-primary ${
+        className={`rounded-xl border bg-surface py-3 pr-4 pl-4 font-sans text-text-primary ${
           error ? "border-error" : "border-border-default"
         }`}
       />

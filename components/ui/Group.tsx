@@ -45,10 +45,10 @@ export function Group({
     <View
       testID={testID}
       onLayout={onLayout}
-      className={`rounded-xl border border-border-default px-5 pb-1 pt-5 ${className}`}
+      className={`rounded-xl border border-border-default px-5 pt-5 pb-1 ${className}`}
     >
       {title ? (
-        <Text className="mb-5 text-xs font-semibold uppercase tracking-[0.05em] text-text-secondary">
+        <Text className="mb-5 font-semibold text-xs tracking-[0.05em] text-text-secondary uppercase">
           {title}
         </Text>
       ) : null}

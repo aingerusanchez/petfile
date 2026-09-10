@@ -1,7 +1,4 @@
-import {
-  ImageManipulator,
-  SaveFormat,
-} from "expo-image-manipulator";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { describeFailure, withTimeout } from "./failures";
 import { supabase } from "./supabase";

@@ -184,7 +184,7 @@ export function DateField({
             className="rounded-xl border border-border-default bg-surface p-5"
           >
             <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-xl font-bold text-text-primary">
+              <Text className="font-bold text-xl text-text-primary">
                 {approximate ? "Mes y año" : "Fecha de nacimiento"}
               </Text>
               <Pressable

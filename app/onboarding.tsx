@@ -462,7 +462,7 @@ export default function Onboarding() {
         // "cara de perro", which turns the screen's title into a description
         // of its own decoration.
         accessibilityLabel="Preséntame a tu compi"
-        className="mb-8 text-3xl font-bold text-text-primary"
+        className="mb-8 font-bold text-3xl text-text-primary"
       >
         {/* The space before the emoji is a non-breaking one (U+00A0). With an
             ordinary space the headline wrapped between "compi" and the emoji,
@@ -526,7 +526,7 @@ export default function Onboarding() {
           approximate={draft.birthDateApproximate}
           error={fieldErrors.birthDate}
         />
-        <View className="mb-5 -mt-3">
+        <View className="-mt-3 mb-5">
           <Checkbox
             testID="onboarding-birthdate-approx"
             label="Aproximado"
@@ -548,7 +548,7 @@ export default function Onboarding() {
           placeholder="Husky Siberiano"
           error={fieldErrors.breedPrimary}
         />
-        <View className="mb-4 -mt-3">
+        <View className="-mt-3 mb-4">
           <Checkbox
             testID="onboarding-mixed"
             label="Es mestizo"
