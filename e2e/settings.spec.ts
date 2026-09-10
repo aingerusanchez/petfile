@@ -29,8 +29,10 @@ test("opens from the profile and says what it is for", async ({ page }) => {
 
   // The build identifies itself here and on the login screen, which is what
   // a stale install could not do.
+  // The version, and the commit it was built from: the number alone needs
+  // somebody to remember to bump it, and twice it was not bumped.
   await expect(page.getByTestId("settings-version")).toHaveText(
-    /^v\d+\.\d+\.\d+$/,
+    /^v\d+\.\d+\.\d+ · [0-9a-f]{7,}\+?$/,
   );
 
   await page.getByTestId("settings-back").click();
@@ -76,6 +78,6 @@ test("keeps the preference across a reload", async ({ page }) => {
 test("shows the build's version before anyone signs in", async ({ page }) => {
   await page.goto("/login");
   await expect(page.getByTestId("login-version")).toHaveText(
-    /^v\d+\.\d+\.\d+$/,
+    /^v\d+\.\d+\.\d+ · [0-9a-f]{7,}\+?$/,
   );
 });

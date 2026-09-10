@@ -5,6 +5,14 @@ import { Text } from "./Text";
 export const APP_VERSION: string | null = Constants.expoConfig?.version ?? null;
 
 /**
+ * The commit the build came from, with a `+` when the tree was dirty.
+ *
+ * Null where `app.config.js` could not reach git — EAS, a tarball, CI.
+ */
+export const APP_COMMIT: string | null =
+  (Constants.expoConfig?.extra?.commit as string | undefined) ?? null;
+
+/**
  * The build's version, at the foot of a screen.
  *
  * **It is here to tell two builds apart.** A stale APK cost an afternoon of
@@ -12,6 +20,12 @@ export const APP_VERSION: string | null = Constants.expoConfig?.version ?? null;
  * and nothing on screen said so. It sits on the login screen, which is the one
  * surface a tutor sees before signing in, and at the foot of Ajustes, which is
  * where anyone goes looking for it.
+ *
+ * **The commit is the half that works without discipline.** The version only
+ * separates two builds if somebody remembered to bump it, and twice now one
+ * did not: the phone was behind and the number on it agreed with the repo. A
+ * commit hash separates them for free, and a trailing `+` says the tree was
+ * dirty when the build ran.
  *
  * **It names the native build, not the JS bundle.** `expo-constants` reads the
  * `app.config` embedded in the APK, so a dev build reports whatever version it
@@ -30,10 +44,14 @@ export function Version({ testID }: { testID?: string }) {
   return (
     <Text
       testID={testID}
-      accessibilityLabel={`Versión ${APP_VERSION}`}
+      accessibilityLabel={
+        APP_COMMIT
+          ? `Versión ${APP_VERSION}, commit ${APP_COMMIT}`
+          : `Versión ${APP_VERSION}`
+      }
       className="text-center text-xs text-text-muted"
     >
-      {`v${APP_VERSION}`}
+      {APP_COMMIT ? `v${APP_VERSION} · ${APP_COMMIT}` : `v${APP_VERSION}`}
     </Text>
   );
 }
