@@ -218,7 +218,9 @@ One radius, everywhere: 12px (`rounded-xl`) on every button, input, and chip in 
 
 **The One Radius Rule.** 12px is the only corner radius in the system. A new component defaults to it rather than picking a fresh value.
 
-**The one recorded exception is the checkbox**, and it is forced rather than chosen: 12px on a 24px box is a full circle, which reads as a radio button and therefore means the wrong thing. It uses **6px — exactly half the system radius**, proportional to the control instead of a fresh arbitrary value. Any future control small enough to be swallowed by a 12px radius follows the same halving rule; nothing else invents a radius.
+**The first recorded exception is the checkbox**, and it is forced rather than chosen: 12px on a 24px box is a full circle, which reads as a radio button and therefore means the wrong thing. It uses **6px — exactly half the system radius**, proportional to the control instead of a fresh arbitrary value. Any future control small enough to be swallowed by a 12px radius follows the same halving rule; nothing else invents a radius.
+
+**The second and last is the avatar**, which is a full circle. It was square first, for exactly the bookkeeping reason above; tried with a real photo of a real dog, the square lost, and the rationale is recorded under Avatar. A portrait is the one element in the system that is not a container for text, so it is the one place the radius has nothing to protect.
 
 ## Components
 
@@ -271,23 +273,50 @@ A voluntary boolean flag, **unchecked by default**. Used for a qualifier that on
 
 ### Avatar
 
-The animal's picture, or its initial. **A squared record photo at the system radius, never a circle.** Two reasons, and the second is the real one: a circle would make a second exception to The One Radius Rule, and the product's thesis is the animal's _file_ — a squared photo reads as a record photo, a circle reads as a social account, which is the one thing this app is not.
+The animal's picture, or its initial. **A circle.**
 
-- **Frame:** 96dp by default, `elevated` fill, hairline border, 12px radius, the image cropped to fill.
+It shipped square first, at the system radius, on two arguments: that a circle would make a second exception to The One Radius Rule, and that the product's thesis is the animal's _file_, where a squared photo reads as a record photo and a circle reads as a social account. Then a real photo of a real dog went into it and the square lost. A dog's head is round, the crop that flatters it is round, and the square framed the animal like an ID document. **The reasoning was sound and the result was wrong** — which is what testing a decision with real content is for, and worth recording as the reason the decision moved rather than quietly restyling it.
+
+- **Frame:** 96dp by default, `elevated` fill, hairline border, fully round, the image cropped to fill.
+- **The portrait is how the photo changes.** With an `onPress` it becomes a button and carries a band across the foot of the circle — "AÑADIR" or "CAMBIAR", label-role type on Polar Night at 85%, which has to make its own ground because what sits behind it is an arbitrary photograph. **The band is always visible, never revealed on hover:** there is no hover on a phone, so an affordance that waits for one is an affordance that never appears. It replaced a pair of links beside the portrait, which put two paths on one action and one more thing on a page that exists to present the animal.
 - **No photo is a finished state, not a gap.** With nothing stored it draws the name's initial in `text-primary` at two-fifths of the frame. Most tutors will never add a photo, and a broken frame, a camera glyph or a nudge charges rent for a decision they already made. The initial is deliberately **not** in the accent: the accent means "act here" (The One Accent Rule), and a portrait is not an action.
 - **The image is `accessible={false}`.** The screen already names the animal next to it; announcing "foto de Loki" beside the heading "Loki" says it twice.
+
+### Avatar Editor
+
+A bottom sheet for framing the animal's photo, opened by the portrait itself.
+
+- **The preview is the mask.** The stage is a circle, not a square with a circle drawn over it: what the tutor drags is what the profile will show, so there is nothing to imagine and nothing to be surprised by. The file written is the circle's bounding square — the crop and the mask are one decision seen twice, which is also why the stage's diameter and the crop's side are the same number.
+- **The system cropper is off.** `expo-image-picker` ran with `allowsEditing` and `aspect: [1,1]`, so Android cropped a square before the app saw the image. Cropping twice throws away the pixels framing needs, and the OS's square preview cannot show a round result.
+- **Zoom has buttons as well as a pinch**, and both go through the same `rezoom`. A pinch is the natural gesture and the only one on the device, but it is unreachable with a screen reader and unavailable with a mouse, so the capability cannot live in the gesture alone. Zoom is always about the middle of the circle — one rule a tutor can predict, rather than two that nearly agree. The current factor is shown as "1.5×" in a polite live region, so the buttons say what they did.
+- **Repositioning is drag-only**, and that is a known gap rather than an oversight: there are no nudge controls. What makes it acceptable is that the default frame is a centred cover crop, which is a finished result on its own — the gesture improves the framing, it is not the only way to get one.
+- **Only a freshly picked photo can be reframed.** What is stored is already the crop at 512px, so reframing it would mean enlarging 512 pixels into a frame that wants more. The sheet says so and offers the picker instead, which is the honest version of the same action.
+- **The maths lives in `lib/framing.ts`, not in the component**, and is unit-tested. A wrong crop rectangle does not throw — it quietly cuts the dog's ear off, or asks the native manipulator for a pixel the image does not have, which it rejects outright. Both are arithmetic, and arithmetic can be checked without a screen.
 
 ### Record Header & Rows
 
 The profile presents the animal before it offers to change him: a header — photo, name with the sex icon beside it, breed, then age with its life stage — followed by one read-only row per remaining field and an **Editar…** button per block that swaps that block, and only that block, for its fields.
 
+**A block with nothing to present is a button, not a section.** The identity block carries no read-only rows: the header already shows the name, the sex, the breed and the age, so the section under it held one date and a button — a box around a door. It gets its `Group` frame only while it is open.
+
 - **The Present-Before-Edit Rule.** A screen that shows a record shows it; the form goes behind a door. A permanently editable form makes every visit read as data entry, puts a save button on a screen nobody came to save, and gives the most destructive action in the app a permanent seat. The profile carried all three until this pattern replaced it.
 - **One block open at a time.** Two open forms mean two dirty states and two save buttons disagreeing about what is unsaved, for no gain — an edit here is one deliberate correction. Opening a block re-reads the stored row, so cancelling and reopening shows the file as it is rather than as it was left.
-- **The header is where missing data shows, and it shows as an invitation.** Everything the header presents except the name and the birth date is optional, so a thin file is a real outcome: the initial stands in for the photo (see Avatar), the breed line reads "Aún no sabemos su raza" in `text-tertiary`, and a single link — "Completa su ficha" — opens the block that fixes all of it. An empty row is a hole; a sentence and a door are an answer.
+- **The header is where missing data shows, and it shows as an invitation.** Everything the header presents except the name and the birth date is optional, so a thin file is a real outcome: the initial stands in for the photo (see Avatar) and a single link — "Completa su ficha" — opens the block that fixes the rest. **A missing line is dropped, not captioned:** the breed line said "Aún no sabemos su raza" for a while, which is a hole with a label on it — the age below carries the header on its own, and the link already says what to do. The photo is not counted in that link, because the portrait has a better affordance of its own and the link would open a form without it.
 - **An absent value is `text-tertiary`, a present one `text-primary`.** "Sin objetivo" and "No lo sabemos" are answers, but they are not data, and the tone says which is which without spending a word on it.
 - **Rows are announced as pairs.** Each label/value row is one `accessible` node reading "Esterilizado: Sí". Left as two nodes, a screen reader walks a list of labels and then a list of answers.
 - **The life stage rides along with the age** — `2 años · Adulto`, from `lib/age.ts`. It is the first piece of advice the app can give away from data it already holds. The thresholds are the common veterinary split (6 months, 18 months, 7 years) and deliberately not breed-aware: body size moves the last one hard, and `breed_primary` is free text with no weight band behind it.
 - **Delete lives at the bottom of the identity block**, outlined in Error Red across the full width — available, not invited. See The Red-Means-Consequence Rule, and the wording note in PRODUCT.md: what gets deleted is the file, and the copy says so.
+
+### Day Log & Entry Sheet
+
+The diary: the day's heading, the exercise goal, the four kinds each one tap away, and the entries.
+
+- **The log reads forwards**, earliest first. Newest-first is the right order for a feed a reader dips into; this is a diary, bounded by one day, short, and read whole.
+- **The goal bar is Aqua Glaciar, and turns Success Green when the goal is met.** It was Steel Frost on the argument that progress is state rather than an action and the accent means "act here" — but a 4px hairline in a border colour did not read as a measure of anything. Aqua Glaciar is the secondary accent, already the colour of links and the required marker, so **Ice Blue Glacial still means "this is the one thing to do here"**: the primary accent stays on the actions above the bar, and nothing on this screen competes with them.
+- **A walk is asked for as a range; every other kind as a moment.** DESDE and HASTA, side by side, and DURACIÓN below them. A tutor knows when they left and when they got back, not how many minutes that was — the arithmetic was the app's job all along and it was being handed to them.
+- **DESDE and HASTA are the data; DURACIÓN is derived.** Editing either time recomputes the duration. The duration stays editable, because "we were out about forty minutes" is a real way to remember a walk — and editing it moves **HASTA**, never DESDE: the start is the one thing the tutor is sure of, so it is never the field that shifts under them.
+- **Nothing is proposed but the start.** It opens on the current time; the other two open empty. A prefilled thirty minutes would be a fabricated walk one careless tap away, and a walk with no duration is a valid entry — it still happened.
+- **An end before its start is refused, not interpreted.** A walk past midnight is possible and a mistyped digit is likelier, and guessing would file the entry under a day the tutor did not choose.
 
 ### Date Field & Picker
 
@@ -351,7 +380,7 @@ A transient message that floats above the whole app, in four variants: **success
 
 ### Navigation
 
-Bottom tab bar, 3 destinations — **Diario / Salud / Perfil** — each a 24px Lucide icon (`TreeDeciduous`, `HeartPulse`, `PawPrint`) over its label. Deep Ice background, Hairline Frost top border, active in Ice Blue Glacial (14.42:1), **inactive in Mist Grey** (7.12:1).
+Bottom tab bar, 3 destinations — **Diario / Salud / Perfil** — each a 24px Lucide icon (`Trees`, `HeartPulse`, `PawPrint`) over its label. Deep Ice background, Hairline Frost top border, active in Ice Blue Glacial (14.42:1), **inactive in Mist Grey** (7.12:1).
 
 The inactive label was Slate Mist, which measures **3.83:1** on Deep Ice and fails AA at the size a tab label is drawn. It was the last text in the app that should be hard to read: the tab bar is the only permanent navigation, and it is read at a glance rather than studied. Mist Grey still sits far enough below the active label for the distinction to carry without the failure.
 
@@ -359,7 +388,7 @@ The inactive label was Slate Mist, which measures **3.83:1** on Deep Ice and fai
 
 **The label's typeface is set explicitly** (`tabBarLabelStyle: { fontFamily: "Outfit_500Medium" }`). The navigator draws its labels outside the `Text` wrapper that applies the family everywhere else, so without it the only permanent text in the app rendered in the platform's own face while everything above it was in Outfit.
 
-**"Diario", not "Hoy": the tab names the section, the screen names the day it is showing.** Its icon is a tree rather than a notebook because the entries are almost all outings, and a park says "we went out" without implying a route — which a trail or a footprint trail would. Footprints were out twice over: they would also collide with the paw print two tabs along.
+**"Diario", not "Hoy": the tab names the section, the screen names the day it is showing.** Its icon is the park rather than a notebook because the entries are almost all outings, and a park says "we went out" without implying a route — which a trail or a set of footprints would. Footprints were out twice over: they would also collide with the paw print two tabs along. **Two trees rather than one**: a single tree is a tree, a pair reads as a place.
 
 ## Iconography
 
