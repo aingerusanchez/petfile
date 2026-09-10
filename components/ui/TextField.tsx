@@ -92,7 +92,16 @@ export function TextField({
           // The 48dp floor, plus the vertical centring it needs: Android draws
           // a TextInput's text from the top of its box, so a minHeight without
           // this leaves the value riding above the field's middle.
-          style={{ minHeight: TOUCH_TARGET, textAlignVertical: "center" }}
+          //
+          // `minWidth: 0` is what lets `flex-1` actually shrink: on the web a
+          // TextInput is an <input>, whose default intrinsic width is about 20
+          // characters, so inside a narrowed field the row grew past its
+          // container and pushed the unit out over the controls beside it.
+          style={{
+            minHeight: TOUCH_TARGET,
+            minWidth: 0,
+            textAlignVertical: "center",
+          }}
           // `pl-4 pr-*` and not `px-4`: Android drops `padding-inline` on a
           // TextInput, which measured 4.9dp against the 16 the browser showed.
           className={`flex-1 py-3 pl-4 font-sans text-text-primary ${
