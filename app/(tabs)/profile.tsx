@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { Trash2 } from "lucide-react-native";
+import { Mars, Pencil, Trash2, Venus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Modal, Pressable, View } from "react-native";
 import {
@@ -15,11 +15,13 @@ import {
   Screen,
   Text,
   TextField,
+  colors,
   pressed,
   useToast,
 } from "../../components/ui";
+import { describeAge } from "../../lib/age";
 import { useAuth } from "../../lib/auth";
-import { parseISO, toApproximateISO } from "../../lib/dates";
+import { formatDisplayDate, parseISO, toApproximateISO } from "../../lib/dates";
 import {
   deletePet,
   getMyPet,
@@ -53,19 +55,75 @@ const NEUTERED: { value: boolean | null; label: string; testId: string }[] = [
   { value: null, label: "No sé", testId: "unknown" },
 ];
 
+/** Which block is open for editing. Only ever one. */
+type Section = "main" | "health" | null;
+
 /**
- * The pet's file: everything the onboarding form stopped asking for.
+ * One line of the file: what it is called, and what it says.
  *
- * Onboarding deliberately collects two required fields and defers the rest on
- * the promise that they can be filled in later. Until this screen existed that
- * promise was broken — there was no way to add a breed, correct a typo in a
- * name, or record that the dog had been neutered.
+ * Announced as a single item — "Esterilizado: Sí" — because a screen reader
+ * moving through two nodes per row reads a list of labels and then a list of
+ * answers.
+ */
+function Row({
+  label,
+  value,
+  muted = false,
+  testID,
+}: {
+  label: string;
+  value: string;
+  /** For a value that is an absence rather than an answer. */
+  muted?: boolean;
+  testID?: string;
+}) {
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${label}: ${value}`}
+      className="mb-4 flex-row items-baseline justify-between gap-4"
+    >
+      <Text className="text-xs font-semibold uppercase tracking-[0.05em] text-text-tertiary">
+        {label}
+      </Text>
+      <Text
+        testID={testID}
+        numberOfLines={2}
+        className={`flex-1 text-right ${muted ? "text-text-tertiary" : "text-text-primary"}`}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * The pet's file: a page that presents the animal, with the form behind a door.
+ *
+ * **A CV, not a form.** The screen a tutor opens to look at their dog should
+ * read like a record — photo, name, breed, age — and not like eight inputs
+ * waiting to be corrected. A permanently editable form makes every visit feel
+ * like data entry, puts a save button on a screen nobody came to save, and
+ * gives the most destructive action in the app a permanent seat. So the data
+ * is presented, and each block carries its own "Editar…" button that swaps
+ * that block — and only that block — for its fields.
+ *
+ * **One block open at a time.** Two open forms mean two dirty states and two
+ * save buttons disagreeing about what is unsaved, for no gain: an edit here is
+ * one deliberate correction.
+ *
+ * **The header is where missing data shows.** The four fields it presents are
+ * all optional except the name and the birth date, so a thin file is a real
+ * outcome — and the honest response is to say what is not known and offer the
+ * door, not to draw an empty row. The initial stands in for the photo, the
+ * breed line says nobody has written one down, and a single link invites the
+ * rest. See `components/ui/Avatar.tsx` on why the initial is a complete
+ * answer rather than a hole.
  *
  * **Explicit save, not per-field autosave.** The same contract the onboarding
  * form uses: validate on submit, forgive on input. Autosave reads as less
  * friction until the required field is empty (what would it save?) or the
- * network drops (six requests, six separate failures to explain). An edit here
- * is a deliberate correction, and one button is the honest shape for it.
+ * network drops (six requests, six separate failures to explain).
  *
  * **The form's layout is duplicated from onboarding; its behaviour is not.**
  * What must never drift between the two screens — validation, the mixed-breed
@@ -83,6 +141,7 @@ export default function Profile() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<Section>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [typedName, setTypedName] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -137,6 +196,29 @@ export default function Profile() {
     !!edit &&
     JSON.stringify(edit) !== JSON.stringify(petEditFromRow(pet));
 
+  /**
+   * Opens a block, from the stored row rather than from whatever is in state.
+   *
+   * Closing without saving and opening again has to show the file as it is —
+   * otherwise the CV above and the form below would disagree about the same
+   * dog.
+   */
+  const openSection = useCallback(
+    (section: Exclude<Section, null>) => {
+      if (!pet) return;
+      setEdit(petEditFromRow(pet));
+      setFieldErrors({});
+      setEditing(section);
+    },
+    [pet],
+  );
+
+  const closeSection = useCallback(() => {
+    if (pet) setEdit(petEditFromRow(pet));
+    setFieldErrors({});
+    setEditing(null);
+  }, [pet]);
+
   const save = useCallback(async () => {
     if (!pet || !edit) return false;
 
@@ -152,9 +234,10 @@ export default function Profile() {
       return false;
     }
 
-    // Re-reading is what makes the button go quiet again: `dirty` compares the
-    // form against the stored row, so the row has to catch up.
+    // Re-reading is what makes the CV catch up: `dirty` compares the form
+    // against the stored row, so the row has to move.
     setAttempt((n) => n + 1);
+    setEditing(null);
     toast.show({
       variant: "success",
       message: `Guardado. ${edit.name.trim()} está al día.`,
@@ -223,9 +306,9 @@ export default function Profile() {
     }
 
     setConfirmingDelete(false);
-    // Straight to registration, not to `/`. Both `app/index.tsx` and
+    // Straight to registration, not to "/". Both `app/index.tsx` and
     // `app/(tabs)/index.tsx` answer to "/", and the tab group wins that race —
-    // measured: deleting the pet landed on "Hoy" with no pet behind it.
+    // measured: deleting the pet landed on the day view with no pet behind it.
     // Onboarding is the honest destination anyway, and its own guard sends the
     // tutor away again if a pet somehow exists.
     router.replace("/onboarding");
@@ -255,232 +338,352 @@ export default function Profile() {
 
   if (!pet || !edit) return <LoadingScreen />;
 
-  const name = edit.name.trim() || pet.name;
+  const name = pet.name.trim();
   const nameMatches =
-    typedName.trim().toLocaleLowerCase() ===
-    pet.name.trim().toLocaleLowerCase();
+    typedName.trim().toLocaleLowerCase() === name.toLocaleLowerCase();
+
+  const SexIcon =
+    pet.sex === "male" ? Mars : pet.sex === "female" ? Venus : null;
+  const sexLabel = pet.sex === "male" ? "Macho" : "Hembra";
+  const breed = pet.breed_primary?.trim() || null;
+  const age = describeAge(pet.birth_date, pet.birth_date_approximate);
+  const incomplete = !pet.photo_url || !pet.sex || !breed;
+
+  const goal = pet.exercise_goal_minutes;
+  const saveErrorLabel =
+    Object.keys(fieldErrors).length > 0
+      ? "Faltan datos por rellenar"
+      : "No se ha podido guardar";
 
   return (
     <Screen scroll edges={["top"]}>
+      {/* The file's cover: who this is, at a glance, before any control. */}
       <View className="mb-8 flex-row items-center gap-5">
         <Avatar testID="profile-avatar" uri={photoUri} name={name} />
         <View className="flex-1">
-          <Text
-            testID="profile-title"
-            accessibilityRole="header"
-            className="mb-1 text-2xl font-bold text-text-primary"
-          >
-            {name}
-          </Text>
-          <View className="flex-row flex-wrap">
-            <Button
-              testID="profile-photo"
-              variant="link"
-              label={pet.photo_url ? "Cambiar foto" : "Añadir foto"}
-              successLabel="Lista"
-              errorLabel="No se pudo subir"
-              onPress={changePhoto}
-            />
-            {pet.photo_url ? (
-              <View className="ml-5">
-                <Button
-                  testID="profile-photo-remove"
-                  variant="link"
-                  label="Quitar"
-                  accessibilityLabel="Quitar la foto"
-                  successLabel="Quitada"
-                  errorLabel="No se pudo quitar"
-                  onPress={dropPhoto}
+          <View className="mb-1 flex-row items-center gap-2">
+            <Text
+              testID="profile-title"
+              accessibilityRole="header"
+              numberOfLines={1}
+              className="shrink text-2xl font-bold text-text-primary"
+            >
+              {name}
+            </Text>
+            {SexIcon ? (
+              // The glyph is the only place the sex appears, so it carries a
+              // name: an unlabelled icon is decoration, and this is data.
+              <View
+                accessible
+                accessibilityLabel={sexLabel}
+                className="shrink-0"
+              >
+                <SexIcon
+                  size={18}
+                  strokeWidth={2.5}
+                  color={colors.textSecondary}
                 />
               </View>
             ) : null}
           </View>
+          <Text
+            testID="profile-breed"
+            numberOfLines={2}
+            className={breed ? "text-text-secondary" : "text-text-tertiary"}
+          >
+            {breed ?? "Aún no sabemos su raza"}
+          </Text>
+          {age ? (
+            <Text
+              testID="profile-age"
+              accessibilityLabel={`${age.text}, ${age.stageLabel}`}
+              className="mt-0.5 text-sm text-text-tertiary"
+            >
+              {`${age.text} · ${age.stageLabel}`}
+            </Text>
+          ) : null}
+          {incomplete && editing !== "main" ? (
+            <Button
+              testID="profile-complete"
+              variant="link"
+              label="Completa su ficha"
+              accessibilityLabel={`Completar la ficha de ${name}`}
+              onPress={() => openSection("main")}
+            />
+          ) : null}
         </View>
       </View>
 
       <Group testID="profile-group-main">
-        <TextField
-          testID="profile-name"
-          label="Nombre"
-          required
-          value={edit.name}
-          onChangeText={(next) => setEdit((d) => d && { ...d, name: next })}
-          placeholder={pet.name}
-          error={fieldErrors.name}
-          autoCapitalize="words"
-          autoCorrect={false}
-          maxLength={40}
-        />
+        {editing === "main" ? (
+          <>
+            <View className="mb-5 flex-row flex-wrap items-center">
+              <Button
+                testID="profile-photo"
+                variant="link"
+                label={pet.photo_url ? "Cambiar foto" : "Añadir foto"}
+                successLabel="Lista"
+                errorLabel="No se pudo subir"
+                onPress={changePhoto}
+              />
+              {pet.photo_url ? (
+                <View className="ml-5">
+                  <Button
+                    testID="profile-photo-remove"
+                    variant="link"
+                    label="Quitar"
+                    accessibilityLabel="Quitar la foto"
+                    successLabel="Quitada"
+                    errorLabel="No se pudo quitar"
+                    onPress={dropPhoto}
+                  />
+                </View>
+              ) : null}
+            </View>
 
-        <ChipGroup label="Sexo" className="mb-5">
-          {(
-            [
-              { value: "male", label: "Macho" },
-              { value: "female", label: "Hembra" },
-            ] as const
-          ).map(({ value, label }) => (
-            <Chip
-              key={value}
-              testID={`profile-sex-${value}`}
-              label={label}
-              selected={edit.sex === value}
-              onPress={() => setEdit((d) => d && { ...d, sex: value })}
+            <TextField
+              testID="profile-name"
+              label="Nombre"
+              required
+              value={edit.name}
+              onChangeText={(next) => setEdit((d) => d && { ...d, name: next })}
+              placeholder={pet.name}
+              error={fieldErrors.name}
+              autoCapitalize="words"
+              autoCorrect={false}
+              maxLength={40}
             />
-          ))}
-        </ChipGroup>
 
-        <DateField
-          testID="profile-birthdate"
-          label="Fecha de nacimiento"
-          required
-          value={edit.birthDate}
-          approximate={edit.birthDateApproximate}
-          onChange={(iso) => setEdit((d) => d && { ...d, birthDate: iso })}
-          error={fieldErrors.birthDate}
-        />
-        <View className="mb-5 -mt-3">
-          <Checkbox
-            testID="profile-birthdate-approx"
-            label="Aproximado"
-            accessibilityLabel="Fecha de nacimiento aproximada"
-            checked={edit.birthDateApproximate}
-            onChange={(approximate) =>
-              setEdit((d) => {
-                if (!d) return d;
-                const parsed = d.birthDate ? parseISO(d.birthDate) : null;
-                return {
-                  ...d,
-                  birthDateApproximate: approximate,
-                  // Rewrites the day to the 1st when the date becomes
-                  // approximate, so the stored value cannot keep a day the
-                  // tutor has just said they do not know.
-                  birthDate:
-                    approximate && parsed
-                      ? toApproximateISO(parsed.month, parsed.year)
-                      : d.birthDate,
-                };
-              })
-            }
-          />
-        </View>
+            <ChipGroup label="Sexo" className="mb-5">
+              {(
+                [
+                  { value: "male", label: "Macho" },
+                  { value: "female", label: "Hembra" },
+                ] as const
+              ).map(({ value, label }) => (
+                <Chip
+                  key={value}
+                  testID={`profile-sex-${value}`}
+                  label={label}
+                  selected={edit.sex === value}
+                  onPress={() => setEdit((d) => d && { ...d, sex: value })}
+                />
+              ))}
+            </ChipGroup>
 
-        <BreedField
-          testID="profile-breed"
-          label="Raza"
-          value={edit.breedPrimary}
-          onChange={(breed) =>
-            setEdit((d) => d && { ...d, breedPrimary: breed })
-          }
-          placeholder="Husky Siberiano"
-          error={fieldErrors.breedPrimary}
-        />
-        <View className="mb-4 -mt-3">
-          <Checkbox
-            testID="profile-mixed"
-            label="Es mestizo"
-            accessibilityLabel="Es mestizo, sin raza concreta"
-            checked={isMixedShown(edit)}
-            onChange={(next) => setEdit((d) => d && withMixed(d, next))}
-          />
-        </View>
+            <DateField
+              testID="profile-birthdate"
+              label="Fecha de nacimiento"
+              required
+              value={edit.birthDate}
+              approximate={edit.birthDateApproximate}
+              onChange={(iso) => setEdit((d) => d && { ...d, birthDate: iso })}
+              error={fieldErrors.birthDate}
+            />
+            <View className="mb-5 -mt-3">
+              <Checkbox
+                testID="profile-birthdate-approx"
+                label="Aproximado"
+                accessibilityLabel="Fecha de nacimiento aproximada"
+                checked={edit.birthDateApproximate}
+                onChange={(approximate) =>
+                  setEdit((d) => {
+                    if (!d) return d;
+                    const parsed = d.birthDate ? parseISO(d.birthDate) : null;
+                    return {
+                      ...d,
+                      birthDateApproximate: approximate,
+                      // Rewrites the day to the 1st when the date becomes
+                      // approximate, so the stored value cannot keep a day the
+                      // tutor has just said they do not know.
+                      birthDate:
+                        approximate && parsed
+                          ? toApproximateISO(parsed.month, parsed.year)
+                          : d.birthDate,
+                    };
+                  })
+                }
+              />
+            </View>
+
+            <BreedField
+              testID="profile-breed-input"
+              label="Raza"
+              value={edit.breedPrimary}
+              onChange={(next) =>
+                setEdit((d) => d && { ...d, breedPrimary: next })
+              }
+              placeholder="Husky Siberiano"
+              error={fieldErrors.breedPrimary}
+            />
+            <View className="mb-5 -mt-3">
+              <Checkbox
+                testID="profile-mixed"
+                label="Es mestizo"
+                accessibilityLabel="Es mestizo, sin raza concreta"
+                checked={isMixedShown(edit)}
+                onChange={(next) => setEdit((d) => d && withMixed(d, next))}
+              />
+            </View>
+
+            <SectionActions
+              dirty={dirty}
+              errorLabel={saveErrorLabel}
+              onSave={save}
+              onCancel={closeSection}
+            />
+
+            {/* Behind the same door as the rest of the editing, and at the
+                bottom of it: the action that ends the file should not be
+                reachable from a screen someone opened to look at their dog.
+                Outlined rather than filled — it is available, not invited. */}
+            <View className="mb-5 mt-8 border-t border-border-default pt-6">
+              <Button
+                testID="profile-delete"
+                variant="outlined"
+                tone="danger"
+                icon={Trash2}
+                label={`Borrar la ficha de ${name}`}
+                onPress={() => {
+                  setTypedName("");
+                  setConfirmingDelete(true);
+                }}
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            <Row
+              label="Nacimiento"
+              testID="profile-birthdate-value"
+              value={formatDisplayDate(
+                pet.birth_date,
+                pet.birth_date_approximate,
+              )}
+            />
+            <EditButton
+              testID="profile-edit-main"
+              label={`Editar datos de ${name}`}
+              onPress={() => openSection("main")}
+            />
+          </>
+        )}
       </Group>
 
       <Group testID="profile-group-health" title="Salud y actividad">
-        <ChipGroup label="¿Esterilizado?">
-          {NEUTERED.map(({ value, label, testId }) => (
-            <Chip
-              key={testId}
-              testID={`profile-neutered-${testId}`}
-              label={label}
-              selected={edit.spayedNeutered === value}
-              onPress={() =>
-                setEdit((d) => d && { ...d, spayedNeutered: value })
+        {editing === "health" ? (
+          <>
+            <ChipGroup label="¿Esterilizado?">
+              {NEUTERED.map(({ value, label, testId }) => (
+                <Chip
+                  key={testId}
+                  testID={`profile-neutered-${testId}`}
+                  label={label}
+                  selected={edit.spayedNeutered === value}
+                  onPress={() =>
+                    setEdit((d) => d && { ...d, spayedNeutered: value })
+                  }
+                />
+              ))}
+            </ChipGroup>
+
+            <ChipGroup label="Nivel de actividad">
+              {ACTIVITY.map(({ value, label }) => (
+                <Chip
+                  key={value}
+                  testID={`profile-activity-${value}`}
+                  label={label}
+                  selected={edit.activityLevel === value}
+                  onPress={() =>
+                    setEdit((d) => d && { ...d, activityLevel: value })
+                  }
+                />
+              ))}
+            </ChipGroup>
+
+            <TextField
+              testID="profile-exercise-goal"
+              label="Objetivo diario de paseo"
+              value={
+                edit.exerciseGoalMinutes === null
+                  ? ""
+                  : String(edit.exerciseGoalMinutes)
+              }
+              onChangeText={(next) =>
+                setEdit((d) => {
+                  if (!d) return d;
+                  const digits = next.replace(/[^0-9]/g, "");
+                  return {
+                    ...d,
+                    exerciseGoalMinutes: digits === "" ? null : Number(digits),
+                  };
+                })
+              }
+              placeholder="60"
+              suffix="min."
+              suffixLabel="en minutos al día"
+              error={fieldErrors.exerciseGoalMinutes}
+              keyboardType="number-pad"
+              maxLength={3}
+            />
+            <Text className="mb-5 -mt-3 text-xs text-text-tertiary">
+              El diario compara con esto los paseos del día.
+            </Text>
+
+            <SectionActions
+              dirty={dirty}
+              errorLabel={saveErrorLabel}
+              onSave={save}
+              onCancel={closeSection}
+            />
+            <View className="mb-4" />
+          </>
+        ) : (
+          <>
+            <Row
+              label="Esterilizado"
+              testID="profile-neutered-value"
+              muted={pet.spayed_neutered === null}
+              value={
+                pet.spayed_neutered === null
+                  ? "No lo sabemos"
+                  : pet.spayed_neutered
+                    ? "Sí"
+                    : "No"
               }
             />
-          ))}
-        </ChipGroup>
-
-        <ChipGroup label="Nivel de actividad">
-          {ACTIVITY.map(({ value, label }) => (
-            <Chip
-              key={value}
-              testID={`profile-activity-${value}`}
-              label={label}
-              selected={edit.activityLevel === value}
-              onPress={() =>
-                setEdit((d) => d && { ...d, activityLevel: value })
+            <Row
+              label="Actividad"
+              testID="profile-activity-value"
+              muted={!pet.activity_level}
+              value={
+                ACTIVITY.find((a) => a.value === pet.activity_level)?.label ??
+                "Sin definir"
               }
             />
-          ))}
-        </ChipGroup>
-
-        <TextField
-          testID="profile-exercise-goal"
-          label="Objetivo diario de paseo"
-          value={
-            edit.exerciseGoalMinutes === null
-              ? ""
-              : String(edit.exerciseGoalMinutes)
-          }
-          onChangeText={(next) =>
-            setEdit((d) => {
-              if (!d) return d;
-              const digits = next.replace(/[^0-9]/g, "");
-              return {
-                ...d,
-                exerciseGoalMinutes: digits === "" ? null : Number(digits),
-              };
-            })
-          }
-          placeholder="60"
-          error={fieldErrors.exerciseGoalMinutes}
-          keyboardType="number-pad"
-          maxLength={3}
-        />
-        {/* The unit belongs next to the field, not inside the placeholder: a
-            placeholder disappears the moment the tutor types. */}
-        <Text className="mb-5 -mt-3 text-xs text-text-tertiary">
-          Minutos al día. El resumen del día compara los paseos con esto.
-        </Text>
+            <Row
+              label="Paseo al día"
+              testID="profile-goal-value"
+              muted={goal === null}
+              value={goal === null ? "Sin objetivo" : `${goal} min.`}
+            />
+            <EditButton
+              testID="profile-edit-health"
+              label="Editar salud y actividad"
+              onPress={() => openSection("health")}
+            />
+          </>
+        )}
       </Group>
 
-      <View className="mt-4">
-        <Button
-          testID="profile-save"
-          variant="primary"
-          label="Guardar cambios"
-          disabled={!dirty}
-          successLabel="Guardado"
-          errorLabel={
-            Object.keys(fieldErrors).length > 0
-              ? "Faltan datos por rellenar"
-              : "No se ha podido guardar"
-          }
-          onPress={save}
-        />
-      </View>
-
-      {/* Two exits, kept apart from the form and from each other: signing out
-          is routine and reversible, deleting is neither. */}
-      <View className="mt-10 border-t border-border-default pt-8">
+      {/* Signing out is routine and reversible, so it keeps its place on the
+          page — and it is now the only exit that does, which is the point. */}
+      <View className="mt-6 border-t border-border-default pt-8">
         <Button
           testID="profile-signout"
           label="Cerrar sesión"
           onPress={signOut}
         />
-        <View className="mt-5">
-          <Button
-            testID="profile-delete"
-            variant="link"
-            tone="danger"
-            icon={Trash2}
-            label={`Borrar a ${name}`}
-            onPress={() => {
-              setTypedName("");
-              setConfirmingDelete(true);
-            }}
-          />
-        </View>
       </View>
 
       <Modal
@@ -498,22 +701,29 @@ export default function Profile() {
             onPress={(event) => event.stopPropagation()}
             className="rounded-xl border border-error bg-surface p-5"
           >
+            {/* The file is what gets deleted, and the wording says so. A tutor
+                reaching this screen may have lost the animal, and "borrar a
+                Loki" asks them to confirm a sentence about their dog rather
+                than about a record in an app. */}
             <Text
               accessibilityRole="header"
               className="mb-2 text-xl font-bold text-text-primary"
             >
-              {`¿Borrar a ${pet.name}?`}
+              {`¿Borrar la ficha de ${name}?`}
             </Text>
             <Text className="mb-5 text-text-secondary">
-              Se borra su ficha y todo lo que hayáis registrado. No hay vuelta
+              Se borra su ficha y todo lo que habéis registrado. No hay vuelta
               atrás.
             </Text>
+            {/* The name goes in the label as a request, not as an example: the
+                label is uppercased by the type scale, so "ESCRIBE LOKI" next
+                to a field holding "Loki" read like a mismatch the tutor had to
+                fix. The comparison ignores case either way. */}
             <TextField
               testID="profile-delete-name"
-              label={`Escribe ${pet.name} para confirmarlo`}
+              label="Escribe el nombre de la mascota que quieres borrar"
               value={typedName}
               onChangeText={setTypedName}
-              placeholder={pet.name}
               autoCapitalize="words"
               autoCorrect={false}
               className="mb-5"
@@ -534,8 +744,8 @@ export default function Profile() {
                   testID="profile-delete-confirm"
                   variant="primary"
                   tone="danger"
-                  label="Borrar"
-                  accessibilityLabel={`Borrar a ${pet.name} definitivamente`}
+                  label="Borrar la ficha"
+                  accessibilityLabel={`Borrar la ficha de ${name} definitivamente`}
                   disabled={!nameMatches}
                   successLabel="Borrada"
                   errorLabel="No se ha podido borrar"
@@ -547,5 +757,70 @@ export default function Profile() {
         </Pressable>
       </Modal>
     </Screen>
+  );
+}
+
+/** The door into a block. Outlined, so it reads as available and not as urgent. */
+function EditButton({
+  testID,
+  label,
+  onPress,
+}: {
+  testID: string;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <View className="mb-5">
+      <Button
+        testID={testID}
+        variant="outlined"
+        icon={Pencil}
+        label={label}
+        onPress={onPress}
+      />
+    </View>
+  );
+}
+
+/**
+ * Save and cancel for an open block.
+ *
+ * The primary stays disabled until the form differs from the stored row, which
+ * is the same promise the button made when it was the only one on the screen:
+ * it says "there is nothing to save" instead of inviting an empty write.
+ */
+function SectionActions({
+  dirty,
+  errorLabel,
+  onSave,
+  onCancel,
+}: {
+  dirty: boolean;
+  /** Names the failure: a rejected field reads differently from a lost request. */
+  errorLabel: string;
+  onSave: () => Promise<boolean>;
+  onCancel: () => void;
+}) {
+  return (
+    <View className="mt-1 flex-row items-center gap-4">
+      <View className="flex-1">
+        <Button
+          testID="profile-save"
+          variant="primary"
+          label="Guardar cambios"
+          disabled={!dirty}
+          successLabel="Guardado"
+          errorLabel={errorLabel}
+          onPress={onSave}
+        />
+      </View>
+      <Button
+        testID="profile-cancel"
+        variant="link"
+        label="Cancelar"
+        onPress={onCancel}
+      />
+    </View>
   );
 }
