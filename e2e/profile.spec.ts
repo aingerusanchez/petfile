@@ -20,9 +20,6 @@ test("presents the file rather than a form", async ({ page }) => {
 
   await expect(page.getByTestId("profile-title")).toHaveText("Loki");
   await expect(page.getByTestId("profile-breed")).toHaveText("Husky Siberiano");
-  await expect(page.getByTestId("profile-birthdate-value")).toHaveText(
-    "14/09/2025",
-  );
 
   // The age is derived, so the assertion is on its shape and not on a number
   // that changes with the calendar.
@@ -45,29 +42,128 @@ test("presents the file rather than a form", async ({ page }) => {
   await expect(page.getByTestId("profile-edit-health")).toBeVisible();
 });
 
-test("invites the tutor to fill in what the header cannot show", async ({
-  page,
-}) => {
+test("invites the tutor only while something is missing", async ({ page }) => {
   await seedSession(page);
   await page.goto("/profile");
 
-  // The seeded pet has no photo, so the file is incomplete and says so.
+  // The seeded pet has a sex and a breed, so there is nothing to invite. The
+  // photo is not in that list: the portrait carries its own affordance.
+  await expect(page.getByTestId("profile-complete")).toBeHidden();
+
+  await resetE2EPets();
+  await seedE2EPet({ breed_primary: null });
+  await page.reload();
+
   await expect(page.getByTestId("profile-complete")).toBeVisible();
   await page.getByTestId("profile-complete").click();
-  await expect(page.getByTestId("profile-name")).toBeVisible();
-  await expect(page.getByTestId("profile-photo")).toHaveText("Añadir foto");
+  await expect(page.getByTestId("profile-breed-input")).toBeVisible();
 });
 
-test("says so when nobody has written down a breed", async ({ page }) => {
+test("drops the breed line rather than captioning the hole", async ({
+  page,
+}) => {
   await resetE2EPets();
   await seedE2EPet({ breed_primary: null });
 
   await seedSession(page);
   await page.goto("/profile");
 
-  await expect(page.getByTestId("profile-breed")).toHaveText(
-    "Aún no sabemos su raza",
+  await expect(page.getByTestId("profile-breed")).toBeHidden();
+  // And the age still carries the header on its own.
+  await expect(page.getByTestId("profile-age")).toBeVisible();
+});
+
+test("opens the photo editor from the portrait", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/profile");
+
+  // The portrait is the affordance, not a link beside it.
+  await expect(page.getByTestId("profile-avatar")).toHaveAttribute(
+    "aria-label",
+    "Añadir una foto de Loki",
   );
+  await page.getByTestId("profile-avatar").click();
+
+  await expect(page.getByTestId("avatar-editor")).toBeVisible();
+  // Nothing picked yet, so there is nothing to save and no frame to drag.
+  await expect(page.getByTestId("avatar-editor-save")).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await expect(page.getByTestId("avatar-editor-stage")).toBeHidden();
+  await expect(page.getByTestId("avatar-editor-pick")).toHaveText(
+    "Elegir foto",
+  );
+
+  await page.getByTestId("avatar-editor-cancel").click();
+  await expect(page.getByTestId("avatar-editor")).toBeHidden();
+});
+
+test("frames a picked photo and stores the crop", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/profile");
+  await page.getByTestId("profile-avatar").click();
+
+  // On the web target expo-image-picker is an <input type="file">, which is
+  // what makes the whole pick → frame → crop → upload path testable here. The
+  // fixture is 600x400, so cover zoom takes the middle 400x400 square.
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByTestId("avatar-editor-pick").click();
+  (await chooser).setFiles("e2e/fixtures/photo.jpg");
+
+  await expect(page.getByTestId("avatar-editor-stage")).toBeVisible();
+  await expect(page.getByTestId("avatar-editor-zoom")).toHaveText("1.0×");
+  // Cover zoom is the floor, so there is nothing to zoom out of yet.
+  await expect(page.getByTestId("avatar-editor-zoom-out")).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+
+  await page.getByTestId("avatar-editor-zoom-in").click();
+  await expect(page.getByTestId("avatar-editor-zoom")).toHaveText("1.5×");
+  await expect(page.getByTestId("avatar-editor-zoom-out")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+
+  await expect(page.getByTestId("avatar-editor-save")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.getByTestId("avatar-editor-save").click();
+
+  await expect(page.getByText("Foto actualizada")).toBeVisible();
+  await expect(page.getByTestId("avatar-editor")).toBeHidden();
+
+  // The portrait now renders the stored crop, and its label follows.
+  await expect(page.getByTestId("profile-avatar-image")).toBeVisible();
+  await expect(page.getByTestId("profile-avatar")).toHaveAttribute(
+    "aria-label",
+    "Cambiar la foto de Loki",
+  );
+
+  await page.reload();
+  await expect(page.getByTestId("profile-avatar-image")).toBeVisible();
+});
+
+test("takes the photo away again", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/profile");
+  await page.getByTestId("profile-avatar").click();
+
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByTestId("avatar-editor-pick").click();
+  (await chooser).setFiles("e2e/fixtures/photo.jpg");
+  await page.getByTestId("avatar-editor-save").click();
+  await expect(page.getByTestId("profile-avatar-image")).toBeVisible();
+
+  await page.getByTestId("profile-avatar").click();
+  await page.getByTestId("avatar-editor-remove").click();
+
+  // Back to the initial, which is a complete answer rather than a gap.
+  await expect(page.getByTestId("profile-avatar-initial")).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("profile-avatar-initial")).toBeVisible();
 });
 
 test("opens a block, saves it, and the header follows", async ({ page }) => {
@@ -253,7 +349,7 @@ test("keeps every control on the 48dp floor here too", async ({ page }) => {
   };
 
   await floor([
-    "profile-complete",
+    "profile-avatar",
     "profile-edit-main",
     "profile-edit-health",
     "profile-signout",
@@ -261,7 +357,6 @@ test("keeps every control on the 48dp floor here too", async ({ page }) => {
 
   await page.getByTestId("profile-edit-main").click();
   await floor([
-    "profile-photo",
     "profile-name",
     "profile-sex-male",
     "profile-birthdate",

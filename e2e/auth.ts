@@ -79,7 +79,8 @@ export async function seedSession(page: Page): Promise<void> {
  * "pets deletable by their owners" RLS policy (Task 3's migration) means
  * this can only ever touch rows owned by the signed-in e2e account.
  * `pet_owners` rows cascade from `pets` on delete, so no orphaned
- * membership rows are left behind.
+ * membership rows are left behind. Storage does **not** cascade, so the
+ * pets' photo objects are removed here first.
  */
 export async function resetE2EPets(): Promise<void> {
   // Defence in depth: this is an unconditional delete of every pet the
@@ -95,6 +96,30 @@ export async function resetE2EPets(): Promise<void> {
   }
 
   const { client } = await signInE2EUser();
+
+  // Storage first, because the paths are derived from the pet ids and those
+  // are about to be gone. A photo the suite uploaded is data the suite
+  // created, and deleting the row would leave the object behind as litter in
+  // a bucket nothing else cleans. The folder is listed rather than read from
+  // `photo_url`, so a half-finished upload is collected too.
+  const { data: pets } = await client.from("pets").select("id");
+  for (const pet of pets ?? []) {
+    const { data: files } = await client.storage
+      .from("pet-photos")
+      .list(pet.id);
+    const paths = (files ?? []).map((file) => `${pet.id}/${file.name}`);
+    if (paths.length > 0) {
+      const { error: storageError } = await client.storage
+        .from("pet-photos")
+        .remove(paths);
+      // Not fatal: the rows are what the next test needs gone, and a storage
+      // failure here must not fail a suite for an unrelated reason.
+      if (storageError) {
+        console.warn(`Could not remove e2e photos: ${storageError.message}`);
+      }
+    }
+  }
+
   const { error } = await client.from("pets").delete().not("id", "is", null);
   if (error) {
     throw new Error(`Failed to reset e2e pets: ${error.message}`);
