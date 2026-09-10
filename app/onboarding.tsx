@@ -82,6 +82,7 @@ const ACTIVITY_PROMPT = "Elige el que más se acerque a vuestro día a día.";
 
 export default function Onboarding() {
   const { session, loading } = useAuth();
+  const userId = session?.user.id ?? null;
   const router = useRouter();
   const toast = useToast();
   const { celebrate } = useCelebration();
@@ -107,10 +108,44 @@ export default function Onboarding() {
   // weight tracking and future nutrition guidance, and the intended path is to
   // ask for each one when a flow that needs it starts — not at signup.
   const [showOptional, setShowOptional] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [hasPet, setHasPet] = useState<boolean | null>(null);
-  const [petCheckError, setPetCheckError] = useState<string | null>(null);
+  /**
+   * Which fields have been submitted, not what is wrong with them.
+   *
+   * **Forgive on input, derived rather than synchronised.** This was a map of
+   * messages plus an effect that pruned it on every keystroke — a cascading
+   * render for something that is not state at all. The messages are a pure
+   * function of the draft; what a submit changes is *which fields are allowed
+   * to speak*. Same behaviour, nothing to keep in step: a message still never
+   * appears for a field nobody submitted, and it still clears the moment that
+   * field becomes valid.
+   */
+  const [submitted, setSubmitted] = useState<string[]>([]);
   const [attempt, setAttempt] = useState(0);
+
+  /**
+   * The has-pet check, tagged with the account it was made for.
+   *
+   * Tagged rather than reset inside the effect, for the reason `app/index.tsx`
+   * records: the reset was a cascading render, and it also left the previous
+   * account's answer readable until the new request resolved.
+   */
+  const [check, setCheck] = useState<{
+    for: string | null;
+    hasPet: boolean | null;
+    error: string | null;
+  }>({ for: null, hasPet: null, error: null });
+
+  const fresh = check.for === userId;
+  const hasPet = fresh ? check.hasPet : null;
+  const petCheckError = fresh ? check.error : null;
+
+  // Only the fields the tutor has already submitted may speak, and each says
+  // whatever is wrong with it *now*.
+  const validation = validatePetDraft(draft);
+  const fieldErrors: Record<string, string> = {};
+  for (const key of submitted) {
+    if (validation[key]) fieldErrors[key] = validation[key];
+  }
 
   /**
    * Scroll-to-error plumbing.
@@ -227,41 +262,8 @@ export default function Onboarding() {
     });
   }
 
-  /**
-   * Validate on submit, forgive on input.
-   *
-   * An error used to sit there until the next submit even after the tutor had
-   * fixed the field, which reads as the form not noticing. This clears an
-   * error the moment its field becomes valid — and only then, so a message
-   * cannot appear mid-typing for a field the tutor has not finished.
-   *
-   * It never *adds* an error: it walks the errors already on screen and keeps
-   * the ones that still hold, which is what makes it safe to run on every
-   * keystroke.
-   */
-  useEffect(() => {
-    setFieldErrors((previous) => {
-      const keys = Object.keys(previous);
-      if (keys.length === 0) return previous;
-
-      const current = validatePetDraft(draft);
-      const next: Record<string, string> = {};
-      for (const key of keys) {
-        if (current[key]) next[key] = current[key];
-      }
-
-      // Same keys and same messages means nothing changed; returning the same
-      // object keeps this from re-rendering on every keystroke.
-      const unchanged =
-        Object.keys(next).length === keys.length &&
-        keys.every((key) => next[key] === previous[key]);
-      return unchanged ? previous : next;
-    });
-  }, [draft]);
-
   const retry = useCallback(() => {
-    setPetCheckError(null);
-    setHasPet(null);
+    setCheck({ for: null, hasPet: null, error: null });
     setAttempt((n) => n + 1);
   }, []);
 
@@ -269,35 +271,34 @@ export default function Onboarding() {
   // the same has-pet check `app/index.tsx` does — otherwise a user who already
   // has a pet gets the creation form again and can make a duplicate.
   useEffect(() => {
-    if (!session) {
-      setHasPet(null);
-      setPetCheckError(null);
-      return;
-    }
+    if (!userId) return;
 
     let cancelled = false;
     getMyPet()
       .then(({ pet, error: failure }) => {
         if (cancelled) return;
-        if (failure) {
-          setPetCheckError(failure);
-          return;
-        }
-        setHasPet(pet !== null);
+        setCheck({
+          for: userId,
+          hasPet: failure ? null : pet !== null,
+          error: failure ?? null,
+        });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setPetCheckError(
-          err instanceof Error
-            ? err.message
-            : "No hemos podido encontrar a tu perro",
-        );
+        setCheck({
+          for: userId,
+          hasPet: null,
+          error:
+            err instanceof Error
+              ? err.message
+              : "No hemos podido encontrar a tu perro",
+        });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [session, attempt]);
+  }, [userId, attempt]);
 
   // A failed check must not fall through to the form (that would risk a
   // duplicate pet) or leave the spinner spinning forever.
@@ -350,7 +351,7 @@ export default function Onboarding() {
     // straight to createPet would surface one error at a time, at the bottom
     // of the form, for a field that may be scrolled off-screen.
     const errors = validatePetDraft(draft);
-    setFieldErrors(errors);
+    setSubmitted(Object.keys(errors));
     if (Object.keys(errors).length > 0) {
       // Always the first error, never the last one reported: with several
       // invalid fields the tutor should land on the topmost one and work down.

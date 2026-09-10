@@ -29,12 +29,11 @@ export default function AuthCallback() {
 
   useEffect(() => {
     // Already signed in: openAuthSessionAsync got there first, which is the
-    // normal path. Nothing to consume.
-    if (session) {
-      setSettled(true);
-      return;
-    }
-    if (loading || !url) return;
+    // normal path. Nothing to consume — and nothing to record either, because
+    // the render redirects on `session` before it ever reads `settled`. The
+    // `setSettled(true)` that used to sit here was a cascading render for a
+    // value no branch could reach.
+    if (session || loading || !url) return;
 
     let cancelled = false;
     completeSignIn(url)

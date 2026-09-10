@@ -153,7 +153,19 @@ export default function Profile() {
   const [edit, setEdit] = useState<PetEdit | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  /**
+   * Which fields have been submitted, not what is wrong with them.
+   *
+   * **Forgive on input, derived rather than synchronised.** This used to be a
+   * map of messages plus an effect that pruned it on every keystroke, which is
+   * a cascading render for something that is not state at all: the messages
+   * are a pure function of the draft, and what the tutor's submit actually
+   * changed is *which fields are allowed to speak*. Keeping the keys and
+   * deriving the messages is the same behaviour with nothing to keep in step —
+   * an error still cannot appear for a field nobody submitted, and it still
+   * clears the moment that field becomes valid.
+   */
+  const [submitted, setSubmitted] = useState<string[]>([]);
   const [editing, setEditing] = useState<Section>(null);
   const [editingPhoto, setEditingPhoto] = useState(false);
   /**
@@ -197,24 +209,6 @@ export default function Profile() {
     };
   }, [attempt]);
 
-  /**
-   * Forgive on input, exactly as onboarding does: an error clears the moment
-   * its own field becomes valid, and this never *adds* one, so it is safe to
-   * run on every keystroke.
-   */
-  useEffect(() => {
-    if (!edit) return;
-    setFieldErrors((previous) => {
-      const keys = Object.keys(previous);
-      if (keys.length === 0) return previous;
-
-      const current = validatePetDraft(edit);
-      const next: Record<string, string> = {};
-      for (const key of keys) if (current[key]) next[key] = current[key];
-      return keys.length === Object.keys(next).length ? previous : next;
-    });
-  }, [edit]);
-
   const dirty =
     !!pet &&
     !!edit &&
@@ -231,7 +225,7 @@ export default function Profile() {
     (section: Exclude<Section, null>) => {
       if (!pet) return;
       setEdit(petEditFromRow(pet));
-      setFieldErrors({});
+      setSubmitted([]);
       setGoalText(
         pet.exercise_goal_minutes
           ? formatDuration(pet.exercise_goal_minutes)
@@ -245,7 +239,7 @@ export default function Profile() {
 
   const closeSection = useCallback(() => {
     if (pet) setEdit(petEditFromRow(pet));
-    setFieldErrors({});
+    setSubmitted([]);
     setGoalError(null);
     setEditing(null);
   }, [pet]);
@@ -276,7 +270,7 @@ export default function Profile() {
 
     const errors = validatePetDraft(edit);
     if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
+      setSubmitted(Object.keys(errors));
       return false;
     }
 
@@ -425,6 +419,14 @@ export default function Profile() {
   const incomplete = !pet.sex || !breed;
 
   const goal = pet.exercise_goal_minutes;
+
+  // Only the fields the tutor has already submitted may speak, and each says
+  // whatever is wrong with it *now*.
+  const validation = validatePetDraft(edit);
+  const fieldErrors: Record<string, string> = {};
+  for (const key of submitted) {
+    if (validation[key]) fieldErrors[key] = validation[key];
+  }
   const saveErrorLabel =
     Object.keys(fieldErrors).length > 0
       ? "Faltan datos por rellenar"
