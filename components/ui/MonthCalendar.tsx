@@ -5,6 +5,25 @@ import { dayKey } from "../../lib/events";
 import { NORDIC_ICE } from "./calendar";
 import { Text } from "./Text";
 
+/**
+ * The floor for the box around a day's number, in dp.
+ *
+ * Round, so the radius is half of it: the One Radius Rule governs corners, and
+ * a circle has none. Grown by its own padding when the text is larger, which
+ * is why it is a minimum rather than a size.
+ */
+const DAY_CHIP = 28;
+
+/**
+ * How far the day numbers are allowed to scale with the system font size.
+ *
+ * The library lays the month out on a fixed row height, so past a point the
+ * numbers stop fitting the grid however this component draws them — capping is
+ * the honest answer rather than clipping. 1.5 was measured on the device as
+ * the last scale where a two-digit number still fits comfortably.
+ */
+const DAY_MAX_SCALE = 1.5;
+
 /** What one day carries, from `summariseMonth` in `lib/events.ts`. */
 export type CalendarMark = {
   walkedMinutes: number;
@@ -78,6 +97,17 @@ function keyOf(date: string): string {
  * differ in fill as well as hue, and the day's accessible name says it in
  * words — this is the app's first surface that would otherwise communicate by
  * colour alone, which is the one thing its own rules forbid.
+ *
+ * **A day is two focus stops, and that is the library's doing.** It wraps
+ * `components.Day` in its own `Pressable` with a hardcoded
+ * `accessibilityLabel` of the number and offers no way to change it, so the
+ * label that says what happened has to live on a node inside it: TalkBack
+ * lands on "8, botón" and then on "8, objetivo conseguido, con medicación".
+ * Measured on the device — both nodes are focusable and share the same
+ * bounds. The alternative is one stop that says only "8", which puts the
+ * whole month back to communicating by colour alone. The second stop is
+ * redundant, never wrong, and the number is repeated inside it deliberately
+ * so each stop stands on its own.
  *
  * Contrast on the sheet's Fjord Slate, all above the 3:1 a non-text indicator
  * needs: Error Red 4.53:1, Warning Amber 7.93:1, Success Green 7.48:1, Mist
@@ -174,7 +204,20 @@ export function MonthCalendar({
                     chips: the accent fills what is chosen, a hairline marks
                     today when it is not. */}
                 <View
-                  className={`h-[28px] w-[28px] items-center justify-center rounded-[14px] ${
+                  // **The chip grows with the number; the grid cannot.**
+                  // Fixed at 28dp square it held "10" flush against the
+                  // circle at font_scale 1.5, measured on the device, and
+                  // would have clipped above that. So the size is a floor
+                  // with padding around the digits — and the digits are
+                  // capped, because the library computes a fixed row height
+                  // and nothing here can make the month taller.
+                  style={{
+                    minWidth: DAY_CHIP,
+                    minHeight: DAY_CHIP,
+                    paddingHorizontal: 5,
+                    borderRadius: DAY_CHIP / 2,
+                  }}
+                  className={`items-center justify-center ${
                     day.isSelected
                       ? "bg-accent-primary"
                       : day.isToday
@@ -183,6 +226,7 @@ export function MonthCalendar({
                   }`}
                 >
                   <Text
+                    maxFontSizeMultiplier={DAY_MAX_SCALE}
                     className={
                       day.isSelected
                         ? "font-bold text-on-accent"

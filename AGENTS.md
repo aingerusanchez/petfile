@@ -152,7 +152,7 @@ Shared UI lives in `components/ui/`, never in `app/` — `app/` holds routes. Th
 
 **`react-native-ui-datepicker` hands a `CalendarDay` an _instant_, not a date.** `day.date` arrives as `"2026-08-31T22:00:00.000Z"` for the 1st of September — Madrid is UTC+2, so local midnight is the previous day in UTC. Slicing the first ten characters looks safe and is wrong by a day for every timezone east of Greenwich, which marks the wrong cell and raises nothing. It has to go through local getters (`dayKey(new Date(day.date))`).
 
-**A custom `components.Day` replaces the library's cell content**, so `classNames.selected` and `classNames.today` never reach it. A calendar with a custom day has to draw its own selection.
+**A custom `components.Day` replaces the library's cell content**, so `classNames.selected` and `classNames.today` never reach it. A calendar with a custom day has to draw its own selection. It is also wrapped in the library's own `Pressable` with a hardcoded `accessibilityLabel` of the day number and no prop to override it, so a richer label has to sit on a node inside that wrapper — which makes every day **two** TalkBack stops. Measured on the device: both nodes are focusable with identical bounds.
 
 Three platform gotchas the browser hides, all measured on device and recorded in DESIGN.md:
 
