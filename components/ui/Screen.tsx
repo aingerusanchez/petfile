@@ -54,6 +54,15 @@ type ScreenProps = {
    * own children have to opt back in with `pointerEvents: "auto"`.
    */
   overlay?: (position: { right: number; bottom: number }) => ReactNode;
+  /**
+   * Content pinned to the foot of the screen, below everything else.
+   *
+   * For what should be findable and not looked at — the build's version. It
+   * sits at the bottom of the *viewport* when the content is short and after
+   * the content when it is long, which is what "out of the way" means on a
+   * screen that can scroll.
+   */
+  footer?: ReactNode;
   /** Appended to the container's classes, for per-screen alignment. */
   className?: string;
   testID?: string;
@@ -87,6 +96,7 @@ export function Screen({
   onViewportHeight,
   onTopInset,
   overlay,
+  footer,
   className = "",
   testID,
 }: ScreenProps) {
@@ -145,7 +155,10 @@ export function Screen({
         ref={scrollRef}
         testID={testID}
         className={`flex-1 bg-base ${className}`}
-        contentContainerStyle={padding}
+        // `flexGrow` only with a footer: it makes the content container fill
+        // the viewport so `mt-auto` has somewhere to push to, and it is a
+        // no-op once the content is taller than the screen.
+        contentContainerStyle={footer ? { ...padding, flexGrow: 1 } : padding}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
         onScroll={
@@ -160,6 +173,7 @@ export function Screen({
         }
       >
         {children}
+        {footer ? <View className="mt-auto">{footer}</View> : null}
       </ScrollView>
     );
 
@@ -172,13 +186,29 @@ export function Screen({
     );
   }
 
+  if (!footer) {
+    return (
+      <View
+        testID={testID}
+        style={{ ...padding, paddingBottom: padY + bottomInset }}
+        className={`flex-1 bg-base ${alignment} ${className}`}
+      >
+        {children}
+        {floating}
+      </View>
+    );
+  }
+
+  // With a footer the alignment moves to an inner box, so the footer can sit
+  // below whatever the screen centred rather than being centred with it.
   return (
     <View
       testID={testID}
       style={{ ...padding, paddingBottom: padY + bottomInset }}
-      className={`flex-1 bg-base ${alignment} ${className}`}
+      className="flex-1 bg-base"
     >
-      {children}
+      <View className={`flex-1 ${alignment} ${className}`}>{children}</View>
+      {footer}
       {floating}
     </View>
   );

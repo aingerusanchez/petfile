@@ -55,7 +55,7 @@ export default function SettingsScreen() {
   ];
 
   return (
-    <Screen scroll>
+    <Screen scroll footer={<Version testID="settings-version" />}>
       {/* This route has no tab bar and the Stack draws no header, so the way
           back is the screen's own business. */}
       <View className="mb-8 -ml-3">
@@ -76,9 +76,11 @@ export default function SettingsScreen() {
       >
         Ajustes
       </Text>
+      {/* One line, and only the part the options cannot show: that this is
+          per device. The reassurance about stored data went — nothing on this
+          screen suggests otherwise. */}
       <Text className="mb-8 text-text-tertiary">
-        Cómo se lee la app en este móvil. No cambia nada de lo que hayáis
-        registrado.
+        Cómo se lee la app en este móvil.
       </Text>
 
       <Group testID="settings-formats" title="Formatos">
@@ -96,12 +98,12 @@ export default function SettingsScreen() {
             />
           ))}
         </ChipGroup>
-        {/* Said out loud rather than discovered: the number pad has no
-            a.m./p.m., so the two time fields keep taking 24-hour digits
-            whatever this says. */}
+        {/* The one caveat that survives, because it is the one thing the
+            chips cannot show: this changes reading, not writing. Cut to the
+            fact — the reason (a number pad has no meridiem) belongs in the
+            code, not on the screen. */}
         <Text className="-mt-3 mb-5 text-xs text-text-tertiary">
-          Para leer. Al escribir una hora se sigue usando 24h, porque el teclado
-          numérico no tiene a.m. ni p.m.
+          Solo para leer: al escribir una hora se sigue usando 24h.
         </Text>
 
         <ChipGroup label="Duración">
@@ -118,9 +120,6 @@ export default function SettingsScreen() {
             />
           ))}
         </ChipGroup>
-        <Text className="-mt-3 mb-5 text-xs text-text-tertiary">
-          Al escribir valen las dos: 90 o 1h 30m.
-        </Text>
       </Group>
 
       {/* Named, not hidden: these are the next ones and this is where they go.
@@ -132,10 +131,6 @@ export default function SettingsScreen() {
           el botón de añadir al pulgar hábil.
         </Text>
       </Group>
-
-      <View className="mt-6">
-        <Version testID="settings-version" />
-      </View>
     </Screen>
   );
 }

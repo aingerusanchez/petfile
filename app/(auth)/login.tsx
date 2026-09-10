@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { View } from "react-native";
 import { Button, GoogleMark, Screen, Text, Version } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 
@@ -8,7 +7,10 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <Screen className="justify-center">
+    <Screen
+      className="justify-center"
+      footer={<Version testID="login-version" />}
+    >
       <Text
         accessibilityRole="header"
         className="mb-2 font-bold text-4xl text-text-primary"
@@ -46,12 +48,6 @@ export default function Login() {
           return !failure;
         }}
       />
-
-      {/* The one surface a tutor sees before signing in, which is where a
-          stale build has to be able to identify itself. */}
-      <View className="mt-8">
-        <Version testID="login-version" />
-      </View>
     </Screen>
   );
 }
