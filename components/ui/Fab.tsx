@@ -42,10 +42,11 @@ type FabProps = {
  * the page on controls rather than on the log the screen exists to show. A
  * floating action costs a tap and returns both.
  *
- * **A square at the system radius, not a circle.** The One Radius Rule has two
- * recorded exceptions and neither is this: the checkbox, where a 12px radius
- * on a 24px box reads as a radio button, and the avatar, where the subject is
- * round. Material 3 draws square FABs too, so nothing is being fought here.
+ * **A circle.** It was a 56dp square at the system radius while The One Radius
+ * Rule still read as "one shape"; the rule now says one *corner* radius, and
+ * that a control whose convention is round may be round. A floating action is
+ * the clearest case there is: a circle over a page of rounded rectangles reads
+ * as something laid on top, which is exactly what it is.
  *
  * **The nearest action to the thumb is the likeliest one.** Actions render in
  * the order given — walk first — and the column is reversed on screen, so the
@@ -122,7 +123,7 @@ export function Fab({ position, label, actions, testID }: FabProps) {
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
                 style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-                className="flex-row items-center gap-3 rounded-xl border border-border-strong bg-surface pl-4 pr-4"
+                className="flex-row items-center gap-3 rounded-xl border border-border-strong bg-surface pr-4 pl-4"
               >
                 <action.icon
                   size={20}
@@ -145,10 +146,10 @@ export function Fab({ position, label, actions, testID }: FabProps) {
           accessibilityState={{ expanded: open }}
           aria-expanded={open}
           style={(state) => [
-            { width: FAB_SIZE, height: FAB_SIZE },
+            { width: FAB_SIZE, height: FAB_SIZE, borderRadius: FAB_SIZE / 2 },
             pressed(state),
           ]}
-          className="items-center justify-center rounded-xl bg-accent-primary"
+          className="items-center justify-center bg-accent-primary"
         >
           {open ? (
             <X size={24} strokeWidth={2.5} color={colors.onAccent} />

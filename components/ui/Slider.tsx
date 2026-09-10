@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { PanResponder, View, type LayoutChangeEvent } from "react-native";
 import { TOUCH_TARGET } from "./tokens";
 
-/** The thumb's side in dp. Smaller than the touch target it sits inside. */
+/** The thumb's diameter in dp. Smaller than the touch target it sits inside. */
 const THUMB = 20;
 
 type SliderProps = {
@@ -131,17 +131,15 @@ export function Slider({
           className="h-1 rounded-xl bg-accent-secondary"
         />
       </View>
-      {/* Half the system radius, the way the checkbox halves it: The One
-          Radius Rule says a control too small for 12px halves it rather than
-          inventing a value, and a round thumb would be a third exception the
-          rule does not need. */}
+      {/* Round, which is what a thumb is: the radius rule governs corners, and
+          a control with no corners has none to govern. */}
       <View
         style={{
           position: "absolute",
           left: ratio * travel,
           width: THUMB,
           height: THUMB,
-          borderRadius: THUMB / 4,
+          borderRadius: THUMB / 2,
           pointerEvents: "none",
         }}
         className="border border-border-strong bg-accent-primary"
