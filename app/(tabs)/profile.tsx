@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Modal, Pressable, View } from "react-native";
 import {
   Avatar,
+  AvatarEditor,
   BreedField,
   Button,
   Checkbox,
@@ -21,7 +22,7 @@ import {
 } from "../../components/ui";
 import { describeAge } from "../../lib/age";
 import { useAuth } from "../../lib/auth";
-import { formatDisplayDate, parseISO, toApproximateISO } from "../../lib/dates";
+import { parseISO, toApproximateISO } from "../../lib/dates";
 import {
   deletePet,
   getMyPet,
@@ -35,6 +36,7 @@ import {
   type PetRow,
 } from "../../lib/pets";
 import {
+  cropToSquare,
   pickPetPhoto,
   removePetPhoto,
   signedPhotoUrl,
@@ -114,11 +116,17 @@ function Row({
  *
  * **The header is where missing data shows.** The four fields it presents are
  * all optional except the name and the birth date, so a thin file is a real
- * outcome — and the honest response is to say what is not known and offer the
- * door, not to draw an empty row. The initial stands in for the photo, the
- * breed line says nobody has written one down, and a single link invites the
- * rest. See `components/ui/Avatar.tsx` on why the initial is a complete
- * answer rather than a hole.
+ * outcome — and the honest response is to drop the line and offer the door,
+ * not to draw an empty row or caption the hole. A missing breed simply is not
+ * there; the initial stands in for the photo; and one link invites whatever is
+ * left. See `components/ui/Avatar.tsx` on why the initial is a complete answer
+ * rather than a gap.
+ *
+ * **The portrait is the way the photo changes.** Tapping it opens
+ * `AvatarEditor`, which frames the picture against the circle it will appear
+ * in. That is why the photo is not among the fields behind the edit door: it
+ * has a better affordance of its own, and two paths to one action is the
+ * ambiguity this screen is trying to remove.
  *
  * **Explicit save, not per-field autosave.** The same contract the onboarding
  * form uses: validate on submit, forgive on input. Autosave reads as less
@@ -142,6 +150,7 @@ export default function Profile() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<Section>(null);
+  const [editingPhoto, setEditingPhoto] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [typedName, setTypedName] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -245,37 +254,57 @@ export default function Profile() {
     return true;
   }, [pet, edit, toast]);
 
-  const changePhoto = useCallback(async () => {
-    if (!pet) return false;
-
-    const { uri, error: pickError } = await pickPetPhoto();
-    if (pickError) {
-      toast.show({ variant: "error", message: pickError, persist: true });
-      return false;
+  const pickPhoto = useCallback(async () => {
+    const { uri, error } = await pickPetPhoto();
+    if (error) {
+      toast.show({ variant: "error", message: error, persist: true });
+      return null;
     }
-    if (!uri) return true; // backed out of the picker, which is not a failure
+    return uri;
+  }, [toast]);
 
-    const { path, error } = await uploadPetPhoto(pet.id, uri);
-    if (error || !path) {
-      toast.show({
-        variant: "error",
-        message: error ?? "No hemos podido guardar la foto",
-        persist: true,
-      });
-      return false;
-    }
+  /** Crop, upload, then the column — in that order, so nothing half-lands. */
+  const savePhoto = useCallback(
+    async (
+      uri: string,
+      rect: { originX: number; originY: number; size: number },
+    ) => {
+      if (!pet) return false;
 
-    // Only the photo column: an unsaved edit on screen stays unsaved.
-    const { error: columnError } = await updatePetPhoto(pet.id, path);
-    if (columnError) {
-      toast.show({ variant: "error", message: columnError, persist: true });
-      return false;
-    }
+      const { uri: cropped, error: cropError } = await cropToSquare(uri, rect);
+      if (cropError || !cropped) {
+        toast.show({
+          variant: "error",
+          message: cropError ?? "No hemos podido recortar la foto",
+          persist: true,
+        });
+        return false;
+      }
 
-    setAttempt((n) => n + 1);
-    toast.show({ variant: "success", message: "Foto actualizada" });
-    return true;
-  }, [pet, toast]);
+      const { path, error } = await uploadPetPhoto(pet.id, cropped);
+      if (error || !path) {
+        toast.show({
+          variant: "error",
+          message: error ?? "No hemos podido guardar la foto",
+          persist: true,
+        });
+        return false;
+      }
+
+      // Only the photo column: an unsaved edit on screen stays unsaved.
+      const { error: columnError } = await updatePetPhoto(pet.id, path);
+      if (columnError) {
+        toast.show({ variant: "error", message: columnError, persist: true });
+        return false;
+      }
+
+      setEditingPhoto(false);
+      setAttempt((n) => n + 1);
+      toast.show({ variant: "success", message: "Foto actualizada" });
+      return true;
+    },
+    [pet, toast],
+  );
 
   const dropPhoto = useCallback(async () => {
     if (!pet?.photo_url) return true;
@@ -291,6 +320,7 @@ export default function Profile() {
       return false;
     }
     setPhotoUri(null);
+    setEditingPhoto(false);
     setAttempt((n) => n + 1);
     return true;
   }, [pet, toast]);
@@ -347,7 +377,9 @@ export default function Profile() {
   const sexLabel = pet.sex === "male" ? "Macho" : "Hembra";
   const breed = pet.breed_primary?.trim() || null;
   const age = describeAge(pet.birth_date, pet.birth_date_approximate);
-  const incomplete = !pet.photo_url || !pet.sex || !breed;
+  // The photo is not in this list: it has its own affordance on the portrait,
+  // and a link promising to complete the file would open a form without it.
+  const incomplete = !pet.sex || !breed;
 
   const goal = pet.exercise_goal_minutes;
   const saveErrorLabel =
@@ -359,7 +391,18 @@ export default function Profile() {
     <Screen scroll edges={["top"]}>
       {/* The file's cover: who this is, at a glance, before any control. */}
       <View className="mb-8 flex-row items-center gap-5">
-        <Avatar testID="profile-avatar" uri={photoUri} name={name} />
+        <Avatar
+          testID="profile-avatar"
+          uri={photoUri}
+          name={name}
+          onPress={() => setEditingPhoto(true)}
+          actionLabel={pet.photo_url ? "Cambiar" : "Añadir"}
+          accessibilityLabel={
+            pet.photo_url
+              ? `Cambiar la foto de ${name}`
+              : `Añadir una foto de ${name}`
+          }
+        />
         <View className="flex-1">
           <View className="mb-1 flex-row items-center gap-2">
             <Text
@@ -386,13 +429,18 @@ export default function Profile() {
               </View>
             ) : null}
           </View>
-          <Text
-            testID="profile-breed"
-            numberOfLines={2}
-            className={breed ? "text-text-secondary" : "text-text-tertiary"}
-          >
-            {breed ?? "Aún no sabemos su raza"}
-          </Text>
+          {/* Only when there is one: a line saying nobody has written the
+              breed down is a hole with a caption, and the age below carries
+              the file on its own. The invitation link covers the gap. */}
+          {breed ? (
+            <Text
+              testID="profile-breed"
+              numberOfLines={2}
+              className="text-text-secondary"
+            >
+              {breed}
+            </Text>
+          ) : null}
           {age ? (
             <Text
               testID="profile-age"
@@ -414,161 +462,128 @@ export default function Profile() {
         </View>
       </View>
 
-      <Group testID="profile-group-main">
-        {editing === "main" ? (
-          <>
-            <View className="mb-5 flex-row flex-wrap items-center">
-              <Button
-                testID="profile-photo"
-                variant="link"
-                label={pet.photo_url ? "Cambiar foto" : "Añadir foto"}
-                successLabel="Lista"
-                errorLabel="No se pudo subir"
-                onPress={changePhoto}
+      {editing === "main" ? (
+        <Group testID="profile-group-main">
+          <TextField
+            testID="profile-name"
+            label="Nombre"
+            required
+            value={edit.name}
+            onChangeText={(next) => setEdit((d) => d && { ...d, name: next })}
+            placeholder={pet.name}
+            error={fieldErrors.name}
+            autoCapitalize="words"
+            autoCorrect={false}
+            maxLength={40}
+          />
+
+          <ChipGroup label="Sexo" className="mb-5">
+            {(
+              [
+                { value: "male", label: "Macho" },
+                { value: "female", label: "Hembra" },
+              ] as const
+            ).map(({ value, label }) => (
+              <Chip
+                key={value}
+                testID={`profile-sex-${value}`}
+                label={label}
+                selected={edit.sex === value}
+                onPress={() => setEdit((d) => d && { ...d, sex: value })}
               />
-              {pet.photo_url ? (
-                <View className="ml-5">
-                  <Button
-                    testID="profile-photo-remove"
-                    variant="link"
-                    label="Quitar"
-                    accessibilityLabel="Quitar la foto"
-                    successLabel="Quitada"
-                    errorLabel="No se pudo quitar"
-                    onPress={dropPhoto}
-                  />
-                </View>
-              ) : null}
-            </View>
+            ))}
+          </ChipGroup>
 
-            <TextField
-              testID="profile-name"
-              label="Nombre"
-              required
-              value={edit.name}
-              onChangeText={(next) => setEdit((d) => d && { ...d, name: next })}
-              placeholder={pet.name}
-              error={fieldErrors.name}
-              autoCapitalize="words"
-              autoCorrect={false}
-              maxLength={40}
-            />
-
-            <ChipGroup label="Sexo" className="mb-5">
-              {(
-                [
-                  { value: "male", label: "Macho" },
-                  { value: "female", label: "Hembra" },
-                ] as const
-              ).map(({ value, label }) => (
-                <Chip
-                  key={value}
-                  testID={`profile-sex-${value}`}
-                  label={label}
-                  selected={edit.sex === value}
-                  onPress={() => setEdit((d) => d && { ...d, sex: value })}
-                />
-              ))}
-            </ChipGroup>
-
-            <DateField
-              testID="profile-birthdate"
-              label="Fecha de nacimiento"
-              required
-              value={edit.birthDate}
-              approximate={edit.birthDateApproximate}
-              onChange={(iso) => setEdit((d) => d && { ...d, birthDate: iso })}
-              error={fieldErrors.birthDate}
-            />
-            <View className="mb-5 -mt-3">
-              <Checkbox
-                testID="profile-birthdate-approx"
-                label="Aproximado"
-                accessibilityLabel="Fecha de nacimiento aproximada"
-                checked={edit.birthDateApproximate}
-                onChange={(approximate) =>
-                  setEdit((d) => {
-                    if (!d) return d;
-                    const parsed = d.birthDate ? parseISO(d.birthDate) : null;
-                    return {
-                      ...d,
-                      birthDateApproximate: approximate,
-                      // Rewrites the day to the 1st when the date becomes
-                      // approximate, so the stored value cannot keep a day the
-                      // tutor has just said they do not know.
-                      birthDate:
-                        approximate && parsed
-                          ? toApproximateISO(parsed.month, parsed.year)
-                          : d.birthDate,
-                    };
-                  })
-                }
-              />
-            </View>
-
-            <BreedField
-              testID="profile-breed-input"
-              label="Raza"
-              value={edit.breedPrimary}
-              onChange={(next) =>
-                setEdit((d) => d && { ...d, breedPrimary: next })
+          <DateField
+            testID="profile-birthdate"
+            label="Fecha de nacimiento"
+            required
+            value={edit.birthDate}
+            approximate={edit.birthDateApproximate}
+            onChange={(iso) => setEdit((d) => d && { ...d, birthDate: iso })}
+            error={fieldErrors.birthDate}
+          />
+          <View className="mb-5 -mt-3">
+            <Checkbox
+              testID="profile-birthdate-approx"
+              label="Aproximado"
+              accessibilityLabel="Fecha de nacimiento aproximada"
+              checked={edit.birthDateApproximate}
+              onChange={(approximate) =>
+                setEdit((d) => {
+                  if (!d) return d;
+                  const parsed = d.birthDate ? parseISO(d.birthDate) : null;
+                  return {
+                    ...d,
+                    birthDateApproximate: approximate,
+                    // Rewrites the day to the 1st when the date becomes
+                    // approximate, so the stored value cannot keep a day the
+                    // tutor has just said they do not know.
+                    birthDate:
+                      approximate && parsed
+                        ? toApproximateISO(parsed.month, parsed.year)
+                        : d.birthDate,
+                  };
+                })
               }
-              placeholder="Husky Siberiano"
-              error={fieldErrors.breedPrimary}
             />
-            <View className="mb-5 -mt-3">
-              <Checkbox
-                testID="profile-mixed"
-                label="Es mestizo"
-                accessibilityLabel="Es mestizo, sin raza concreta"
-                checked={isMixedShown(edit)}
-                onChange={(next) => setEdit((d) => d && withMixed(d, next))}
-              />
-            </View>
+          </View>
 
-            <SectionActions
-              dirty={dirty}
-              errorLabel={saveErrorLabel}
-              onSave={save}
-              onCancel={closeSection}
+          <BreedField
+            testID="profile-breed-input"
+            label="Raza"
+            value={edit.breedPrimary}
+            onChange={(next) =>
+              setEdit((d) => d && { ...d, breedPrimary: next })
+            }
+            placeholder="Husky Siberiano"
+            error={fieldErrors.breedPrimary}
+          />
+          <View className="mb-5 -mt-3">
+            <Checkbox
+              testID="profile-mixed"
+              label="Es mestizo"
+              accessibilityLabel="Es mestizo, sin raza concreta"
+              checked={isMixedShown(edit)}
+              onChange={(next) => setEdit((d) => d && withMixed(d, next))}
             />
+          </View>
 
-            {/* Behind the same door as the rest of the editing, and at the
+          <SectionActions
+            dirty={dirty}
+            errorLabel={saveErrorLabel}
+            onSave={save}
+            onCancel={closeSection}
+          />
+
+          {/* Behind the same door as the rest of the editing, and at the
                 bottom of it: the action that ends the file should not be
                 reachable from a screen someone opened to look at their dog.
                 Outlined rather than filled — it is available, not invited. */}
-            <View className="mb-5 mt-8 border-t border-border-default pt-6">
-              <Button
-                testID="profile-delete"
-                variant="outlined"
-                tone="danger"
-                icon={Trash2}
-                label={`Borrar la ficha de ${name}`}
-                onPress={() => {
-                  setTypedName("");
-                  setConfirmingDelete(true);
-                }}
-              />
-            </View>
-          </>
-        ) : (
-          <>
-            <Row
-              label="Nacimiento"
-              testID="profile-birthdate-value"
-              value={formatDisplayDate(
-                pet.birth_date,
-                pet.birth_date_approximate,
-              )}
+          <View className="mb-5 mt-8 border-t border-border-default pt-6">
+            <Button
+              testID="profile-delete"
+              variant="outlined"
+              tone="danger"
+              icon={Trash2}
+              label={`Borrar la ficha de ${name}`}
+              onPress={() => {
+                setTypedName("");
+                setConfirmingDelete(true);
+              }}
             />
-            <EditButton
-              testID="profile-edit-main"
-              label={`Editar datos de ${name}`}
-              onPress={() => openSection("main")}
-            />
-          </>
-        )}
-      </Group>
+          </View>
+        </Group>
+      ) : (
+        // No read-only frame for the identity block: the header above already
+        // presents the name, the sex, the breed and the age, and a section
+        // holding one date and a button was a box around a door.
+        <EditButton
+          testID="profile-edit-main"
+          label={`Editar datos de ${name}`}
+          onPress={() => openSection("main")}
+        />
+      )}
 
       <Group testID="profile-group-health" title="Salud y actividad">
         {editing === "health" ? (
@@ -685,6 +700,17 @@ export default function Profile() {
           onPress={signOut}
         />
       </View>
+
+      {editingPhoto ? (
+        <AvatarEditor
+          name={name}
+          currentUri={photoUri}
+          onPick={pickPhoto}
+          onSave={savePhoto}
+          onRemove={dropPhoto}
+          onClose={() => setEditingPhoto(false)}
+        />
+      ) : null}
 
       <Modal
         visible={confirmingDelete}
