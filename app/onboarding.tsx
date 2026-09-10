@@ -19,12 +19,13 @@ import {
   useToast,
 } from "../components/ui";
 import { useAuth } from "../lib/auth";
-import { meansMixedBreed, MIXED_BREED_LABEL } from "../lib/breeds";
 import { parseISO, toApproximateISO } from "../lib/dates";
 import {
   createPet,
   getMyPet,
+  isMixedShown,
   validatePetDraft,
+  withMixed,
   type PetDraft,
 } from "../lib/pets";
 
@@ -194,19 +195,10 @@ export default function Onboarding() {
    * `lib/pets.ts` recognises the word, sets `is_mixed` and stores no breed, so
    * "Mestizo" is a thing the screen says and never a thing the record claims.
    */
-  const mixed = draft.isMixed || meansMixedBreed(draft.breedPrimary);
+  const mixed = isMixedShown(draft);
 
   function setMixed(next: boolean) {
-    setDraft((d) => ({
-      ...d,
-      isMixed: next,
-      breedPrimary: next
-        ? MIXED_BREED_LABEL
-        : meansMixedBreed(d.breedPrimary)
-          ? null
-          : d.breedPrimary,
-      breedSecondary: null,
-    }));
+    setDraft((d) => withMixed(d, next));
   }
 
   /**
