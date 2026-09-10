@@ -1,4 +1,5 @@
 export { Avatar } from "./Avatar";
+export { AvatarEditor } from "./AvatarEditor";
 export { BreedField } from "./BreedField";
 export { Button } from "./Button";
 export { Checkbox } from "./Checkbox";

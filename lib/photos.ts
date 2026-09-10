@@ -1,3 +1,7 @@
+import {
+  ImageManipulator,
+  SaveFormat,
+} from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { describeFailure, withTimeout } from "./failures";
 import { supabase } from "./supabase";
@@ -23,12 +27,23 @@ const BUCKET = "pet-photos";
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 /**
- * Opens the system picker, square-cropped.
+ * The side of the stored avatar, in pixels.
  *
- * Square because the avatar is a squared record photo everywhere it appears
- * (see `components/ui/Avatar.tsx`), and cropping at pick time means the tutor
- * chooses what survives the crop instead of discovering later that the app cut
- * their dog's head off.
+ * 512 covers the 96dp portrait at any density the app will meet (that is 4x
+ * over) with room for the larger frame a future screen might want, and keeps a
+ * JPEG at this quality comfortably under 100 KB — which matters on the phone
+ * doing the upload, not on the server storing it.
+ */
+export const AVATAR_PX = 512;
+
+/**
+ * Opens the system picker and hands back the photo whole.
+ *
+ * **`allowsEditing` is off on purpose.** It used to be on, with `aspect: [1,1]`,
+ * so the OS cropped a square before the app ever saw the image. The app now
+ * frames the photo itself, against a circular mask that shows what the avatar
+ * will actually look like — cropping twice would throw away the pixels that
+ * framing needs, and the OS's square preview cannot show a round result.
  *
  * Returns null when the tutor backs out, which is not a failure.
  */
@@ -41,15 +56,51 @@ export async function pickPetPhoto(): Promise<{
     // asking for one anyway is a dialog the tutor has to dismiss for nothing.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
+      allowsEditing: false,
+      quality: 1,
     });
 
     if (result.canceled || !result.assets[0]) return { uri: null, error: null };
     return { uri: result.assets[0].uri, error: null };
   } catch (cause) {
     return { uri: null, error: describeFailure(cause, "pickPetPhoto") };
+  }
+}
+
+/**
+ * Crops a picked photo to the square the tutor framed, at `AVATAR_PX`.
+ *
+ * The rectangle arrives in the source image's own pixels, which is what the
+ * editor computes from the stage geometry — see `components/ui/AvatarEditor.tsx`.
+ * The result is a new file in the cache directory; the original is left alone,
+ * because the tutor may reframe before saving.
+ *
+ * **Only a freshly picked photo goes through here.** What is stored is already
+ * the crop, so reframing later means picking the photo again rather than
+ * enlarging 512 pixels into a frame that wants more.
+ */
+export async function cropToSquare(
+  uri: string,
+  rect: { originX: number; originY: number; size: number },
+): Promise<{ uri: string | null; error: string | null }> {
+  try {
+    const image = await ImageManipulator.manipulate(uri)
+      .crop({
+        originX: Math.round(rect.originX),
+        originY: Math.round(rect.originY),
+        width: Math.round(rect.size),
+        height: Math.round(rect.size),
+      })
+      .resize({ width: AVATAR_PX, height: AVATAR_PX })
+      .renderAsync();
+
+    const saved = await image.saveAsync({
+      format: SaveFormat.JPEG,
+      compress: 0.85,
+    });
+    return { uri: saved.uri, error: null };
+  } catch (cause) {
+    return { uri: null, error: describeFailure(cause, "cropToSquare") };
   }
 }
 
