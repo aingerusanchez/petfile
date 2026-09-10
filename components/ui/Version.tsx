@@ -13,6 +13,12 @@ export const APP_VERSION: string | null = Constants.expoConfig?.version ?? null;
  * surface a tutor sees before signing in, and at the foot of Ajustes, which is
  * where anyone goes looking for it.
  *
+ * **It names the native build, not the JS bundle.** `expo-constants` reads the
+ * `app.config` embedded in the APK, so a dev build reports whatever version it
+ * was compiled at even while Metro serves newer JavaScript. That is the right
+ * behaviour for the problem it exists for — a stale *install* — and a real
+ * limitation for the other one: it cannot tell you the bundle is old.
+ *
  * `text-muted` on Polar Night measures 3.19:1, below AA — deliberately: this
  * is not content, it is a serial number, and it should be findable without
  * competing with anything. It carries a real accessible name so a screen

@@ -5,8 +5,8 @@
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "start": "expo start",
-    "android": "JAVA_HOME=$(/usr/libexec/java_home -v 17) expo run:android",
-    "android:apk": "cd android && JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a",
+    "android": "JAVA_HOME=$(/usr/libexec/java_home -v 17) ANDROID_HOME=${ANDROID_HOME:-$HOME/Library/Android/sdk} expo run:android",
+    "android:apk": "cd android && JAVA_HOME=$(/usr/libexec/java_home -v 17) ANDROID_HOME=${ANDROID_HOME:-$HOME/Library/Android/sdk} ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a",
     "android:install": "adb install -r android/app/build/outputs/apk/release/app-release.apk",
     "android:usb": "expo start --localhost --dev-client --android",
     "ios": "expo run:ios",
