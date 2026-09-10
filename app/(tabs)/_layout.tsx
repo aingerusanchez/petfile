@@ -1,5 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
-import { Dog, HeartPulse, Sun } from "lucide-react-native";
+import { HeartPulse, PawPrint, TreeDeciduous } from "lucide-react-native";
 import { LoadingScreen, colors } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 
@@ -18,6 +18,11 @@ export default function TabsLayout() {
           backgroundColor: colors.nav,
           borderTopColor: colors.borderDefault,
         },
+        // The navigator draws its own labels, outside the `Text` wrapper that
+        // applies the typeface everywhere else — so without this the only
+        // permanent text in the app renders in the platform's face while the
+        // rest of the screen is in Outfit. One typeface is a design rule.
+        tabBarLabelStyle: { fontFamily: "Outfit_500Medium" },
         tabBarActiveTintColor: colors.accentPrimary,
         // `textTertiary`, not `textMuted`: Slate Mist on Deep Ice measures
         // 3.83:1, which fails AA for a label this small — and a tab label is
@@ -34,11 +39,17 @@ export default function TabsLayout() {
           The No-Glyph Rule bans, and Material's navigation bar expects icons
           anyway. Lucide at 24dp, tinted by the same active/inactive colours as
           the label. */}
+      {/* "Diario", not "Hoy": the tab names the section and the screen names
+          the day it is showing. Its icon is a tree rather than a notebook
+          because the entries are almost all outings — and a park says "we went
+          out" without implying a route, which is what a trail or a set of
+          footprints would. Footprints were also out for a second reason: they
+          would collide with the paw print two tabs along. */}
       <Tabs.Screen
         name="index"
         options={{
-          title: "Hoy",
-          tabBarIcon: ({ color }) => <Sun size={24} color={color} />,
+          title: "Diario",
+          tabBarIcon: ({ color }) => <TreeDeciduous size={24} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -52,7 +63,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Perfil",
-          tabBarIcon: ({ color }) => <Dog size={24} color={color} />,
+          tabBarIcon: ({ color }) => <PawPrint size={24} color={color} />,
         }}
       />
     </Tabs>
