@@ -70,7 +70,7 @@ export function Chip({
           "Moderad / o", which is worse than a wrapped row. */}
       <Text
         numberOfLines={1}
-        className={`text-text-primary${selected ? " font-bold" : ""}`}
+        className={`text-text-primary ${selected ? "font-bold" : ""}`}
       >
         {label}
       </Text>

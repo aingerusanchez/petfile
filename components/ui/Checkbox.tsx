@@ -114,7 +114,7 @@ export function Checkbox({
             a magic offset. */}
         <Text
           style={{ lineHeight: BOX }}
-          className={`text-text-primary${checked ? " font-semibold" : ""}`}
+          className={`text-text-primary ${checked ? "font-semibold" : ""}`}
         >
           {label}
         </Text>

@@ -137,7 +137,7 @@ export function Screen({
     // their sum.
     paddingBottom: padY + Math.max(bottomInset, keyboard),
   };
-  const alignment = center ? " items-center justify-center" : "";
+  const alignment = center ? "items-center justify-center" : "";
 
   const floating = overlay ? (
     <View
@@ -173,7 +173,7 @@ export function Screen({
       <ScrollView
         ref={scrollRef}
         testID={testID}
-        className={`flex-1 bg-base${className ? ` ${className}` : ""}`}
+        className={`flex-1 bg-base ${className}`}
         contentContainerStyle={padding}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
@@ -205,7 +205,7 @@ export function Screen({
     <View
       testID={testID}
       style={{ ...padding, paddingBottom: padY + bottomInset }}
-      className={`flex-1 bg-base${alignment}${className ? ` ${className}` : ""}`}
+      className={`flex-1 bg-base ${alignment} ${className}`}
     >
       {children}
       {floating}
