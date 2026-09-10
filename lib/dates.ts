@@ -129,6 +129,30 @@ export function formatDayHeadline(day: Date, today: Date): string {
   return weekday.charAt(0).toUpperCase() + weekday.slice(1);
 }
 
+/**
+ * The years the animal turns on `day`, or null when that day is not it.
+ *
+ * **An approximate birth date needs no special case here, and that is the
+ * point.** It is stored as the 1st of the month with
+ * `birth_date_approximate = true`, so this matches the 1st every year — which
+ * is a convention the tutor opted into when they said the date was
+ * approximate, not a date the app invented. Nothing is *computed* from it,
+ * which is the line AGENTS.md draws: a due date may not be built on a
+ * placeholder day, and a greeting may.
+ *
+ * Returns 0 on the day the animal was born, which is a real day to mark and
+ * not a birthday — the caller says so in words.
+ */
+export function birthdayOn(day: Date, birthDate: string | null): number | null {
+  const parts = parseISO(birthDate);
+  if (!parts) return null;
+  if (day.getMonth() + 1 !== parts.month || day.getDate() !== parts.day) {
+    return null;
+  }
+  const years = day.getFullYear() - parts.year;
+  return years < 0 ? null : years;
+}
+
 /** "10 de septiembre" — the date under the headline, without the weekday. */
 export function formatDayDate(day: Date): string {
   return `${day.getDate()} de ${MONTHS_ES[day.getMonth()].toLowerCase()}`;

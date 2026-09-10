@@ -1,4 +1,5 @@
 import {
+  birthdayOn,
   daysAgo,
   daysInMonth,
   formatDayDate,
@@ -134,5 +135,45 @@ describe("formatDayDate", () => {
   it("gives the date without the weekday, lowercase month", () => {
     expect(formatDayDate(new Date(2026, 8, 10))).toBe("10 de septiembre");
     expect(formatDayDate(new Date(2026, 0, 1))).toBe("1 de enero");
+  });
+});
+
+describe("birthdayOn", () => {
+  const on = (iso: string, birth: string | null) =>
+    birthdayOn(new Date(`${iso}T12:00:00`), birth);
+
+  it("counts the years turned on the day itself", () => {
+    expect(on("2026-09-14", "2025-09-14")).toBe(1);
+    expect(on("2033-09-14", "2025-09-14")).toBe(8);
+  });
+
+  it("is null on every other day", () => {
+    expect(on("2026-09-13", "2025-09-14")).toBeNull();
+    expect(on("2026-09-15", "2025-09-14")).toBeNull();
+    expect(on("2026-10-14", "2025-09-14")).toBeNull();
+  });
+
+  it("returns 0 on the day of birth, which is not yet a birthday", () => {
+    expect(on("2025-09-14", "2025-09-14")).toBe(0);
+  });
+
+  it("is null before the animal existed", () => {
+    expect(on("2024-09-14", "2025-09-14")).toBeNull();
+  });
+
+  it("matches the 1st for an approximate date, with no special case", () => {
+    // Stored as YYYY-MM-01 with birth_date_approximate = true.
+    expect(on("2026-04-01", "2024-04-01")).toBe(2);
+    expect(on("2026-04-02", "2024-04-01")).toBeNull();
+  });
+
+  it("has no birthday without a birth date", () => {
+    expect(on("2026-09-14", null)).toBeNull();
+    expect(on("2026-09-14", "nonsense")).toBeNull();
+  });
+
+  it("survives a leap day by simply not matching a year without one", () => {
+    expect(on("2028-02-29", "2024-02-29")).toBe(4);
+    expect(on("2027-03-01", "2024-02-29")).toBeNull();
   });
 });
