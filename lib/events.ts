@@ -153,6 +153,42 @@ export async function logEvent(
   }
 }
 
+/**
+ * Rewrites one entry.
+ *
+ * A correction, not a new fact: the row keeps its id, so the day's list does
+ * not gain a duplicate and `created_by` still says who logged it. Everything
+ * the sheet can ask for is sent, including the nulls — a tutor clearing the
+ * duration means the walk has no duration, not that the old one should stay.
+ */
+export async function updateEvent(
+  id: string,
+  event: NewEvent,
+): Promise<{ error: string | null }> {
+  const errors = validateEvent(event);
+  const firstError = Object.values(errors)[0];
+  if (firstError) return { error: firstError };
+
+  const query = supabase
+    .from("pet_events")
+    .update({
+      occurred_at: event.occurredAt.toISOString(),
+      duration_minutes: event.durationMinutes ?? null,
+      note: event.note?.trim() || null,
+      details: (event.details ??
+        {}) as Database["public"]["Tables"]["pet_events"]["Update"]["details"],
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  try {
+    const { error } = await withTimeout(query, "updateEvent");
+    return { error: error ? describeFailure(error, "updateEvent") : null };
+  } catch (cause) {
+    return { error: describeFailure(cause, "updateEvent") };
+  }
+}
+
 export async function eventsForDay(
   petId: string,
   day: Date,

@@ -41,6 +41,18 @@ type ScreenProps = {
    * in this one file.
    */
   onTopInset?: (inset: number) => void;
+  /**
+   * Content pinned over the page rather than scrolled with it — a floating
+   * action, for instance.
+   *
+   * A render prop rather than a node, because the thing that floats has to
+   * know how far the window's edges are, and **window insets are consumed
+   * only here**. It is handed the offsets it should use and draws itself
+   * inside a full-screen container that passes taps through, so it can also
+   * paint a scrim over the content without reaching outside its parent. Its
+   * own children have to opt back in with `pointerEvents: "auto"`.
+   */
+  overlay?: (position: { right: number; bottom: number }) => ReactNode;
   /** Appended to the container's classes, for per-screen alignment. */
   className?: string;
   testID?: string;
@@ -103,6 +115,7 @@ export function Screen({
   onScrollOffset,
   onViewportHeight,
   onTopInset,
+  overlay,
   className = "",
   testID,
 }: ScreenProps) {
@@ -126,8 +139,37 @@ export function Screen({
   };
   const alignment = center ? " items-center justify-center" : "";
 
+  const floating = overlay ? (
+    <View
+      // `pointerEvents` in `style`, not as a prop: the prop is deprecated in
+      // this React Native version and logs a warning per render.
+      //
+      // And `none` rather than `box-none`, which is the value that reads
+      // correctly here but is not CSS: react-native-web passes it straight
+      // through as `pointer-events: box-none`, the browser drops the
+      // declaration, and this full-screen container swallowed every tap on the
+      // page behind it — measured, it made the day's entries unclickable.
+      // `none` is valid in both, and a child that needs taps asks for `auto`.
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        pointerEvents: "none",
+      }}
+    >
+      {overlay({
+        right: gutter + insets.right,
+        // A floating action sits at the section step from the window's edge,
+        // not at the page's own vertical padding, which is twice that.
+        bottom: spacing.md + bottomInset,
+      })}
+    </View>
+  ) : null;
+
   if (scroll) {
-    return (
+    const scroller = (
       <ScrollView
         ref={scrollRef}
         testID={testID}
@@ -149,6 +191,14 @@ export function Screen({
         {children}
       </ScrollView>
     );
+
+    if (!floating) return scroller;
+    return (
+      <View className="flex-1 bg-base">
+        {scroller}
+        {floating}
+      </View>
+    );
   }
 
   return (
@@ -158,6 +208,7 @@ export function Screen({
       className={`flex-1 bg-base${alignment}${className ? ` ${className}` : ""}`}
     >
       {children}
+      {floating}
     </View>
   );
 }
