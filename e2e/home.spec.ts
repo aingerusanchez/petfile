@@ -46,7 +46,7 @@ test("shows the day, the goal and a way to log each kind", async ({ page }) => {
   await expect(page.getByTestId("home-date")).not.toBeEmpty();
 
   // The goal only appears once the profile has set one.
-  await expect(page.getByTestId("home-goal")).toContainText("de 60 min");
+  await expect(page.getByTestId("home-goal")).toContainText("de 1h");
 
   // The kinds are behind the floating action, near the thumb, and the page
   // shows none of them until it is asked.
@@ -85,21 +85,22 @@ test("logs a walk from its two ends and counts it toward the goal", async ({
   await page.goto("/");
 
   await expect(page.getByTestId("home-empty")).toBeVisible();
-  await expect(page.getByTestId("home-goal")).toContainText("0 de 60");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
 
   await add(page, "walk");
 
-  // The start comes prefilled with now; the other two open empty, because a
+  // The END comes prefilled with now — the entry happens after getting home,
+  // so "now" is when the walk finished. The other two open empty, because a
   // proposed duration would be a fabricated walk one tap away.
-  await expect(page.getByTestId("entry-from")).not.toBeEmpty();
-  await expect(page.getByTestId("entry-to")).toBeEmpty();
+  await expect(page.getByTestId("entry-to")).not.toBeEmpty();
+  await expect(page.getByTestId("entry-from")).toBeEmpty();
   await expect(page.getByTestId("entry-duration")).toBeEmpty();
 
   await page.getByTestId("entry-from").fill("09:15");
   await page.getByTestId("entry-to").fill("09:45");
 
   // The duration is derived, which is the whole point of asking for the ends.
-  await expect(page.getByTestId("entry-duration")).toHaveValue("30");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
 
   await page.getByTestId("entry-note").fill("Tranquilo, sin tirones");
   await page.getByTestId("entry-save").click();
@@ -111,10 +112,10 @@ test("logs a walk from its two ends and counts it toward the goal", async ({
   await expect(page.getByTestId("home-log")).toContainText("sin tirones");
 
   // The walk's minutes are the one thing the day view computes from.
-  await expect(page.getByTestId("home-goal")).toContainText("30 de 60");
+  await expect(page.getByTestId("home-goal")).toContainText("30 min de 1h");
 });
 
-test("moves the end when the duration is what changed, never the start", async ({
+test("counts back from the end when the duration is what changed", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -123,17 +124,18 @@ test("moves the end when the duration is what changed, never the start", async (
   await page.goto("/");
 
   await add(page, "walk");
-  await page.getByTestId("entry-from").fill("10:00");
+  await page.getByTestId("entry-to").fill("10:45");
   await page.getByTestId("entry-duration").fill("45");
 
-  await expect(page.getByTestId("entry-to")).toHaveValue("10:45");
-  // The start is the one thing the tutor is sure of, so it never shifts.
+  // The end is the time the tutor actually knows, so it never shifts: the
+  // duration counts backwards from it.
   await expect(page.getByTestId("entry-from")).toHaveValue("10:00");
-
-  // And correcting the start re-derives the duration from the two ends.
-  await page.getByTestId("entry-from").fill("10:15");
-  await expect(page.getByTestId("entry-duration")).toHaveValue("30");
   await expect(page.getByTestId("entry-to")).toHaveValue("10:45");
+
+  // And correcting either time re-derives the duration from the two of them.
+  await page.getByTestId("entry-to").fill("11:00");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
+  await expect(page.getByTestId("entry-from")).toHaveValue("10:00");
 });
 
 test("counts a walk up in quarters of an hour", async ({ page }) => {
@@ -143,7 +145,7 @@ test("counts a walk up in quarters of an hour", async ({ page }) => {
   await page.goto("/");
 
   await add(page, "walk");
-  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("09:45");
 
   // Nothing to take away from yet.
   await expect(page.getByTestId("entry-duration-minus")).toHaveAttribute(
@@ -155,17 +157,44 @@ test("counts a walk up in quarters of an hour", async ({ page }) => {
   await page.getByTestId("entry-duration-plus").click();
   await page.getByTestId("entry-duration-plus").click();
 
-  await expect(page.getByTestId("entry-duration")).toHaveValue("45");
-  // The steppers write into the end, exactly as typing a duration does.
-  await expect(page.getByTestId("entry-to")).toHaveValue("09:45");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("45 min");
+  // The steppers count backwards from the end, exactly as typing a duration
+  // does — the end is what the tutor is sure of.
   await expect(page.getByTestId("entry-from")).toHaveValue("09:00");
+  await expect(page.getByTestId("entry-to")).toHaveValue("09:45");
+
+  // And once past the hour the field says so, which is the point of the
+  // readable form.
+  await page.getByTestId("entry-duration-plus").click();
+  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
+  await page.getByTestId("entry-duration-plus").click();
+  await expect(page.getByTestId("entry-duration")).toHaveValue("1h 15m");
 
   await page.getByTestId("entry-duration-minus").click();
-  await expect(page.getByTestId("entry-duration")).toHaveValue("30");
-  await expect(page.getByTestId("entry-to")).toHaveValue("09:30");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
+  await expect(page.getByTestId("entry-from")).toHaveValue("08:45");
 
   await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("home-log")).toContainText("30 min");
+  await expect(page.getByTestId("home-log")).toContainText("1h");
+});
+
+test("takes a duration written in hours", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await add(page, "walk");
+  await page.getByTestId("entry-to").fill("11:30");
+  await page.getByTestId("entry-duration").fill("1h 30m");
+  await expect(page.getByTestId("entry-from")).toHaveValue("10:00");
+
+  // Bare minutes still work, because that is what the field meant before.
+  await page.getByTestId("entry-duration").fill("90");
+  await expect(page.getByTestId("entry-from")).toHaveValue("10:00");
+  // Tidied on blur rather than on every keystroke, which would fight typing.
+  await page.getByTestId("entry-note").click();
+  await expect(page.getByTestId("entry-duration")).toHaveValue("1h 30m");
 });
 
 test("reopens an entry to correct it", async ({ page }) => {
@@ -228,12 +257,12 @@ test("refuses an end that comes before its start", async ({ page }) => {
   await page.goto("/");
 
   await add(page, "walk");
-  await page.getByTestId("entry-from").fill("10:00");
   await page.getByTestId("entry-to").fill("09:00");
+  await page.getByTestId("entry-from").fill("10:00");
   await page.getByTestId("entry-save").click();
 
-  await expect(page.getByTestId("entry-to-error")).toHaveText(
-    "Tiene que ser más tarde que la hora de salida",
+  await expect(page.getByTestId("entry-from-error")).toHaveText(
+    "Tiene que ser antes de la hora de vuelta",
   );
 });
 
@@ -244,12 +273,13 @@ test("still logs a walk nobody timed", async ({ page }) => {
   await page.goto("/");
 
   await add(page, "walk");
-  await page.getByTestId("entry-from").fill("08:30");
+  await page.getByTestId("entry-to").fill("08:30");
   await page.getByTestId("entry-save").click();
 
-  // A walk with no duration is a valid entry: it still happened.
+  // A walk with only an end is a valid entry: it still happened, and the end
+  // is the only time anybody wrote down.
   await expect(page.getByTestId("home-log")).toContainText("08:30");
-  await expect(page.getByTestId("home-goal")).toContainText("0 de 60");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
 });
 
 test("logs the other three kinds without touching the goal", async ({
@@ -274,7 +304,7 @@ test("logs the other three kinds without touching the goal", async ({
   }
 
   // None of them has a duration, so the goal has not moved.
-  await expect(page.getByTestId("home-goal")).toContainText("0 de 60");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
 });
 
 test("reads the day forwards", async ({ page }) => {
@@ -305,10 +335,10 @@ test("refuses a time that is not one", async ({ page }) => {
   await page.goto("/");
 
   await add(page, "walk");
-  await page.getByTestId("entry-from").fill("99:99");
+  await page.getByTestId("entry-to").fill("99:99");
   await page.getByTestId("entry-save").click();
 
-  await expect(page.getByTestId("entry-from-error")).toHaveText(
+  await expect(page.getByTestId("entry-to-error")).toHaveText(
     "Escríbela como 09:15",
   );
 });
@@ -357,11 +387,13 @@ test("marks the goal met, once", async ({ page }) => {
   await page.goto("/");
 
   await add(page, "walk");
-  await page.getByTestId("entry-from").fill("09:00");
-  await page.getByTestId("entry-duration").fill("60");
+  await page.getByTestId("entry-to").fill("10:00");
+  await page.getByTestId("entry-duration").fill("1h");
   await page.getByTestId("entry-save").click();
 
   await expect(page.getByTestId("home-goal")).toContainText(
     "Objetivo cumplido",
   );
+  // The goal reads in hours on both sides of the "de".
+  await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");
 });

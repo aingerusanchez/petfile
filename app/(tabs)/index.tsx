@@ -22,6 +22,7 @@ import {
   TOUCH_TARGET,
 } from "../../components/ui";
 import { MONTHS_ES } from "../../lib/dates";
+import { formatDuration, parseDuration } from "../../lib/duration";
 import {
   deleteEvent,
   eventsForDay,
@@ -67,7 +68,7 @@ const KINDS: Record<
     editAction: "Editar paseo",
     icon: Footprints,
     describe: (event) =>
-      event.duration_minutes ? `${event.duration_minutes} min` : null,
+      event.duration_minutes ? formatDuration(event.duration_minutes) : null,
   },
   meal: {
     label: "Comida",
@@ -240,10 +241,10 @@ export default function Home() {
         <View testID="home-goal" className="mb-8">
           <View className="mb-2 flex-row items-baseline justify-between">
             <Text className="font-semibold text-text-primary">
-              {`${walked} de ${goal} min paseados`}
+              {`${formatDuration(walked)} de ${formatDuration(goal)} paseados`}
             </Text>
             {met ? (
-              <Text className="text-xs font-semibold text-success">
+              <Text className="font-semibold text-xs text-success">
                 Objetivo cumplido
               </Text>
             ) : null}
@@ -398,17 +399,23 @@ function Entry({
  * the button still says what pressing it does, because "Editar" on a control
  * that saves describes the sheet rather than the press.
  *
- * **A walk is asked for as a range; every other kind as a moment.** A tutor
- * knows when they left and when they got back, not how many minutes that was.
- * But the fastest walk to log is the one with nothing to say about it, so the
- * duration also has **-15 / +15**: tap Paseo, tap +15 three times, save.
- * DESDE and HASTA remain the data — the steppers write into HASTA, exactly as
- * typing a duration does, because the start is the one thing the tutor is sure
- * of and must never shift under them.
+ * **The time that is prefilled is the one the tutor is standing in: HASTA.**
+ * The entry happens after getting home, so "now" is when the walk *ended*, not
+ * when it began — the first version had it the other way round and was quietly
+ * asking the tutor to correct the one field it had filled in. So HASTA opens on
+ * the current time and DESDE opens empty.
  *
- * The start opens on the current time and the other two open empty. Nothing is
- * proposed: a prefilled thirty minutes would be a fabricated walk one careless
- * tap away, and a walk with no duration is a valid entry — it still happened.
+ * **DESDE and HASTA are the facts; DURACIÓN is derived.** Editing either time
+ * recomputes the duration. The duration stays editable, and **it works
+ * backwards from HASTA**: typing it, or tapping -15 / +15, moves DESDE. That
+ * is the mirror of the earlier rule and follows from the same premise — the
+ * field the tutor is sure of must never shift under them, and now that is the
+ * end.
+ *
+ * Nothing else is proposed. A prefilled thirty minutes would be a fabricated
+ * walk one careless tap away, and **a walk with only an end time is a valid
+ * entry**: it still happened, and `occurred_at` takes the end, which is the
+ * only time anybody wrote down.
  *
  * **Delete lives here, not in the list**, and asks once in place. A row in a
  * scrolling list is a mis-tap waiting to happen; a modal on top of a modal is
@@ -440,106 +447,141 @@ function EntrySheet({
   const occurred = event ? new Date(event.occurred_at) : null;
   const storedMinutes = event?.duration_minutes ?? null;
 
-  /** The moment it happened — the walk's start, everything else's only time. */
-  const [start, setStart] = useState(() =>
-    formatTimeOfDay(occurred ?? new Date()),
+  /**
+   * The anchor: a walk's HASTA, and every other kind's only time.
+   *
+   * A stored walk keeps its start in `occurred_at`, so reopening one adds the
+   * duration back on to recover the end it was entered from.
+   */
+  const [at, setAt] = useState(() =>
+    formatTimeOfDay(
+      occurred && storedMinutes
+        ? shiftMinutes(occurred, storedMinutes)
+        : (occurred ?? new Date()),
+    ),
   );
-  const [end, setEnd] = useState(() =>
-    occurred && storedMinutes
-      ? formatTimeOfDay(shiftMinutes(occurred, storedMinutes))
-      : "",
+  /** A walk's start. Empty means nobody wrote it down. */
+  const [from, setFrom] = useState(() =>
+    occurred && storedMinutes ? formatTimeOfDay(occurred) : "",
   );
-  const [duration, setDuration] = useState(() =>
-    storedMinutes ? String(storedMinutes) : "",
+  /** What the duration field shows while it is being typed into. */
+  const [durationText, setDurationText] = useState(() =>
+    storedMinutes ? formatDuration(storedMinutes) : "",
   );
   const [value, setValue] = useState(
     () => (event && detail(event, "what")) || "",
   );
   const [note, setNote] = useState(() => event?.note ?? "");
-  const [startError, setStartError] = useState<string | null>(null);
-  const [endError, setEndError] = useState<string | null>(null);
+  const [atError, setAtError] = useState<string | null>(null);
+  const [fromError, setFromError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  /** Recomputes the derived field. Never writes back to a time. */
-  const deriveDuration = useCallback(
-    (startText: string, endText: string) => {
-      if (!endText.trim()) return setDuration("");
-      const from = parseTimeOfDay(startText, day);
-      const to = parseTimeOfDay(endText, day);
-      if (!from || !to) return;
-      const minutes = minutesBetween(from, to);
-      setDuration(minutes === null ? "" : String(minutes));
+  const parsedAt = parseTimeOfDay(at, day);
+  const parsedFrom = from.trim() ? parseTimeOfDay(from, day) : null;
+  const minutes =
+    parsedFrom && parsedAt ? (minutesBetween(parsedFrom, parsedAt) ?? 0) : 0;
+
+  /** Recomputes the display of the derived field. Never writes into a time. */
+  const showDuration = useCallback(
+    (fromText: string, atText: string) => {
+      const start = fromText.trim() ? parseTimeOfDay(fromText, day) : null;
+      const end = parseTimeOfDay(atText, day);
+      if (!start || !end) return setDurationText("");
+      const total = minutesBetween(start, end);
+      setDurationText(total === null ? "" : formatDuration(total));
     },
     [day],
   );
 
-  const editStart = useCallback(
+  const editAt = useCallback(
     (text: string) => {
-      setStart(text);
-      deriveDuration(text, end);
+      setAt(text);
+      showDuration(from, text);
     },
-    [deriveDuration, end],
+    [showDuration, from],
   );
 
-  const editEnd = useCallback(
+  const editFrom = useCallback(
     (text: string) => {
-      setEnd(text);
-      deriveDuration(start, text);
+      setFrom(text);
+      showDuration(text, at);
     },
-    [deriveDuration, start],
+    [showDuration, at],
   );
 
-  /** The one direction that writes into a time, and it writes into the end. */
-  const setMinutes = useCallback(
-    (minutes: number | null) => {
-      if (minutes === null || minutes <= 0) {
-        setDuration("");
-        setEnd("");
+  /**
+   * The one direction that writes into a time, and it counts backwards from
+   * the end — which is the time the tutor actually knows.
+   */
+  const applyMinutes = useCallback(
+    (total: number) => {
+      if (total <= 0) {
+        setFrom("");
+        setDurationText("");
         return;
       }
-      setDuration(String(minutes));
-      const from = parseTimeOfDay(start, day);
-      if (from) setEnd(formatTimeOfDay(shiftMinutes(from, minutes)));
+      setDurationText(formatDuration(total));
+      const end = parseTimeOfDay(at, day);
+      if (end) setFrom(formatTimeOfDay(shiftMinutes(end, -total)));
     },
-    [start, day],
+    [at, day],
   );
 
+  /**
+   * Typing is left alone until it parses, and tidied on blur: reformatting on
+   * every keystroke would fight the typist, which is what a controlled field
+   * that normalises too eagerly always does.
+   */
   const editDuration = useCallback(
     (text: string) => {
-      const digits = text.replace(/\D/g, "");
-      setMinutes(digits ? Number(digits) : null);
+      setDurationText(text);
+      if (!text.trim()) {
+        setFrom("");
+        return;
+      }
+      const total = parseDuration(text);
+      if (total === null || total <= 0) return;
+      const end = parseTimeOfDay(at, day);
+      if (end) setFrom(formatTimeOfDay(shiftMinutes(end, -total)));
     },
-    [setMinutes],
+    [at, day],
   );
 
-  const minutes = Number(duration) || 0;
+  const tidyDuration = useCallback(() => {
+    showDuration(from, at);
+  }, [showDuration, from, at]);
 
   const save = useCallback(async () => {
-    const occurredAt = parseTimeOfDay(start, day);
-    if (!occurredAt) {
-      setStartError("Escríbela como 09:15");
+    const end = parseTimeOfDay(at, day);
+    if (!end) {
+      setAtError("Escríbela como 09:15");
       return false;
     }
-    setStartError(null);
-
-    let walkMinutes: number | null = null;
-    if (isWalk && end.trim()) {
-      const to = parseTimeOfDay(end, day);
-      if (!to) {
-        setEndError("Escríbela como 09:15");
-        return false;
-      }
-      if (to.getTime() > Date.now() + 60_000) {
-        setEndError("¿Todavía no habéis vuelto?");
-        return false;
-      }
-      walkMinutes = minutesBetween(occurredAt, to);
-      if (walkMinutes === null) {
-        setEndError("Tiene que ser más tarde que la hora de salida");
-        return false;
-      }
+    if (end.getTime() > Date.now() + 60_000) {
+      setAtError(
+        isWalk ? "¿Todavía no habéis vuelto?" : "¿Todavía no ha pasado?",
+      );
+      return false;
     }
-    setEndError(null);
+    setAtError(null);
+
+    let occurredAt = end;
+    let walkMinutes: number | null = null;
+
+    if (isWalk && from.trim()) {
+      const start = parseTimeOfDay(from, day);
+      if (!start) {
+        setFromError("Escríbela como 09:15");
+        return false;
+      }
+      walkMinutes = minutesBetween(start, end);
+      if (walkMinutes === null) {
+        setFromError("Tiene que ser antes de la hora de vuelta");
+        return false;
+      }
+      occurredAt = start;
+    }
+    setFromError(null);
 
     const payload = {
       kind,
@@ -561,8 +603,8 @@ function EntrySheet({
     onSaved();
     return true;
   }, [
-    start,
-    end,
+    at,
+    from,
     day,
     isWalk,
     spec,
@@ -600,7 +642,7 @@ function EntrySheet({
           <Text
             testID="entry-title"
             accessibilityRole="header"
-            className="mb-5 text-xl font-bold text-text-primary"
+            className="mb-5 font-bold text-xl text-text-primary"
           >
             {event ? spec.editAction : spec.action}
           </Text>
@@ -612,10 +654,10 @@ function EntrySheet({
                   <TextField
                     testID="entry-from"
                     label="Desde"
-                    value={start}
-                    onChangeText={editStart}
+                    value={from}
+                    onChangeText={editFrom}
                     placeholder="09:15"
-                    error={startError}
+                    error={fromError}
                     keyboardType="number-pad"
                     maxLength={5}
                   />
@@ -624,56 +666,64 @@ function EntrySheet({
                   <TextField
                     testID="entry-to"
                     label="Hasta"
-                    value={end}
-                    onChangeText={editEnd}
+                    value={at}
+                    onChangeText={editAt}
                     placeholder="09:45"
-                    error={endError}
+                    error={atError}
                     keyboardType="number-pad"
                     maxLength={5}
                   />
                 </View>
               </View>
 
-              {/* The duration is the field most walks are actually about, so
-                  it gets the steppers — and only the width its value needs. */}
-              <View className="mb-5 flex-row items-end gap-3">
-                <View style={{ width: 128 }}>
+              {/* The steppers sit hard right, nearest the thumb, and the field
+                  takes only the width its value needs. They used to sit beside
+                  it and the unit landed underneath them. */}
+              <View className="mb-5 flex-row items-end justify-between">
+                <View style={{ width: 140 }}>
                   <TextField
                     testID="entry-duration"
                     label="Duración"
-                    value={duration}
+                    value={durationText}
                     onChangeText={editDuration}
-                    placeholder="30"
-                    suffix="min."
-                    suffixLabel="en minutos"
+                    onBlur={tidyDuration}
+                    placeholder="30 min"
+                    // A number pad, even though the field shows "1h 30m":
+                    // bare minutes always parse, so nothing here needs a
+                    // letter, and raising the alphabetic keyboard for a
+                    // digits-first task is the defect AGENTS.md names. The
+                    // readable form is what the field gives back, not what it
+                    // demands.
                     keyboardType="number-pad"
-                    maxLength={4}
+                    maxLength={10}
                     className=""
                   />
                 </View>
-                <Step
-                  testID="entry-duration-minus"
-                  label={`-${STEP_MINUTES}`}
-                  accessibilityLabel={`Quitar ${STEP_MINUTES} minutos`}
-                  disabled={minutes <= STEP_MINUTES}
-                  onPress={() => setMinutes(minutes - STEP_MINUTES)}
-                />
-                <Step
-                  testID="entry-duration-plus"
-                  label={`+${STEP_MINUTES}`}
-                  accessibilityLabel={`Añadir ${STEP_MINUTES} minutos`}
-                  onPress={() => setMinutes(minutes + STEP_MINUTES)}
-                />
+                <View className="flex-row gap-3">
+                  <Step
+                    testID="entry-duration-minus"
+                    label={`-${STEP_MINUTES}`}
+                    accessibilityLabel={`Quitar ${STEP_MINUTES} minutos`}
+                    disabled={minutes <= STEP_MINUTES}
+                    onPress={() => applyMinutes(minutes - STEP_MINUTES)}
+                  />
+                  <Step
+                    testID="entry-duration-plus"
+                    label={`+${STEP_MINUTES}`}
+                    accessibilityLabel={`Añadir ${STEP_MINUTES} minutos`}
+                    onPress={() => applyMinutes(minutes + STEP_MINUTES)}
+                  />
+                </View>
               </View>
             </>
           ) : (
             <TextField
               testID="entry-time"
               label="Hora"
-              value={start}
-              onChangeText={editStart}
+              value={at}
+              onChangeText={editAt}
               placeholder="09:15"
-              error={startError}
+              error={atError}
               keyboardType="number-pad"
               maxLength={5}
             />
@@ -790,11 +840,11 @@ function Step({
         { minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET },
         pressed(state),
       ]}
-      className="items-center justify-center rounded-xl border border-border-strong pl-3 pr-3"
+      className="items-center justify-center rounded-xl border border-border-strong pr-3 pl-3"
     >
+      {/* `text-tertiary` when disabled, not `text-muted`: the same choice the
+          disabled button made, and 6.64:1 rather than 3.58:1 on this fill. */}
       <Text
-        // `text-tertiary` when disabled, not `text-muted`: the same choice the
-        // disabled button made, and 6.64:1 rather than 3.58:1 on this fill.
         className={
           disabled ? "text-text-tertiary" : "font-semibold text-text-secondary"
         }
