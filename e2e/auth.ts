@@ -118,7 +118,29 @@ export async function seedE2EPet(
     );
   }
 
-  const { client } = await signInE2EUser();
+  const client = (await signInE2EUser()).client;
+
+  // The RPC writes only what registration collects. An override outside that
+  // set — the exercise goal, a photo path — is applied afterwards, exactly as
+  // the profile screen would, rather than being passed to a function that
+  // would silently drop it.
+  const registration = new Set([
+    "name",
+    "sex",
+    "breed_primary",
+    "breed_secondary",
+    "is_mixed",
+    "birth_date",
+    "birth_date_approximate",
+    "spayed_neutered",
+    "activity_level",
+  ]);
+  const atRegistration: Record<string, unknown> = {};
+  const afterwards: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(overrides)) {
+    (registration.has(key) ? atRegistration : afterwards)[key] = value;
+  }
+
   const { data, error } = await client.rpc("create_pet_with_owner", {
     pet: {
       name: "Loki",
@@ -130,10 +152,35 @@ export async function seedE2EPet(
       birth_date_approximate: false,
       spayed_neutered: false,
       activity_level: "high",
-      ...overrides,
+      ...atRegistration,
     },
   });
 
   if (error) throw new Error(`Failed to seed an e2e pet: ${error.message}`);
-  return (data as { id: string }).id;
+  const id = (data as { id: string }).id;
+
+  if (Object.keys(afterwards).length > 0) {
+    const { error: updateError } = await client
+      .from("pets")
+      .update(afterwards)
+      .eq("id", id);
+    if (updateError) {
+      throw new Error(`Failed to seed pet extras: ${updateError.message}`);
+    }
+  }
+
+  return id;
+}
+
+/**
+ * Whether `0006_events_weights_treatments.sql` has been applied.
+ *
+ * Probed rather than assumed, so the day-view specs skip with a message that
+ * names the migration instead of failing for a reason that has nothing to do
+ * with the app — and start running by themselves once it lands.
+ */
+export async function eventsTableExists(): Promise<boolean> {
+  const { client } = await signInE2EUser();
+  const { error } = await client.from("pet_events").select("id").limit(1);
+  return !error;
 }

@@ -121,17 +121,20 @@ export default function Home() {
   const [day] = useState(() => new Date());
   const [pet, setPet] = useState<PetRow | null>(null);
   const [events, setEvents] = useState<PetEventRow[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  /** Fatal: with no pet there is no day to show. */
+  const [petError, setPetError] = useState<string | null>(null);
+  /** Not fatal: the header, the goal and the actions all still work. */
+  const [logError, setLogError] = useState<string | null>(null);
   const [adding, setAdding] = useState<EventKind | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
-    getMyPet().then(async ({ pet: row, error: petError }) => {
+    getMyPet().then(async ({ pet: row, error: failure }) => {
       if (cancelled) return;
-      if (petError) return setError(petError);
-      if (!row) return setError("Todavía no hay ninguna mascota");
+      if (failure) return setPetError(failure);
+      if (!row) return setPetError("Todavía no hay ninguna mascota");
 
       setPet(row);
       const { events: rows, error: eventError } = await eventsForDay(
@@ -139,7 +142,10 @@ export default function Home() {
         day,
       );
       if (cancelled) return;
-      if (eventError) return setError(eventError);
+      // A failed read of the log does not take the screen down with it: the
+      // craft floor's rule is that one component's error must not block the
+      // whole interface, and everything above the log comes from the pet.
+      setLogError(eventError);
       setEvents(rows);
     });
 
@@ -149,18 +155,19 @@ export default function Home() {
   }, [day, attempt]);
 
   const reload = useCallback(() => {
-    setError(null);
+    setPetError(null);
+    setLogError(null);
     setAttempt((n) => n + 1);
   }, []);
 
-  if (error) {
+  if (petError) {
     return (
       <Screen center edges={["top"]}>
         <Text
           accessibilityLiveRegion="polite"
           className="mb-5 text-center text-error"
         >
-          {error}
+          {petError}
         </Text>
         <Button testID="home-retry" label="Reintentar" onPress={reload} />
       </Screen>
@@ -225,7 +232,20 @@ export default function Home() {
         ))}
       </View>
 
-      {events.length === 0 ? (
+      {logError ? (
+        <Group testID="home-log-error">
+          <Text accessibilityLiveRegion="polite" className="mb-5 text-error">
+            {logError}
+          </Text>
+          <View className="mb-5">
+            <Button
+              testID="home-log-retry"
+              label="Reintentar"
+              onPress={reload}
+            />
+          </View>
+        </Group>
+      ) : events.length === 0 ? (
         <Group testID="home-empty">
           <Text className="mb-2 font-semibold text-text-primary">
             Todavía no hay nada de hoy
