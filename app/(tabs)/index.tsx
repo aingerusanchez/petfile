@@ -1,4 +1,7 @@
 import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Footprints,
   Pill,
   TriangleAlert,
@@ -14,6 +17,7 @@ import {
   FAB_CLEARANCE,
   Group,
   LoadingScreen,
+  MonthCalendar,
   Screen,
   Sheet,
   Text,
@@ -21,11 +25,12 @@ import {
   TOUCH_TARGET,
   useToast,
 } from "../../components/ui";
-import { MONTHS_ES } from "../../lib/dates";
+import { daysAgo, formatDayDate, formatDayHeadline } from "../../lib/dates";
 import { formatDuration, parseDuration } from "../../lib/duration";
 import {
   deleteEvent,
   eventsForDay,
+  eventsForMonth,
   formatTimeOfDay,
   logEvent,
   MAX_WALK_MINUTES,
@@ -34,6 +39,7 @@ import {
   shiftMinutes,
   updateEvent,
   walkedMinutes,
+  type DaySummary,
   type EventKind,
   type PetEventRow,
 } from "../../lib/events";
@@ -111,24 +117,18 @@ const ORDER: EventKind[] = ["walk", "meal", "medication", "incident"];
 /** How much a tap on -15 or +15 moves a walk's duration. */
 const STEP_MINUTES = 15;
 
+/** The same clock time, `by` days away. */
+function shiftDays(day: Date, by: number): Date {
+  const next = new Date(day);
+  next.setDate(next.getDate() + by);
+  return next;
+}
+
 /** The one free-text specific each kind but the walk keeps in `details`. */
 function detail(event: PetEventRow, key: string): string | null {
   const details = event.details as Record<string, unknown> | null;
   const value = details?.[key];
   return typeof value === "string" && value.trim() ? value : null;
-}
-
-function formatDay(day: Date): string {
-  const weekdays = [
-    "domingo",
-    "lunes",
-    "martes",
-    "miércoles",
-    "jueves",
-    "viernes",
-    "sábado",
-  ];
-  return `${weekdays[day.getDay()]}, ${day.getDate()} de ${MONTHS_ES[day.getMonth()].toLowerCase()}`;
 }
 
 /** What the sheet is open for: a new entry of a kind, or an existing one. */
@@ -156,7 +156,19 @@ type Editing = { kind: EventKind; event: PetEventRow | null };
 export default function Home() {
   const toast = useToast();
   const { settings } = useSettings();
-  const [day] = useState(() => new Date());
+  /**
+   * The day on screen, and the boundary it cannot pass.
+   *
+   * `today` is captured once: a session that crosses midnight keeps calling
+   * the day it started on "Hoy", which is wrong for about as long as it takes
+   * to notice and is cheaper than a ticking clock.
+   */
+  const [today] = useState(() => new Date());
+  const [day, setDay] = useState(() => new Date());
+  const [picking, setPicking] = useState(false);
+  /** One month of marks for the calendar, fetched only once it is opened. */
+  const [marks, setMarks] = useState<Map<string, DaySummary>>(new Map());
+  const [marksMonth, setMarksMonth] = useState(() => new Date());
   const [pet, setPet] = useState<PetRow | null>(null);
   const [events, setEvents] = useState<PetEventRow[] | null>(null);
   /** Fatal: with no pet there is no day to show. */
@@ -192,6 +204,21 @@ export default function Home() {
     };
   }, [day, attempt]);
 
+  // Lazily, and only while the calendar is open: a month of rows is cheap but
+  // it is not free, and most visits to the diary never open it.
+  useEffect(() => {
+    if (!picking || !pet) return;
+    let cancelled = false;
+    eventsForMonth(pet.id, marksMonth).then(({ days }) => {
+      // A failed month read costs the marks, not the picker: the calendar
+      // still navigates, it just stops saying what happened.
+      if (!cancelled) setMarks(days);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [picking, pet, marksMonth, attempt]);
+
   const reload = useCallback(() => {
     setPetError(null);
     setLogError(null);
@@ -217,6 +244,8 @@ export default function Home() {
   const walked = walkedMinutes(events);
   const goal = pet.exercise_goal_minutes;
   const met = goal !== null && walked >= goal;
+  const isToday = daysAgo(day, today) === 0;
+  const headline = formatDayHeadline(day, today);
 
   return (
     <Screen
@@ -237,16 +266,56 @@ export default function Home() {
         />
       )}
     >
-      <Text
-        testID="home-title"
-        accessibilityRole="header"
-        className="text-2xl text-text-primary"
-      >
-        Hoy
-      </Text>
-      <Text testID="home-date" className="mb-8 text-text-tertiary">
-        {formatDay(day)}
-      </Text>
+      {/* **The header is the control.** It was a title; navigating between
+          days is the one thing this screen could not do, and the date is
+          where a person reaches for it. Two lines still, so the rhythm holds:
+          the headline names the day the way somebody would say it, the line
+          below gives the date. */}
+      <View className="mb-8 flex-row items-center justify-between">
+        <DayStep
+          testID="home-prev-day"
+          icon={ChevronLeft}
+          label="Día anterior"
+          onPress={() => setDay((d) => shiftDays(d, -1))}
+        />
+
+        <Pressable
+          testID="home-day"
+          onPress={() => {
+            setMarksMonth(day);
+            setPicking(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${headline}, ${formatDayDate(day)}. Elegir otro día`}
+          style={{ minHeight: TOUCH_TARGET }}
+          className="flex-1 items-center justify-center active:opacity-70"
+        >
+          <Text
+            testID="home-title"
+            accessibilityRole="header"
+            className="text-2xl text-text-primary"
+          >
+            {headline}
+          </Text>
+          <View className="flex-row items-center gap-2">
+            <Text testID="home-date" className="text-text-tertiary">
+              {formatDayDate(day)}
+            </Text>
+            <CalendarDays size={14} color={colors.textMuted} />
+          </View>
+        </Pressable>
+
+        {/* No future: there is nothing to log about a day that has not
+            happened, so the forward step stops at today rather than offering
+            an empty screen. */}
+        <DayStep
+          testID="home-next-day"
+          icon={ChevronRight}
+          label="Día siguiente"
+          disabled={isToday}
+          onPress={() => setDay((d) => shiftDays(d, 1))}
+        />
+      </View>
 
       {goal !== null ? (
         <View testID="home-goal" className="mb-8">
@@ -289,15 +358,25 @@ export default function Home() {
         </Group>
       ) : events.length === 0 ? (
         <Group testID="home-empty">
+          {/* A past day is not still going, so it cannot say "todavía". */}
           <Text className="mb-2 font-semibold text-text-primary">
-            Todavía no hay nada registrado
+            {isToday
+              ? "Todavía no hay nada registrado"
+              : "Ese día no se apuntó nada"}
           </Text>
           <Text className="mb-5 text-text-tertiary">
-            {`Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y no se pierde.`}
+            {isToday
+              ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y no se pierde.`
+              : "Puedes apuntarlo ahora: se guarda en ese día, no en hoy."}
           </Text>
         </Group>
       ) : (
-        <Group testID="home-log" title="Registro de hoy">
+        <Group
+          testID="home-log"
+          // "de hoy" only when it is: the header already names the day, and a
+          // title reading "hoy" over Tuesday's entries contradicts it.
+          title={isToday ? "Registro de hoy" : "Registro"}
+        >
           {events.map((event) => (
             <Entry
               key={event.id}
@@ -314,11 +393,38 @@ export default function Home() {
           entry of a full day hides under the button that added it. */}
       <View style={{ height: FAB_CLEARANCE }} />
 
+      {picking ? (
+        <Sheet
+          anchor="top"
+          onClose={() => setPicking(false)}
+          testID="home-calendar"
+          scrimTestID="home-calendar-scrim"
+        >
+          <MonthCalendar
+            marks={marks}
+            goalMinutes={goal}
+            value={day}
+            maxDate={today}
+            goalLabel={
+              goal === null
+                ? null
+                : formatDuration(goal, settings.durationFormat)
+            }
+            onMonthChange={setMarksMonth}
+            onSelect={(picked) => {
+              setDay(picked);
+              setPicking(false);
+            }}
+          />
+        </Sheet>
+      ) : null}
+
       {editing ? (
         <EntrySheet
           kind={editing.kind}
           event={editing.event}
           day={day}
+          dayLabel={isToday ? null : `${headline}, ${formatDayDate(day)}`}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -449,6 +555,7 @@ function EntrySheet({
   kind,
   event,
   day,
+  dayLabel,
   petId,
   onClose,
   onSaved,
@@ -458,6 +565,17 @@ function EntrySheet({
   /** The entry being corrected, or null when this is a new one. */
   event: PetEventRow | null;
   day: Date;
+  /**
+   * Which day this writes to, when it is not today.
+   *
+   * Said out loud rather than assumed: the same sheet, opened from a day three
+   * back, saves three days back — and a form that looks identical whichever
+   * day it lands on is a form that will land on the wrong one. No validation
+   * changed for this: every time check compares an instant against the real
+   * now, so any hour of a past day is already in the past and today's future
+   * is still refused.
+   */
+  dayLabel: string | null;
   petId: string;
   onClose: () => void;
   onSaved: () => void;
@@ -703,6 +821,11 @@ function EntrySheet({
         >
           {event ? spec.editAction : spec.action}
         </Text>
+        {dayLabel ? (
+          <Text testID="entry-day" className="-mt-3 mb-5 text-text-tertiary">
+            {dayLabel}
+          </Text>
+        ) : null}
 
         {isWalk ? (
           <>
@@ -871,6 +994,47 @@ function EntrySheet({
         ) : null}
       </>
     </Sheet>
+  );
+}
+
+/**
+ * One day back or forward.
+ *
+ * Icon-only, so the name is spoken rather than shown — and disabled rather
+ * than hidden on today: a control that disappears takes its own explanation
+ * with it, and "there is no tomorrow yet" is worth leaving visible.
+ */
+function DayStep({
+  testID,
+  icon: Icon,
+  label,
+  disabled = false,
+  onPress,
+}: {
+  testID: string;
+  icon: LucideIcon;
+  label: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      aria-disabled={disabled}
+      style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
+      className="items-center justify-center rounded-xl active:opacity-70"
+    >
+      <Icon
+        size={24}
+        strokeWidth={2.5}
+        color={disabled ? colors.textMuted : colors.textSecondary}
+      />
+    </Pressable>
   );
 }
 
