@@ -58,8 +58,9 @@ type ButtonProps = {
    * Red instead of the accent, for an action that destroys something.
    *
    * A tone rather than a variant, because it composes with every shape: the
-   * link that opens a delete confirmation and the filled button inside it are
-   * the same colour decision at two weights. Dressing a destructive action in
+   * link that opens a delete confirmation, the outlined full-width button that
+   * carries it, and the filled button inside the dialog are the same colour
+   * decision at three weights. Dressing a destructive action in
    * Ice Blue Glacial is the opposite of what that colour means — it says "this
    * is the one thing to do here" — and the confirmation dialog had exactly
    * that button until this existed.
@@ -160,7 +161,12 @@ export function Button({
       ? "bg-error"
       : variant === "primary"
         ? disabled
-          ? "bg-surface"
+          ? // A hairline with the fill, because the fill alone is not always a
+            // shape: inside the delete dialog the panel is Fjord Slate too, and
+            // a disabled `bg-surface` button on it vanished into the panel — the
+            // confirm control read as a line of grey text rather than as a
+            // button waiting for the name.
+            "border border-border-default bg-surface"
           : danger
             ? "bg-error"
             : "bg-accent-primary"
@@ -174,7 +180,7 @@ export function Button({
     : variant === "primary"
       ? `flex-row items-center justify-center gap-2 rounded-xl py-4 ${fill}`
       : isOutlined
-        ? `flex-row items-center justify-center gap-3 rounded-xl border border-border-strong py-4 ${status === "error" ? fill : ""}`
+        ? `flex-row items-center justify-center gap-3 rounded-xl border py-4 ${danger ? "border-error" : "border-border-strong"} ${status === "error" ? fill : ""}`
         : "flex-row items-center justify-center gap-2 rounded-xl border border-border-strong px-6 py-3";
 
   // On both the accent fill and the error fill the readable colour is the dark
@@ -190,15 +196,18 @@ export function Button({
       : onFill
         ? "font-semibold text-on-accent"
         : isOutlined
-          ? "font-semibold text-text-primary"
+          ? danger
+            ? "font-semibold text-error"
+            : "font-semibold text-text-primary"
           : "text-text-secondary";
-  const iconColor = isLink
-    ? danger
+  const iconColor =
+    (isLink || isOutlined) && danger && !onFill
       ? colors.error
-      : colors.accentSecondary
-    : onFill
-      ? colors.onAccent
-      : colors.textSecondary;
+      : isLink
+        ? colors.accentSecondary
+        : onFill
+          ? colors.onAccent
+          : colors.textSecondary;
 
   // The visible label changes with the phase, so the accessible name follows
   // it: a button reading "¡Ya estáis dentro!" that still announces "Registrar
