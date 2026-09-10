@@ -73,6 +73,80 @@ export function dayBounds(day: Date): { from: string; to: string } {
 }
 
 /**
+ * The local month's bounds, as instants. Same reasoning as `dayBounds`.
+ *
+ * `setDate(1)` before `setMonth(+1)` on purpose: incrementing the month from
+ * the 31st lands on a date the next month does not have, and the runtime
+ * rolls it forward — asking for a month from the 31st of March would have
+ * returned a range starting in March and ending in May.
+ */
+export function monthBounds(day: Date): { from: string; to: string } {
+  const from = new Date(day);
+  from.setDate(1);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(from);
+  to.setMonth(to.getMonth() + 1);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+/** The local calendar day an instant falls on, as `YYYY-MM-DD`. */
+export function dayKey(at: Date): string {
+  return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * What a calendar cell needs to know about one day.
+ *
+ * **It does not know about the exercise goal**, and that is the point: the
+ * goal is a single current value on the pet, so whether a day "met" it is a
+ * question about today's target rather than a fact about that day. The
+ * aggregate reports minutes; the caller compares. See PRODUCT.md.
+ */
+export type DaySummary = {
+  /** `YYYY-MM-DD`, local. */
+  day: string;
+  /** Minutes walked, for the caller to measure against the current goal. */
+  walkedMinutes: number;
+  hasIncident: boolean;
+  hasMedication: boolean;
+};
+
+/**
+ * A month of entries, reduced to one summary per day that has any.
+ *
+ * A day with no entries is **absent from the map**, not present with zeroes:
+ * "nothing was logged" and "logged, and he did not walk enough" are different
+ * things on the calendar, and a zero would collapse them.
+ */
+export function summariseMonth(events: PetEventRow[]): Map<string, DaySummary> {
+  const days = new Map<string, DaySummary>();
+
+  for (const event of events) {
+    const key = dayKey(new Date(event.occurred_at));
+    const summary =
+      days.get(key) ??
+      ({
+        day: key,
+        walkedMinutes: 0,
+        hasIncident: false,
+        hasMedication: false,
+      } satisfies DaySummary);
+
+    if (event.kind === "walk") {
+      summary.walkedMinutes += event.duration_minutes ?? 0;
+    } else if (event.kind === "incident") {
+      summary.hasIncident = true;
+    } else if (event.kind === "medication") {
+      summary.hasMedication = true;
+    }
+
+    days.set(key, summary);
+  }
+
+  return days;
+}
+
+/**
  * "09:15" on a given day, as an instant — or null when it is not a time.
  *
  * **Permissive on purpose, because the keyboard is not.** Android's number pad
@@ -243,6 +317,39 @@ export async function eventsForDay(
     return { events: data ?? [], error: null };
   } catch (cause) {
     return { events: [], error: describeFailure(cause, "eventsForDay") };
+  }
+}
+
+/**
+ * Every entry in a month, for the calendar's marks.
+ *
+ * One request per month rather than one per day: a month is at most a few
+ * hundred rows, and thirty round trips to draw one calendar is the kind of
+ * thing that works on a desk and not in a vet's waiting room.
+ */
+export async function eventsForMonth(
+  petId: string,
+  month: Date,
+): Promise<{ days: Map<string, DaySummary>; error: string | null }> {
+  const { from, to } = monthBounds(month);
+
+  const query = supabase
+    .from("pet_events")
+    .select("*")
+    .eq("pet_id", petId)
+    .gte("occurred_at", from)
+    .lt("occurred_at", to);
+
+  try {
+    const { data, error } = await withTimeout(query, "eventsForMonth");
+    if (error)
+      return {
+        days: new Map(),
+        error: describeFailure(error, "eventsForMonth"),
+      };
+    return { days: summariseMonth(data ?? []), error: null };
+  } catch (cause) {
+    return { days: new Map(), error: describeFailure(cause, "eventsForMonth") };
   }
 }
 

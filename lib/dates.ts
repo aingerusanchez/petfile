@@ -95,6 +95,45 @@ export function formatDisplayDate(
   return `${String(parts.day).padStart(2, "0")}/${String(parts.month).padStart(2, "0")}/${parts.year}`;
 }
 
+const WEEKDAYS_ES = [
+  "domingo",
+  "lunes",
+  "martes",
+  "miércoles",
+  "jueves",
+  "viernes",
+  "sábado",
+] as const;
+
+/** Whole days from `day` back to `reference`, both taken at local midnight. */
+export function daysAgo(day: Date, reference: Date): number {
+  const a = new Date(day);
+  a.setHours(0, 0, 0, 0);
+  const b = new Date(reference);
+  b.setHours(0, 0, 0, 0);
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+}
+
+/**
+ * What to call a day: "Hoy", "Ayer", or its weekday.
+ *
+ * The headline names the day the way a person would. Two days back nobody
+ * says "anteayer" out loud any more, and the weekday is what they reach for
+ * instead — so from there it is "Martes", with the date on the line below.
+ */
+export function formatDayHeadline(day: Date, today: Date): string {
+  const ago = daysAgo(day, today);
+  if (ago === 0) return "Hoy";
+  if (ago === 1) return "Ayer";
+  const weekday = WEEKDAYS_ES[day.getDay()];
+  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
+}
+
+/** "10 de septiembre" — the date under the headline, without the weekday. */
+export function formatDayDate(day: Date): string {
+  return `${day.getDate()} de ${MONTHS_ES[day.getMonth()].toLowerCase()}`;
+}
+
 /** The year range offered by the picker: this year back through `span` years. */
 export function yearChoices(today: Date = new Date(), span = 30): number[] {
   const current = today.getFullYear();

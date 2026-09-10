@@ -1,5 +1,8 @@
 import {
+  daysAgo,
   daysInMonth,
+  formatDayDate,
+  formatDayHeadline,
   formatDisplayDate,
   parseISO,
   toApproximateISO,
@@ -87,5 +90,49 @@ describe("yearChoices", () => {
   it("counts back from the current year", () => {
     const years = yearChoices(new Date("2026-09-07T00:00:00Z"), 3);
     expect(years).toEqual([2026, 2025, 2024]);
+  });
+});
+
+describe("daysAgo", () => {
+  it("counts whole days from local midnight, whatever the clock says", () => {
+    // 23:50 yesterday to 00:10 today is one day, not eleven hours.
+    expect(
+      daysAgo(new Date(2026, 8, 9, 23, 50), new Date(2026, 8, 10, 0, 10)),
+    ).toBe(1);
+    expect(
+      daysAgo(new Date(2026, 8, 10, 0, 10), new Date(2026, 8, 10, 23, 50)),
+    ).toBe(0);
+  });
+
+  it("crosses a month and a year", () => {
+    expect(daysAgo(new Date(2026, 7, 31), new Date(2026, 8, 1))).toBe(1);
+    expect(daysAgo(new Date(2025, 11, 31), new Date(2026, 0, 1))).toBe(1);
+  });
+
+  it("is negative for a day in the future", () => {
+    expect(daysAgo(new Date(2026, 8, 11), new Date(2026, 8, 10))).toBe(-1);
+  });
+});
+
+describe("formatDayHeadline", () => {
+  const today = new Date(2026, 8, 10); // a Thursday
+
+  it("names the two days a person names", () => {
+    expect(formatDayHeadline(today, today)).toBe("Hoy");
+    expect(formatDayHeadline(new Date(2026, 8, 9), today)).toBe("Ayer");
+  });
+
+  it("reaches for the weekday from two days back", () => {
+    // "Anteayer" is not what anyone says any more.
+    expect(formatDayHeadline(new Date(2026, 8, 8), today)).toBe("Martes");
+    expect(formatDayHeadline(new Date(2026, 8, 6), today)).toBe("Domingo");
+    expect(formatDayHeadline(new Date(2026, 7, 20), today)).toBe("Jueves");
+  });
+});
+
+describe("formatDayDate", () => {
+  it("gives the date without the weekday, lowercase month", () => {
+    expect(formatDayDate(new Date(2026, 8, 10))).toBe("10 de septiembre");
+    expect(formatDayDate(new Date(2026, 0, 1))).toBe("1 de enero");
   });
 });
