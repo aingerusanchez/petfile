@@ -1,5 +1,10 @@
 import { useId } from "react";
-import { TextInput, type TextInputProps, View } from "react-native";
+import {
+  TextInput,
+  View,
+  type LayoutChangeEvent,
+  type TextInputProps,
+} from "react-native";
 import { FieldLabel } from "./FieldLabel";
 import { PLACEHOLDER_COLOR, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
@@ -25,7 +30,7 @@ type TextFieldProps = Omit<
   /** How the suffix is read aloud, when the abbreviation would not be. */
   suffixLabel?: string;
   /** Reports the field's offset within its parent, for scroll-to-error. */
-  onLayout?: (event: import("react-native").LayoutChangeEvent) => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
   /** Per-field validation message. Renders below the input and drives the error border. */
   error?: string | null;
   className?: string;

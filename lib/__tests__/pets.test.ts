@@ -1,7 +1,9 @@
-// Mock supabase before importing pets
-jest.mock("../supabase");
-
 import { validatePetDraft, type PetDraft } from "../pets";
+
+// `pets` reaches for the client at module scope, so the mock has to be in
+// place before it loads. `jest.mock` is hoisted above the imports by babel,
+// which is what makes this order safe as well as lint-clean.
+jest.mock("../supabase");
 
 const valid: PetDraft = {
   name: "Loki",

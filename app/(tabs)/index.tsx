@@ -9,17 +9,17 @@ import { useCallback, useEffect, useState } from "react";
 import { Modal, Pressable, View } from "react-native";
 import {
   Button,
+  colors,
   Fab,
   FAB_CLEARANCE,
   Group,
   LoadingScreen,
+  pressed,
   Screen,
   Text,
   TextField,
-  colors,
-  pressed,
-  useToast,
   TOUCH_TARGET,
+  useToast,
 } from "../../components/ui";
 import { MONTHS_ES } from "../../lib/dates";
 import { formatDuration, parseDuration } from "../../lib/duration";
@@ -279,7 +279,7 @@ export default function Home() {
       ) : events.length === 0 ? (
         <Group testID="home-empty">
           <Text className="mb-2 font-semibold text-text-primary">
-            Todavía no hay nada de hoy
+            Todavía no hay nada registrado
           </Text>
           <Text className="mb-5 text-text-tertiary">
             {`Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y no se pierde.`}
@@ -308,7 +308,6 @@ export default function Home() {
           kind={editing.kind}
           event={editing.event}
           day={day}
-          petName={pet.name}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -426,7 +425,6 @@ function EntrySheet({
   event,
   day,
   petId,
-  petName,
   onClose,
   onSaved,
   onFailed,
@@ -436,7 +434,6 @@ function EntrySheet({
   event: PetEventRow | null;
   day: Date;
   petId: string;
-  petName: string;
   onClose: () => void;
   onSaved: () => void;
   onFailed: (message: string) => void;

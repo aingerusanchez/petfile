@@ -1,7 +1,13 @@
 import "dayjs/locale/es";
 import { CalendarDays, X } from "lucide-react-native";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import DateTimePicker from "react-native-ui-datepicker";
 import {
   MONTHS_ES_SHORT,
@@ -86,7 +92,7 @@ type DateFieldProps = {
   approximate?: boolean;
   required?: boolean;
   /** Reports the field's offset within its parent, for scroll-to-error. */
-  onLayout?: (event: import("react-native").LayoutChangeEvent) => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
   error?: string | null;
   testID?: string;
 };

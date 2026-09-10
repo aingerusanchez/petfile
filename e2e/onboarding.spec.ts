@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { resetE2EPets, seedSession } from "./auth";
 
 test.beforeEach(async () => {
@@ -22,7 +22,7 @@ test.afterAll(async () => {
 
 /** Drives the calendar picker that replaced the free-text ISO field. */
 async function pickExactBirthDate(
-  page: import("@playwright/test").Page,
+  page: Page,
   /**
    * Defaults to the 1st, which is the only day guaranteed to be in the past
    * whatever the calendar opens on: `maxDate` disables future days, so a fixed

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   eventsTableExists,
   resetE2EPets,
@@ -20,7 +20,7 @@ let ready = false;
  * The four kinds live behind the floating action now, so every add is two
  * taps. One helper rather than the pair spelled out twenty times.
  */
-async function add(page: import("@playwright/test").Page, kind: string) {
+async function add(page: Page, kind: string) {
   await page.getByTestId("home-add").click();
   await page.getByTestId(`home-add-${kind}`).click();
 }

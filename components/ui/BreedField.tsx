@@ -1,5 +1,10 @@
 import { useId, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import {
+  Pressable,
+  TextInput,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import { isKnownBreed, searchBreeds } from "../../lib/breeds";
 import { FieldLabel } from "./FieldLabel";
 import { PLACEHOLDER_COLOR, pressed, TOUCH_TARGET } from "./tokens";
@@ -11,7 +16,7 @@ type BreedFieldProps = {
   onChange: (breed: string | null) => void;
   required?: boolean;
   /** Reports the field's offset within its parent, for scroll-to-error. */
-  onLayout?: (event: import("react-native").LayoutChangeEvent) => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
   error?: string | null;
   placeholder?: string;
   /**
