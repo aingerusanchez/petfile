@@ -219,23 +219,23 @@ export function AvatarEditor({
       <Pressable
         testID="avatar-editor-scrim"
         onPress={onClose}
-        className="justify-end flex-1 bg-base/80"
+        className="flex-1 justify-end bg-base/80"
       >
         <Pressable
           testID="avatar-editor"
           onPress={(event) => event.stopPropagation()}
-          className="p-5 border rounded-xl border-border-default bg-surface"
+          className="rounded-xl border border-border-default bg-surface p-5"
         >
           {/* Centred, so it sits over the portrait rather than off to its
               left: the sheet is about one round thing in the middle of it. */}
           <Text
             accessibilityRole="header"
-            className="mb-5 text-center text-xl font-bold text-text-primary"
+            className="mb-5 text-center font-bold text-xl text-text-primary"
           >
             {`Foto de ${name}`}
           </Text>
 
-          <View className="items-center mb-5">
+          <View className="mb-5 items-center">
             {framing ? (
               <View
                 testID="avatar-editor-stage"
@@ -312,21 +312,21 @@ export function AvatarEditor({
               {/* `text-balance` evens the two lines on the web; the native CSS
                   compiler has no `text-wrap`, so the non-breaking space is
                   what stops "se verá." orphaning a line there. */}
-              <Text className="mb-5 text-balance text-center text-xs text-text-tertiary">
+              <Text className="mb-5 text-center text-xs text-balance text-text-tertiary">
                 {
                   "Arrástrala para colocarla y pellízcala para acercar. Así es como se\u00A0verá."
                 }
               </Text>
             </>
           ) : (
-            <Text className="mb-5 text-xs text-center text-text-tertiary">
+            <Text className="mb-5 text-center text-xs text-text-tertiary">
               {currentUri
                 ? "Para reencuadrarla, vuelve a elegir la foto."
                 : `Elige una foto y encuádrala como quieras.`}
             </Text>
           )}
 
-          <View className="flex-row items-center justify-between mb-5">
+          <View className="mb-5 flex-row items-center justify-between">
             <Button
               testID="avatar-editor-pick"
               variant="link"
@@ -350,14 +350,14 @@ export function AvatarEditor({
             ) : null}
           </View>
 
-          <View className="flex-row gap-3 mt-1">
+          <View className="mt-1 flex-row gap-3">
             <Pressable
               testID="avatar-editor-cancel"
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Cancelar"
               style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-              className="items-center justify-center flex-1 py-4 border rounded-xl border-border-strong"
+              className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4"
             >
               <Text className="text-text-secondary">Cancelar</Text>
             </Pressable>
@@ -406,7 +406,7 @@ function ZoomButton({
         { minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET },
         pressed(state),
       ]}
-      className="items-center justify-center border rounded-xl border-border-strong"
+      className="items-center justify-center rounded-xl border border-border-strong"
     >
       <Icon
         size={20}
