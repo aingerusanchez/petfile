@@ -81,6 +81,13 @@ function pinchDistance(
  * Repositioning is still drag-only — the default is a centred cover crop,
  * which is a complete result on its own, so nothing is unreachable, only
  * un-nudgeable.
+ *
+ * **The pinch is the one thing here that cannot be verified from this side.**
+ * `adb shell input` has no multitouch, so the slider, the buttons and the drag
+ * were all measured on device and the two-finger gesture was not. It is
+ * written to be self-correcting rather than to depend on the order Android
+ * delivers touch events in — see the re-baseline in `drag` — but it is the
+ * one behaviour here that only a hand can confirm.
  */
 export function AvatarEditor({
   name,
@@ -145,6 +152,23 @@ export function AvatarEditor({
       if (!image) return;
       const from = start.current;
       const distance = pinchDistance(event.nativeEvent.touches);
+
+      // **Re-baseline here when the finger count changes, rather than trusting
+      // the event order.** `onPanResponderStart` and `onPanResponderEnd` are
+      // supposed to arrive before the next move when a finger lands or lifts,
+      // and when they do not, the first move of a pinch is read as a drag —
+      // with `gestureState.dx` measuring the *centroid*, which has just jumped
+      // to the midpoint between two fingers. The image lurched at the start
+      // and end of every pinch. This move only re-baselines; nothing moves.
+      if ((from.distance === null) !== (distance === null)) {
+        start.current = {
+          frame: frameRef.current,
+          distance,
+          dx: gesture.dx,
+          dy: gesture.dy,
+        };
+        return;
+      }
 
       if (from.distance && distance) {
         apply(
