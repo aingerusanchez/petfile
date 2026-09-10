@@ -24,6 +24,11 @@ import { describeAge } from "../../lib/age";
 import { useAuth } from "../../lib/auth";
 import { parseISO, toApproximateISO } from "../../lib/dates";
 import {
+  DURATION_HINT,
+  formatDuration,
+  parseDuration,
+} from "../../lib/duration";
+import {
   deletePet,
   getMyPet,
   isMixedShown,
@@ -83,9 +88,9 @@ function Row({
     <View
       accessible
       accessibilityLabel={`${label}: ${value}`}
-      className="flex-row items-baseline justify-between gap-4 mb-4"
+      className="mb-4 flex-row items-baseline justify-between gap-4"
     >
-      <Text className="text-xs font-semibold uppercase tracking-[0.05em] text-text-tertiary">
+      <Text className="font-semibold text-xs tracking-[0.05em] text-text-tertiary uppercase">
         {label}
       </Text>
       <Text
@@ -151,6 +156,16 @@ export default function Profile() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<Section>(null);
   const [editingPhoto, setEditingPhoto] = useState(false);
+  /**
+   * What the goal field shows while it is being typed into.
+   *
+   * The stored value is a number of minutes and the field speaks hours, so the
+   * text cannot be derived from the number on every keystroke — "5h" would
+   * become "5 min" halfway through typing it. The buffer holds what was typed
+   * and is tidied when the field loses focus.
+   */
+  const [goalText, setGoalText] = useState("");
+  const [goalError, setGoalError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [typedName, setTypedName] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -217,6 +232,12 @@ export default function Profile() {
       if (!pet) return;
       setEdit(petEditFromRow(pet));
       setFieldErrors({});
+      setGoalText(
+        pet.exercise_goal_minutes
+          ? formatDuration(pet.exercise_goal_minutes)
+          : "",
+      );
+      setGoalError(null);
       setEditing(section);
     },
     [pet],
@@ -225,8 +246,30 @@ export default function Profile() {
   const closeSection = useCallback(() => {
     if (pet) setEdit(petEditFromRow(pet));
     setFieldErrors({});
+    setGoalError(null);
     setEditing(null);
   }, [pet]);
+
+  /**
+   * Reads "5h", "90", "1h 30m" — whatever a tutor types — into the column's
+   * minutes. An unparseable string leaves the stored number alone and says so,
+   * rather than silently writing a null over a target somebody set.
+   */
+  const editGoal = useCallback((text: string) => {
+    setGoalText(text);
+    if (!text.trim()) {
+      setGoalError(null);
+      setEdit((d) => d && { ...d, exerciseGoalMinutes: null });
+      return;
+    }
+    const minutes = parseDuration(text);
+    if (minutes === null) {
+      setGoalError(DURATION_HINT);
+      return;
+    }
+    setGoalError(null);
+    setEdit((d) => d && { ...d, exerciseGoalMinutes: minutes });
+  }, []);
 
   const save = useCallback(async () => {
     if (!pet || !edit) return false;
@@ -390,13 +433,12 @@ export default function Profile() {
   return (
     <Screen scroll edges={["top"]}>
       {/* The file's cover: who this is, at a glance, before any control. */}
-      <View className="flex-row items-center gap-5 mb-8">
+      <View className="mb-8 flex-row items-center gap-5">
         <Avatar
           testID="profile-avatar"
           uri={photoUri}
           name={name}
           onPress={() => setEditingPhoto(true)}
-          actionLabel={pet.photo_url ? "Editar" : "Añadir"}
           accessibilityLabel={
             pet.photo_url
               ? `Cambiar la foto de ${name}`
@@ -404,12 +446,12 @@ export default function Profile() {
           }
         />
         <View className="flex-1">
-          <View className="flex-row items-center gap-2 mb-1">
+          <View className="mb-1 flex-row items-center gap-2">
             <Text
               testID="profile-title"
               accessibilityRole="header"
               numberOfLines={1}
-              className="text-2xl font-bold shrink text-text-primary"
+              className="shrink font-bold text-2xl text-text-primary"
             >
               {name}
             </Text>
@@ -503,7 +545,7 @@ export default function Profile() {
             onChange={(iso) => setEdit((d) => d && { ...d, birthDate: iso })}
             error={fieldErrors.birthDate}
           />
-          <View className="mb-5 -mt-3">
+          <View className="-mt-3 mb-5">
             <Checkbox
               testID="profile-birthdate-approx"
               label="Aproximado"
@@ -539,7 +581,7 @@ export default function Profile() {
             placeholder="Husky Siberiano"
             error={fieldErrors.breedPrimary}
           />
-          <View className="mb-5 -mt-3">
+          <View className="-mt-3 mb-5">
             <Checkbox
               testID="profile-mixed"
               label="Es mestizo"
@@ -560,7 +602,7 @@ export default function Profile() {
                 bottom of it: the action that ends the file should not be
                 reachable from a screen someone opened to look at their dog.
                 Outlined rather than filled — it is available, not invited. */}
-          <View className="pt-6 mt-8 mb-5 border-t border-border-default">
+          <View className="mt-8 mb-5 border-t border-border-default pt-6">
             <Button
               testID="profile-delete"
               variant="outlined"
@@ -619,29 +661,25 @@ export default function Profile() {
             <TextField
               testID="profile-exercise-goal"
               label="Objetivo diario de paseo"
-              value={
-                edit.exerciseGoalMinutes === null
-                  ? ""
-                  : String(edit.exerciseGoalMinutes)
+              value={goalText}
+              onChangeText={editGoal}
+              onBlur={() =>
+                setGoalText(
+                  edit.exerciseGoalMinutes
+                    ? formatDuration(edit.exerciseGoalMinutes)
+                    : "",
+                )
               }
-              onChangeText={(next) =>
-                setEdit((d) => {
-                  if (!d) return d;
-                  const digits = next.replace(/[^0-9]/g, "");
-                  return {
-                    ...d,
-                    exerciseGoalMinutes: digits === "" ? null : Number(digits),
-                  };
-                })
-              }
-              placeholder="60"
-              suffix="min."
-              suffixLabel="en minutos al día"
-              error={fieldErrors.exerciseGoalMinutes}
-              keyboardType="number-pad"
-              maxLength={3}
+              placeholder="1h"
+              // The alphabetic keyboard here, unlike in the walk sheet: this
+              // is a target set once, "5h" is the shape a tutor reaches for,
+              // and a number pad could not type it.
+              error={goalError ?? fieldErrors.exerciseGoalMinutes}
+              maxLength={10}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
-            <Text className="mb-5 -mt-3 text-xs text-text-tertiary">
+            <Text className="-mt-3 mb-5 text-xs text-text-tertiary">
               El diario compara con esto los paseos del día.
             </Text>
 
@@ -680,7 +718,7 @@ export default function Profile() {
               label="Paseo al día"
               testID="profile-goal-value"
               muted={goal === null}
-              value={goal === null ? "Sin objetivo" : `${goal} min.`}
+              value={goal === null ? "Sin objetivo" : formatDuration(goal)}
             />
             <EditButton
               testID="profile-edit-health"
@@ -693,7 +731,7 @@ export default function Profile() {
 
       {/* Signing out is routine and reversible, so it keeps its place on the
           page — and it is now the only exit that does, which is the point. */}
-      <View className="pt-8 mt-6 border-t border-border-default">
+      <View className="mt-6 border-t border-border-default pt-8">
         <Button
           testID="profile-signout"
           icon={Power}
@@ -722,11 +760,11 @@ export default function Profile() {
         <Pressable
           testID="profile-delete-scrim"
           onPress={() => setConfirmingDelete(false)}
-          className="justify-end flex-1 bg-base/80"
+          className="flex-1 justify-end bg-base/80"
         >
           <Pressable
             onPress={(event) => event.stopPropagation()}
-            className="p-5 border rounded-xl border-error bg-surface"
+            className="rounded-xl border border-error bg-surface p-5"
           >
             {/* The file is what gets deleted, and the wording says so. A tutor
                 reaching this screen may have lost the animal, and "borrar a
@@ -734,7 +772,7 @@ export default function Profile() {
                 than about a record in an app. */}
             <Text
               accessibilityRole="header"
-              className="mb-2 text-xl font-bold text-text-primary"
+              className="mb-2 font-bold text-xl text-text-primary"
             >
               {`¿Borrar la ficha de ${name}?`}
             </Text>
@@ -762,7 +800,7 @@ export default function Profile() {
                 accessibilityRole="button"
                 accessibilityLabel="Cancelar"
                 style={(state) => [{ minHeight: 48 }, pressed(state)]}
-                className="items-center justify-center flex-1 py-4 border rounded-xl border-border-strong"
+                className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4"
               >
                 <Text className="text-text-secondary">Cancelar</Text>
               </Pressable>
@@ -830,7 +868,7 @@ function SectionActions({
   onCancel: () => void;
 }) {
   return (
-    <View className="flex-row items-center gap-4 mt-1">
+    <View className="mt-1 flex-row items-center gap-4">
       <View className="flex-1">
         <Button
           testID="profile-save"

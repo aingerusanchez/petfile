@@ -1,5 +1,6 @@
+import { Camera } from "lucide-react-native";
 import { Image, Pressable, View } from "react-native";
-import { pressed } from "./tokens";
+import { colors, pressed } from "./tokens";
 import { Text } from "./Text";
 
 type AvatarProps = {
@@ -17,8 +18,6 @@ type AvatarProps = {
    * tutor reaches first anyway.
    */
   onPress?: () => void;
-  /** The word on the band across the foot of the circle. Needs `onPress`. */
-  actionLabel?: string;
   accessibilityLabel?: string;
   testID?: string;
 };
@@ -41,22 +40,28 @@ type AvatarProps = {
  * deliberately **not** in the accent: the accent means "act here" (The One
  * Accent Rule), and a portrait is not an action.
  *
- * **The action band is always visible, not revealed on hover.** There is no
- * hover on a phone, so an affordance that waits for one is an affordance that
- * never appears — the band is a permanent, quiet part of the portrait.
+ * **The affordance is a badge, not a band.** A word across the foot of the
+ * circle read clearly but ate a slice of the one thing the header exists to
+ * show — and the obvious way to soften it, revealing it on hover, does not
+ * exist on a phone. A camera pinned to the circle's lower right takes no part
+ * of the face, carries its own ground so it survives any photograph, and is
+ * the mark every messaging app has already taught. It is a marker rather than
+ * a control: the whole portrait is the target.
  */
 export function Avatar({
   uri,
   name,
   size = 96,
   onPress,
-  actionLabel,
   accessibilityLabel,
   testID,
 }: AvatarProps) {
   const initial = name.trim().charAt(0).toUpperCase();
+  // A third of the portrait: big enough to read at 96dp, small enough that it
+  // never competes with the face behind it.
+  const badge = Math.round(size / 3);
 
-  const body = (
+  const portrait = (
     <>
       {uri ? (
         <Image
@@ -78,15 +83,6 @@ export function Avatar({
           {initial}
         </Text>
       )}
-      {onPress && actionLabel ? (
-        // Polar Night at 85% rather than a token fill: what sits behind it is
-        // an arbitrary photograph, so the band has to make its own ground.
-        <View className="absolute bottom-0 left-0 right-0 items-center bg-base/85 py-1">
-          <Text className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-primary">
-            {actionLabel}
-          </Text>
-        </View>
-      ) : null}
     </>
   );
 
@@ -96,14 +92,21 @@ export function Avatar({
     borderRadius: size / 2,
   } as const;
 
+  // The clip has to be its own view: `overflow-hidden` is what rounds the
+  // photograph, and it would cut the badge off at the same edge.
+  const clipped = (
+    <View
+      style={frame}
+      className="items-center justify-center overflow-hidden border border-border-default bg-elevated"
+    >
+      {portrait}
+    </View>
+  );
+
   if (!onPress) {
     return (
-      <View
-        testID={testID}
-        style={frame}
-        className="items-center justify-center overflow-hidden border border-border-default bg-elevated"
-      >
-        {body}
+      <View testID={testID} style={frame}>
+        {clipped}
       </View>
     );
   }
@@ -113,11 +116,31 @@ export function Avatar({
       testID={testID}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? actionLabel}
+      accessibilityLabel={accessibilityLabel}
       style={(state) => [frame, pressed(state)]}
-      className="items-center justify-center overflow-hidden border border-border-default bg-elevated"
     >
-      {body}
+      {clipped}
+      <View
+        testID={testID ? `${testID}-badge` : undefined}
+        // On the diagonal at the lower right, where a notification badge sits:
+        // the corner of the bounding box is outside the circle, so pinning it
+        // there lands it on the edge rather than over the face.
+        style={{
+          position: "absolute",
+          right: 0,
+          bottom: 0,
+          width: badge,
+          height: badge,
+          borderRadius: badge / 2,
+        }}
+        className="items-center justify-center border border-border-strong bg-elevated"
+      >
+        <Camera
+          size={Math.round(badge / 2)}
+          strokeWidth={2}
+          color={colors.textSecondary}
+        />
+      </View>
     </Pressable>
   );
 }

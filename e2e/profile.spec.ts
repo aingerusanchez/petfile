@@ -32,6 +32,9 @@ test("presents the file rather than a form", async ({ page }) => {
   await expect(page.getByTestId("profile-goal-value")).toHaveText(
     "Sin objetivo",
   );
+  // The portrait carries a camera rather than a word: a band across the foot
+  // of the circle ate a slice of the one thing the header exists to show.
+  await expect(page.getByTestId("profile-avatar-badge")).toBeVisible();
 
   // No fields, and above all no delete button, on a screen someone opened to
   // look at their dog.
@@ -215,23 +218,57 @@ test("saves the health block, unit and all", async ({ page }) => {
 
   await page.getByTestId("profile-edit-health").click();
 
-  // The unit sits inside the field, so it survives typing where a placeholder
-  // would not.
-  await expect(page.getByText("min.").first()).toBeVisible();
-
   await page.getByTestId("profile-neutered-yes").click();
   await page.getByTestId("profile-activity-moderate").click();
   await page.getByTestId("profile-exercise-goal").fill("75");
   await page.getByTestId("profile-save").click();
 
-  await expect(page.getByTestId("profile-goal-value")).toHaveText("75 min.");
+  await expect(page.getByTestId("profile-goal-value")).toHaveText("1h 15m");
   await expect(page.getByTestId("profile-neutered-value")).toHaveText("Sí");
   await expect(page.getByTestId("profile-activity-value")).toHaveText(
     "Moderado",
   );
 
   await page.reload();
-  await expect(page.getByTestId("profile-goal-value")).toHaveText("75 min.");
+  await expect(page.getByTestId("profile-goal-value")).toHaveText("1h 15m");
+});
+
+test("takes the goal in hours, and gives it back that way", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/profile");
+  await page.getByTestId("profile-edit-health").click();
+
+  // "5h" is the shape a tutor reaches for on a target this size, which is why
+  // this field keeps the alphabetic keyboard where the walk sheet does not.
+  await page.getByTestId("profile-exercise-goal").fill("5h");
+  await page.getByTestId("profile-save").click();
+  await expect(page.getByTestId("profile-goal-value")).toHaveText("5h");
+
+  // And reopening shows it in the same words rather than as 300.
+  await page.getByTestId("profile-edit-health").click();
+  await expect(page.getByTestId("profile-exercise-goal")).toHaveValue("5h");
+
+  // Bare minutes still work, and the field tidies them on blur.
+  await page.getByTestId("profile-exercise-goal").fill("90");
+  await page.getByTestId("profile-activity-low").click();
+  await expect(page.getByTestId("profile-exercise-goal")).toHaveValue("1h 30m");
+});
+
+test("says so when the goal is not a duration", async ({ page }) => {
+  await seedSession(page);
+  await page.goto("/profile");
+  await page.getByTestId("profile-edit-health").click();
+
+  await page.getByTestId("profile-exercise-goal").fill("un rato");
+  await expect(page.getByTestId("profile-exercise-goal-error")).toHaveText(
+    "Escríbelo como 1h 30m",
+  );
+
+  // Forgive on input, as everywhere else.
+  await page.getByTestId("profile-exercise-goal").fill("45");
+  await expect(page.getByTestId("profile-exercise-goal-error")).toBeHidden();
 });
 
 test("discards an edit that was cancelled", async ({ page }) => {
@@ -288,6 +325,13 @@ test("caps a mistyped exercise goal", async ({ page }) => {
   await page.getByTestId("profile-exercise-goal").fill("600");
   await page.getByTestId("profile-save").click();
 
+  await expect(page.getByTestId("profile-exercise-goal-error")).toHaveText(
+    "Como mucho 300 minutos",
+  );
+
+  // The cap is on the minutes, so it holds however the tutor wrote them.
+  await page.getByTestId("profile-exercise-goal").fill("6h");
+  await page.getByTestId("profile-save").click();
   await expect(page.getByTestId("profile-exercise-goal-error")).toHaveText(
     "Como mucho 300 minutos",
   );
