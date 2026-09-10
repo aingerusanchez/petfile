@@ -1,5 +1,5 @@
 import { Minus, Plus } from "lucide-react-native";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   Modal,
@@ -105,7 +105,12 @@ export function AvatarEditor({
   const frameRef = useRef(frame);
   const naturalRef = useRef(natural);
   const stageRef = useRef(stage);
-  stageRef.current = stage;
+  // In an effect rather than during render: a ref written while rendering is
+  // the defect `react-hooks/refs` exists to catch, and nothing reads this one
+  // before a gesture starts.
+  useEffect(() => {
+    stageRef.current = stage;
+  }, [stage]);
 
   const apply = useCallback((next: Frame) => {
     frameRef.current = next;
@@ -119,58 +124,75 @@ export function AvatarEditor({
     dy: 0,
   });
 
-  const responder = useMemo(() => {
-    const mark = (
-      event: GestureResponderEvent,
-      gesture: PanResponderGestureState,
-    ) => {
+  // `mark` and `drag` are callbacks, not inline closures inside the memo: a
+  // `useMemo` body runs during render, so reading a ref from one is the same
+  // violation as reading it at the top level.
+  const mark = useCallback(
+    (event: GestureResponderEvent, gesture: PanResponderGestureState) => {
       start.current = {
         frame: frameRef.current,
         distance: pinchDistance(event.nativeEvent.touches),
         dx: gesture.dx,
         dy: gesture.dy,
       };
-    };
+    },
+    [],
+  );
 
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: mark,
-      // Fires again for every finger that lands or lifts, which is what keeps
-      // a pinch from jumping when the second one arrives mid-drag.
-      onPanResponderStart: mark,
-      onPanResponderEnd: mark,
-      onPanResponderMove: (event, gesture) => {
-        const image = naturalRef.current;
-        if (!image) return;
-        const from = start.current;
-        const distance = pinchDistance(event.nativeEvent.touches);
+  const drag = useCallback(
+    (event: GestureResponderEvent, gesture: PanResponderGestureState) => {
+      const image = naturalRef.current;
+      if (!image) return;
+      const from = start.current;
+      const distance = pinchDistance(event.nativeEvent.touches);
 
-        if (from.distance && distance) {
-          apply(
-            rezoom(
-              image,
-              stageRef.current,
-              from.frame,
-              (from.frame.zoom * distance) / from.distance,
-            ),
-          );
-          return;
-        }
-
-        apply({
-          zoom: from.frame.zoom,
-          ...clampOffset(
+      if (from.distance && distance) {
+        apply(
+          rezoom(
             image,
             stageRef.current,
-            from.frame.zoom,
-            from.frame.x + (gesture.dx - from.dx),
-            from.frame.y + (gesture.dy - from.dy),
+            from.frame,
+            (from.frame.zoom * distance) / from.distance,
           ),
-        });
-      },
-    });
-  }, [apply]);
+        );
+        return;
+      }
+
+      apply({
+        zoom: from.frame.zoom,
+        ...clampOffset(
+          image,
+          stageRef.current,
+          from.frame.zoom,
+          from.frame.x + (gesture.dx - from.dx),
+          from.frame.y + (gesture.dy - from.dy),
+        ),
+      });
+    },
+    [apply],
+  );
+
+  // `react-hooks/refs` cannot see through `PanResponder.create`: it sees a
+  // ref-reading callback handed to a function during render and warns that the
+  // value may be read there. It is not — the handlers run on touch, which is
+  // the whole reason they reach for a ref instead of closing over state. The
+  // memo has to stay, too: `PanResponder.create` owns the accumulated
+  // `gestureState`, so rebuilding it per render would reset `dx` mid-drag.
+  const responder = useMemo(
+    () =>
+      // eslint-disable-next-line react-hooks/refs
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: mark,
+        // Fires again for every finger that lands or lifts, which is what
+        // keeps a pinch from jumping when the second one arrives mid-drag.
+        onPanResponderStart: mark,
+        onPanResponderEnd: mark,
+        onPanResponderMove: drag,
+      }),
+    [mark, drag],
+  );
 
   const pick = useCallback(async () => {
     const uri = await onPick();

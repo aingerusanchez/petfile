@@ -1,5 +1,10 @@
-import { useCallback, useRef, useState } from "react";
-import { PanResponder, View, type LayoutChangeEvent } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  PanResponder,
+  View,
+  type GestureResponderEvent,
+  type LayoutChangeEvent,
+} from "react-native";
 import { TOUCH_TARGET } from "./tokens";
 
 /** The thumb's diameter in dp. Smaller than the touch target it sits inside. */
@@ -64,25 +69,41 @@ export function Slider({
     [min, max, step, onChange],
   );
 
-  // The responder is created once, so it reads the live handler through a ref
-  // rather than closing over the one it was built with — declared before it,
-  // because the ref has to exist by the time `PanResponder.create` runs.
+  // The responder is built once, so it reaches the live handler through a ref
+  // rather than closing over the one it was created with. The ref is written
+  // in an effect and read only inside `track`, which is what keeps this out of
+  // render — a ref touched during render is the defect `react-hooks/refs`
+  // exists to catch, and a `PanResponder.create` call in a `useRef` argument
+  // or a `useMemo` body *is* render.
   const emitRef = useRef(emit);
-  emitRef.current = emit;
+  useEffect(() => {
+    emitRef.current = emit;
+  }, [emit]);
 
-  const responder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      // `locationX` is measured from this view's left edge and keeps tracking
-      // when the finger runs off either end, where `emit` clamps it. That is
-      // also what makes a plain tap on the track jump the value there.
-      onPanResponderGrant: (event) =>
-        emitRef.current(event.nativeEvent.locationX),
-      onPanResponderMove: (event) =>
-        emitRef.current(event.nativeEvent.locationX),
-    }),
-  ).current;
+  // `locationX` is measured from this view's left edge and keeps tracking when
+  // the finger runs off either end, where `emit` clamps it. That is also what
+  // makes a plain tap on the track jump the value there.
+  const track = useCallback((event: GestureResponderEvent) => {
+    emitRef.current(event.nativeEvent.locationX);
+  }, []);
+
+  // `react-hooks/refs` cannot see through `PanResponder.create`: it sees a
+  // ref-reading callback handed to a function during render and warns that the
+  // value may be read there. It is not — the handlers run on touch, which is
+  // the whole reason they reach for a ref instead of closing over state. The
+  // memo has to stay, too: `PanResponder.create` owns the accumulated
+  // `gestureState`, so rebuilding it per render would reset `dx` mid-drag.
+  const responder = useMemo(
+    () =>
+      // eslint-disable-next-line react-hooks/refs
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: track,
+        onPanResponderMove: track,
+      }),
+    [track],
+  );
 
   const span = max - min || 1;
   const ratio = Math.min(1, Math.max(0, (value - min) / span));
