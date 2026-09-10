@@ -25,6 +25,21 @@ async function add(page: Page, kind: string) {
   await page.getByTestId(`home-add-${kind}`).click();
 }
 
+/**
+ * Dismisses the month calendar by its scrim.
+ *
+ * Aimed near the bottom on purpose: the calendar is the app's one
+ * top-anchored sheet, so the scrim's centre — where a plain `click()` lands —
+ * is inside the panel, and the click goes to the month's own arrows instead.
+ */
+async function closeCalendar(page: Page) {
+  const box = await page.getByTestId("home-calendar-scrim").boundingBox();
+  await page
+    .getByTestId("home-calendar-scrim")
+    .click({ position: { x: 8, y: (box?.height ?? 900) - 8 } });
+  await expect(page.getByTestId("home-calendar")).toBeHidden();
+}
+
 test.beforeAll(async () => {
   ready = await eventsTableExists();
 });
@@ -33,6 +48,27 @@ test.beforeEach(async () => {
   await resetE2EPets();
   await seedE2EPet({ exercise_goal_minutes: 60 });
 });
+
+/**
+ * **These specs assume a working day, and that is a defect in them.**
+ *
+ * Many fill real clock times — 08:30, 09:15, 10:45 — and the sheet refuses an
+ * entry in the future, correctly. Run at 00:20 and ten of them fail with
+ * "¿Todavía no habéis vuelto?", which says nothing about the code. The
+ * quarter-hour steppers have the mirror problem: counting 45 minutes back
+ * from 00:20 lands on yesterday, which the sheet also refuses, correctly.
+ *
+ * Playwright's clock is not the way out. `setFixedTime` stops Reanimated
+ * dead — the button's status animation reads progress from `Date.now()` and
+ * never finishes, so Playwright waits forever for a control that never stops
+ * moving — and `install` + `resume` patches the timers the app captures at
+ * module load, after which the day view never renders at all. Both were
+ * measured here.
+ *
+ * The fix is to derive every time in this file from a "now" the test owns,
+ * and to give the steppers a fixture whose day has time behind it. Until
+ * then: this file is green from roughly 09:00 to midnight and red before it.
+ */
 
 test.afterAll(async () => {
   await resetE2EPets();
@@ -570,6 +606,71 @@ test("does not celebrate a goal reached on a day that has passed", async ({
   // bookkeeping rather than an achievement.
   await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
   await expect(page.getByTestId("celebration")).toBeHidden();
+});
+
+test("walks home from any day with one tap", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // On today it stays visible and inert rather than vanishing.
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("calendar-today")).toBeVisible();
+  await expect(page.getByTestId("calendar-today")).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await closeCalendar(page);
+
+  for (let i = 0; i < 4; i++) {
+    await page.getByTestId("home-prev-day").click();
+  }
+  await expect(page.getByTestId("home-title")).not.toHaveText("Hoy");
+
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("calendar-today")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.getByTestId("calendar-today").click();
+
+  // It navigates and closes in one tap.
+  await expect(page.getByTestId("home-calendar")).toBeHidden();
+  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
+});
+
+test("names the birthday and marks it on the calendar", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const born = new Date();
+  born.setFullYear(born.getFullYear() - 2);
+  const iso = `${born.getFullYear()}-${String(born.getMonth() + 1).padStart(2, "0")}-${String(born.getDate()).padStart(2, "0")}`;
+
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: iso, exercise_goal_minutes: 60 });
+  await seedSession(page);
+  await page.goto("/");
+
+  // The day has a name worth more than "Hoy" today, and the date underneath
+  // still says which day it is.
+  await expect(page.getByTestId("home-title")).toHaveText("Cumpleaños de Loki");
+  await expect(page.getByTestId("home-date")).toContainText("de ");
+
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("calendar-mark-birthday")).toHaveCount(1);
+
+  // Not colour or a glyph alone: the day says it in words, with the years.
+  await expect(
+    page
+      .getByLabel(`${born.getDate()}, cumple 2 años`, { exact: false })
+      .first(),
+  ).toBeVisible();
+
+  // And a day that is not the birthday goes back to its ordinary name.
+  await closeCalendar(page);
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
 });
 
 test("keeps every control on the 48dp floor here too", async ({ page }) => {
