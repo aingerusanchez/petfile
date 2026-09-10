@@ -96,7 +96,7 @@ components/ui/            → primitivos del sistema de diseño que componen las
   Checkbox.tsx            → flag booleano voluntario, sin marcar por defecto
   DateField.tsx           → fecha + picker propio (mes+año si es aproximada)
   BreedField.tsx          → combobox de raza: sugiere de una lista, acepta texto libre
-  TextField.tsx           → input con etiqueta, asociada para lectores de pantalla
+  TextField.tsx           → input con etiqueta asociada, y la unidad dentro del campo
   FieldLabel.tsx          → la etiqueta de campo en mayúsculas
   Button.tsx              → botón: primario / outlined / secundario / link, con tono danger
   Avatar.tsx              → foto de la mascota, o su inicial cuando no hay foto
@@ -110,6 +110,7 @@ lib/                      → lógica de dominio y acceso a datos
   photos.ts               → foto de la mascota: elegir, subir y firmar la URL de lectura
   failures.ts             → tope de espera de cada petición y su mensaje en la voz de la app
   dates.ts                → conversión entre el ISO del wire y el DD/MM/AAAA de la UI
+  age.ts                  → la edad a partir de la fecha de nacimiento y su etapa de vida
   breeds.ts               → lista de razas y el reconocimiento de "mestizo"
 supabase/migrations/      → esquema Postgres, RLS, funciones RPC
 e2e/                       → specs de Playwright + helpers de sign-in

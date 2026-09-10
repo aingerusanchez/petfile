@@ -71,7 +71,7 @@ components/ui/            → the design-system primitives every screen composes
   Checkbox.tsx            → voluntary boolean flag, unchecked by default
   DateField.tsx           → date display + in-house picker (month+year when approximate)
   BreedField.tsx          → breed combobox: suggests from a list, accepts free text
-  TextField.tsx           → labelled input, label linked for screen readers
+  TextField.tsx           → labelled input; label linked for readers, unit inside the field
   FieldLabel.tsx          → the uppercase field label
   Text.tsx                → text in the app's typeface; the only Text app code imports
   Avatar.tsx              → the pet's photo, or its initial when there is none
@@ -85,6 +85,7 @@ lib/                      → domain logic and data access
   photos.ts               → the pet's photo: pick, upload, and sign a read URL
   failures.ts             → the timeout on every request, and its message in the app's voice
   dates.ts                → the ISO/DD-MM-AAAA conversion at the edge
+  age.ts                  → the age from a birth date, and the life stage it lands in
   breeds.ts               → the breed list and what counts as "mestizo"
 supabase/migrations/      → Postgres schema, RLS policies, RPC functions
 e2e/                       → Playwright specs + sign-in helpers
