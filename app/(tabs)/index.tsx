@@ -23,7 +23,9 @@ import {
   eventsForDay,
   formatTimeOfDay,
   logEvent,
+  minutesBetween,
   parseTimeOfDay,
+  shiftMinutes,
   walkedMinutes,
   type EventKind,
   type PetEventRow,
@@ -44,8 +46,11 @@ const KINDS: Record<
     label: string;
     action: string;
     icon: LucideIcon;
-    /** The one kind-specific field. Absent for a kind that needs none. */
-    field?: { label: string; placeholder: string; numeric?: boolean };
+    /**
+     * The one free-text field this kind asks for. The walk has none: it asks
+     * for a time range instead, which the sheet renders on its own.
+     */
+    field?: { label: string; placeholder: string };
     /** The detail line under an entry in the list. */
     describe: (event: PetEventRow) => string | null;
   }
@@ -54,9 +59,6 @@ const KINDS: Record<
     label: "Paseo",
     action: "Añadir paseo",
     icon: Footprints,
-    // The unit is in the label, not only in the placeholder: a placeholder
-    // disappears the moment the tutor types, taking the "min" with it.
-    field: { label: "Duración (min)", placeholder: "30", numeric: true },
     describe: (event) =>
       event.duration_minutes ? `${event.duration_minutes} min` : null,
   },
@@ -315,6 +317,20 @@ export default function Home() {
  * it — the health tab will need its own, for weights and treatments, and
  * whether that is this sheet with two more kinds or a different one is a
  * decision for when it exists rather than now.
+ *
+ * **A walk is asked for as a range; every other kind as a moment.** A tutor
+ * knows when they left and when they got back, not how many minutes that was —
+ * the arithmetic was the app's job all along and it was being handed to them.
+ *
+ * **DESDE and HASTA are the data; DURACIÓN is derived from them.** Editing
+ * either time recomputes the duration. The duration stays editable, because
+ * "we were out about forty minutes" is a real way to remember a walk, and
+ * editing it moves **HASTA** — the start is the one thing the tutor is sure
+ * of, so it is never the field that shifts under them.
+ *
+ * The start opens on the current time and the other two open empty. Nothing is
+ * proposed: a prefilled thirty minutes would be a fabricated walk one careless
+ * tap away, and a walk with no duration is a valid entry — it still happened.
  */
 function EntrySheet({
   kind,
@@ -334,31 +350,92 @@ function EntrySheet({
   onFailed: (message: string) => void;
 }) {
   const spec = KINDS[kind];
-  const [time, setTime] = useState(() => formatTimeOfDay(new Date()));
+  const isWalk = kind === "walk";
+
+  /** The moment it happened — the walk's start, everything else's only time. */
+  const [start, setStart] = useState(() => formatTimeOfDay(new Date()));
+  const [end, setEnd] = useState("");
+  const [duration, setDuration] = useState("");
   const [value, setValue] = useState("");
   const [note, setNote] = useState("");
-  const [timeError, setTimeError] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [endError, setEndError] = useState<string | null>(null);
+
+  /** Recomputes the derived field. Never writes back to a time. */
+  const deriveDuration = useCallback(
+    (startText: string, endText: string) => {
+      if (!endText.trim()) return setDuration("");
+      const from = parseTimeOfDay(startText, day);
+      const to = parseTimeOfDay(endText, day);
+      if (!from || !to) return;
+      const minutes = minutesBetween(from, to);
+      setDuration(minutes === null ? "" : String(minutes));
+    },
+    [day],
+  );
+
+  const editStart = useCallback(
+    (text: string) => {
+      setStart(text);
+      deriveDuration(text, end);
+    },
+    [deriveDuration, end],
+  );
+
+  const editEnd = useCallback(
+    (text: string) => {
+      setEnd(text);
+      deriveDuration(start, text);
+    },
+    [deriveDuration, start],
+  );
+
+  const editDuration = useCallback(
+    (text: string) => {
+      const digits = text.replace(/\D/g, "");
+      setDuration(digits);
+      // The one direction that writes back into a time, and it writes into the
+      // end: see the note above the component.
+      if (!digits) return setEnd("");
+      const from = parseTimeOfDay(start, day);
+      if (from) setEnd(formatTimeOfDay(shiftMinutes(from, Number(digits))));
+    },
+    [start, day],
+  );
 
   const save = useCallback(async () => {
-    const occurredAt = parseTimeOfDay(time, day);
+    const occurredAt = parseTimeOfDay(start, day);
     if (!occurredAt) {
-      setTimeError("Escríbela como 09:15");
+      setStartError("Escríbela como 09:15");
       return false;
     }
-    setTimeError(null);
+    setStartError(null);
 
-    const minutes = spec.field?.numeric
-      ? Number(value.replace(/\D/g, ""))
-      : null;
+    let minutes: number | null = null;
+    if (isWalk && end.trim()) {
+      const to = parseTimeOfDay(end, day);
+      if (!to) {
+        setEndError("Escríbela como 09:15");
+        return false;
+      }
+      if (to.getTime() > Date.now() + 60_000) {
+        setEndError("¿Todavía no habéis vuelto?");
+        return false;
+      }
+      minutes = minutesBetween(occurredAt, to);
+      if (minutes === null) {
+        setEndError("Tiene que ser más tarde que la hora de salida");
+        return false;
+      }
+    }
+    setEndError(null);
+
     const { error } = await logEvent(petId, {
       kind,
       occurredAt,
-      durationMinutes: minutes || null,
+      durationMinutes: minutes,
       note: note || null,
-      details:
-        spec.field && !spec.field.numeric && value.trim()
-          ? { what: value.trim() }
-          : {},
+      details: spec.field && value.trim() ? { what: value.trim() } : {},
     });
 
     if (error) {
@@ -368,7 +445,19 @@ function EntrySheet({
 
     onSaved();
     return true;
-  }, [time, day, spec, value, note, petId, kind, onFailed, onSaved]);
+  }, [
+    start,
+    end,
+    day,
+    isWalk,
+    spec,
+    value,
+    note,
+    petId,
+    kind,
+    onFailed,
+    onSaved,
+  ]);
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -388,16 +477,62 @@ function EntrySheet({
             {spec.action}
           </Text>
 
-          <TextField
-            testID="entry-time"
-            label="Hora"
-            value={time}
-            onChangeText={setTime}
-            placeholder="09:15"
-            error={timeError}
-            keyboardType="number-pad"
-            maxLength={5}
-          />
+          {isWalk ? (
+            <>
+              <View className="flex-row gap-3">
+                <View className="flex-1">
+                  <TextField
+                    testID="entry-from"
+                    label="Desde"
+                    value={start}
+                    onChangeText={editStart}
+                    placeholder="09:15"
+                    error={startError}
+                    keyboardType="number-pad"
+                    maxLength={5}
+                  />
+                </View>
+                <View className="flex-1">
+                  <TextField
+                    testID="entry-to"
+                    label="Hasta"
+                    value={end}
+                    onChangeText={editEnd}
+                    placeholder="09:45"
+                    error={endError}
+                    keyboardType="number-pad"
+                    maxLength={5}
+                  />
+                </View>
+              </View>
+
+              <TextField
+                testID="entry-duration"
+                label="Duración"
+                value={duration}
+                onChangeText={editDuration}
+                placeholder="30"
+                suffix="min."
+                suffixLabel="en minutos"
+                keyboardType="number-pad"
+                maxLength={4}
+              />
+              <Text className="mb-5 -mt-3 text-xs text-text-tertiary">
+                Sale de las dos horas. Si la escribes, movemos la de vuelta.
+              </Text>
+            </>
+          ) : (
+            <TextField
+              testID="entry-time"
+              label="Hora"
+              value={start}
+              onChangeText={editStart}
+              placeholder="09:15"
+              error={startError}
+              keyboardType="number-pad"
+              maxLength={5}
+            />
+          )}
 
           {spec.field ? (
             <TextField
@@ -406,8 +541,7 @@ function EntrySheet({
               value={value}
               onChangeText={setValue}
               placeholder={spec.field.placeholder}
-              keyboardType={spec.field.numeric ? "number-pad" : "default"}
-              maxLength={spec.field.numeric ? 4 : 80}
+              maxLength={80}
             />
           ) : null}
 

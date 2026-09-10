@@ -99,6 +99,25 @@ export function formatTimeOfDay(at: Date): string {
   return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
 }
 
+/**
+ * Minutes from one time to another, or null when the second is not after the
+ * first.
+ *
+ * Null rather than a negative number or an assumed midnight crossing: a
+ * "HASTA" before its "DESDE" is a mistyped digit far more often than a walk
+ * that ran past midnight, and guessing which would file the entry on a day the
+ * tutor did not choose. The form says so instead.
+ */
+export function minutesBetween(from: Date, to: Date): number | null {
+  const minutes = Math.round((to.getTime() - from.getTime()) / 60_000);
+  return minutes > 0 ? minutes : null;
+}
+
+/** The time `minutes` after `at`. */
+export function shiftMinutes(at: Date, minutes: number): Date {
+  return new Date(at.getTime() + minutes * 60_000);
+}
+
 /** Minutes walked across a set of entries. Pure, so the day view can trust it. */
 export function walkedMinutes(events: PetEventRow[]): number {
   return events.reduce(
@@ -146,7 +165,11 @@ export async function eventsForDay(
     .eq("pet_id", petId)
     .gte("occurred_at", from)
     .lt("occurred_at", to)
-    .order("occurred_at", { ascending: false });
+    // Chronological, earliest first: the day view is read as a diary of what
+    // has happened so far, and a diary runs forwards. Newest-first is the
+    // right order for a feed the reader dips into, which this is not — the
+    // list is short, bounded by one day, and read whole.
+    .order("occurred_at", { ascending: true });
 
   try {
     const { data, error } = await withTimeout(query, "eventsForDay");

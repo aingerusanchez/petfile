@@ -3,6 +3,8 @@ import {
   formatTimeOfDay,
   parseTimeOfDay,
   MAX_WALK_MINUTES,
+  minutesBetween,
+  shiftMinutes,
   validateEvent,
   walkedMinutes,
   type NewEvent,
@@ -150,5 +152,40 @@ describe("parseTimeOfDay", () => {
   it("round-trips through the formatter", () => {
     expect(formatTimeOfDay(parseTimeOfDay("07:05", day)!)).toBe("07:05");
     expect(formatTimeOfDay(new Date(2026, 8, 10, 0, 0))).toBe("00:00");
+  });
+});
+
+describe("minutesBetween", () => {
+  const at = (h: number, m: number) => new Date(2026, 8, 10, h, m);
+
+  it("measures a walk from its ends", () => {
+    expect(minutesBetween(at(9, 15), at(9, 45))).toBe(30);
+    expect(minutesBetween(at(9, 0), at(10, 30))).toBe(90);
+  });
+
+  it("has no answer when the end is not after the start", () => {
+    // A mistyped digit, not a walk that ran past midnight: guessing would file
+    // the entry on a day the tutor did not choose.
+    expect(minutesBetween(at(10, 0), at(9, 0))).toBeNull();
+    expect(minutesBetween(at(10, 0), at(10, 0))).toBeNull();
+  });
+
+  it("counts a one-minute walk", () => {
+    expect(minutesBetween(at(10, 0), at(10, 1))).toBe(1);
+  });
+});
+
+describe("shiftMinutes", () => {
+  it("moves the end when the duration is what changed", () => {
+    const from = new Date(2026, 8, 10, 9, 15);
+    expect(formatTimeOfDay(shiftMinutes(from, 30))).toBe("09:45");
+    expect(formatTimeOfDay(shiftMinutes(from, 90))).toBe("10:45");
+  });
+
+  it("round-trips against minutesBetween", () => {
+    const from = new Date(2026, 8, 10, 7, 5);
+    for (const minutes of [1, 30, 137]) {
+      expect(minutesBetween(from, shiftMinutes(from, minutes))).toBe(minutes);
+    }
   });
 });

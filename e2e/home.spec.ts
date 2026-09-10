@@ -59,7 +59,9 @@ test("keeps the screen standing when the log cannot be read", async ({
   await expect(page.getByTestId("home-add-walk")).toBeVisible();
 });
 
-test("logs a walk and counts it toward the goal", async ({ page }) => {
+test("logs a walk from its two ends and counts it toward the goal", async ({
+  page,
+}) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   await seedSession(page);
@@ -70,10 +72,18 @@ test("logs a walk and counts it toward the goal", async ({ page }) => {
 
   await page.getByTestId("home-add-walk").click();
 
-  // The time comes prefilled with now, so confirming is the common case.
-  await expect(page.getByTestId("entry-time")).not.toBeEmpty();
-  await page.getByTestId("entry-time").fill("09:15");
-  await page.getByTestId("entry-value").fill("30");
+  // The start comes prefilled with now; the other two open empty, because a
+  // proposed duration would be a fabricated walk one tap away.
+  await expect(page.getByTestId("entry-from")).not.toBeEmpty();
+  await expect(page.getByTestId("entry-to")).toBeEmpty();
+  await expect(page.getByTestId("entry-duration")).toBeEmpty();
+
+  await page.getByTestId("entry-from").fill("09:15");
+  await page.getByTestId("entry-to").fill("09:45");
+
+  // The duration is derived, which is the whole point of asking for the ends.
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30");
+
   await page.getByTestId("entry-note").fill("Tranquilo, sin tirones");
   await page.getByTestId("entry-save").click();
 
@@ -85,6 +95,59 @@ test("logs a walk and counts it toward the goal", async ({ page }) => {
 
   // The walk's minutes are the one thing the day view computes from.
   await expect(page.getByTestId("home-goal")).toContainText("30 de 60");
+});
+
+test("moves the end when the duration is what changed, never the start", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-add-walk").click();
+  await page.getByTestId("entry-from").fill("10:00");
+  await page.getByTestId("entry-duration").fill("45");
+
+  await expect(page.getByTestId("entry-to")).toHaveValue("10:45");
+  // The start is the one thing the tutor is sure of, so it never shifts.
+  await expect(page.getByTestId("entry-from")).toHaveValue("10:00");
+
+  // And correcting the start re-derives the duration from the two ends.
+  await page.getByTestId("entry-from").fill("10:15");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30");
+  await expect(page.getByTestId("entry-to")).toHaveValue("10:45");
+});
+
+test("refuses an end that comes before its start", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-add-walk").click();
+  await page.getByTestId("entry-from").fill("10:00");
+  await page.getByTestId("entry-to").fill("09:00");
+  await page.getByTestId("entry-save").click();
+
+  await expect(page.getByTestId("entry-to-error")).toHaveText(
+    "Tiene que ser más tarde que la hora de salida",
+  );
+});
+
+test("still logs a walk nobody timed", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-add-walk").click();
+  await page.getByTestId("entry-from").fill("08:30");
+  await page.getByTestId("entry-save").click();
+
+  // A walk with no duration is a valid entry: it still happened.
+  await expect(page.getByTestId("home-log")).toContainText("08:30");
+  await expect(page.getByTestId("home-goal")).toContainText("0 de 60");
 });
 
 test("logs the other three kinds without touching the goal", async ({
@@ -101,6 +164,8 @@ test("logs the other three kinds without touching the goal", async ({
     ["incident", "Cojea de la pata derecha"],
   ] as const) {
     await page.getByTestId(`home-add-${kind}`).click();
+    // Only a walk is asked for as a range; the rest happened at a moment.
+    await expect(page.getByTestId("entry-time")).not.toBeEmpty();
     await page.getByTestId("entry-value").fill(what);
     await page.getByTestId("entry-save").click();
     await expect(page.getByTestId("home-log")).toContainText(what);
@@ -110,6 +175,27 @@ test("logs the other three kinds without touching the goal", async ({
   await expect(page.getByTestId("home-goal")).toContainText("0 de 60");
 });
 
+test("reads the day forwards", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // Logged out of order on purpose: the list is chronological, not
+  // most-recently-entered.
+  for (const at of ["11:30", "08:00", "09:45"]) {
+    await page.getByTestId("home-add-meal").click();
+    await page.getByTestId("entry-time").fill(at);
+    await page.getByTestId("entry-value").fill(`Comida de ${at}`);
+    await page.getByTestId("entry-save").click();
+    await expect(page.getByTestId("home-log")).toContainText(`Comida de ${at}`);
+  }
+
+  const log = await page.getByTestId("home-log").innerText();
+  expect(log.indexOf("08:00")).toBeLessThan(log.indexOf("09:45"));
+  expect(log.indexOf("09:45")).toBeLessThan(log.indexOf("11:30"));
+});
+
 test("refuses a time that is not one", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
@@ -117,10 +203,10 @@ test("refuses a time that is not one", async ({ page }) => {
   await page.goto("/");
 
   await page.getByTestId("home-add-walk").click();
-  await page.getByTestId("entry-time").fill("99:99");
+  await page.getByTestId("entry-from").fill("99:99");
   await page.getByTestId("entry-save").click();
 
-  await expect(page.getByTestId("entry-time-error")).toHaveText(
+  await expect(page.getByTestId("entry-from-error")).toHaveText(
     "Escríbela como 09:15",
   );
 });
@@ -132,7 +218,8 @@ test("marks the goal met, once", async ({ page }) => {
   await page.goto("/");
 
   await page.getByTestId("home-add-walk").click();
-  await page.getByTestId("entry-value").fill("60");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-duration").fill("60");
   await page.getByTestId("entry-save").click();
 
   await expect(page.getByTestId("home-goal")).toContainText(
