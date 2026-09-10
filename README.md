@@ -75,6 +75,7 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 | Iconos          | `lucide-react-native`            | ^1.41.0                  |
 | Iconos          | `react-native-svg`               | 15.15.4                  |
 | Fechas          | `react-native-ui-datepicker`     | ^3.3.0                   |
+| Imágenes        | `expo-image-picker`              | ~57.0.16                 |
 | Insets          | `react-native-safe-area-context` | ~5.7.0                   |
 | Backend         | `@supabase/supabase-js`          | ^2.112.4                 |
 | Tests unitarios | Jest (`jest-expo`)               | ~29.7.0 (preset ~57.0.5) |
@@ -97,13 +98,19 @@ components/ui/            → primitivos del sistema de diseño que componen las
   BreedField.tsx          → combobox de raza: sugiere de una lista, acepta texto libre
   TextField.tsx           → input con etiqueta, asociada para lectores de pantalla
   FieldLabel.tsx          → la etiqueta de campo en mayúsculas
-  Button.tsx              → botón secundario / ghost
+  Button.tsx              → botón: primario / outlined / secundario / link, con tono danger
+  Avatar.tsx              → foto de la mascota, o su inicial cuando no hay foto
+  Text.tsx                → texto en la tipografía de la app; el único Text que importa la app
   LoadingScreen.tsx       → estado de carga a pantalla completa
   tokens.ts               → valores Nordic Ice para props de RN que className no alcanza
 lib/                      → lógica de dominio y acceso a datos
   supabase.ts             → único punto de import de @supabase/supabase-js en el código de app
   auth.tsx                → contexto de sesión / OAuth de Google
-  pets.ts                 → validación de mascotas + llamada a la RPC de creación
+  pets.ts                 → validación, creación, edición y borrado de la mascota
+  photos.ts               → foto de la mascota: elegir, subir y firmar la URL de lectura
+  failures.ts             → tope de espera de cada petición y su mensaje en la voz de la app
+  dates.ts                → conversión entre el ISO del wire y el DD/MM/AAAA de la UI
+  breeds.ts               → lista de razas y el reconocimiento de "mestizo"
 supabase/migrations/      → esquema Postgres, RLS, funciones RPC
 e2e/                       → specs de Playwright + helpers de sign-in
 ```
@@ -111,6 +118,8 @@ e2e/                       → specs de Playwright + helpers de sign-in
 **Invariante clave:** las pantallas nunca importan `@supabase/supabase-js` directamente — dentro del código de la app, solo `lib/supabase.ts` lo hace. Cualquier acceso a datos pasa por `lib/`. (`e2e/auth.ts` también usa `createClient` directamente, pero es código de test: crea su propio cliente para sembrar la sesión y limpiar datos, fuera del runtime de la app.)
 
 **Invariantes del sistema de diseño:** la UI compartida vive en `components/ui/`, nunca en `app/`, que es solo para rutas. Los insets de ventana se consumen **únicamente** en `Screen` — ninguna pantalla llama a `useSafeAreaInsets()` por su cuenta, y eso es lo que mantiene la acción principal fuera de la barra de navegación de Android en un solo sitio. Y cualquier color que necesite una prop de React Native sale de `components/ui/tokens.ts`, nunca de un hex reescrito a mano; `global.css` sigue siendo la fuente de verdad para todo lo que alcance un `className`.
+
+**La foto vive en Storage, no en la base.** `0005_pet_photos_bucket.sql` crea un bucket **privado** `pet-photos`, y `pets.photo_url` guarda la **ruta del objeto**, no una URL: la app firma una URL de una hora cuando va a mostrarla. Un bucket público sería el único sitio donde tener el enlace vencería a las políticas de RLS, y el nombre de la columna viene del esquema inicial — hoy miente a medias, y tanto la migración como `lib/photos.ts` lo dicen. Las políticas de storage resuelven la propiedad a través de `pet_owners`, la misma tabla que las de `pets`, así que compartir una mascota comparte su foto sin tocar nada.
 
 El modelo de datos en Postgres no tiene concepto de "household": `pets` pertenece a uno o más usuarios a través de la tabla de unión `pet_owners`, protegida con RLS. Esto significa que compartir una mascota entre varios usuarios en el futuro es un `insert` en `pet_owners`, no un rediseño del esquema. La creación de una mascota es atómica vía una función RPC `security definer` (`create_pet_with_owner`) que escribe `pets` y `pet_owners` en la misma transacción.
 

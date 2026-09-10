@@ -146,6 +146,8 @@ Almost monochrome by design — a deep navy neutral scale carries nearly the who
 
 **The One Accent Rule.** Ice Blue Glacial is the only color that means "act here." It appears on the primary button, the active tab, and a selected chip's border — nowhere else. Diluting it into a general-purpose brand color would cost it its signal.
 
+**The Red-Means-Consequence Rule.** Error Red carries two things and nothing else: something went wrong, or something is about to be destroyed. It is never an invitation — a destructive control wears it precisely so it reads as a warning rather than as the next step — and the accent never dresses a destructive action, because "act here" and "this cannot be undone" are opposite messages.
+
 **The Text-On-Accent Rule.** Any text placed on an Ice Blue Glacial surface uses `on-accent` (#0B1120), never `text-base` — `text-base` is Tailwind's font-size utility, not a color, and silently fails to apply one.
 
 ## Typography
@@ -229,6 +231,7 @@ One radius, everywhere: 12px (`rounded-xl`) on every button, input, and chip in 
 - **An icon is not a reason**, and that applies to the button itself. The success and error states keep a label beside the glyph (`successLabel` / `errorLabel`), because a red button with a warning icon says something is wrong without saying what. The caller names it, since only the caller knows which failure it was — onboarding distinguishes "Faltan datos por rellenar" from "No se ha podido guardar". Never let a throw escape a handler and leave a red flash as the only explanation either.
 - **Motion honours the system "remove animations" setting** via `useReducedMotion()`: the status icon still appears, it just does not zoom in.
 - **The label never grows the button.** `numberOfLines={1}`, and the warm call gives way rather than being truncated inside it: a name over 20 characters gets "Añadir mascota" instead of "¡Vamos, Condesa Eufrasia de los Montes Nevados!", which filled the button edge to edge at font_scale 1.0 and would be cut at 1.3. A cut-off name in a recall reads worse than no recall. Emoji in a name are fine — they make the line box taller without wrapping it.
+- **Danger is a tone, not a variant.** `tone="danger"` swaps the accent for Error Red on any shape — the link that opens a delete confirmation and the filled button inside it are the same decision at two weights. It exists because that confirmation's own button was Ice Blue Glacial, the colour that means "this is the one thing to do here", on the one action in the app that destroys something.
 - **Disabled (primary):** the accent fill **goes**, replaced by a Fjord Slate surface with a `text-tertiary` label. It used to be `opacity-50` over the accent, which put the button's own label at **2.21:1** — unreadable — and a half-transparent accent still reads as "the one thing to do here". Losing the fill says the action is not available; the label measures 6.64:1 on that surface. Nothing in the app disables a button yet; the state exists so that the first screen to need it does not invent one.
 - **Secondary / Ghost:** transparent fill, Steel Frost 1px border, `text-secondary` label, 12px vertical / 24px horizontal padding. Used for a real alternative action (retry, sign out) — never the primary action on a screen.
 - **Link (tertiary):** no border, no fill, no full-width block. Aqua Glaciar label at 600 weight, optional 16px leading icon, left-aligned and sized to its text, with a 48dp minimum hit area. For an action that must sit _below_ the primary in the reading order rather than compete with it — revealing an optional section, for instance.
@@ -265,6 +268,14 @@ A voluntary boolean flag, **unchecked by default**. Used for a qualifier that on
 - **Hint:** optional second line, `text-tertiary` at 12px, stating what ticking the box does.
 - **Why not a chip pair:** three adjacent Sí/No chip rows looked identical but behaved differently, two of them rendering "No" pre-selected so an assumption was indistinguishable from an answer, with the polarity flipped between them. A checkbox says what a chip pair cannot: this is off unless you turn it on.
 - **When a chip row is still right:** `¿Esterilizado?` keeps three chips because "no lo sé" is a real answer for an adopted dog, and a checkbox cannot carry a third state.
+
+### Avatar
+
+The animal's picture, or its initial. **A squared record photo at the system radius, never a circle.** Two reasons, and the second is the real one: a circle would make a second exception to The One Radius Rule, and the product's thesis is the animal's _file_ — a squared photo reads as a record photo, a circle reads as a social account, which is the one thing this app is not.
+
+- **Frame:** 96dp by default, `elevated` fill, hairline border, 12px radius, the image cropped to fill.
+- **No photo is a finished state, not a gap.** With nothing stored it draws the name's initial in `text-primary` at two-fifths of the frame. Most tutors will never add a photo, and a broken frame, a camera glyph or a nudge charges rent for a decision they already made. The initial is deliberately **not** in the accent: the accent means "act here" (The One Accent Rule), and a portrait is not an action.
+- **The image is `accessible={false}`.** The screen already names the animal next to it; announcing "foto de Loki" beside the heading "Loki" says it twice.
 
 ### Date Field & Picker
 

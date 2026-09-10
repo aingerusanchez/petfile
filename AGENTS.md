@@ -74,13 +74,18 @@ components/ui/            → the design-system primitives every screen composes
   TextField.tsx           → labelled input, label linked for screen readers
   FieldLabel.tsx          → the uppercase field label
   Text.tsx                → text in the app's typeface; the only Text app code imports
-  Button.tsx              → secondary / ghost button
+  Avatar.tsx              → the pet's photo, or its initial when there is none
+  Button.tsx              → primary / outlined / secondary / link, with a danger tone
   LoadingScreen.tsx       → full-screen busy state
   tokens.ts               → Nordic Ice values for RN props className can't reach
 lib/                      → domain logic and data access
   supabase.ts             → the only import site for @supabase/supabase-js in app code
   auth.tsx                → session context / Google OAuth
-  pets.ts                 → pet validation + the create-pet RPC call
+  pets.ts                 → pet validation, create, edit and delete
+  photos.ts               → the pet's photo: pick, upload, and sign a read URL
+  failures.ts             → the timeout on every request, and its message in the app's voice
+  dates.ts                → the ISO/DD-MM-AAAA conversion at the edge
+  breeds.ts               → the breed list and what counts as "mestizo"
 supabase/migrations/      → Postgres schema, RLS policies, RPC functions
 e2e/                       → Playwright specs + sign-in helpers
 ```
@@ -90,6 +95,10 @@ All database access goes through `lib/supabase.ts`; screens never import `@supab
 There is no `households` concept in the data model. `pets` relates to users through the `pet_owners` join table (RLS-protected), which is what makes multi-user sharing in a future version an `insert` into `pet_owners`, not a schema redesign.
 
 Pure validation logic lives in `lib/` and is unit-tested with Jest; user-facing flows are tested with Playwright against the Expo web build.
+
+**The pet's photo lives in Storage, and `pets.photo_url` holds an object path rather than a URL.** The `pet-photos` bucket is private (`0005_pet_photos_bucket.sql`), because a public bucket would be the one place where holding a link beats the RLS policies; `lib/photos.ts` signs a one-hour URL at render time. The path is `<pet_id>/avatar.<ext>` and writes upsert, so a pet has exactly one photo and a replacement leaves no orphan. Storage policies resolve ownership through `pet_owners`, the same join table the `pets` policies use.
+
+**One validator, two forms.** `validatePetDraft` takes `PetDraft | PetEdit` and both the registration and profile screens call it; the mixed-breed coupling (`isMixedShown`, `withMixed`) lives in `lib/pets.ts` for the same reason. The two screens duplicate their _layout_ deliberately — extracting a shared form is a pending job — but anything that would be a bug if it drifted is in `lib/` and unit-tested.
 
 Dates cross the app/database boundary in exactly one format: **ISO `YYYY-MM-DD`**, because `pets.birth_date` is a Postgres `date` and the RPC casts with `::date`, where Postgres's DateStyle makes a `DD/MM/AAAA` string ambiguous. The UI shows and collects the Spanish locale's `DD/MM/AAAA`; `lib/dates.ts` converts at the edge and is the only place that builds or parses a date string. An approximate birth date stores the 1st of the month with `birth_date_approximate = true` — **anything computing a due date must read that flag**, because the day is a placeholder, not data.
 
