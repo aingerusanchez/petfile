@@ -37,6 +37,7 @@ Ni Metro, ni WiFi, ni cable una vez instalado. Tres cosas que conviene saber:
 - **Va firmado con el keystore de debug** (el que trae la plantilla de Expo). Sirve para uso privado, pero `npx expo prebuild --clean` regenera esa clave y entonces Android se niega a instalar sobre la app existente: hay que desinstalar primero.
 - **Los `EXPO_PUBLIC_*` se inlinean al compilar**, así que el APK lleva lo que hubiera en `.env` en ese momento. Si cambias de proyecto de Supabase, recompila.
 - **Necesita JDK 17** (AGP falla con JDK 24+). El script fija `JAVA_HOME` él mismo con `/usr/libexec/java_home -v 17`.
+- **Sube la versión antes de compilar.** La versión vive en `package.json` y `app.config.js` la lleva a la build (y deriva `android.versionCode` de ella), así que hay un solo número que tocar. Se muestra al pie del login y de Ajustes: dos instalaciones distintas diciendo `1.0.0` costaron una tarde persiguiendo un bug ya arreglado.
 
 `pnpm android` lanza la app apuntando al servidor por la **IP de la LAN**, así que el móvil tiene que alcanzar el Mac por WiFi: si cae a datos móviles, entra en otra red o el firewall bloquea el puerto 8081, la app se queda en el splash **sin ningún error**. `pnpm android:usb` evita esa dependencia por completo — sirve en `127.0.0.1` a través de `adb reverse`, sobre el cable, y abre el dev build (nunca Expo Go). No recompila, así que es también la forma rápida de volver a entrar tras un cambio solo de JS.
 
@@ -132,6 +133,7 @@ components/ui/            → primitivos del sistema de diseño que componen las
 lib/                      → lógica de dominio y acceso a datos
   supabase.ts             → único punto de import de @supabase/supabase-js en el código de app
   auth.tsx                → contexto de sesión / OAuth de Google
+  settings.tsx            → formatos de hora y duración, guardados en el dispositivo
   pets.ts                 → validación, creación, edición y borrado de la mascota
   photos.ts               → foto de la mascota: elegir, subir y firmar la URL de lectura
   failures.ts             → tope de espera de cada petición y su mensaje en la voz de la app

@@ -342,6 +342,21 @@ The profile presents the animal before it offers to change him: a header — pho
 - **The life stage rides along with the age** — `2 años · Adulto`, from `lib/age.ts`. It is the first piece of advice the app can give away from data it already holds. The thresholds are the common veterinary split (6 months, 18 months, 7 years) and deliberately not breed-aware: body size moves the last one hard, and `breed_primary` is free text with no weight band behind it.
 - **Delete lives at the bottom of the identity block**, outlined in Error Red across the full width — available, not invited. See The Red-Means-Consequence Rule, and the wording note in PRODUCT.md: what gets deleted is the file, and the copy says so.
 
+### Settings
+
+A stack route, not a fourth tab: the tab bar names the three things the app is _for_, and settings are none of them — they are where you go once and come back from. It opens from the profile, the screen already about the person's own setup.
+
+- **Every option shows its own answer.** A pair labelled "24h / 12h" asks the tutor to imagine the result; the same pair reading **"15:30"** and **"3:30 p.m."** _is_ the result. It is what makes the duration option legible at all — "hours" and "minutes" name nothing on their own. The chips carry an accessible name (`Formato 24 horas`) because a screen reader hearing "15:30" would be told a time, not a choice.
+- **The reading side follows the preference; the typing side never does.** Android's number pad cannot express a meridiem, so the two time fields always take 24-hour digits — and the screen says so in one line under the option rather than leaving it to be discovered.
+- **A named "Más adelante" block.** Saying which settings are coming is cheaper than a tutor wondering whether the screen is finished, and it is the honest shape of a surface built to grow.
+- **The version sits at its foot**, and at the login screen's. See Version.
+
+### Version
+
+The build's version, in `text-muted` — **3.19:1, deliberately below AA**, because it is not content, it is a serial number. It should be findable without competing with anything, and it carries a real accessible name so a reader announces "versión 1.1.0" rather than spelling out a `v`.
+
+It exists because a stale APK and a fresh one looked identical, and an afternoon went into chasing a bug that had already been fixed. Two surfaces: the login screen, the only one a tutor sees before signing in, and the foot of Ajustes, where anyone would go looking.
+
 ### Sheet
 
 Every modal surface in the app is one component: a Polar-Night-at-80% scrim, a panel pinned to the bottom at the system radius, and **the keyboard as a bottom inset**.

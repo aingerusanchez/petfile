@@ -13,6 +13,7 @@ This file provides guidance to agentic AI tools when working with code in this r
 - **Google OAuth requires a native dev build.** Expo Go cannot handle the custom-scheme redirect this flow needs. `pnpm android` / `pnpm ios` produces the dev build; the web target runs under `pnpm web`.
 - **`pnpm android` depends on the phone reaching the Mac over WiFi.** It launches the app pointed at the dev server's **LAN IP**, so mobile data, another network or a firewalled port 8081 leaves the app sitting on the splash screen with no error at all — nothing in the log says the bundle never arrived. `pnpm android:usb` (`expo start --localhost --dev-client --android`) serves on `127.0.0.1` through the `adb reverse` Expo sets up itself, so it works on the cable alone. `--dev-client` is not optional there: without it the CLI opens `exp://`, which lands in **Expo Go** on a phone that has it installed, and Google sign-in cannot work there.
 - **The Android toolchain needs JDK 17.** A newer JDK fails the CMake configuration tasks with "A restricted method in java.lang.System has been called": JEP 472 escalates native access from an unnamed module to an error from JDK 24 on, and AGP trips it. Gradle 9.3.1 itself supports up to JDK 25, so this is AGP against the JDK rather than a Gradle limit. Point `JAVA_HOME` at a JDK 17.
+- **The version lives in `package.json`, and `app.config.js` is what makes that true.** `app.json` stays the readable base and the config function overrides `version` and derives `android.versionCode` from it, so there is one number to bump. **Bump it before building a release APK**: a stale install and a fresh one both claiming `1.0.0` cost an afternoon of chasing a bug that was already fixed, which is why the version now shows at the foot of the login screen and of Ajustes.
 - **`android/` and `ios/` are generated and gitignored.** After changing `scheme`, `android.package` or anything else identity-shaped in `app.json`, regenerate with `npx expo prebuild --clean -p android` — an existing directory keeps the old values.
 
 ## Secrets
@@ -83,6 +84,7 @@ app/                     → Expo Router routes (routes only — no shared UI)
 components/ui/            → the design-system primitives every screen composes
   Screen.tsx              → page container; one of the two places window insets are consumed
   Sheet.tsx               → bottom sheet: scrim, panel, and the keyboard inset a Modal needs
+  Version.tsx             → the build's version, at the foot of login and Ajustes
   keyboard.ts             → how much of the screen the software keyboard covers
   Fab.tsx                 → the floating action, and the menu it opens
   Slider.tsx              → one value along a range, in-house rather than native
@@ -104,6 +106,7 @@ components/ui/            → the design-system primitives every screen composes
 lib/                      → domain logic and data access
   supabase.ts             → the only import site for @supabase/supabase-js in app code
   auth.tsx                → session context / Google OAuth
+  settings.tsx            → how this tutor wants the app to read, on their device
   pets.ts                 → pet validation, create, edit and delete
   photos.ts               → the pet's photo: pick, upload, and sign a read URL
   failures.ts             → the timeout on every request, and its message in the app's voice
@@ -129,6 +132,8 @@ Pure validation logic lives in `lib/` and is unit-tested with Jest; user-facing 
 **`prettier-plugin-tailwindcss` will break a class string that carries its own separator.** It sorts the classes inside a quoted string and trims it, so `` `text-primary${on ? " font-bold" : ""}` `` becomes `` `text-primary${on ? "font-bold" : ""}` `` — which compiles to `text-primaryfont-bold` the moment the condition is true. It happened to the chip and the checkbox on the commit that added the plugin, silently. **Keep the separator in the template literal, never inside the quotes** (`` `...primary ${on ? "font-bold" : ""}` ``); a trailing space in a class list costs nothing. `components/__tests__/class-strings.test.ts` fails on any ``className={`…x${`` with no space before the interpolation, so this cannot come back unnoticed.
 
 **Installing on a phone without the Mac.** `pnpm android:apk` builds a standalone release APK (arm64 only, ~44 MB) with the JS bundle embedded, at `android/app/build/outputs/apk/release/app-release.apk`. `pnpm android:install` pushes it over `adb`, or copy the file to the phone and open it. It needs no Metro and no cable once installed, which is what makes the app usable during the day. Two things to know: the release build is signed with the **debug keystore** (Expo's template default), so `npx expo prebuild --clean` regenerates that key and Android will then refuse to install over the existing app — uninstall first; and `EXPO_PUBLIC_*` values are inlined at build time, so the APK carries whatever `.env` held when it was built.
+
+**Display preferences live on the device, not in the row.** `lib/settings.tsx` keeps the time and duration formats in `AsyncStorage`: the household is two tutors with a phone each, so how the app _reads_ belongs to the person holding it, while what it _stores_ stays in Postgres. Times are still instants and durations still minutes — the formatters take the format as a parameter so `lib/` stays pure, and every call site says which side it is on. **The reading side follows the preference; the typing side never does** — a number pad cannot express a meridiem, so the two time fields always take 24-hour digits and Ajustes says so under the option.
 
 **One validator, two forms.** `validatePetDraft` takes `PetDraft | PetEdit` and both the registration and profile screens call it; the mixed-breed coupling (`isMixedShown`, `withMixed`) lives in `lib/pets.ts` for the same reason. The two screens duplicate their _layout_ deliberately — extracting a shared form is a pending job — but anything that would be a bug if it drifted is in `lib/` and unit-tested.
 
