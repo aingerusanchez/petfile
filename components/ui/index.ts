@@ -1,3 +1,4 @@
+export { Avatar } from "./Avatar";
 export { BreedField } from "./BreedField";
 export { Button } from "./Button";
 export { Checkbox } from "./Checkbox";
@@ -14,4 +15,12 @@ export { Toast, type ToastOptions, type ToastVariant } from "./Toast";
 export { ToastProvider, useToast } from "./ToastProvider";
 export { Text } from "./Text";
 export { TextField } from "./TextField";
-export { colors, spacing, PAGE_GUTTER, PLACEHOLDER_COLOR } from "./tokens";
+export {
+  colors,
+  pressed,
+  spacing,
+  PAGE_GUTTER,
+  PLACEHOLDER_COLOR,
+  PRESSED_OPACITY,
+  TOUCH_TARGET,
+} from "./tokens";
