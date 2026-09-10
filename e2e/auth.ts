@@ -9,7 +9,12 @@ const password = process.env.E2E_PASSWORD;
 /** The dedicated throwaway account documented in README.md and docs/supabase-setup.md. */
 const E2E_ACCOUNT_EMAIL = "loki-e2e@example.com";
 
-function requireEnv(): { url: string; anonKey: string; email: string; password: string } {
+function requireEnv(): {
+  url: string;
+  anonKey: string;
+  email: string;
+  password: string;
+} {
   if (!url || !anonKey || !email || !password) {
     throw new Error(
       "Missing EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_KEY, E2E_EMAIL or E2E_PASSWORD. See docs/supabase-setup.md.",
@@ -28,7 +33,9 @@ async function authenticate() {
     password: env.password,
   });
   if (error || !data.session) {
-    throw new Error(`E2E sign-in failed: ${error?.message ?? "no session returned"}`);
+    throw new Error(
+      `E2E sign-in failed: ${error?.message ?? "no session returned"}`,
+    );
   }
 
   return { client, session: data.session, url: env.url };
@@ -92,4 +99,41 @@ export async function resetE2EPets(): Promise<void> {
   if (error) {
     throw new Error(`Failed to reset e2e pets: ${error.message}`);
   }
+}
+
+/**
+ * Creates the pet the profile specs edit.
+ *
+ * Through the same RPC the app uses, so the row is shaped exactly as a
+ * registration leaves it — a hand-written insert would drift from the real one
+ * and hide the drift. Guarded by the same account check as `resetE2EPets`,
+ * since it writes to whatever account the credentials name.
+ */
+export async function seedE2EPet(
+  overrides: Record<string, unknown> = {},
+): Promise<string> {
+  if (email !== E2E_ACCOUNT_EMAIL) {
+    throw new Error(
+      `Refusing to seed a pet: E2E_EMAIL is not the dedicated test account (${E2E_ACCOUNT_EMAIL}).`,
+    );
+  }
+
+  const { client } = await signInE2EUser();
+  const { data, error } = await client.rpc("create_pet_with_owner", {
+    pet: {
+      name: "Loki",
+      sex: "male",
+      breed_primary: "Husky Siberiano",
+      breed_secondary: null,
+      is_mixed: false,
+      birth_date: "2025-09-14",
+      birth_date_approximate: false,
+      spayed_neutered: false,
+      activity_level: "high",
+      ...overrides,
+    },
+  });
+
+  if (error) throw new Error(`Failed to seed an e2e pet: ${error.message}`);
+  return (data as { id: string }).id;
 }
