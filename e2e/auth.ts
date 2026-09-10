@@ -18,7 +18,9 @@ function requireEnv(): { url: string; anonKey: string; email: string; password: 
   return { url, anonKey, email, password };
 }
 
-async function signInE2EUser() {
+type SignedIn = Awaited<ReturnType<typeof authenticate>>;
+
+async function authenticate() {
   const env = requireEnv();
   const client = createClient(env.url, env.anonKey);
   const { data, error } = await client.auth.signInWithPassword({
@@ -30,6 +32,24 @@ async function signInE2EUser() {
   }
 
   return { client, session: data.session, url: env.url };
+}
+
+/**
+ * One sign-in per run, reused by every test.
+ *
+ * Each test used to authenticate twice — once for `resetE2EPets` and once for
+ * `seedSession` — which at ~20 tests is ~40 sign-ins per run and trips
+ * Supabase's auth rate limit ("Request rate limit reached"), failing the suite
+ * for a reason that has nothing to do with the app. `workers: 1` in
+ * playwright.config.ts means this module-level cache is shared by the whole
+ * run, and a run takes well under a minute, so the session cannot go stale
+ * inside it.
+ */
+let signedIn: Promise<SignedIn> | null = null;
+
+function signInE2EUser(): Promise<SignedIn> {
+  signedIn ??= authenticate();
+  return signedIn;
 }
 
 export async function seedSession(page: Page): Promise<void> {

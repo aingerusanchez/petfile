@@ -1,6 +1,6 @@
 import { Redirect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { Button, LoadingScreen, Screen, Text } from "../components/ui";
 import { useAuth } from "../lib/auth";
 import { getMyPet } from "../lib/pets";
 
@@ -36,7 +36,9 @@ export default function Index() {
       .catch((err: unknown) => {
         if (cancelled) return;
         setPetCheckError(
-          err instanceof Error ? err.message : "No se pudo comprobar tu mascota",
+          err instanceof Error
+            ? err.message
+            : "No hemos podido encontrar a tu perro",
         );
       });
 
@@ -49,26 +51,19 @@ export default function Index() {
   // duplicate pet being created) or leave the spinner spinning forever.
   if (petCheckError) {
     return (
-      <View className="flex-1 items-center justify-center bg-base px-6">
-        <Text className="mb-4 text-center text-error">{petCheckError}</Text>
-        <Pressable
-          testID="index-retry"
-          onPress={retry}
-          className="rounded-xl border border-border-strong px-6 py-3"
+      <Screen center>
+        <Text
+          accessibilityLiveRegion="polite"
+          className="mb-5 text-center text-error"
         >
-          <Text className="text-text-secondary">Reintentar</Text>
-        </Pressable>
-      </View>
+          {petCheckError}
+        </Text>
+        <Button testID="index-retry" label="Reintentar" onPress={retry} />
+      </Screen>
     );
   }
 
-  if (loading || (session && hasPet === null)) {
-    return (
-      <View className="flex-1 items-center justify-center bg-base">
-        <ActivityIndicator color="#A5F2F3" />
-      </View>
-    );
-  }
+  if (loading || (session && hasPet === null)) return <LoadingScreen />;
 
   if (!session) return <Redirect href="/login" />;
   return <Redirect href={hasPet ? "/(tabs)" : "/onboarding"} />;

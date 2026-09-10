@@ -23,14 +23,14 @@ Performed once, by a human. No value below is ever committed or shared with an a
 
 ## 2. Google Cloud OAuth credentials
 
-1. Go to https://console.cloud.google.com → create a project (e.g. "Petlife").
-2. APIs & Services → OAuth consent screen: External, app name "Petlife", add your own
+1. Go to https://console.cloud.google.com → create a project (e.g. "Petfile").
+2. APIs & Services → OAuth consent screen: External, app name "Petfile", add your own
    email as a test user.
 3. APIs & Services → Credentials → Create credentials → OAuth client ID. Create a
    **Web application** client:
    - Authorised redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
    - Copy the **Client ID** and **Client secret**.
-4. For native builds, also create an **iOS** client (bundle id `com.petlife.app`) and an
+4. For native builds, also create an **iOS** client (bundle id `com.petfile.app`) and an
    **Android** client. These have no client secret.
 
 ## 3. Connect Google to Supabase
@@ -40,7 +40,7 @@ Performed once, by a human. No value below is ever committed or shared with an a
    The client secret lives here and nowhere else — Supabase performs the token exchange
    server-side, so the secret never reaches the app or the repo.
 3. Authentication → URL Configuration → Redirect URLs, add:
-   - `petlife://auth/callback` (native)
+   - `petfile://auth/callback` (native)
    - `http://localhost:8081` (web dev)
 
 ## 4. Apply the database migrations
