@@ -1,5 +1,7 @@
 import {
   dayBounds,
+  formatTimeOfDay,
+  parseTimeOfDay,
   MAX_WALK_MINUTES,
   validateEvent,
   walkedMinutes,
@@ -116,5 +118,37 @@ describe("validateEvent", () => {
     expect(validateEvent(event({ kind: "meal", durationMinutes: 0 }))).toEqual(
       {},
     );
+  });
+});
+
+describe("parseTimeOfDay", () => {
+  const day = new Date(2026, 8, 10, 18, 0);
+
+  it("reads the shapes a tutor actually types", () => {
+    for (const text of ["09:15", "9:15", "09.15", " 09:15 ", "0915"]) {
+      const at = parseTimeOfDay(text, day);
+      expect(at).not.toBeNull();
+      expect(at!.getHours()).toBe(9);
+      expect(at!.getMinutes()).toBe(15);
+    }
+  });
+
+  it("keeps the day it was given and drops the seconds", () => {
+    const at = parseTimeOfDay("21:00", day)!;
+    expect(at.getDate()).toBe(10);
+    expect(at.getMonth()).toBe(8);
+    expect(at.getSeconds()).toBe(0);
+    expect(at.getMilliseconds()).toBe(0);
+  });
+
+  it("refuses what is not a time", () => {
+    for (const text of ["", "abc", "25:00", "12:60", "1:2", "12:345"]) {
+      expect(parseTimeOfDay(text, day)).toBeNull();
+    }
+  });
+
+  it("round-trips through the formatter", () => {
+    expect(formatTimeOfDay(parseTimeOfDay("07:05", day)!)).toBe("07:05");
+    expect(formatTimeOfDay(new Date(2026, 8, 10, 0, 0))).toBe("00:00");
   });
 });

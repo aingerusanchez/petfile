@@ -72,6 +72,33 @@ export function dayBounds(day: Date): { from: string; to: string } {
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
+/**
+ * "09:15" on a given day, as an instant — or null when it is not a time.
+ *
+ * A typed time rather than a picker: the entry sheet opens with the current
+ * time already in the field, so the common case is confirming it and the
+ * retrospective case is changing two digits. A wheel would be more taps for
+ * both. Spanish writes 24-hour time, which is also the only way to say 21:00
+ * without a meridiem control.
+ */
+export function parseTimeOfDay(text: string, day: Date): Date | null {
+  const match = /^\s*(\d{1,2})[:.]?(\d{2})\s*$/.exec(text);
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+
+  const at = new Date(day);
+  at.setHours(hours, minutes, 0, 0);
+  return at;
+}
+
+/** The time of day a stored instant happened, for display and for the field. */
+export function formatTimeOfDay(at: Date): string {
+  return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+}
+
 /** Minutes walked across a set of entries. Pure, so the day view can trust it. */
 export function walkedMinutes(events: PetEventRow[]): number {
   return events.reduce(
