@@ -376,10 +376,15 @@ function Entry({
       style={{ minHeight: TOUCH_TARGET }}
       className="mb-5 flex-row items-start gap-3 active:opacity-70"
     >
-      {/* Wide enough for "12:05 p.m.", so the column does not move when the
-          format changes in Ajustes. An arbitrary value, because `w-20` is
-          rem-based and native resolves it to 70 rather than 80. */}
-      <View className="w-[80px] items-start gap-1">
+      {/* **Sized to its content, not to a number.** A fixed 80dp was measured
+          wrong in both directions: 27dp of slack for "09:00" and too narrow
+          for "12:05 p.m." at font_scale 1.3, where five characters already
+          take 53dp. Sizing to the content keeps every row in one format
+          aligned — 24-hour times are all five characters — and grows with the
+          font scale for free. The cost is a character of rag in 12-hour mode,
+          between "9:15 a.m." and "12:05 p.m.", which is cheaper than a
+          clipped time. */}
+      <View className="shrink-0 items-start gap-1">
         <Text className="text-text-tertiary">{time}</Text>
         {Icon ? (
           // The same tone as the time above it: they are one column, read as
