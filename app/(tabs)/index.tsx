@@ -115,10 +115,14 @@ function formatDay(day: Date): string {
  * opens on the current time so confirming it is the common case and changing
  * two digits is the retrospective one.
  *
- * **The goal bar is not the accent.** Progress toward a target is state, not an
- * action, and the accent means "act here" (The One Accent Rule). It reads in
- * Steel Frost while the day is short and turns Success Green when the goal is
- * met, which is the only moment worth colouring.
+ * **The goal bar reads in Aqua Glaciar, and turns Success Green when the goal
+ * is met.** It was Steel Frost on the reasoning that progress is state rather
+ * than an action, and the accent means "act here" (The One Accent Rule) — but
+ * on the device a 4px hairline in a border colour did not read as a measure of
+ * anything. Aqua Glaciar is the secondary accent, already the colour of links
+ * and the required marker, so it stays clear of Ice Blue Glacial: the primary
+ * accent still means "this is the one thing to do here", and nothing on this
+ * screen is competing with the four actions above the bar.
  */
 export default function Home() {
   const toast = useToast();
@@ -217,7 +221,7 @@ export default function Home() {
               style={{
                 width: `${Math.min(100, goal === 0 ? 0 : (walked / goal) * 100)}%`,
               }}
-              className={`h-1 ${met ? "bg-success" : "bg-border-strong"}`}
+              className={`h-1 ${met ? "bg-success" : "bg-accent-secondary"}`}
             />
           </View>
         </View>
