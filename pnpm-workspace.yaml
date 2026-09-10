@@ -1,3 +1,11 @@
+# `unrs-resolver` is the native resolver behind
+# `eslint-import-resolver-typescript`, which arrives with
+# `eslint-config-expo`. Its postinstall only compiles a fallback binary when no
+# prebuilt one matches the platform, and lint runs clean on this machine
+# without it — so the script stays denied rather than allowed by default. If
+# import resolution ever starts failing, this is the switch.
+allowBuilds:
+  unrs-resolver: false
 minimumReleaseAge: 1440 # 1 day
 minimumReleaseAgeExclude:
   - "@expo/cli@57.0.21"
