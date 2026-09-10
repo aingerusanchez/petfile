@@ -54,6 +54,17 @@ type ButtonProps = {
    * already literal needs nothing.
    */
   accessibilityLabel?: string;
+  /**
+   * Red instead of the accent, for an action that destroys something.
+   *
+   * A tone rather than a variant, because it composes with every shape: the
+   * link that opens a delete confirmation and the filled button inside it are
+   * the same colour decision at two weights. Dressing a destructive action in
+   * Ice Blue Glacial is the opposite of what that colour means — it says "this
+   * is the one thing to do here" — and the confirmation dialog had exactly
+   * that button until this existed.
+   */
+  tone?: "default" | "danger";
   disabled?: boolean;
   testID?: string;
 };
@@ -87,6 +98,7 @@ export function Button({
   successLabel = "¡Listo!",
   errorLabel = "Algo no ha salido bien",
   accessibilityLabel,
+  tone = "default",
   disabled = false,
   testID,
 }: ButtonProps) {
@@ -142,13 +154,16 @@ export function Button({
   // half-transparent accent still reads as "the one thing to do here". A
   // surface fill says the action is not available; the label steps down to
   // `text-tertiary`, which measures 6.64:1 on that fill.
+  const danger = tone === "danger";
   const fill =
     status === "error"
       ? "bg-error"
       : variant === "primary"
         ? disabled
           ? "bg-surface"
-          : "bg-accent-primary"
+          : danger
+            ? "bg-error"
+            : "bg-accent-primary"
         : "";
 
   // The 48dp floor is a literal in `style`, not `min-h-12`: that class is 3rem,
@@ -169,14 +184,18 @@ export function Button({
   const labelClass = disabled
     ? "text-text-tertiary"
     : isLink
-      ? "font-semibold text-accent-secondary"
+      ? danger
+        ? "font-semibold text-error"
+        : "font-semibold text-accent-secondary"
       : onFill
         ? "font-semibold text-on-accent"
         : isOutlined
           ? "font-semibold text-text-primary"
           : "text-text-secondary";
   const iconColor = isLink
-    ? colors.accentSecondary
+    ? danger
+      ? colors.error
+      : colors.accentSecondary
     : onFill
       ? colors.onAccent
       : colors.textSecondary;
