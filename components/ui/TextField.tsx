@@ -11,6 +11,19 @@ type TextFieldProps = Omit<
   label: string;
   /** Marks the field as one that blocks a save. */
   required?: boolean;
+  /**
+   * The unit the field is measured in — "min.", "kg", "€" — shown inside the
+   * field at its right edge.
+   *
+   * Inside the field rather than in the label or under it, for the reason a
+   * price field puts the currency there: the unit belongs to the value being
+   * typed, so it should sit next to the value. It is drawn in the placeholder
+   * tone so it reads as part of the field's furniture and not as something the
+   * tutor entered, and it survives typing, which a placeholder does not.
+   */
+  suffix?: string;
+  /** How the suffix is read aloud, when the abbreviation would not be. */
+  suffixLabel?: string;
   /** Reports the field's offset within its parent, for scroll-to-error. */
   onLayout?: (event: import("react-native").LayoutChangeEvent) => void;
   /** Per-field validation message. Renders below the input and drives the error border. */
@@ -34,6 +47,11 @@ type TextFieldProps = Omit<
  *   from the field it names. The slot exists here so a screen can attach a
  *   message to the input it belongs to.
  *
+ * **The border lives on a row wrapper, not on the input.** That is what lets a
+ * unit sit inside the field, and it costs one thing worth naming: the input no
+ * longer covers the last few pixels under the suffix, so a tap landing exactly
+ * on "min." does not focus the field. The input still fills everything else.
+ *
  * `keyboardType`, `autoCapitalize`, `autoComplete`, `returnKeyType` and
  * `maxLength` all pass straight through and should be set per field — an
  * ISO-date field raising the alphabetic keyboard is a defect, not a default.
@@ -41,6 +59,8 @@ type TextFieldProps = Omit<
 export function TextField({
   label,
   required = false,
+  suffix,
+  suffixLabel,
   onLayout,
   error = null,
   className = "mb-5",
@@ -53,19 +73,44 @@ export function TextField({
       <FieldLabel nativeID={labelID} required={required} errored={!!error}>
         {label}
       </FieldLabel>
-      <TextInput
-        {...inputProps}
-        accessibilityLabel={label}
-        accessibilityLabelledBy={labelID}
-        placeholderTextColor={PLACEHOLDER_COLOR}
-        // The 48dp floor, plus the vertical centring it needs: Android draws a
-        // TextInput's text from the top of its box, so a minHeight without
-        // this leaves the value riding above the field's middle.
-        style={{ minHeight: TOUCH_TARGET, textAlignVertical: "center" }}
-        className={`rounded-xl border bg-surface pl-4 pr-4 py-3 font-sans text-text-primary ${
+      <View
+        style={{ minHeight: TOUCH_TARGET }}
+        className={`flex-row items-center rounded-xl border bg-surface ${
           error ? "border-error" : "border-border-default"
         }`}
-      />
+      >
+        <TextInput
+          {...inputProps}
+          // The unit is part of what the field is asking for, so it belongs in
+          // the accessible name: a screen reader gets no benefit from a glyph
+          // sitting to the right of an input.
+          accessibilityLabel={
+            suffix ? `${label}, ${suffixLabel ?? suffix}` : label
+          }
+          accessibilityLabelledBy={labelID}
+          placeholderTextColor={PLACEHOLDER_COLOR}
+          // The 48dp floor, plus the vertical centring it needs: Android draws
+          // a TextInput's text from the top of its box, so a minHeight without
+          // this leaves the value riding above the field's middle.
+          style={{ minHeight: TOUCH_TARGET, textAlignVertical: "center" }}
+          // `pl-4 pr-*` and not `px-4`: Android drops `padding-inline` on a
+          // TextInput, which measured 4.9dp against the 16 the browser showed.
+          className={`flex-1 py-3 pl-4 font-sans text-text-primary ${
+            suffix ? "pr-2" : "pr-4"
+          }`}
+        />
+        {suffix ? (
+          <Text
+            // Named on the input above, so this is decoration to a screen
+            // reader — and it must not swallow taps meant for the field.
+            accessible={false}
+            style={{ pointerEvents: "none" }}
+            className="pr-4 text-text-tertiary"
+          >
+            {suffix}
+          </Text>
+        ) : null}
+      </View>
       {error ? (
         <Text
           testID={inputProps.testID ? `${inputProps.testID}-error` : undefined}
