@@ -48,6 +48,7 @@ typography:
 rounded:
   sm: "6px"
   md: "12px"
+  full: "9999px"
 spacing:
   xs: "8px"
   sm: "12px"
@@ -94,6 +95,39 @@ components:
     textColor: "{colors.text-primary}"
     rounded: "{rounded.sm}"
     size: "24px"
+  button-primary-danger:
+    backgroundColor: "{colors.error}"
+    textColor: "{colors.on-accent}"
+    rounded: "{rounded.md}"
+    padding: "16px 24px"
+  button-outlined-danger:
+    backgroundColor: "transparent"
+    textColor: "{colors.error}"
+    rounded: "{rounded.md}"
+    padding: "16px 24px"
+  fab:
+    backgroundColor: "{colors.accent-primary}"
+    textColor: "{colors.on-accent}"
+    rounded: "{rounded.full}"
+    size: "56px"
+  avatar:
+    backgroundColor: "{colors.elevated}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.full}"
+    size: "96px"
+  slider-thumb:
+    backgroundColor: "{colors.accent-primary}"
+    rounded: "{rounded.full}"
+    size: "20px"
+  slider-track:
+    backgroundColor: "{colors.border-strong}"
+    rounded: "{rounded.md}"
+    height: "4px"
+  sheet:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.md}"
+    padding: "20px"
   checkbox-checked:
     backgroundColor: "{colors.accent-primary}"
     textColor: "{colors.on-accent}"

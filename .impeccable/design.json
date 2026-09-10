@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-09T22:59:15Z",
+  "generatedAt": "2026-09-10T17:34:59Z",
   "title": "Design System: Petfile",
   "extensions": {
     "colorMeta": {
@@ -393,14 +393,54 @@
       "kind": "custom",
       "description": "Transient confirmation, hosted above the navigator so a screen's own navigation cannot unmount it. The bar drains for the toast's duration.",
       "html": "<div class=\"ds-toast\" role=\"alert\"><span class=\"ds-toast-icon\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"#22c55e\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M9 12l2 2 4-4\"/></svg></span><span class=\"ds-toast-text\">¡Loki ya está contigo!</span><span class=\"ds-toast-bar\"></span></div>",
-      "css": ".ds-toast{position:relative;display:flex;align-items:center;gap:12px;overflow:hidden;padding:16px;border-radius:12px;background:var(--color-elevated, #1e293b);border:1px solid var(--color-success, #22c55e)}.ds-toast-icon{display:inline-flex;flex:0 0 auto}.ds-toast-text{font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;color:var(--color-text-primary, #f1f5f9)}.ds-toast-bar{position:absolute;left:0;bottom:0;height:2px;width:40%;background:var(--color-success, #22c55e)}"
+      "css": ".ds-toast{position:relative;display:flex;align-items:center;gap:12px;overflow:hidden;padding:16px;border-radius:12px;background:var(--color-elevated, #1e293b);border:1px solid var(--color-success, #22c55e)}.ds-toast-icon{display:inline-flex;flex:0 0 auto}.ds-toast-text{font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;color:var(--color-text-primary, #f1f5f9)}.ds-toast-bar{position:absolute;left:0;bottom:0;height:2px;width:40%;background:var(--color-success, #22c55e)} .ds-toast:active { opacity: 0.7; }"
     },
     {
       "name": "Bottom Tab Bar",
       "kind": "nav",
       "description": "The app's only permanent navigation: three text destinations on their own near-black plane.",
       "html": "<nav class=\"ds-tabbar\"><span class=\"ds-tab ds-tab--active\">Hoy</span><span class=\"ds-tab\">Salud</span><span class=\"ds-tab\">Perfil</span></nav>",
-      "css": ".ds-tabbar{display:flex;align-items:center;justify-content:space-around;padding:8px 0;background:var(--color-nav, #0d1525);border-top:1px solid var(--color-border-default, #1e293b)}.ds-tab{font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:12px;font-weight:600;letter-spacing:0.02em;color:var(--color-text-tertiary, #94a3b8)}.ds-tab--active{color:var(--color-accent-primary, #a5f2f3)}"
+      "css": ".ds-tabbar{display:flex;align-items:center;justify-content:space-around;padding:8px 0;background:var(--color-nav, #0d1525);border-top:1px solid var(--color-border-default, #1e293b)}.ds-tab{font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:12px;font-weight:600;letter-spacing:0.02em;color:var(--color-text-tertiary, #94a3b8)}.ds-tab--active{color:var(--color-accent-primary, #a5f2f3)} .ds-tabbar:active { opacity: 0.7; }"
+    },
+    {
+      "name": "Floating Action",
+      "kind": "button",
+      "refersTo": "fab",
+      "description": "Opens the day's four kinds of entry, at the corner nearest the thumb. A circle, because the radius rule governs corners and a control laid over the page has none.",
+      "html": "<button class=\"ds-fab\" aria-label=\"Añadir un registro\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg></button>",
+      "css": ".ds-fab { width: 56px; height: 56px; border: none; border-radius: 9999px; background: var(--color-accent-primary, #a5f2f3); color: var(--color-on-accent, #0b1120); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; } .ds-fab:active { opacity: 0.7; }"
+    },
+    {
+      "name": "Avatar",
+      "kind": "custom",
+      "refersTo": "avatar",
+      "description": "The animal's photo, or its initial. A circle: it shipped square first and a real photo of a real dog settled it. The camera badge is how the photo changes.",
+      "html": "<div class=\"ds-avatar\"><span class=\"ds-avatar-initial\">L</span><span class=\"ds-avatar-badge\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z\"/><circle cx=\"12\" cy=\"13\" r=\"4\"/></svg></span></div>",
+      "css": ".ds-avatar { position: relative; width: 96px; height: 96px; border-radius: 9999px; background: var(--color-elevated, #1e293b); border: 1px solid var(--color-border-default, #1e293b); display: inline-flex; align-items: center; justify-content: center; } .ds-avatar-initial { font-size: 38px; font-weight: 700; color: var(--color-text-primary, #f1f5f9); } .ds-avatar-badge { position: absolute; right: 0; bottom: 0; width: 32px; height: 32px; border-radius: 9999px; background: var(--color-elevated, #1e293b); border: 1px solid var(--color-border-strong, #334155); color: var(--color-text-secondary, #cbd5e1); display: inline-flex; align-items: center; justify-content: center; }"
+    },
+    {
+      "name": "Slider",
+      "kind": "custom",
+      "refersTo": "slider-track",
+      "description": "One value along a range, built in-house rather than pulled in. The track is the touch target, not the thumb; the unfilled track is Steel Frost because this control sits on a Fjord Slate sheet.",
+      "html": "<div class=\"ds-slider\" role=\"slider\" aria-label=\"Zoom\" aria-valuemin=\"1\" aria-valuemax=\"4\" aria-valuenow=\"1.5\"><div class=\"ds-slider-track\"><div class=\"ds-slider-fill\"></div></div><div class=\"ds-slider-thumb\"></div></div>",
+      "css": ".ds-slider { position: relative; height: 48px; display: flex; align-items: center; width: 220px; } .ds-slider-track { height: 4px; width: 100%; border-radius: 12px; background: var(--color-border-strong, #334155); } .ds-slider-fill { height: 4px; width: 40%; border-radius: 12px; background: var(--color-accent-secondary, #7dd3e8); } .ds-slider-thumb { position: absolute; left: 36%; width: 20px; height: 20px; border-radius: 9999px; background: var(--color-accent-primary, #a5f2f3); border: 1px solid var(--color-border-strong, #334155); }"
+    },
+    {
+      "name": "Bottom Sheet",
+      "kind": "card",
+      "refersTo": "sheet",
+      "description": "Every modal surface in the app. It exists because a Modal sits outside the tree the page container pads, and under Android edge-to-edge the keyboard covered it — so the panel consumes the keyboard inset itself.",
+      "html": "<div class=\"ds-sheet-scrim\"><div class=\"ds-sheet\"><h2 class=\"ds-sheet-title\">Añadir paseo</h2><p class=\"ds-sheet-body\">Cuatro salidas: el scrim, Back, Cancelar y la X.</p></div></div>",
+      "css": ".ds-sheet-scrim { display: flex; align-items: flex-end; min-height: 240px; background: color-mix(in srgb, var(--color-base, #0b1120) 80%, transparent); } .ds-sheet { width: 100%; background: var(--color-surface, #131c2e); border: 1px solid var(--color-border-default, #1e293b); border-radius: 12px; padding: 20px; } .ds-sheet-title { margin: 0 0 20px; font-size: 20px; font-weight: 700; color: var(--color-text-primary, #f1f5f9); } .ds-sheet-body { margin: 0; font-size: 14px; color: var(--color-text-tertiary, #94a3b8); }"
+    },
+    {
+      "name": "Danger Button (outlined)",
+      "kind": "button",
+      "refersTo": "button-outlined-danger",
+      "description": "The full-width entry point to deleting a record: available, not invited. Error Red carries two things and nothing else — something went wrong, or something is about to be destroyed.",
+      "html": "<button class=\"ds-btn-danger\">Borrar la ficha de Loki</button>",
+      "css": ".ds-btn-danger { display: flex; width: 100%; align-items: center; justify-content: center; gap: 12px; min-height: 48px; padding: 16px 24px; border-radius: 12px; border: 1px solid var(--color-error, #ef4444); background: transparent; color: var(--color-error, #ef4444); font-weight: 600; cursor: pointer; } .ds-btn-danger:active { opacity: 0.7; }"
     }
   ],
   "narrative": {
@@ -481,8 +521,8 @@
       },
       {
         "name": "The One Radius Rule",
-        "body": "12px is the only corner radius in the system. A new component defaults to it rather than picking a fresh value.",
-        "section": "shapes"
+        "body": "12px is the only corner radius in the system, and a new rounded rectangle defaults to it. It read as \"one shape\" for a while, which is how the avatar and then the floating action each arrived as a squared version of something conventionally round — the rule doing bookkeeping instead of design. It governs corners now: a control whose subject or convention is round may be round (a portrait, a floating action, a slider's thumb). The one exception with corners is the checkbox at 6px, exactly half, because 12px on a 24px box reads as a radio button.",
+        "section": "elevation"
       },
       {
         "name": "The one recorded exception is the checkbox",
@@ -493,34 +533,50 @@
         "name": "The No-Glyph Rule",
         "body": "An icon is never a Unicode character. Outfit's charset does not cover the symbol ranges, so a glyph silently falls back to another typeface and breaks The One Family Rule — which is exactly what the old `♂`/`♀` sex chips did, in the middle of the form. Those are now the words \"Macho\" and \"Hembra\".",
         "section": "iconography"
+      },
+      {
+        "name": "The Present-Before-Edit Rule",
+        "body": "A screen that shows a record shows it; the form goes behind a door. A permanently editable form makes every visit read as data entry, puts a save button on a screen nobody came to save, and gives the most destructive action in the app a permanent seat.",
+        "section": "layout"
+      },
+      {
+        "name": "The No-Callback-Style Rule",
+        "body": "A Pressable never takes a callback `style`. Given both a className and a callback style, native drops the callback entirely — measured on device, the floating action rendered 24dp and the app's 48dp floor and press feedback did not exist at all. Plain object for the numbers, `active:opacity-70` in the class list for the press.",
+        "section": "layout"
       }
     ],
     "dos": [
-      "**Do** use the single 12px radius (`rounded-xl`) on every new interactive control — inputs, buttons, chips alike.",
+      "**Do** confirm a write. Every CRUD action owes the user a visible result: the button's own check or alert for the press, and a toast for what actually happened to their data. A screen that navigates on success without a word leaves the tutor guessing whether the thing they came to do worked.",
       "**Do** express state (selected, active) through a tonal step (Elevated Frost) and the accent border, never a shadow.",
       "**Do** keep Outfit as the only typeface; differentiate by weight and size.",
-      "**Do** mark an optional field as optional. Nothing marked required works better here than asterisks everywhere: the required fields lead the form, and only the skippable ones carry the word. It is also the honest thing to do — a tutor is entitled to know which data they can decline to give.",
-      "**Do** make every animation optional. Android's \"remove animations\" setting is honoured through `useReducedMotion()`, and the rule is that motion may only ever _enhance_ a state change, never be the only thing that communicates it: the button's status icon still appears when motion is off, it simply does not zoom. This binds anything decorative added later — a celebration effect included: it must degrade to nothing, not to a broken half-animation.",
-      "**Do** scroll the _first_ error into view on submit, in visual order rather than the order the validator reported them, and only when the field is not already on screen — moving the view for a field the tutor can already see costs them their place. Defer it a frame: scrolling in the same tick as the error state scrolls the pre-error layout, and the browser's scroll anchoring then cancels it.",
-      "**Do** confirm a write. Every CRUD action owes the user a visible result: the button's own check or alert for the press, and a toast for what actually happened to their data. A screen that navigates on success without a word leaves the tutor guessing whether the thing they came to do worked.",
-      "**Do** pair a confirmation with the action that triggered it. \"¡Vamos, Loki!\" is answered by \"¡Loki ya está contigo!\" — a recall, the call on a walk and the dog arriving. The pair makes the feedback read as an _answer_ rather than a log line, and it draws on the product's own world instead of borrowed charm. Write the two together or they drift apart.",
       "**Do** let a control explain itself. Ticking \"Aproximado\" turns the picker into month and year; that demonstration replaces the sentence that would have described it.",
+      "**Do** make every animation optional. Android's \"remove animations\" setting is honoured through `useReducedMotion()`, and the rule is that motion may only ever _enhance_ a state change, never be the only thing that communicates it: the button's status icon still appears when motion is off, it simply does not zoom. This binds anything decorative added later — a celebration effect included: it must degrade to nothing, not to a broken half-animation.",
+      "**Do** mark an optional field as optional. Nothing marked required works better here than asterisks everywhere: the required fields lead the form, and only the skippable ones carry the word. It is also the honest thing to do — a tutor is entitled to know which data they can decline to give.",
+      "**Do** pair a confirmation with the action that triggered it. \"¡Vamos, Loki!\" is answered by \"¡Loki ya está contigo!\" — a recall, the call on a walk and the dog arriving. The pair makes the feedback read as an _answer_ rather than a log line, and it draws on the product's own world instead of borrowed charm. Write the two together or they drift apart.",
+      "**Do** resolve every color through a Nordic Ice token; a raw hex value in a component `className` is a defect, not a shortcut (enforced in `AGENTS.md`).",
+      "**Do** scroll the _first_ error into view on submit, in visual order rather than the order the validator reported them, and only when the field is not already on screen — moving the view for a field the tutor can already see costs them their place. Defer it a frame: scrolling in the same tick as the error state scrolls the pre-error layout, and the browser's scroll anchoring then cancels it.",
       "**Do** use `text-on-accent` for any text on an Ice Blue Glacial surface — never `text-base`, which is Tailwind's font-size utility, not a color, and silently produces no text color at all.",
-      "**Do** resolve every color through a Nordic Ice token; a raw hex value in a component `className` is a defect, not a shortcut (enforced in `AGENTS.md`)."
+      "**Do** use the single 12px radius (`rounded-xl`) on every new interactive control — inputs, buttons, chips alike.",
+      "Do let every option in a settings screen show its own answer — \"15:30\" and \"3:30 p.m.\", never \"24h\" and \"12h\".",
+      "Do size a container around text to its content; a pixel width is a guess about a font scale.",
+      "Do verify on the device anything the browser could be lying about: touch floors, press feedback, keyboards, and gestures."
     ],
     "donts": [
       "**Don't** add drop shadows, glassmorphism, or blur — depth here is tonal, never shadow-based.",
-      "**Don't** introduce a second accent hue outside Ice Blue Glacial / Aqua Glaciar; the accent family is deliberately narrow so it keeps its meaning.",
       "**Don't** communicate success/error/selected state by color alone — pair it with a non-chromatic cue. This is not theoretical: a selected chip's Elevated Frost fill against an unselected chip's Fjord Slate fill measures **1.16:1**, so the tonal step is imperceptible and, on its own, selection rested entirely on the 1px accent border. `Chip` therefore sets its selected label to 700 weight, which reads in daylight and for a color-blind viewer while staying inside The One Family Rule. Every new stateful component owes the same: a weight, a glyph, or a genuinely visible tonal step — never the accent alone.",
-      "**Don't** let wit cost an error its clarity. The voice may reach a failure — \"Parece que Loki no contesta a su nombre… ¡vuelve a intentarlo!\" keeps the recall metaphor the button opened — but only while the way out stays explicit and the message persists until the user acts on it. The test is not tone, it is whether the tutor knows what to do next. Two shapes that pass it: a question where a rule would do (\"¿Cómo se llama?\" for an empty field, \"¿Aún no ha nacido?\" for a future date, which treats a slip as the slip it almost always is), and taking responsibility when the fault is ours (\"Algo ha ido mal por nuestro lado\").",
-      "**Don't** let the voice be the accessible name. The visible label speaks like a household; **the accessible name states the action** — \"¡Vamos, Loki!\" reads as a control only next to the form it submits, so the button announces \"Registrar mascota\". Three corollaries. No emoji in an accessible name: a screen reader turns 🐶 into \"cara de perro\", so the headline and the activity hints keep their emoji on screen and out of the spoken string. A label whose visible text changes with a phase carries its name with it — a button reading \"¡Ya estáis dentro!\" that still announces \"Registrar mascota\" describes a control that is no longer there. And a warm line that reports a state has to report it: \"Por aquí no hay nada\" announces \"Página no encontrada\". Decoration that says nothing is hidden outright — the confetti is out of the accessibility tree on both platforms.",
-      "**Don't** trust one accessibility API to cover both targets. `accessibilityState` is what Android reads, and react-native-web renders the _role_ from it while dropping `aria-checked` — so on the web the checkbox and the chips announced a role with no state, which is worse than no role at all. Selection controls pass both, and a control whose state is the whole point is worth two props.",
-      "**Don't** put the voice in a label. Field labels, chips, month names and dismiss controls stay literal: a label's whole job is to be read instantly, and personality there costs legibility for nothing. The voice belongs in headlines, primary actions, confirmations and empty states.",
-      "**Don't** name an internal plan in user-facing copy. An empty state says what will appear here in the tutor's terms, not what the roadmap calls it.",
-      "**Don't** write a sentence where an intuitive control would do. The average reader skips body copy, so explanatory text is not documentation — it is clutter that pushes the real controls down. Detail a genuinely interested user might want should be _reachable_, not placed in everyone's way.",
       "**Don't** explain a collapsed or inactive block from the outside. Describing what sits behind \"Rellenar más datos\" charges cognitive load to every reader, including the majority who will never open it. The explanation belongs inside, once the block is open.",
+      "**Don't** introduce a second accent hue outside Ice Blue Glacial / Aqua Glaciar; the accent family is deliberately narrow so it keeps its meaning.",
+      "**Don't** let the voice be the accessible name. The visible label speaks like a household; **the accessible name states the action** — \"¡Vamos, Loki!\" reads as a control only next to the form it submits, so the button announces \"Registrar mascota\". Three corollaries. No emoji in an accessible name: a screen reader turns 🐶 into \"cara de perro\", so the headline and the activity hints keep their emoji on screen and out of the spoken string. A label whose visible text changes with a phase carries its name with it — a button reading \"¡Ya estáis dentro!\" that still announces \"Registrar mascota\" describes a control that is no longer there. And a warm line that reports a state has to report it: \"Por aquí no hay nada\" announces \"Página no encontrada\". Decoration that says nothing is hidden outright — the confetti is out of the accessibility tree on both platforms.",
+      "**Don't** let wit cost an error its clarity. The voice may reach a failure — \"Parece que Loki no contesta a su nombre… ¡vuelve a intentarlo!\" keeps the recall metaphor the button opened — but only while the way out stays explicit and the message persists until the user acts on it. The test is not tone, it is whether the tutor knows what to do next. Two shapes that pass it: a question where a rule would do (\"¿Cómo se llama?\" for an empty field, \"¿Aún no ha nacido?\" for a future date, which treats a slip as the slip it almost always is), and taking responsibility when the fault is ours (\"Algo ha ido mal por nuestro lado\").",
+      "**Don't** name an internal plan in user-facing copy. An empty state says what will appear here in the tutor's terms, not what the roadmap calls it.",
+      "**Don't** put the voice in a label. Field labels, chips, month names and dismiss controls stay literal: a label's whole job is to be read instantly, and personality there costs legibility for nothing. The voice belongs in headlines, primary actions, confirmations and empty states.",
+      "**Don't** reach for platform-native components (Material 3 FABs, Material filled text fields, Android date-picker dialogs — or their iOS equivalents) to satisfy per-OS conformance. Being an Android app does not make Material 3 the house style: Nordic Ice is deliberately one uniform world. Adapt it to Android's physical constraints; don't replace it with Android's native kit.",
       "**Don't** state what the context already carries. A screen inside a pet app, asking for a pet's details, does not need a sentence announcing that it is asking for a pet's details.",
-      "**Don't** reach for platform-native components (Material 3 FABs, Material filled text fields, Android date-picker dialogs — or their iOS equivalents) to satisfy per-OS conformance. Being an Android app does not make Material 3 the house style: Nordic Ice is deliberately one uniform world. Adapt it to Android's physical constraints; don't replace it with Android's native kit."
+      "**Don't** trust one accessibility API to cover both targets. `accessibilityState` is what Android reads, and react-native-web renders the _role_ from it while dropping `aria-checked` — so on the web the checkbox and the chips announced a role with no state, which is worse than no role at all. Selection controls pass both, and a control whose state is the whole point is worth two props.",
+      "**Don't** write a sentence where an intuitive control would do. The average reader skips body copy, so explanatory text is not documentation — it is clutter that pushes the real controls down. Detail a genuinely interested user might want should be _reachable_, not placed in everyone's way.",
+      "Don't explain what the controls already show.",
+      "Don't give a Pressable a callback `style` — native drops it when a className is present.",
+      "Don't put a bottom sheet in a Modal without consuming the keyboard inset; the window is not resized under edge-to-edge."
     ]
   }
 }
