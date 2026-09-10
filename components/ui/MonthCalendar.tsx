@@ -73,16 +73,19 @@ function keyOf(date: string): string {
  *
  * | | mark | colour |
  * |---|---|---|
- * | Met the goal | a bar under the number | Success Green |
+ * | Met the goal | a bar under the number | Aqua Glaciar |
  * | Fell short | the number, no bar | `text-primary` |
  * | Nothing logged | the number, dimmed | `text-muted` |
  * | Medication | a ring | Warning Amber |
  * | Incident | a filled dot | Error Red |
  *
- * The rule is about **alert** hues: red and amber are the rare ones, and green
- * is the everyday reading of a month that went well. Which leaves the two
- * common states — short of the goal, and nothing logged — differing in weight
- * alone.
+ * The rule holds for every hue, including the friendly one. A month has about
+ * eighteen days that met the goal, so **whatever colour that mark is becomes
+ * the calendar's background colour rather than its exception** — which is why
+ * the day view's bar stopped turning Success Green and turns the secondary
+ * accent instead. Aqua Glaciar is already the quiet half of the accent family;
+ * red and amber stay the only alarms. Which leaves the two other common states
+ * — short of the goal, and nothing logged — differing in weight alone.
  *
  * **The bar is the day view's own goal bar, in miniature** — same element,
  * same colour, same words, so it needs no learning. That is also what makes
@@ -110,7 +113,7 @@ function keyOf(date: string): string {
  * so each stop stands on its own.
  *
  * Contrast on the sheet's Fjord Slate, all above the 3:1 a non-text indicator
- * needs: Error Red 4.53:1, Warning Amber 7.93:1, Success Green 7.48:1, Mist
+ * needs: Error Red 4.53:1, Warning Amber 7.93:1, Aqua Glaciar 10.02:1, Mist
  * Grey 3.58:1. **Snow White was the first proposal for "fell short" and was
  * measured out of it at 15.54:1** — three and a half times the red alert, on
  * the most common state of the month, which would have made failure the
@@ -187,13 +190,31 @@ export function MonthCalendar({
                     Stacked, it read as belonging to the row above — a ring
                     over the 8 and a bar under the 1 are two rows apart and
                     four pixels apart. The corner is also where this app
-                    already puts a badge, on the portrait. */}
-                {mark?.hasIncident || mark?.hasMedication ? (
+                    already puts a badge, on the portrait.
+
+                    **And each kind has its own corner, so a day can carry
+                    both.** They used to collapse, on the reasoning that a day
+                    has one headline and an incident outranks a medication —
+                    which quietly threw away the medication on the one day it
+                    mattered most, the day something also went wrong. Side by
+                    side they would not fit: two 6px marks and a gap reach
+                    across 15dp of a 44dp cell and land on the round chip's
+                    top edge, where an amber ring on Ice Blue Glacial is
+                    illegible. Opposite corners cost nothing and buy a third
+                    channel — medication is always left, an incident always
+                    right — on top of hue and fill. */}
+                {mark?.hasMedication ? (
                   <View
+                    testID="calendar-mark-medication"
+                    style={{ position: "absolute", top: 4, left: 4 }}
+                    className="h-[6px] w-[6px] rounded-[3px] border border-warning"
+                  />
+                ) : null}
+                {mark?.hasIncident ? (
+                  <View
+                    testID="calendar-mark-incident"
                     style={{ position: "absolute", top: 4, right: 4 }}
-                    className={`h-[6px] w-[6px] rounded-[3px] ${
-                      mark.hasIncident ? "bg-error" : "border border-warning"
-                    }`}
+                    className="h-[6px] w-[6px] rounded-[3px] bg-error"
                   />
                 ) : null}
 
@@ -240,15 +261,13 @@ export function MonthCalendar({
                 </View>
 
                 {/* **The day view's goal bar, in miniature — in the colour
-                    that bar wears when the goal is met.** It was Aqua
-                    Glaciar, which is the colour of that bar *in progress*:
-                    the calendar said aqua for a day the day view then showed
-                    in green, under the words "Objetivo conseguido". Of all
-                    the marks this was the one already claiming to quote
-                    another screen, and it was quoting the wrong half. */}
+                    that bar wears when the goal is met.** Which is the point
+                    of the pair rather than a coincidence: whatever colour goes
+                    here appears on most days of the month, so it is the one
+                    mark that cannot be an alarm. See the day view. */}
                 <View className="mt-1 h-[4px] w-[16px] items-center">
                   {met ? (
-                    <View className="h-[4px] w-[16px] rounded-xl bg-success" />
+                    <View className="h-[4px] w-[16px] rounded-xl bg-accent-secondary" />
                   ) : null}
                 </View>
               </View>
@@ -265,7 +284,7 @@ export function MonthCalendar({
           question nobody asked of a legend. Three labels, three marks. */}
       <View className="mt-2 flex-row flex-wrap items-center gap-x-4 gap-y-2">
         <Legend
-          className="h-[4px] w-[16px] rounded-xl bg-success"
+          className="h-[4px] w-[16px] rounded-xl bg-accent-secondary"
           label="Objetivo conseguido"
         />
         <Legend

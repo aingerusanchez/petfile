@@ -152,14 +152,23 @@ type Editing = { kind: EventKind; event: PetEventRow | null };
  * field opens on the current time so confirming it is the common case, and
  * **every entry is a correction waiting to happen**: tapping a row reopens it.
  *
- * **The goal bar reads in Aqua Glaciar, and turns Success Green when the goal
- * is met.** It was Steel Frost on the reasoning that progress is state rather
- * than an action, and the accent means "act here" (The One Accent Rule) — but
- * on the device a 4px hairline in a border colour did not read as a measure of
- * anything. Aqua Glaciar is the secondary accent, already the colour of links
- * and the required marker, so it stays clear of Ice Blue Glacial: the primary
- * accent still means "this is the one thing to do here", and on this screen
- * the one thing is the floating action.
+ * **The goal bar fills in a light neutral, and turns Aqua Glaciar when the
+ * goal is met.** Three versions got here. Steel Frost was first, on the
+ * reasoning that progress is state rather than an action — but a 4px hairline
+ * in a border colour measured 1.64:1 against its own track and did not read as
+ * a measure of anything. Then it was Aqua Glaciar filling and Success Green on
+ * completion, which read well and put green on eighteen days of a month in the
+ * calendar's miniature of it: enough to become the calendar's background
+ * colour rather than its exception.
+ *
+ * So the two states are the same **weight** and differ only in **hue** — Mist
+ * Light 11.48:1 and Aqua Glaciar 10.03:1 on the bar's Fjord Slate track — and
+ * the hue is the whole message: the measure is neutral while it is being read,
+ * and the secondary accent is the conclusion. Ice Blue Glacial stays out of it,
+ * so the primary accent still means "this is the one thing to do here", and on
+ * this screen the one thing is the floating action. Success Green keeps the
+ * meaning it has everywhere else — a toast, the confetti — which is a **moment
+ * that just happened**, never a state sitting on the screen.
  */
 export default function Home() {
   const toast = useToast();
@@ -332,7 +341,7 @@ export default function Home() {
               {`${formatDuration(walked, settings.durationFormat)} de ${formatDuration(goal, settings.durationFormat)} paseados`}
             </Text>
             {met ? (
-              <Text className="font-semibold text-xs text-success">
+              <Text className="font-semibold text-xs text-accent-secondary">
                 Objetivo conseguido
               </Text>
             ) : null}
@@ -345,7 +354,7 @@ export default function Home() {
               style={{
                 width: `${Math.min(100, goal === 0 ? 0 : (walked / goal) * 100)}%`,
               }}
-              className={`h-1 ${met ? "bg-success" : "bg-accent-secondary"}`}
+              className={`h-1 ${met ? "bg-accent-secondary" : "bg-text-secondary"}`}
             />
           </View>
         </View>

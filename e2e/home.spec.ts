@@ -460,12 +460,16 @@ test("opens the calendar from the date and says what each day carried", async ({
   await seedSession(page);
   await page.goto("/");
 
-  // Put something on yesterday worth marking.
+  // Put two things on yesterday worth marking, of the two kinds that mark.
   await page.getByTestId("home-prev-day").click();
   await add(page, "incident");
   await page.getByTestId("entry-value").fill("Cojea de la pata");
   await page.getByTestId("entry-save").click();
   await expect(page.getByTestId("home-log")).toContainText("Cojea");
+  await add(page, "medication");
+  await page.getByTestId("entry-value").fill("Apoquel");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("Apoquel");
 
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
@@ -473,14 +477,21 @@ test("opens the calendar from the date and says what each day carried", async ({
   await page.getByTestId("home-day").click();
   await expect(page.getByTestId("home-calendar")).toBeVisible();
 
-  // The mark is not colour alone: the day says it in words too.
+  // The mark is not colour alone: the day says it in words too — and it says
+  // both things. The two marks used to collapse into the more severe one,
+  // which threw the medication away on the day it mattered most.
   await expect(
     page
       .getByLabel(
-        `${yesterday.getDate()}, objetivo sin conseguir, con incidencia`,
+        `${yesterday.getDate()}, objetivo sin conseguir, con incidencia, con medicación`,
       )
       .first(),
   ).toBeVisible();
+
+  // Both are drawn, each in its own corner. One day carries them, so one of
+  // each is on screen.
+  await expect(page.getByTestId("calendar-mark-incident")).toHaveCount(1);
+  await expect(page.getByTestId("calendar-mark-medication")).toHaveCount(1);
 
   // The legend names all three marks, so none of them is colour alone.
   for (const name of ["Objetivo conseguido", "Medicación", "Incidencia"]) {
