@@ -54,7 +54,9 @@ const KINDS: Record<
     label: "Paseo",
     action: "Añadir paseo",
     icon: Footprints,
-    field: { label: "Duración", placeholder: "30", numeric: true },
+    // The unit is in the label, not only in the placeholder: a placeholder
+    // disappears the moment the tutor types, taking the "min" with it.
+    field: { label: "Duración (min)", placeholder: "30", numeric: true },
     describe: (event) =>
       event.duration_minutes ? `${event.duration_minutes} min` : null,
   },
