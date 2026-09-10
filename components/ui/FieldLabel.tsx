@@ -47,7 +47,7 @@ export function FieldLabel({
       // the rule against communicating state by colour alone even though the
       // glyph is tinted. Aqua Glaciar keeps Ice Blue Glacial free to mean
       // "act here" (The One Accent Rule).
-      className="mb-2 text-xs font-semibold uppercase tracking-[0.05em] text-text-tertiary"
+      className="mb-2 font-semibold text-xs tracking-[0.05em] text-text-tertiary uppercase"
       // Screen readers get the word, not a punctuation mark read aloud.
       accessibilityLabel={
         required

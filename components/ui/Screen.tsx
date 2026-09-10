@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode, type RefObject } from "react";
-import { Keyboard, ScrollView, View } from "react-native";
+import { useEffect, type ReactNode, type RefObject } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useKeyboardInset } from "./keyboard";
 import { PAGE_GUTTER, spacing } from "./tokens";
 
 type Edge = "top" | "bottom";
@@ -41,42 +42,33 @@ type ScreenProps = {
    * in this one file.
    */
   onTopInset?: (inset: number) => void;
+  /**
+   * Content pinned over the page rather than scrolled with it — a floating
+   * action, for instance.
+   *
+   * A render prop rather than a node, because the thing that floats has to
+   * know how far the window's edges are, and **window insets are consumed
+   * only here**. It is handed the offsets it should use and draws itself
+   * inside a full-screen container that passes taps through, so it can also
+   * paint a scrim over the content without reaching outside its parent. Its
+   * own children have to opt back in with `pointerEvents: "auto"`.
+   */
+  overlay?: (position: { right: number; bottom: number }) => ReactNode;
+  /**
+   * Content pinned to the foot of the screen, below everything else.
+   *
+   * For what should be findable and not looked at — the build's version. It
+   * sits at the bottom of the *viewport* when the content is short and after
+   * the content when it is long, which is what "out of the way" means on a
+   * screen that can scroll.
+   */
+  footer?: ReactNode;
   /** Appended to the container's classes, for per-screen alignment. */
   className?: string;
   testID?: string;
 };
 
 const BOTH: readonly Edge[] = ["top", "bottom"];
-
-/**
- * How much of the screen the software keyboard is covering, in dp.
- *
- * Under edge-to-edge — which this app runs with — Android no longer resizes
- * the window when the keyboard opens, so a ScrollView keeps its full height
- * and everything behind the keyboard becomes unreachable: measured on device,
- * the breed field's suggestion list opened entirely below the keyboard with
- * no scroll room to bring it up. Treating the keyboard as a bottom inset
- * gives the content somewhere to go.
- *
- * The listeners never fire on the web, where the value stays 0 and the
- * browser handles its own layout.
- */
-function useKeyboardInset(): number {
-  const [inset, setInset] = useState(0);
-
-  useEffect(() => {
-    const shown = Keyboard.addListener("keyboardDidShow", (event) =>
-      setInset(event.endCoordinates.height),
-    );
-    const hidden = Keyboard.addListener("keyboardDidHide", () => setInset(0));
-    return () => {
-      shown.remove();
-      hidden.remove();
-    };
-  }, []);
-
-  return inset;
-}
 
 /**
  * The page container every screen sits in, and the single place window insets
@@ -103,6 +95,8 @@ export function Screen({
   onScrollOffset,
   onViewportHeight,
   onTopInset,
+  overlay,
+  footer,
   className = "",
   testID,
 }: ScreenProps) {
@@ -124,15 +118,47 @@ export function Screen({
     // their sum.
     paddingBottom: padY + Math.max(bottomInset, keyboard),
   };
-  const alignment = center ? " items-center justify-center" : "";
+  const alignment = center ? "items-center justify-center" : "";
+
+  const floating = overlay ? (
+    // `box-none` — the value that means "not me, but my children" — and it has
+    // to come from a **registered** style to work on both targets. The three
+    // wrong ways, all tried:
+    //
+    //   * the `pointerEvents` prop: deprecated in this React Native version,
+    //     and it logs a warning per render;
+    //   * `box-none` in an inline style: react-native-web writes it straight
+    //     into the style attribute, where `pointer-events: box-none` is not
+    //     CSS and the browser drops the declaration — measured, this
+    //     full-screen container then swallowed every tap on the page;
+    //   * `none` in an inline style: valid CSS, and a child can opt back in
+    //     with `auto` on the web — but in React Native `none` excludes the
+    //     whole subtree, so on the device the floating action could not be
+    //     pressed at all. That is the bug this replaces.
+    //
+    // Registered, react-native-web's StyleSheet compiler expands `box-none`
+    // into `pointer-events: none` on the element plus `auto` on its children,
+    // which is exactly the native meaning.
+    <View style={styles.floating}>
+      {overlay({
+        right: gutter + insets.right,
+        // A floating action sits at the section step from the window's edge,
+        // not at the page's own vertical padding, which is twice that.
+        bottom: spacing.md + bottomInset,
+      })}
+    </View>
+  ) : null;
 
   if (scroll) {
-    return (
+    const scroller = (
       <ScrollView
         ref={scrollRef}
         testID={testID}
-        className={`flex-1 bg-base${className ? ` ${className}` : ""}`}
-        contentContainerStyle={padding}
+        className={`flex-1 bg-base ${className}`}
+        // `flexGrow` only with a footer: it makes the content container fill
+        // the viewport so `mt-auto` has somewhere to push to, and it is a
+        // no-op once the content is taller than the screen.
+        contentContainerStyle={footer ? { ...padding, flexGrow: 1 } : padding}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
         onScroll={
@@ -147,17 +173,54 @@ export function Screen({
         }
       >
         {children}
+        {footer ? <View className="mt-auto">{footer}</View> : null}
       </ScrollView>
+    );
+
+    if (!floating) return scroller;
+    return (
+      <View className="flex-1 bg-base">
+        {scroller}
+        {floating}
+      </View>
     );
   }
 
+  if (!footer) {
+    return (
+      <View
+        testID={testID}
+        style={{ ...padding, paddingBottom: padY + bottomInset }}
+        className={`flex-1 bg-base ${alignment} ${className}`}
+      >
+        {children}
+        {floating}
+      </View>
+    );
+  }
+
+  // With a footer the alignment moves to an inner box, so the footer can sit
+  // below whatever the screen centred rather than being centred with it.
   return (
     <View
       testID={testID}
       style={{ ...padding, paddingBottom: padY + bottomInset }}
-      className={`flex-1 bg-base${alignment}${className ? ` ${className}` : ""}`}
+      className="flex-1 bg-base"
     >
-      {children}
+      <View className={`flex-1 ${alignment} ${className}`}>{children}</View>
+      {footer}
+      {floating}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  floating: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: "box-none",
+  },
+});

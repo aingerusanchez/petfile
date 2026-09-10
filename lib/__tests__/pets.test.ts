@@ -1,7 +1,9 @@
-// Mock supabase before importing pets
-jest.mock("../supabase");
-
 import { validatePetDraft, type PetDraft } from "../pets";
+
+// `pets` reaches for the client at module scope, so the mock has to be in
+// place before it loads. `jest.mock` is hoisted above the imports by babel,
+// which is what makes this order safe as well as lint-clean.
+jest.mock("../supabase");
 
 const valid: PetDraft = {
   name: "Loki",
@@ -23,7 +25,9 @@ describe("validatePetDraft", () => {
   });
 
   it("requires a name", () => {
-    expect(validatePetDraft({ ...valid, name: "   " }, today)).toHaveProperty("name");
+    expect(validatePetDraft({ ...valid, name: "   " }, today)).toHaveProperty(
+      "name",
+    );
   });
 
   // Only the name and the birth date block a save. Sex and breed are useful
@@ -35,11 +39,15 @@ describe("validatePetDraft", () => {
   });
 
   it("does not require an activity level", () => {
-    expect(validatePetDraft({ ...valid, activityLevel: null }, today)).toEqual({});
+    expect(validatePetDraft({ ...valid, activityLevel: null }, today)).toEqual(
+      {},
+    );
   });
 
   it("does not require a breed", () => {
-    expect(validatePetDraft({ ...valid, breedPrimary: null }, today)).toEqual({});
+    expect(validatePetDraft({ ...valid, breedPrimary: null }, today)).toEqual(
+      {},
+    );
   });
 
   it("rejects a birth date in the future", () => {
@@ -59,9 +67,9 @@ describe("validatePetDraft", () => {
   // anchors the vaccine and deworming due dates. An approximate date still
   // supplies one — month and year, with the day flagged as a placeholder.
   it("requires a birth date", () => {
-    expect(validatePetDraft({ ...valid, birthDate: null }, today)).toHaveProperty(
-      "birthDate",
-    );
+    expect(
+      validatePetDraft({ ...valid, birthDate: null }, today),
+    ).toHaveProperty("birthDate");
   });
 
   it("accepts an approximate date pinned to the first of the month", () => {
@@ -75,13 +83,19 @@ describe("validatePetDraft", () => {
 
   it("rejects a second breed unless the dog is marked mixed", () => {
     expect(
-      validatePetDraft({ ...valid, breedSecondary: "Beagle", isMixed: false }, today),
+      validatePetDraft(
+        { ...valid, breedSecondary: "Beagle", isMixed: false },
+        today,
+      ),
     ).toHaveProperty("breedSecondary");
   });
 
   it("accepts a second breed on a mixed dog", () => {
     expect(
-      validatePetDraft({ ...valid, breedSecondary: "Beagle", isMixed: true }, today),
+      validatePetDraft(
+        { ...valid, breedSecondary: "Beagle", isMixed: true },
+        today,
+      ),
     ).toEqual({});
   });
 });

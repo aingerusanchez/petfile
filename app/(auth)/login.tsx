@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, GoogleMark, Screen, Text } from "../../components/ui";
+import { Button, GoogleMark, Screen, Text, Version } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 
 export default function Login() {
@@ -7,10 +7,13 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <Screen className="justify-center">
+    <Screen
+      className="justify-center"
+      footer={<Version testID="login-version" />}
+    >
       <Text
         accessibilityRole="header"
-        className="mb-2 text-4xl font-bold text-text-primary"
+        className="mb-2 font-bold text-4xl text-text-primary"
       >
         Petfile
       </Text>

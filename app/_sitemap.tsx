@@ -1,4 +1,5 @@
 import { Redirect } from "expo-router";
+import type { ComponentType } from "react";
 
 /**
  * Expo Router's generated `/_sitemap`, kept in development and closed in
@@ -19,15 +20,19 @@ import { Redirect } from "expo-router";
  * development loses a convenience.
  */
 export default function Sitemap() {
+  // The require is what needs guarding, not the render. Constructing the JSX
+  // inside the try would be a mistake of its own: React does not render on
+  // the spot, so a render error would escape the catch anyway — which is what
+  // `react-hooks/error-boundaries` is pointing at.
+  let Generated: ComponentType | null = null;
   if (__DEV__) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const generated = require("expo-router/build/views/Sitemap");
-      const Generated = generated?.Sitemap;
-      if (Generated) return <Generated />;
+      Generated = require("expo-router/build/views/Sitemap")?.Sitemap ?? null;
     } catch {
-      // Fall through to the redirect below.
+      Generated = null;
     }
   }
-  return <Redirect href="/" />;
+
+  return Generated ? <Generated /> : <Redirect href="/" />;
 }

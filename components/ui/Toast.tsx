@@ -19,7 +19,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useEffect } from "react";
-import { colors, pressed, TOUCH_TARGET } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 export type ToastVariant = "success" | "warning" | "error" | "info";
@@ -156,12 +156,9 @@ export function Toast({
               onDismiss();
             }}
             accessibilityRole="button"
-            style={(state) => [
-              { minHeight: TOUCH_TARGET, justifyContent: "center" },
-              pressed(state),
-            ]}
+            style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
             accessibilityLabel={action.label}
-            className="min-h-12 justify-center px-2"
+            className="min-h-[48px] justify-center px-2 active:opacity-70"
           >
             <Text className="font-semibold text-accent-secondary">
               {action.label}
@@ -174,12 +171,9 @@ export function Toast({
             testID={testID ? `${testID}-dismiss` : undefined}
             onPress={onDismiss}
             accessibilityRole="button"
-            style={(state) => [
-              { minHeight: TOUCH_TARGET, justifyContent: "center" },
-              pressed(state),
-            ]}
+            style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
             accessibilityLabel="Cerrar aviso"
-            className="min-h-12 w-12 items-center justify-center"
+            className="min-h-[48px] w-12 items-center justify-center active:opacity-70"
           >
             <X size={18} color={colors.textTertiary} />
           </Pressable>

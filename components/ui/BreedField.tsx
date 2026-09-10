@@ -1,8 +1,13 @@
 import { useId, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import {
+  Pressable,
+  TextInput,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import { isKnownBreed, searchBreeds } from "../../lib/breeds";
 import { FieldLabel } from "./FieldLabel";
-import { PLACEHOLDER_COLOR, pressed, TOUCH_TARGET } from "./tokens";
+import { PLACEHOLDER_COLOR, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 type BreedFieldProps = {
@@ -11,7 +16,7 @@ type BreedFieldProps = {
   onChange: (breed: string | null) => void;
   required?: boolean;
   /** Reports the field's offset within its parent, for scroll-to-error. */
-  onLayout?: (event: import("react-native").LayoutChangeEvent) => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
   error?: string | null;
   placeholder?: string;
   /**
@@ -83,7 +88,7 @@ export function BreedField({
         autoComplete="off"
         returnKeyType="next"
         maxLength={60}
-        className={`rounded-xl border bg-surface pl-4 pr-4 py-3 font-sans text-text-primary ${
+        className={`rounded-xl border bg-surface py-3 pr-4 pl-4 font-sans text-text-primary ${
           error ? "border-error" : "border-border-default"
         }`}
       />
@@ -104,8 +109,8 @@ export function BreedField({
               }}
               accessibilityRole="button"
               accessibilityLabel={breed}
-              style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-              className="justify-center border-b border-border-default px-4 py-3 last:border-b-0"
+              style={{ minHeight: TOUCH_TARGET }}
+              className="justify-center border-b border-border-default px-4 py-3 last:border-b-0 active:opacity-70"
             >
               <Text className="text-text-primary">{breed}</Text>
             </Pressable>

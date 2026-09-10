@@ -1,0 +1,20 @@
+# Tooling that is not ours to reformat: the impeccable skill and its agents
+# are vendored, and rewriting them would make every update a merge conflict.
+.claude/
+.impeccable/
+
+# Generated native projects (also gitignored).
+android/
+ios/
+.expo/
+
+# Generated asset descriptors.
+assets/
+
+# Tool output.
+test-results/
+playwright-report/
+coverage/
+
+# Lockfiles: pnpm writes these, not us.
+pnpm-lock.yaml

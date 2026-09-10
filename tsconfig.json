@@ -4,12 +4,8 @@
     "strict": true,
     "types": ["jest"],
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@/assets/*": [
-        "./assets/*"
-      ]
+      "@/*": ["./*"],
+      "@/assets/*": ["./assets/*"]
     }
   },
   "include": [

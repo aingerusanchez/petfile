@@ -48,6 +48,7 @@ typography:
 rounded:
   sm: "6px"
   md: "12px"
+  full: "9999px"
 spacing:
   xs: "8px"
   sm: "12px"
@@ -94,6 +95,39 @@ components:
     textColor: "{colors.text-primary}"
     rounded: "{rounded.sm}"
     size: "24px"
+  button-primary-danger:
+    backgroundColor: "{colors.error}"
+    textColor: "{colors.on-accent}"
+    rounded: "{rounded.md}"
+    padding: "16px 24px"
+  button-outlined-danger:
+    backgroundColor: "transparent"
+    textColor: "{colors.error}"
+    rounded: "{rounded.md}"
+    padding: "16px 24px"
+  fab:
+    backgroundColor: "{colors.accent-primary}"
+    textColor: "{colors.on-accent}"
+    rounded: "{rounded.full}"
+    size: "56px"
+  avatar:
+    backgroundColor: "{colors.elevated}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.full}"
+    size: "96px"
+  slider-thumb:
+    backgroundColor: "{colors.accent-primary}"
+    rounded: "{rounded.full}"
+    size: "20px"
+  slider-track:
+    backgroundColor: "{colors.border-strong}"
+    rounded: "{rounded.md}"
+    height: "4px"
+  sheet:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.md}"
+    padding: "20px"
   checkbox-checked:
     backgroundColor: "{colors.accent-primary}"
     textColor: "{colors.on-accent}"
@@ -146,6 +180,8 @@ Almost monochrome by design — a deep navy neutral scale carries nearly the who
 
 **The One Accent Rule.** Ice Blue Glacial is the only color that means "act here." It appears on the primary button, the active tab, and a selected chip's border — nowhere else. Diluting it into a general-purpose brand color would cost it its signal.
 
+**The Red-Means-Consequence Rule.** Error Red carries two things and nothing else: something went wrong, or something is about to be destroyed. It is never an invitation — a destructive control wears it precisely so it reads as a warning rather than as the next step — and the accent never dresses a destructive action, because "act here" and "this cannot be undone" are opposite messages.
+
 **The Text-On-Accent Rule.** Any text placed on an Ice Blue Glacial surface uses `on-accent` (#0B1120), never `text-base` — `text-base` is Tailwind's font-size utility, not a color, and silently fails to apply one.
 
 ## Typography
@@ -176,13 +212,19 @@ Vertical rhythm is stepped by margin-bottom: 8px between a label and its field, 
 
 ### Named Rules
 
-**Every touch target is at least 48dp, and the 48 is a literal.** Android's floor, and the app was missing it everywhere: measured on device at `font_scale 1.0`, every control on the onboarding form came out **42.8dp** — inputs, chips, the date display — with the checkbox rows at 44.9 and the primary action at 45.8. The cause is not carelessness but the `rem` note below: the code already said `min-h-12`, which is 3rem, and native resolves 1rem to 14, so the class that meant 48 delivered 42. The floor therefore comes from `TOUCH_TARGET` in `tokens.ts` through a `style` prop, which no rem and no font scale can move. The checkbox derives its padding from it instead — `(48 − 24) / 2` — so its row is exactly one target tall and the box is centred by construction rather than by a minHeight leaving slack.
+**Every touch target is at least 48dp, and the 48 is a literal.** Android's floor, and the app was missing it everywhere: measured on device at `font_scale 1.0`, every control on the onboarding form came out **42.8dp** — inputs, chips, the date display — with the checkbox rows at 44.9 and the primary action at 45.8. The cause is not carelessness but the `rem` note below: the code already said `min-h-12`, which is 3rem, and native resolves 1rem to 14, so the class that meant 48 delivered 42. The floor therefore comes from `TOUCH_TARGET` in `tokens.ts` through a **plain object** `style` prop, which no rem and no font scale can move.
+
+**Plain object, and that word is the whole finding.** The floor was written as a `style` **callback** — `(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]` — so that one prop could carry both the height and the press feedback. Measured on device: a component given both a `className` and a callback `style` **loses the callback entirely**. The floating action came out 24×24dp, the size of its own icon, because its width, height and radius all travelled that way; `Cerrar sesión` sat at 36.3dp and the sheet's `Cancelar` at 39.1dp, both asking for 48 in code; and the app-wide press feedback did not exist on the device at all. Eighteen sites, and every one of them was right in the browser, which honours the callback — so the e2e suite's own 48dp test passed throughout. After the fix, measured on the same device: the floating action 56×56, every chip, button, input and pill 48.0. The checkbox derives its padding from it instead — `(48 − 24) / 2` — so its row is exactly one target tall and the box is centred by construction rather than by a minHeight leaving slack.
 
 Two things the floor cannot cover, both recorded rather than hidden. A `TextInput` needs `textAlignVertical: "center"` alongside it, or Android draws the value from the top of the taller box. And the date picker's **day cells are 44.6dp wide** (48 tall): seven columns of 48 do not fit a 375dp screen, and Material's own date picker uses 40dp day cells, so the grid is the one place the floor yields to the calendar.
 
 **The screen holds at `font_scale 1.3`**, which is the bar. Verified on device: every control lands at 49dp or above (text drives the height past the floor), the headline wraps to two lines with the emoji still attached, and the whole form remains reachable by scrolling. What broke at that scale was the chip row — see Chips.
 
 **Portrait only, and deliberately.** `app.json` pins `"orientation": "portrait"`. The scene is one hand, standing, just back from a walk or out of the vet's; there is no tablet in a two-tutor household with a phone each. If a tablet or a foldable ever enters, this is the decision to revisit and the work is a restructure, not a stretch: the form in two columns, and the picker sheet sized to the available height.
+
+**The platform-adaptation pass, on hardware (2026-09-10).** The shipped release APK on a 375×817dp phone at 520dpi, at **`font_scale 1.3`** and again squeezed to **361dp** — both axes at once for the tightest case. The diary, the file, Ajustes and all four sheets hold: nothing clipped, nothing overflowed, every control still on the 48dp floor, and "Guardar cambios" still on one line beside "Cancelar" in a bottom sheet at 361dp and 1.3. The harvest was thin because the structural findings had already been fixed — the callback `style` that voided the touch floor, the keyboard over a `Modal`, and the literals that replaced the rem-based classes.
+
+The one thing it did find: **a fixed pixel width was wrong in both directions.** The log's time column was 80dp, chosen for "12:05 p.m."; at `font_scale 1.3` five characters already take 53dp, so 80 left 27dp of slack in 24-hour mode and would have clipped the 12-hour one. It sizes to its content now, which keeps every row in one format aligned, grows with the font scale for free, and costs a character of rag between "9:15 a.m." and "12:05 p.m." — cheaper than a clipped time. **The lesson generalises: a pixel width around text is a guess about a font scale.**
 
 **Open: every number above is web-measured, and the device renders them at 87.5%.** Tailwind's spacing, radius and font-size utilities are `rem`-based, and the native CSS compiler resolves `1rem` to **14** (it follows React Native's default font size) where the browser resolves it to 16. Measured on a 375×817dp device: the group's `px-5` padding lands at 17.5dp instead of 20dp, the 24px checkbox at 21dp, and the chips at ~41dp instead of the 47dp recorded here — further below Android's 48dp touch target than the audit says. `withNativewind`'s `inlineRem` option cannot fix it in this version (the metro wrapper stores compiler options at `config.transformer.reactNativeCSS` while its transformer reads `options.reactNativeCSS`, so they never arrive); expressing the theme's `--spacing`, `--radius-*` and `--text-*` in px would. Touch targets no longer depend on the answer — they are literals now — so what is left open is spacing and radii reading 12.5% tighter on device than this document claims.
 
@@ -210,13 +252,17 @@ Flat by construction — no shadow appears anywhere in the implementation. Depth
 
 ## Shapes
 
-One radius, everywhere: 12px (`rounded-xl`) on every button, input, and chip in the implemented screens — no smaller or larger radius appears anywhere. Borders are always 1px hairlines; there is no thicker border weight. No fully-rounded (pill) or sharp-cornered shapes exist yet.
+One corner radius, everywhere: 12px (`rounded-xl`) on every button, input, chip and panel — no other rounded-rectangle radius appears anywhere. Borders are always 1px hairlines; there is no thicker border weight. No pill or sharp-cornered rectangles exist.
+
+**A circle is a shape, not a radius.** The rule governs the corners of rectangles; a control with no corners has none to govern, and three of them are round — the portrait, the floating action, the slider's thumb.
 
 ### Named Rules
 
-**The One Radius Rule.** 12px is the only corner radius in the system. A new component defaults to it rather than picking a fresh value.
+**The One Radius Rule.** 12px is the only corner radius in the system. A new **rounded rectangle** defaults to it rather than picking a fresh value.
 
-**The one recorded exception is the checkbox**, and it is forced rather than chosen: 12px on a 24px box is a full circle, which reads as a radio button and therefore means the wrong thing. It uses **6px — exactly half the system radius**, proportional to the control instead of a fresh arbitrary value. Any future control small enough to be swallowed by a 12px radius follows the same halving rule; nothing else invents a radius.
+It read as "one shape" for a while, which is how the avatar and then the floating action each arrived as a squared version of something conventionally round. That was the rule doing bookkeeping instead of design: what it exists to prevent is a system with 8px here and 14px there, and a circle is not a competing radius — it is a different thing. So the rule now says corners, and **a control whose subject or convention is round may be round**: a portrait (the subject is a face), a floating action (a circle over rounded rectangles reads as laid on top, which is what it is), a slider's thumb (it is a thumb). Everything with corners still takes 12px, and nothing invents a third number.
+
+**The one exception is the checkbox**, and it is forced rather than chosen: 12px on a 24px box is a full circle, which reads as a radio button and therefore means the wrong thing. It uses **6px — exactly half the system radius**, proportional to the control instead of a fresh arbitrary value. Any future control small enough to be swallowed by a 12px radius follows the same halving rule, and nothing else invents a number.
 
 ## Components
 
@@ -229,12 +275,13 @@ One radius, everywhere: 12px (`rounded-xl`) on every button, input, and chip in 
 - **An icon is not a reason**, and that applies to the button itself. The success and error states keep a label beside the glyph (`successLabel` / `errorLabel`), because a red button with a warning icon says something is wrong without saying what. The caller names it, since only the caller knows which failure it was — onboarding distinguishes "Faltan datos por rellenar" from "No se ha podido guardar". Never let a throw escape a handler and leave a red flash as the only explanation either.
 - **Motion honours the system "remove animations" setting** via `useReducedMotion()`: the status icon still appears, it just does not zoom in.
 - **The label never grows the button.** `numberOfLines={1}`, and the warm call gives way rather than being truncated inside it: a name over 20 characters gets "Añadir mascota" instead of "¡Vamos, Condesa Eufrasia de los Montes Nevados!", which filled the button edge to edge at font_scale 1.0 and would be cut at 1.3. A cut-off name in a recall reads worse than no recall. Emoji in a name are fine — they make the line box taller without wrapping it.
-- **Disabled (primary):** the accent fill **goes**, replaced by a Fjord Slate surface with a `text-tertiary` label. It used to be `opacity-50` over the accent, which put the button's own label at **2.21:1** — unreadable — and a half-transparent accent still reads as "the one thing to do here". Losing the fill says the action is not available; the label measures 6.64:1 on that surface. Nothing in the app disables a button yet; the state exists so that the first screen to need it does not invent one.
+- **Danger is a tone, not a variant.** `tone="danger"` swaps the accent for Error Red on any shape — the link that opens a delete confirmation, the outlined full-width button that carries it, and the filled button inside the dialog are the same decision at three weights. It exists because that confirmation's own button was Ice Blue Glacial, the colour that means "this is the one thing to do here", on the one action in the app that destroys something.
+- **Disabled (primary):** the accent fill **goes**, replaced by a Fjord Slate surface **with a Hairline Frost border** and a `text-tertiary` label. It used to be `opacity-50` over the accent, which put the button's own label at **2.21:1** — unreadable — and a half-transparent accent still reads as "the one thing to do here". Losing the fill says the action is not available; the label measures 6.64:1 on that surface. The border is not decoration: inside the delete dialog the panel is Fjord Slate too, so the fill alone was not a shape and the confirm control read as a line of grey text rather than as a button waiting for the name. Two screens disable a button — the profile's save, until the form differs from the stored row, and that confirm, until the name is typed.
 - **Secondary / Ghost:** transparent fill, Steel Frost 1px border, `text-secondary` label, 12px vertical / 24px horizontal padding. Used for a real alternative action (retry, sign out) — never the primary action on a screen.
 - **Link (tertiary):** no border, no fill, no full-width block. Aqua Glaciar label at 600 weight, optional 16px leading icon, left-aligned and sized to its text, with a 48dp minimum hit area. For an action that must sit _below_ the primary in the reading order rather than compete with it — revealing an optional section, for instance.
   Two full-width buttons stacked read as a pair of peer actions however different their fills are, which is exactly what a skippable disclosure must not look like next to an irreversible commit. Shrinking it to a link is what separates them; distance alone did not.
   **It uses Aqua Glaciar, not Ice Blue Glacial, on purpose.** The primary accent means "this is the one thing to do here" (The One Accent Rule), and a disclosure the tutor may ignore is not that.
-- **Pressed:** the whole control drops to **70% opacity** while held, from `pressed()` in `tokens.ts` — one rule for every `Pressable` in the app rather than a per-component decision. It is opacity and not a tonal step because the palette cannot afford one here: Fjord Slate against Elevated Frost measures 1.16:1, the same imperceptible difference that forced the chips' selected state to carry a weight change. Dropping fill, border and label together reads on a dark screen in daylight, and a transient press sits outside WCAG's contrast minimums, so nothing has to hold 4.5:1 mid-tap.
+- **Pressed:** the whole control drops to **70% opacity** while held, from **`active:opacity-70` in the class list** — one rule for every `Pressable` in the app rather than a per-component decision. It was a `style` callback (`pressed()` in `tokens.ts`) until the device said otherwise: a component given both a `className` and a callback `style` loses the callback on native, so **the press feedback did not exist on the device at all**, and neither did the 48dp floor that travelled beside it. See the Layout notes and AGENTS.md. It is opacity and not a tonal step because the palette cannot afford one here: Fjord Slate against Elevated Frost measures 1.16:1, the same imperceptible difference that forced the chips' selected state to carry a weight change. Dropping fill, border and label together reads on a dark screen in daylight, and a transient press sits outside WCAG's contrast minimums, so nothing has to hold 4.5:1 mid-tap.
 - **Focus:** still undefined, and deliberately so — there is no hardware keyboard in the use scene and no `:hover` on a phone. The first surface that can be reached by keyboard (the web export, or a tablet with a case) resolves it.
 
 ### Chips (selector chips)
@@ -265,6 +312,114 @@ A voluntary boolean flag, **unchecked by default**. Used for a qualifier that on
 - **Hint:** optional second line, `text-tertiary` at 12px, stating what ticking the box does.
 - **Why not a chip pair:** three adjacent Sí/No chip rows looked identical but behaved differently, two of them rendering "No" pre-selected so an assumption was indistinguishable from an answer, with the polarity flipped between them. A checkbox says what a chip pair cannot: this is off unless you turn it on.
 - **When a chip row is still right:** `¿Esterilizado?` keeps three chips because "no lo sé" is a real answer for an adopted dog, and a checkbox cannot carry a third state.
+
+### Avatar
+
+The animal's picture, or its initial. **A circle.**
+
+It shipped square first, at the system radius, on two arguments: that a circle would make a second exception to The One Radius Rule, and that the product's thesis is the animal's _file_, where a squared photo reads as a record photo and a circle reads as a social account. Then a real photo of a real dog went into it and the square lost. A dog's head is round, the crop that flatters it is round, and the square framed the animal like an ID document. **The reasoning was sound and the result was wrong** — which is what testing a decision with real content is for, and worth recording as the reason the decision moved rather than quietly restyling it.
+
+- **Frame:** 96dp by default, `elevated` fill, hairline border, fully round, the image cropped to fill.
+- **The portrait is how the photo changes, and a camera badge says so.** With an `onPress` it becomes a button and pins a camera to the circle's lower right — a third of the frame, on the diagonal where a notification badge sits, with its own Elevated Frost ground so it survives any photograph. It replaced a word across the foot of the circle: the band read clearly but ate a slice of the one thing the header exists to show, and the obvious way to soften it — revealing it on hover — **does not exist on a phone**, so an affordance that waits for a hover is one that never appears. The badge is a marker, not the control: the whole portrait is the target, and it carries the accessible name.
+- **No photo is a finished state, not a gap.** With nothing stored it draws the name's initial in `text-primary` at two-fifths of the frame. Most tutors will never add a photo, and a broken frame, a camera glyph or a nudge charges rent for a decision they already made. The initial is deliberately **not** in the accent: the accent means "act here" (The One Accent Rule), and a portrait is not an action.
+- **A photo that will not load falls back to the initial.** The URL is signed for an hour, so a profile left open longer has a dead source — and an `<Image>` whose source 403s renders nothing at all, which reads as a bug rather than as a dog without a photo. The component remembers _which_ URL failed rather than setting a flag, so a replacement photo is not tarred with the old one's failure.
+- **The initial is the first grapheme, not the first UTF-16 unit.** `charAt(0)` on "🐶 Loki" is half a surrogate pair and the frame drew a broken glyph. Whatever the tutor put first is the honest initial, emoji included.
+- **The image is `accessible={false}`.** The screen already names the animal next to it; announcing "foto de Loki" beside the heading "Loki" says it twice.
+
+### Durations
+
+Anything the app _shows_ as a length of time is written the way a person says it: **"45 min" under an hour, "1h 30m" over it, "5h" when the minutes are zero.** "90 min" is a number the reader has to divide; "1h 30m" is a length they can feel, and the goal bar, the log's entries, the profile's row and both duration fields all speak it. `lib/duration.ts` owns the formatter and the parser, and is unit-tested.
+
+- **Bare digits are still minutes.** "90" has to keep working or the change costs a tutor the habit they already have; hours only appear when the text says so. The parser also takes `1h`, `1h30`, `1h 30m`, `30m`, `45min` and `1:30`, in any casing.
+- **A field can give back a form it does not demand.** The walk's duration displays "1h 30m" but keeps the **number pad**: bare minutes always parse, so nothing there needs a letter, and raising the alphabetic keyboard for a digits-first task is the defect AGENTS.md names. The profile's goal is the opposite call — a target set once, where "5h" is the shape a tutor reaches for — so it keeps the default keyboard.
+- **A field that reformats its own value normalises on blur, never on keystroke.** A controlled field that reformats as you type fights the typist: "5h" becomes "5 min" halfway through. Both duration fields hold a text buffer while they are being typed into and tidy it when focus leaves.
+- **Decimal hours are out.** The comma and the dot disagree across locales, and the field has -15 / +15 for the cases where a tutor is approximating anyway.
+
+### Floating Action
+
+The day view's four kinds of entry, at the corner nearest the thumb.
+
+- **Two taps instead of one, bought deliberately.** They were four buttons across the top of the screen, which is one tap — at the far end of the page from the thumb, and spending the best real estate on the screen on controls rather than on the log it exists to show. A floating action costs a tap and returns both.
+- **A 56dp circle.** It was a square at the system radius while the radius rule still read as "one shape"; the rule now governs corners, and a floating action is the clearest case for a round one — a circle over a page of rounded rectangles reads as something laid on top, which is exactly what it is.
+- **The nearest action to the thumb is the likeliest one.** Actions are given in order of likelihood — walk first — and the column is reversed on screen, so the reading order a screen reader follows and the reaching order a thumb follows are both right rather than one of them being sacrificed to the other.
+- **Four ways out**, the contract the date picker's sheet set: the X, the scrim, Android's Back, and choosing something. The scrim covers the content but **not the tab bar**, which stays live: being one tap from another screen is not something an open menu should take away.
+- **The page leaves room for it.** `FAB_CLEARANCE` at the foot of the content, or the last entry of a full day hides under the button that added it.
+
+### Slider
+
+One value along a range, built in-house rather than pulled in: `@react-native-community/slider` is a native module, and it would cost a rebuild and a platform's own look for one control — the system has one radius, one border weight and one accent, and a platform slider honours none of them.
+
+- **The thumb is round**, because a thumb is. The radius rule governs corners.
+- **The track is the touch target, not the thumb.** The thumb is 20dp, well under the 48dp floor; the row it sits in is 48dp tall and its whole width responds, so a tap anywhere jumps the value there and no drag is required.
+- **The unfilled track is Steel Frost.** The goal bar's trick — the content surface on the page ground — does not transfer: this control sits on a Fjord Slate sheet, where a Fjord Slate track disappeared into the panel. Measured at 1.67:1, above the 1.29:1 the grouping hairline already holds.
+- **It is adjustable to a screen reader**, which is why it can sit beside buttons rather than replace them: `role="adjustable"` with increment and decrement actions means TalkBack's volume-style gesture moves it. The web renders the role and **drops `accessibilityValue`**, the same gap that made Checkbox and Button spell out `aria-checked` and `aria-disabled` by hand, so `aria-valuemin`/`max`/`now`/`text` are passed explicitly.
+
+### Avatar Editor
+
+A bottom sheet for framing the animal's photo, opened by the portrait itself.
+
+- **The preview is the mask.** The stage is a circle, not a square with a circle drawn over it: what the tutor drags is what the profile will show, so there is nothing to imagine and nothing to be surprised by. The file written is the circle's bounding square — the crop and the mask are one decision seen twice, which is also why the stage's diameter and the crop's side are the same number.
+- **The system cropper is off.** `expo-image-picker` ran with `allowsEditing` and `aspect: [1,1]`, so Android cropped a square before the app saw the image. Cropping twice throws away the pixels framing needs, and the OS's square preview cannot show a round result.
+- **Zoom has three controls, and none of them is redundant.** A pinch is the natural gesture but is unreachable with a screen reader and unavailable with a mouse. The slider is the one that _shows_ the range — how far in you can go and where you are in it — and is the fast way across it. The buttons are the precise way, a fixed step each, and the only one a keyboard can reach. All three go through the same `rezoom`, always about the middle of the circle: one rule a tutor can predict rather than three that nearly agree. The factor reads as "1.5×" in a polite live region under the slider, so every control says what it did.
+- **The heading is centred**, over the portrait rather than off to its left: the sheet is about one round thing in the middle of it.
+- **Repositioning is drag-only**, and that is a known gap rather than an oversight: there are no nudge controls. What makes it acceptable is that the default frame is a centred cover crop, which is a finished result on its own — the gesture improves the framing, it is not the only way to get one.
+- **Only a freshly picked photo can be reframed.** What is stored is already the crop at 512px, so reframing it would mean enlarging 512 pixels into a frame that wants more. The sheet says so and offers the picker instead, which is the honest version of the same action.
+- **The maths lives in `lib/framing.ts`, not in the component**, and is unit-tested. A wrong crop rectangle does not throw — it quietly cuts the dog's ear off, or asks the native manipulator for a pixel the image does not have, which it rejects outright. Both are arithmetic, and arithmetic can be checked without a screen.
+
+### Record Header & Rows
+
+The profile presents the animal before it offers to change him: a header — photo, name with the sex icon beside it, breed, then age with its life stage — followed by one read-only row per remaining field and an **Editar…** button per block that swaps that block, and only that block, for its fields.
+
+**A block with nothing to present is a button, not a section.** The identity block carries no read-only rows: the header already shows the name, the sex, the breed and the age, so the section under it held one date and a button — a box around a door. It gets its `Group` frame only while it is open.
+
+- **The Present-Before-Edit Rule.** A screen that shows a record shows it; the form goes behind a door. A permanently editable form makes every visit read as data entry, puts a save button on a screen nobody came to save, and gives the most destructive action in the app a permanent seat. The profile carried all three until this pattern replaced it.
+- **One block open at a time.** Two open forms mean two dirty states and two save buttons disagreeing about what is unsaved, for no gain — an edit here is one deliberate correction. Opening a block re-reads the stored row, so cancelling and reopening shows the file as it is rather than as it was left.
+- **The header is where missing data shows, and it shows as an invitation.** Everything the header presents except the name and the birth date is optional, so a thin file is a real outcome: the initial stands in for the photo (see Avatar) and a single link — "Completa su ficha" — opens the block that fixes the rest. **A missing line is dropped, not captioned:** the breed line said "Aún no sabemos su raza" for a while, which is a hole with a label on it — the age below carries the header on its own, and the link already says what to do. The photo is not counted in that link, because the portrait has a better affordance of its own and the link would open a form without it.
+- **An absent value is `text-tertiary`, a present one `text-primary`.** "Sin objetivo" and "No lo sabemos" are answers, but they are not data, and the tone says which is which without spending a word on it.
+- **Rows are announced as pairs.** Each label/value row is one `accessible` node reading "Esterilizado: Sí". Left as two nodes, a screen reader walks a list of labels and then a list of answers.
+- **The life stage rides along with the age** — `2 años · Adulto`, from `lib/age.ts`. It is the first piece of advice the app can give away from data it already holds. The thresholds are the common veterinary split (6 months, 18 months, 7 years) and deliberately not breed-aware: body size moves the last one hard, and `breed_primary` is free text with no weight band behind it.
+- **Delete lives at the bottom of the identity block**, outlined in Error Red across the full width — available, not invited. See The Red-Means-Consequence Rule, and the wording note in PRODUCT.md: what gets deleted is the file, and the copy says so.
+
+### Settings
+
+A stack route, not a fourth tab: the tab bar names the three things the app is _for_, and settings are none of them — they are where you go once and come back from. It opens from the profile, the screen already about the person's own setup.
+
+- **Every option shows its own answer.** A pair labelled "24h / 12h" asks the tutor to imagine the result; the same pair reading **"15:30"** and **"3:30 p.m."** _is_ the result. It is what makes the duration option legible at all — "hours" and "minutes" name nothing on their own. The chips carry an accessible name (`Formato 24 horas`) because a screen reader hearing "15:30" would be told a time, not a choice.
+- **The reading side follows the preference; the typing side never does.** Android's number pad cannot express a meridiem, so the two time fields always take 24-hour digits — and the screen says so in one line under the option rather than leaving it to be discovered.
+- **A named "Más adelante" block.** Saying which settings are coming is cheaper than a tutor wondering whether the screen is finished, and it is the honest shape of a surface built to grow.
+- **The version sits at its foot**, and at the login screen's. See Version.
+
+### Version
+
+The build's version, in `text-muted` — **3.19:1, deliberately below AA**, because it is not content, it is a serial number. It should be findable without competing with anything, and it carries a real accessible name so a reader announces "versión 1.1.0" rather than spelling out a `v`.
+
+It exists because a stale APK and a fresh one looked identical, and an afternoon went into chasing a bug that had already been fixed. Two surfaces: the login screen, the only one a tutor sees before signing in, and the foot of Ajustes, where anyone would go looking.
+
+### Sheet
+
+Every modal surface in the app is one component: a Polar-Night-at-80% scrim, a panel pinned to the bottom at the system radius, and **the keyboard as a bottom inset**.
+
+- **It exists because of the keyboard.** A `Modal` sits outside the tree `Screen` pads, and under Android edge-to-edge the window is not resized when the keyboard opens — so a bottom-anchored panel stayed exactly where it was and the keyboard covered it. Measured on device: with the keyboard up, the walk sheet showed its title and its two field labels, and **the fields, the steppers, the note and Guardar were all behind the keyboard**. All four sheets had it, including the one that asks a tutor to type their dog's name before deleting his file.
+- **This is the second place window insets are consumed**, and the reason is the one that put them in `Screen`: it should be one decision, not four. The panel takes the larger of the navigation-bar inset and the keyboard, never their sum, because the keyboard is measured from the bottom of the screen and already covers the bar.
+- **Four ways out**, the contract the date picker set: the scrim, Android's Back, the footer's own cancel, and the X where there is one. Nothing in a sheet commits anything by itself.
+- **A sheet that carries a consequence changes only its border** — Error Red on the delete confirmation — because the panel's shape and behaviour are not what is different about it.
+
+### Day Log & Entry Sheet
+
+The diary: the day's heading, the exercise goal, the four kinds each one tap away, and the entries.
+
+- **The log reads forwards**, earliest first. Newest-first is the right order for a feed a reader dips into; this is a diary, bounded by one day, short, and read whole.
+- **The goal bar is Aqua Glaciar, and turns Success Green when the goal is met.** It was Steel Frost on the argument that progress is state rather than an action and the accent means "act here" — but a 4px hairline in a border colour did not read as a measure of anything. Aqua Glaciar is the secondary accent, already the colour of links and the required marker, so **Ice Blue Glacial still means "this is the one thing to do here"**: the primary accent stays on the actions above the bar, and nothing on this screen competes with them.
+- **A walk is asked for as a range; every other kind as a moment.** DESDE and HASTA, side by side, and DURACIÓN below them. A tutor knows when they left and when they got back, not how many minutes that was — the arithmetic was the app's job all along and it was being handed to them.
+- **The prefilled time is HASTA, because that is the one the tutor is standing in.** Logging is retrospective: the entry happens after getting home, so "now" is when the walk _ended_. The first version prefilled DESDE and was quietly asking the tutor to correct the only field it had filled in.
+- **DESDE and HASTA are the facts; DURACIÓN is derived.** Editing either time recomputes the duration. The duration stays editable, because "we were out about forty minutes" is a real way to remember a walk — and **it counts backwards from HASTA**, moving DESDE. That is the mirror of the rule it replaced and follows from the same premise: the field the tutor is sure of must never shift under them, and that is the end.
+- **A walk with only an end time is a valid entry.** Nothing but HASTA is proposed — a prefilled thirty minutes would be a fabricated walk one careless tap away — and if DESDE is left empty, `occurred_at` takes the end, which is the only time anybody wrote down.
+- **A time is typed without its colon, and gains one on blur.** Android's number pad offers digits and nothing else, so `900` and `0900` are first-class input and the last two digits are always the minutes. A live mask that inserted the colon as the digits arrived was built and removed: a focused `TextInput` on Android ignores a value JS rewrites, so `9000` stayed `9000` on the device while the browser showed `90:00`. Blur is the correction the platform honours — and dismissing the keyboard with Back is not a blur, so it lands when another field takes focus.
+- **A duration longer than a day is refused at the field, not on save.** Counting back from HASTA would put DESDE on a previous day and draw it as an ordinary time, so the entry would look unremarkable and be nonsense; the data layer would then reject it into a toast, which is the wrong place for a message about one field. Nothing moves, the field says "Como mucho 24 horas", and blurring discards the refused value because the two times are the truth. `+15` stops at the ceiling for the same reason.
+- **A start after its end is refused, not interpreted.** A walk past midnight is possible and a mistyped digit is likelier, and guessing would file the entry under a day the tutor did not choose.
+- **The duration also has -15 / +15, hard right.** The fastest walk to log is the one with nothing to say about it: tap Paseo, tap +15 three times, save. They count back from HASTA exactly as typing a duration does, so the rule above holds whichever control moves. `-15` is disabled at or below fifteen minutes rather than clamping to zero, because a zero-minute walk is not a shorter walk. The steppers sit at the sheet's right edge, nearest the thumb, and the field takes only the width its value needs — they used to sit beside it, close enough that the unit landed underneath them.
+- **Every entry carries its kind as an icon**, under the time, in the same tone as the time and the same glyph the action that created it used. Four kinds in one column read as one undifferentiated list when only a word separates them, and this screen is built for a glance. The icon is decoration in the accessibility tree — the label already names the kind — so it is not carrying meaning alone.
+- **The row is the way back in, and delete lives inside the sheet it opens.** Tapping an entry reopens the form it was created from, prefilled, headed "Editar comida"; the button still says "Guardar cambios", because a control labelled "Editar" describes the sheet rather than the press. A delete affordance in the list is a mis-tap waiting for a scroll, so it sits at the foot of the sheet and asks once **in place** — a modal on top of a modal is worse on Android than the question it would ask.
 
 ### Date Field & Picker
 
@@ -299,6 +454,8 @@ Suggests from a curated list, accepts anything typed.
 - **Style:** Fjord Slate fill, Hairline Frost 1px border, 12px radius, 16px horizontal / 12px vertical padding, `text-primary` value text, **`text-tertiary` placeholder**.
 - **48dp floor, plus the vertical centring it needs.** `minHeight` from `TOUCH_TARGET` with `textAlignVertical: "center"`: Android draws a `TextInput`'s text from the top of its box, so the floor alone leaves the value riding above the field's middle.
 - **Horizontal padding is physical (`pl-4 pr-4`), not logical (`px-4`).** On a `TextInput`, Tailwind's `px-*` compiles to `padding-inline`, which React Native honours on a `View` but drops on Android's text input: measured, the placeholder sat 4.9dp from the border instead of 16dp, so text on device was flush against the edge while the browser looked right. `py-*` (`padding-block`) is unaffected. Not `text-muted`: that measured 3.58:1 on the input fill and failed WCAG AA, on the one element that carried the required date format. `text-tertiary` measures 6.64:1 and still reads as a hint.
+- **A unit belongs inside the field, at its right edge**, in the placeholder tone — "min." on the exercise goal, and whatever comes next on a weight or an amount. The same place a price field puts its currency, and for the same reason: the unit belongs to the value being typed, so it sits next to the value rather than in the label or in a line of help underneath. It also survives typing, which a placeholder does not — that is what the exercise goal had, and it vanished on the first keystroke, taking the only statement of the unit with it. Two consequences worth knowing: the field's border moves to a row wrapper so the unit can sit inside it, which leaves the few pixels under the unit outside the input's own hit area; and the unit is `accessible={false}` with the spoken form folded into the input's name ("Objetivo diario de paseo, en minutos al día"), because a glyph to the right of an input tells a screen reader nothing.
+- **A narrowed field needs `minWidth: 0` on the input.** On the web a `TextInput` is an `<input>`, whose intrinsic width is about twenty characters, and `flex-1` cannot shrink below that on its own. Measured: the duration field asked for 128dp and its input rendered 174, so the row overflowed and pushed the unit out over the two stepper buttons beside it. Anything sized narrower than its content wants needs the floor removed explicitly.
 - **A field for a proper noun asks the keyboard for word capitalisation and turns autocorrect off** (`autoCapitalize="words"`, `autoCorrect={false}`, `spellCheck={false}`) — the pet's name and both breed fields. A name is not a sentence, and autocorrect actively mangles them. Note what this is: a _hint_. Android's IME can override it with its own auto-capitalisation setting, and desktop browsers ignore `autocapitalize` entirely because there is no virtual keyboard to hint at — so it will never capitalise while testing on the web. The app deliberately does not capitalise the value itself: "Conde de Chorrapelá" is a real name, and a normaliser would fight the tutor who typed it on purpose. The keyboard proposes; the tutor decides.
 - **Focus:** not yet defined — no distinct focus treatment exists apart from the resting style.
 - **Every request is bounded, and every failure answers in the app's voice.** `supabase-js` sets no `fetch` timeout, so a phone that has dropped off the network leaves a request pending for as long as the OS keeps the socket — measured on device, the launch screen span for minutes with `AuthRetryableFetchError` in the log and nothing on screen, which a tutor cannot tell from a hang because it is one. `lib/failures.ts` caps the wait at 12 seconds (generous on purpose: a slow answer in a vet's waiting room is still an answer) and turns whatever comes back into one of two sentences — "Parece que no hay conexión…" when the connection is what failed, and "Algo ha ido mal por nuestro lado…" otherwise. The transport's own text ("fetch failed: java.net.ConnectException: …/172.64.149.246:443") goes to the console, where a diagnostic belongs.
@@ -327,9 +484,15 @@ A transient message that floats above the whole app, in four variants: **success
 
 ### Navigation
 
-Bottom tab bar, 3 destinations (Hoy / Salud / Perfil), text-only (no icons implemented yet). Deep Ice background, Hairline Frost top border, active label in Ice Blue Glacial (14.42:1), **inactive label in Mist Grey** (7.12:1).
+Bottom tab bar, 3 destinations — **Diario / Salud / Perfil** — each a 24px Lucide icon (`Footprints`, `HeartPulse`, `PawPrint`) over its label. Deep Ice background, Hairline Frost top border, active in Ice Blue Glacial (14.42:1), **inactive in Mist Grey** (7.12:1).
 
 The inactive label was Slate Mist, which measures **3.83:1** on Deep Ice and fails AA at the size a tab label is drawn. It was the last text in the app that should be hard to read: the tab bar is the only permanent navigation, and it is read at a glance rather than studied. Mist Grey still sits far enough below the active label for the distinction to carry without the failure.
+
+**Icons are not optional here, because the alternative is not "no icons".** With no `tabBarIcon` the navigator draws its own placeholder, which on the web target came out as a "⏷" glyph — inside the accessible name too ("⏷ ⏷ Hoy"). A Unicode glyph standing in for an icon is exactly what The No-Glyph Rule bans, and Material's navigation bar expects icons anyway.
+
+**The label's typeface is set explicitly** (`tabBarLabelStyle: { fontFamily: "Outfit_500Medium" }`). The navigator draws its labels outside the `Text` wrapper that applies the family everywhere else, so without it the only permanent text in the app rendered in the platform's own face while everything above it was in Outfit.
+
+**"Diario", not "Hoy": the tab names the section, the screen names the day it is showing.** Its icon is the same `Footprints` the walk action carries — and the repetition is the point rather than a clash: walks are most of what the diary holds, and a tutor who has learnt the glyph on the entry sheet reads it here for free. A notebook was rejected as the literal answer to "diary" that says nothing about what is in it; a park (`Trees`, tried and dropped) named the place instead of the going. It survives beside the paw print two tabs along because the two are different drawings — a trail of prints going somewhere against one pad seen head-on.
 
 ## Iconography
 
@@ -337,11 +500,13 @@ Icons arrived with the checkbox and the date field; before that the app had none
 
 **Library: `lucide-react-native`** (over `react-native-svg`). Chosen for four reasons in order: per-icon tree-shaking so only imported glyphs ship, `color` / `size` / `strokeWidth` props that take Nordic Ice tokens directly, a geometric 24px-grid line style that matches Outfit and the cold-and-precise north star, and — because it renders real SVG rather than an icon font — paths that Reanimated can animate (`strokeDashoffset` to draw a tick rather than pop it in). An icon font can only animate colour and opacity.
 
-**Sizes in use:** 16px inside the 24px checkbox (at `strokeWidth` 3, so it holds up at that size), 18px as a field suffix, 20px for the sheet dismiss (`X`).
+**Sizes in use:** 16px inside the 24px checkbox (at `strokeWidth` 3, so it holds up at that size), 16px as a button's leading icon, 18px as a field suffix and beside the name in the record header, 20px for the sheet dismiss (`X`) and for a button's status glyph, 24px in the tab bar.
 
 ### Named Rules
 
 **The No-Glyph Rule.** An icon is never a Unicode character. Outfit's charset does not cover the symbol ranges, so a glyph silently falls back to another typeface and breaks The One Family Rule — which is exactly what the old `♂`/`♀` sex chips did, in the middle of the form. Those are now the words "Macho" and "Hembra".
+
+The rule bans the character, not the symbol: the sex does appear as a mark in the record header, drawn as Lucide's `Mars` / `Venus` at 18px. Being real SVG it takes a token colour, scales with the icon grid and cannot fall back to another family. It also carries an accessible name — it is the only place the sex is shown, so it is data rather than decoration, and an unlabelled icon would drop it from the screen a reader hears.
 
 ## Do's and Don'ts
 

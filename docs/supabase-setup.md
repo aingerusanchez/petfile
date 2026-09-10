@@ -18,7 +18,7 @@ Performed once, by a human. No value below is ever committed or shared with an a
 > The publishable/anon key is not a secret — it ships inside the app bundle by design.
 > Your data is protected by the RLS policies in `supabase/migrations/`, not by hiding
 > this key. The **Secret key** (`sb_secret_...`, or **`service_role`** on older
-> projects) on that same page *is* secret: it bypasses RLS. Never put it in `.env`, in
+> projects) on that same page _is_ secret: it bypasses RLS. Never put it in `.env`, in
 > the repo, or in a chat with an agent.
 
 ## 2. Google Cloud OAuth credentials
@@ -51,6 +51,14 @@ Paste each file in `supabase/migrations/` into the SQL Editor in order, oldest f
 If your project was set up before `0002_harden_update_policies.sql` existed, apply
 that file too — it adds the missing `WITH CHECK` clauses to the two UPDATE policies
 and is safe to run against a database that already has `0001` applied.
+
+`0005_pet_photos_bucket.sql` is the one migration that reaches outside the `public`
+schema: it creates a **private** `pet-photos` bucket and four policies on
+`storage.objects`. Nothing else has to be configured in the Storage dashboard — the
+SQL is the whole setup — and the bucket staying private is load-bearing:
+`pets.photo_url` holds an object path, and the app signs a short-lived URL to read
+it. If you would rather check it landed, Storage → Buckets should list
+`pet-photos` with "Public" off.
 
 ## 5. Create the end-to-end test account
 

@@ -60,12 +60,16 @@ export const PAGE_GUTTER = 24;
 export const TOUCH_TARGET = 48;
 
 /**
- * The press feedback for every control in the app.
+ * The press feedback for every control in the app: `active:opacity-70`.
  *
- * A tap with no visible response is the one interaction defect a screenshot
- * cannot show, and DESIGN.md had this open: "no pressed treatment exists on
- * any button yet and should be resolved deliberately, the first time it
- * matters for a real interaction". It matters now.
+ * A **class**, not a `style` function, and that is not a preference. Measured
+ * on device: a `Pressable` given both a `className` and a **function** `style`
+ * loses the function entirely — the floating action came out 24dp, the size of
+ * its own icon, because its width, height and radius all travelled that way.
+ * A plain object `style` survives alongside a `className`; only the callback
+ * form is dropped. So the press state, which needs the callback, has to live
+ * in the class list, and `react-native-css` supports the `active:` variant on
+ * native for exactly this.
  *
  * It is opacity rather than a tonal step because the palette cannot afford
  * one here: Fjord Slate against Elevated Frost measures 1.16:1, the same
@@ -76,8 +80,3 @@ export const TOUCH_TARGET = 48;
  * to hold 4.5:1 mid-tap.
  */
 export const PRESSED_OPACITY = 0.7;
-
-/** `style` for a Pressable, so press feedback is one rule and not per component. */
-export function pressed({ pressed }: { pressed: boolean }) {
-  return { opacity: pressed ? PRESSED_OPACITY : 1 };
-}

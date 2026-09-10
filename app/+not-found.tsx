@@ -20,7 +20,7 @@ export default function NotFound() {
         // report the state, because a screen reader user arriving here needs
         // to know the route is missing, not that a place is empty.
         accessibilityLabel="Página no encontrada"
-        className="mb-2 text-2xl font-bold text-text-primary"
+        className="mb-2 font-bold text-2xl text-text-primary"
       >
         Por aquí no hay nada
       </Text>

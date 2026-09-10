@@ -8,7 +8,7 @@ import {
 } from "react";
 import { ActivityIndicator, Pressable } from "react-native";
 import Animated, { ZoomIn, useReducedMotion } from "react-native-reanimated";
-import { colors, pressed, TOUCH_TARGET } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
 export type ButtonVariant = "primary" | "outlined" | "secondary" | "link";
@@ -54,6 +54,18 @@ type ButtonProps = {
    * already literal needs nothing.
    */
   accessibilityLabel?: string;
+  /**
+   * Red instead of the accent, for an action that destroys something.
+   *
+   * A tone rather than a variant, because it composes with every shape: the
+   * link that opens a delete confirmation, the outlined full-width button that
+   * carries it, and the filled button inside the dialog are the same colour
+   * decision at three weights. Dressing a destructive action in
+   * Ice Blue Glacial is the opposite of what that colour means — it says "this
+   * is the one thing to do here" — and the confirmation dialog had exactly
+   * that button until this existed.
+   */
+  tone?: "default" | "danger";
   disabled?: boolean;
   testID?: string;
 };
@@ -87,6 +99,7 @@ export function Button({
   successLabel = "¡Listo!",
   errorLabel = "Algo no ha salido bien",
   accessibilityLabel,
+  tone = "default",
   disabled = false,
   testID,
 }: ButtonProps) {
@@ -142,13 +155,21 @@ export function Button({
   // half-transparent accent still reads as "the one thing to do here". A
   // surface fill says the action is not available; the label steps down to
   // `text-tertiary`, which measures 6.64:1 on that fill.
+  const danger = tone === "danger";
   const fill =
     status === "error"
       ? "bg-error"
       : variant === "primary"
         ? disabled
-          ? "bg-surface"
-          : "bg-accent-primary"
+          ? // A hairline with the fill, because the fill alone is not always a
+            // shape: inside the delete dialog the panel is Fjord Slate too, and
+            // a disabled `bg-surface` button on it vanished into the panel — the
+            // confirm control read as a line of grey text rather than as a
+            // button waiting for the name.
+            "border border-border-default bg-surface"
+          : danger
+            ? "bg-error"
+            : "bg-accent-primary"
         : "";
 
   // The 48dp floor is a literal in `style`, not `min-h-12`: that class is 3rem,
@@ -159,7 +180,7 @@ export function Button({
     : variant === "primary"
       ? `flex-row items-center justify-center gap-2 rounded-xl py-4 ${fill}`
       : isOutlined
-        ? `flex-row items-center justify-center gap-3 rounded-xl border border-border-strong py-4 ${status === "error" ? fill : ""}`
+        ? `flex-row items-center justify-center gap-3 rounded-xl border py-4 ${danger ? "border-error" : "border-border-strong"} ${status === "error" ? fill : ""}`
         : "flex-row items-center justify-center gap-2 rounded-xl border border-border-strong px-6 py-3";
 
   // On both the accent fill and the error fill the readable colour is the dark
@@ -169,17 +190,24 @@ export function Button({
   const labelClass = disabled
     ? "text-text-tertiary"
     : isLink
-      ? "font-semibold text-accent-secondary"
+      ? danger
+        ? "font-semibold text-error"
+        : "font-semibold text-accent-secondary"
       : onFill
         ? "font-semibold text-on-accent"
         : isOutlined
-          ? "font-semibold text-text-primary"
+          ? danger
+            ? "font-semibold text-error"
+            : "font-semibold text-text-primary"
           : "text-text-secondary";
-  const iconColor = isLink
-    ? colors.accentSecondary
-    : onFill
-      ? colors.onAccent
-      : colors.textSecondary;
+  const iconColor =
+    (isLink || isOutlined) && danger && !onFill
+      ? colors.error
+      : isLink
+        ? colors.accentSecondary
+        : onFill
+          ? colors.onAccent
+          : colors.textSecondary;
 
   // The visible label changes with the phase, so the accessible name follows
   // it: a button reading "¡Ya estáis dentro!" that still announces "Registrar
@@ -205,8 +233,8 @@ export function Button({
       // See Checkbox: the web renders the role and drops the state.
       aria-disabled={inert}
       aria-busy={status === "loading"}
-      style={(state) => [{ minHeight: TOUCH_TARGET }, pressed(state)]}
-      className={shape}
+      style={{ minHeight: TOUCH_TARGET }}
+      className={`${shape} active:opacity-70`}
     >
       {status === "loading" ? (
         <ActivityIndicator
