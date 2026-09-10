@@ -1,9 +1,12 @@
+import { Cake } from "lucide-react-native";
 import { useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import DateTimePicker from "react-native-ui-datepicker";
+import { birthdayOn } from "../../lib/dates";
 import { dayKey } from "../../lib/events";
 import { NORDIC_ICE } from "./calendar";
 import { Text } from "./Text";
+import { colors, TOUCH_TARGET } from "./tokens";
 
 /**
  * The floor for the box around a day's number, in dp.
@@ -24,6 +27,20 @@ const DAY_CHIP = 28;
  */
 const DAY_MAX_SCALE = 1.5;
 
+/**
+ * The strip under each day's number, in dp, and the cake that shares it.
+ *
+ * **It is reserved on every cell, birthday or not.** The library centres a
+ * cell's content in a fixed row height, so a taller cell does not push the
+ * grid around — it shifts its own number up by the difference, which reads as
+ * one number sitting crooked in its row. A constant slot costs nothing.
+ *
+ * 28 + 2 + 10 is 40dp of a 42.5dp cell, measured on the device. That is the
+ * ceiling: the cake cannot grow without the month growing with it.
+ */
+const BOTTOM_SLOT = 10;
+const CAKE = 10;
+
 /** What one day carries, from `summariseMonth` in `lib/events.ts`. */
 export type CalendarMark = {
   walkedMinutes: number;
@@ -43,6 +60,14 @@ type MonthCalendarProps = {
   onSelect: (day: Date) => void;
   /** Fires when the visible month changes, so the caller can fetch its marks. */
   onMonthChange: (month: Date) => void;
+  /**
+   * The animal's birth date, ISO. Marked with a cake — including the 1st of
+   * the month when the date is approximate, which is the convention the tutor
+   * opted into rather than a day the app invented.
+   */
+  birthDate?: string | null;
+  /** Jumps back to today and closes. */
+  onToday: () => void;
   testID?: string;
 };
 
@@ -126,9 +151,15 @@ export function MonthCalendar({
   maxDate,
   onSelect,
   onMonthChange,
+  birthDate = null,
+  onToday,
   testID,
 }: MonthCalendarProps) {
   const [shown, setShown] = useState(value);
+  // `maxDate` is today on this surface, which is what the button offers to go
+  // back to. Already there, it stays visible and inert rather than vanishing —
+  // the same call the forward arrow makes in the header above.
+  const atToday = dayKey(value) === dayKey(maxDate);
 
   return (
     <View testID={testID}>
@@ -165,7 +196,15 @@ export function MonthCalendar({
               goalMinutes !== null &&
               mark.walkedMinutes >= goalMinutes;
 
+            const years = birthdayOn(new Date(day.date), birthDate);
+            const birthday = years !== null;
+
             const said = [
+              birthday
+                ? years === 0
+                  ? "nació este día"
+                  : `cumple ${years} ${years === 1 ? "año" : "años"}`
+                : null,
               logged ? null : "sin registros",
               met
                 ? "objetivo conseguido"
@@ -260,14 +299,46 @@ export function MonthCalendar({
                   </Text>
                 </View>
 
-                {/* **The day view's goal bar, in miniature — in the colour
-                    that bar wears when the goal is met.** Which is the point
-                    of the pair rather than a coincidence: whatever colour goes
-                    here appears on most days of the month, so it is the one
-                    mark that cannot be an alarm. See the day view. */}
-                <View className="mt-1 h-[4px] w-[16px] items-center">
+                {/* The strip under the number holds two independent things,
+                    side by side when a day carries both.
+
+                    **The bar is the day view's own goal bar, in miniature —
+                    in the colour that bar wears when the goal is met.** Which
+                    is the point of the pair rather than a coincidence:
+                    whatever colour goes here appears on most days of the
+                    month, so it is the one mark that cannot be an alarm. See
+                    the day view.
+
+                    **The cake is the rarest mark on the calendar** — once a
+                    year against the goal's eighteen days a month — and it is
+                    still in Aqua Glaciar rather than a new hue: the palette
+                    has no colour left that is neither an alarm nor an
+                    instruction, and a cake at 10dp is a shape nothing else
+                    here resembles. It gets the strip rather than a corner
+                    because both corners are event marks and a birthday is
+                    not an event that was logged; it is what the date is. */}
+                <View
+                  style={{
+                    marginTop: 2,
+                    height: BOTTOM_SLOT,
+                    columnGap: 3,
+                  }}
+                  className="flex-row items-center justify-center"
+                >
                   {met ? (
                     <View className="h-[4px] w-[16px] rounded-xl bg-accent-secondary" />
+                  ) : null}
+                  {birthday ? (
+                    // Wrapped so the mark carries a testID of its own: the
+                    // icon forwards unknown props to its `Svg`, which is not
+                    // a contract worth leaning on.
+                    <View testID="calendar-mark-birthday">
+                      <Cake
+                        size={CAKE}
+                        color={colors.accentSecondary}
+                        strokeWidth={2.5}
+                      />
+                    </View>
                   ) : null}
                 </View>
               </View>
@@ -281,20 +352,61 @@ export function MonthCalendar({
           against the *current* goal and an invisible rule cannot be trusted.
           But the goal is already on the screen underneath, spelled out over
           the day's own bar, and a legend that restates it is answering a
-          question nobody asked of a legend. Three labels, three marks. */}
-      <View className="mt-2 flex-row flex-wrap items-center gap-x-4 gap-y-2">
-        <Legend
-          className="h-[4px] w-[16px] rounded-xl bg-accent-secondary"
-          label="Objetivo conseguido"
-        />
-        <Legend
-          className="h-[6px] w-[6px] rounded-[3px] border border-warning"
-          label="Medicación"
-        />
-        <Legend
-          className="h-[6px] w-[6px] rounded-[3px] bg-error"
-          label="Incidencia"
-        />
+          question nobody asked of a legend. A label per mark, and no more.
+
+          The cake is left out of it deliberately: it is the one mark that
+          explains itself, and the header names it in words the moment you
+          land on the day. */}
+      {/* Centred rather than bottom-aligned: on one line the legend then
+          pairs with the button's middle instead of sitting under it, and a
+          legend wrapped by a large font still reads as its opposite number. */}
+      <View className="mt-2 flex-row items-center justify-between gap-4">
+        <View className="flex-1 flex-row flex-wrap items-center gap-x-4 gap-y-2">
+          <Legend
+            className="h-[4px] w-[16px] rounded-xl bg-accent-secondary"
+            label="Objetivo conseguido"
+          />
+          <Legend
+            className="h-[6px] w-[6px] rounded-[3px] border border-warning"
+            label="Medicación"
+          />
+          <Legend
+            className="h-[6px] w-[6px] rounded-[3px] bg-error"
+            label="Incidencia"
+          />
+        </View>
+
+        {/* **The way back, in the corner the legend does not reach.** Walking
+            home a day at a time is the one thing the arrows are bad at, and
+            the calendar is where somebody ends up after going looking. It
+            sits in its own column so the legend can wrap under a large font
+            without ever running into it, and it wears the chip's own
+            vocabulary — a hairline pill — because a bare word beside three
+            labels reads as a fourth label. */}
+        <Pressable
+          testID="calendar-today"
+          onPress={onToday}
+          disabled={atToday}
+          accessibilityRole="button"
+          accessibilityLabel="Ir a hoy"
+          accessibilityState={{ disabled: atToday }}
+          // See Button: the web renders the role and drops the state.
+          aria-disabled={atToday}
+          style={{ minHeight: TOUCH_TARGET }}
+          className={`shrink-0 items-center justify-center rounded-xl border px-4 ${
+            atToday
+              ? "border-border-default"
+              : "border-border-strong active:opacity-70"
+          }`}
+        >
+          <Text
+            className={`font-semibold text-xs ${
+              atToday ? "text-text-muted" : "text-text-secondary"
+            }`}
+          >
+            Hoy
+          </Text>
+        </Pressable>
       </View>
     </View>
   );

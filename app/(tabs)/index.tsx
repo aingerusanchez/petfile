@@ -1,4 +1,5 @@
 import {
+  Cake,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -26,7 +27,12 @@ import {
   useCelebration,
   useToast,
 } from "../../components/ui";
-import { daysAgo, formatDayDate, formatDayHeadline } from "../../lib/dates";
+import {
+  birthdayOn,
+  daysAgo,
+  formatDayDate,
+  formatDayHeadline,
+} from "../../lib/dates";
 import { formatDuration, parseDuration } from "../../lib/duration";
 import {
   deleteEvent,
@@ -264,7 +270,21 @@ export default function Home() {
   const goal = pet.exercise_goal_minutes;
   const met = goal !== null && walked >= goal;
   const isToday = daysAgo(day, today) === 0;
-  const headline = formatDayHeadline(day, today);
+  /**
+   * **The birthday takes the headline over "Hoy" or the weekday.**
+   *
+   * Once a year the day has a name worth more than the one it would otherwise
+   * carry, and nothing is lost: the line underneath still gives the date, and
+   * the log's own title still says whether it is today. On the day the animal
+   * was actually born there is no birthday yet, so it says that instead.
+   */
+  const birthdayYears = birthdayOn(day, pet.birth_date);
+  const headline =
+    birthdayYears === null
+      ? formatDayHeadline(day, today)
+      : birthdayYears === 0
+        ? `${pet.name} nació este día`
+        : `Cumpleaños de ${pet.name}`;
 
   return (
     <Screen
@@ -309,13 +329,26 @@ export default function Home() {
           style={{ minHeight: TOUCH_TARGET }}
           className="flex-1 items-center justify-center active:opacity-70"
         >
-          <Text
-            testID="home-title"
-            accessibilityRole="header"
-            className="text-2xl text-text-primary"
-          >
-            {headline}
-          </Text>
+          {/* Two lines at most: a long name in "Cumpleaños de …" wraps
+              rather than being clipped, and the cake echoes the calendar's
+              own mark so the two surfaces name the day the same way. */}
+          <View className="flex-row items-center justify-center gap-2">
+            {birthdayYears !== null ? (
+              <Cake
+                size={20}
+                color={colors.accentSecondary}
+                strokeWidth={2.5}
+              />
+            ) : null}
+            <Text
+              testID="home-title"
+              accessibilityRole="header"
+              numberOfLines={2}
+              className="shrink text-center text-2xl text-text-primary"
+            >
+              {headline}
+            </Text>
+          </View>
           <View className="flex-row items-center gap-2">
             <Text testID="home-date" className="text-text-tertiary">
               {formatDayDate(day)}
@@ -424,9 +457,14 @@ export default function Home() {
             goalMinutes={goal}
             value={day}
             maxDate={today}
+            birthDate={pet.birth_date}
             onMonthChange={setMarksMonth}
             onSelect={(picked) => {
               setDay(picked);
+              setPicking(false);
+            }}
+            onToday={() => {
+              setDay(today);
               setPicking(false);
             }}
           />
