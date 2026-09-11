@@ -28,18 +28,30 @@ const DAY_CHIP = 28;
 const DAY_MAX_SCALE = 1.5;
 
 /**
- * The strip under each day's number, in dp, and the cake that shares it.
+ * The strip under each day's number: the goal bar, and the room it takes.
  *
- * **It is reserved on every cell, birthday or not.** The library centres a
- * cell's content in a fixed row height, so a taller cell does not push the
- * grid around — it shifts its own number up by the difference, which reads as
- * one number sitting crooked in its row. A constant slot costs nothing.
- *
- * 28 + 2 + 10 is 40dp of a 42.5dp cell, measured on the device. That is the
- * ceiling: the cake cannot grow without the month growing with it.
+ * **It is reserved on every cell, met or not.** The library centres a cell's
+ * content in a fixed row height, so a taller cell does not push the grid
+ * around — it shifts its own number up by the difference, which reads as one
+ * number sitting crooked in its row. A constant slot costs nothing.
  */
-const BOTTOM_SLOT = 10;
-const CAKE = 10;
+const BAR = 4;
+const BAR_GAP = 2;
+
+/**
+ * The birthday's cake, behind the number rather than beside it.
+ *
+ * **It was a 10dp glyph sharing the strip, and it was too quiet for the one
+ * day a year it marks.** As a watermark it can be three times the size and
+ * still take nothing from the number: Steel Frost measures 1.65:1 against the
+ * panel, which is a texture rather than a mark, and 9.45:1 below Snow White,
+ * which is the number sitting clearly on top of it.
+ *
+ * Centred on the chip and not on the cell — `bottom: BAR + BAR_GAP` takes the
+ * strip out of the reckoning, or the cake would sit 3dp low under its own
+ * number.
+ */
+const CAKE = 30;
 
 /** What one day carries, from `summariseMonth` in `lib/events.ts`. */
 export type CalendarMark = {
@@ -225,6 +237,41 @@ export function MonthCalendar({
                 }
                 className="h-full w-full items-center justify-center"
               >
+                {/* **The birthday is the day's ground, not a mark on it.**
+                    It is the rarest thing the calendar shows — once a year
+                    against the goal's eighteen days a month — and as a 10dp
+                    glyph in the strip it was the quietest. Behind the number
+                    it can be 30dp wide and still take nothing: Steel Frost
+                    reads 1.65:1 against the panel, a texture rather than a
+                    mark, and the number sits 9.45:1 above it.
+
+                    It is the ground for a second reason: both corners are
+                    things somebody logged, and a birthday is not an event —
+                    it is what the date is. Drawn first, so the chip and the
+                    number are both over it; on the selected day the accent
+                    fill covers it, which is the one day the header is already
+                    shouting the same thing in words. */}
+                {birthday ? (
+                  <View
+                    testID="calendar-mark-birthday"
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: BAR + BAR_GAP,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Cake
+                      size={CAKE}
+                      color={colors.borderStrong}
+                      strokeWidth={2}
+                    />
+                  </View>
+                ) : null}
+
                 {/* **The event sits in the corner, not above the number.**
                     Stacked, it read as belonging to the row above — a ring
                     over the 8 and a bar under the 1 are two rows apart and
@@ -287,10 +334,15 @@ export function MonthCalendar({
                 >
                   <Text
                     maxFontSizeMultiplier={DAY_MAX_SCALE}
+                    // A birthday is drawn bright whether or not anything was
+                    // logged: dimmed over the watermark the two greys would
+                    // sit 2.18:1 apart and the number would be the thing that
+                    // lost. One day a year borrows the emphasis, and the
+                    // watermark underneath says why.
                     className={
                       day.isSelected
                         ? "font-bold text-on-accent"
-                        : logged
+                        : logged || birthday
                           ? "text-text-primary"
                           : "text-text-muted"
                     }
@@ -299,46 +351,17 @@ export function MonthCalendar({
                   </Text>
                 </View>
 
-                {/* The strip under the number holds two independent things,
-                    side by side when a day carries both.
-
-                    **The bar is the day view's own goal bar, in miniature —
-                    in the colour that bar wears when the goal is met.** Which
-                    is the point of the pair rather than a coincidence:
-                    whatever colour goes here appears on most days of the
-                    month, so it is the one mark that cannot be an alarm. See
-                    the day view.
-
-                    **The cake is the rarest mark on the calendar** — once a
-                    year against the goal's eighteen days a month — and it is
-                    still in Aqua Glaciar rather than a new hue: the palette
-                    has no colour left that is neither an alarm nor an
-                    instruction, and a cake at 10dp is a shape nothing else
-                    here resembles. It gets the strip rather than a corner
-                    because both corners are event marks and a birthday is
-                    not an event that was logged; it is what the date is. */}
+                {/* **The day view's goal bar, in miniature — in the colour
+                    that bar wears when the goal is met.** Which is the point
+                    of the pair rather than a coincidence: whatever colour goes
+                    here appears on most days of the month, so it is the one
+                    mark that cannot be an alarm. See the day view. */}
                 <View
-                  style={{
-                    marginTop: 2,
-                    height: BOTTOM_SLOT,
-                    columnGap: 3,
-                  }}
-                  className="flex-row items-center justify-center"
+                  style={{ marginTop: BAR_GAP, height: BAR }}
+                  className="items-center justify-center"
                 >
                   {met ? (
                     <View className="h-[4px] w-[16px] rounded-xl bg-accent-secondary" />
-                  ) : null}
-                  {birthday ? (
-                    // Wrapped so the mark carries a testID of its own: the
-                    // icon forwards unknown props to its `Svg`, which is not
-                    // a contract worth leaning on.
-                    <View testID="calendar-mark-birthday">
-                      <Cake
-                        size={CAKE}
-                        color={colors.accentSecondary}
-                        strokeWidth={2.5}
-                      />
-                    </View>
                   ) : null}
                 </View>
               </View>
