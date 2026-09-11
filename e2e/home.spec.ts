@@ -730,6 +730,44 @@ test("says the birthday on the file's age line too", async ({ page }) => {
   await expect(page.getByTestId("celebration")).toBeHidden();
   await cake.click();
   await expect(page.getByTestId("celebration")).toBeVisible();
+
+  // The countdown and the day itself never share the screen: the age line
+  // takes over, so the arrival is a change of voice rather than one more line.
+  await expect(page.getByTestId("profile-countdown")).toBeHidden();
+});
+
+test("counts down the fortnight before the birthday, and no longer", async ({
+  page,
+}) => {
+  const inDays = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    d.setFullYear(d.getFullYear() - 3);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: inDays(15) });
+  await seedSession(page);
+  await page.goto("/profile");
+  await expect(page.getByTestId("profile-countdown")).toHaveText(
+    "Quedan 15 días para su cumpleaños",
+  );
+
+  // The day before says it the way a person would.
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: inDays(1) });
+  await page.reload();
+  await expect(page.getByTestId("profile-countdown")).toHaveText(
+    "Mañana es su cumpleaños",
+  );
+
+  // A day further out is trivia, not a reminder.
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: inDays(16) });
+  await page.reload();
+  await expect(page.getByTestId("profile-title")).toBeVisible();
+  await expect(page.getByTestId("profile-countdown")).toBeHidden();
 });
 
 test("logs a walk known only by its end and its length", async ({ page }) => {
@@ -746,7 +784,16 @@ test("logs a walk known only by its end and its length", async ({ page }) => {
   // the one the sheet used to throw away. It is also what the steppers
   // produce just after midnight, when counting back lands on yesterday and
   // no time of day can say so.
-  await page.getByTestId("entry-from").fill("");
+  // **Backspaced, not `fill("")`.** A real keyboard fires one change per key,
+  // so the field passes through "10:" and "1" on the way to empty — and each
+  // of those used to wipe the duration, which the single event a `fill` sends
+  // never reproduced. Found on the device.
+  const from = page.getByTestId("entry-from");
+  await from.click();
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press("Backspace");
+  }
+  await expect(from).toHaveValue("");
   await page.getByTestId("entry-note").click();
   await expect(page.getByTestId("entry-duration")).toHaveValue("45 min");
 

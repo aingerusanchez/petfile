@@ -491,7 +491,7 @@ export default function Home() {
                 ? "Todavía no hay nada registrado"
                 : "Ese día no se apuntó nada"}
           </Text>
-          <Text className="mb-5 text-text-tertiary">
+          <Text className="mb-5 text-balance text-text-tertiary">
             {birthdayYears !== null && birthdayYears > 0
               ? isToday
                 ? "Nada registrado aún. ¿Un paseo por la playa 🏖️ o montaña ⛰️ para celebrarlo?"
@@ -805,14 +805,21 @@ function EntrySheet({
   /** Recomputes the display of the derived field. Never writes into a time. */
   const showDuration = useCallback(
     (fromText: string, atText: string) => {
-      // No DESDE means the duration is the fact rather than a reading of the
-      // two times: there is nothing to derive and nothing to throw away. This
-      // is what used to empty the field on blur after a start crossed
-      // midnight — see `applyMinutes`.
-      if (!fromText.trim()) return;
-      const start = parseTimeOfDay(fromText, day);
+      // **A DESDE that does not parse is not a reason to throw the duration
+      // away** — the same rule the duration field already applies to itself:
+      // not a time *yet* is mid-typing, not an error. It is also the only
+      // rule that survives a real keyboard. Deleting "10:48" on Android fires
+      // one change per key, so the field passes through "10:" and "1" on its
+      // way to empty, and clearing on each of those wiped a duration that the
+      // final empty string was then careful to preserve. The web hid it
+      // completely: `fill("")` is a single event.
+      //
+      // With nothing in DESDE the duration is the fact rather than a reading
+      // of two times, which is what lets a walk be an end plus a length —
+      // see `applyMinutes`.
+      const start = fromText.trim() ? parseTimeOfDay(fromText, day) : null;
       const end = parseTimeOfDay(atText, day);
-      if (!start || !end) return setDurationText("");
+      if (!start || !end) return;
       const total = minutesBetween(start, end);
       setDurationText(
         total === null ? "" : formatDuration(total, durationFormat),
