@@ -410,7 +410,7 @@ Every modal surface in the app is one component: a Polar-Night-at-80% scrim, a p
 
 ### Day Navigation & Month Calendar
 
-**Once a year the headline is the animal's, not the day's.** "Cumpleaños de Loki" replaces "Hoy" or the weekday, with the cake beside it in the calendar's own colour, and the line underneath still carries the date — so nothing navigational is lost and the log's own title still says whether this is today. On the day the animal was actually born there is no birthday yet, and it says that instead.
+**Once a year the headline is the animal's, not the day's.** "Cumpleaños de Loki" replaces "Hoy" or the weekday, and the line underneath still carries the date — so nothing navigational is lost and the log's own title still says whether this is today. On the day the animal was actually born there is no birthday yet, and it says that instead. **There is no cake up here, and that was measured**: the icon plus its gap took the string past the width between the two arrows, so the decoration broke the exact phrase it decorated. The words say it, the calendar's watermark is the mark, and the file's age line keeps the glyph where it has room.
 
 The diary's header stopped being a title. Navigating between days was the one thing the screen could not do, and the date is where a person reaches for it: **‹ · the day, tappable · ›**, keeping the two lines so the rhythm holds. The headline names the day as somebody would say it — "Hoy", "Ayer", then the weekday, because nobody says "anteayer" out loud any more — and the line below carries the date.
 

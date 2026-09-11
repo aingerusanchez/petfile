@@ -1,5 +1,4 @@
 import {
-  Cake,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -367,26 +366,21 @@ export default function Home() {
           style={{ minHeight: TOUCH_TARGET }}
           className="flex-1 items-center justify-center active:opacity-70"
         >
-          {/* Two lines at most: a long name in "Cumpleaños de …" wraps
-              rather than being clipped, and the cake echoes the calendar's
-              own mark so the two surfaces name the day the same way. */}
-          <View className="flex-row items-center justify-center gap-2">
-            {birthdayYears !== null ? (
-              <Cake
-                size={20}
-                color={colors.accentSecondary}
-                strokeWidth={2.5}
-              />
-            ) : null}
-            <Text
-              testID="home-title"
-              accessibilityRole="header"
-              numberOfLines={2}
-              className="shrink text-center text-2xl text-text-primary"
-            >
-              {headline}
-            </Text>
-          </View>
+          {/* **No cake up here, and that was measured.** It read well and it
+              cost "Cumpleaños de Loki" a line wrap — the icon plus its gap
+              took the string past the width between the two arrows, so the
+              decoration broke the exact phrase it decorated. The words say
+              it, the calendar's watermark is the mark, and the file's age
+              line keeps the glyph where it has room. Two lines at most, so a
+              long name wraps rather than being clipped. */}
+          <Text
+            testID="home-title"
+            accessibilityRole="header"
+            numberOfLines={2}
+            className="text-center text-2xl text-text-primary"
+          >
+            {headline}
+          </Text>
           <View className="flex-row items-center gap-2">
             <Text testID="home-date" className="text-text-tertiary">
               {formatDayDate(day)}
