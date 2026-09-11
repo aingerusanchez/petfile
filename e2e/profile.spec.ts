@@ -195,6 +195,36 @@ test("keeps the initial whole when the name starts with an emoji", async ({
   await expect(page.getByTestId("profile-avatar-initial")).toHaveText("🐶");
 });
 
+test("pins the day to the 1st when the date turns approximate", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/profile");
+  await page.getByTestId("profile-edit-main").click();
+
+  // The seeded pet was born on 14/09/2025.
+  await expect(page.getByTestId("profile-birthdate")).toContainText(
+    "14/09/2025",
+  );
+
+  // Ticking it says "I know the month, not the day", so the stored value has
+  // to drop to the 1st — and keep being September of 2025.
+  await page.getByTestId("profile-birthdate-approx").click();
+  await expect(page.getByTestId("profile-birthdate")).toContainText(
+    "Septiembre de 2025",
+  );
+
+  // And it survives the round trip, which is where a corrupted value would
+  // show up as a refusal or as a date nobody recognises.
+  await page.getByTestId("profile-save").click();
+  await expect(page.getByText("está al día")).toBeVisible();
+  await page.reload();
+  await page.getByTestId("profile-edit-main").click();
+  await expect(page.getByTestId("profile-birthdate")).toContainText(
+    "Septiembre de 2025",
+  );
+});
+
 test("opens a block, saves it, and the header follows", async ({ page }) => {
   await seedSession(page);
   await page.goto("/profile");

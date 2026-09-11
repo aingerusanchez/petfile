@@ -75,7 +75,10 @@ export function toISO({ year, month, day }: DateParts): string {
  * pinned to the first of the month. Anything reading this value back must
  * check `birth_date_approximate` before treating the day as real.
  */
-export function toApproximateISO(year: number, month: number): string {
+export function toApproximateISO({
+  year,
+  month,
+}: Omit<DateParts, "day">): string {
   return toISO({ year, month, day: 1 });
 }
 

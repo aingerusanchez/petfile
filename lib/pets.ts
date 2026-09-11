@@ -1,4 +1,5 @@
 import { meansMixedBreed, MIXED_BREED_LABEL } from "./breeds";
+import { parseISO, toApproximateISO } from "./dates";
 import { describeFailure, withTimeout } from "./failures";
 import { supabase } from "./supabase";
 import type { Database } from "./database.types";
@@ -155,6 +156,35 @@ export function withMixed<T extends PetDraft>(draft: T, next: boolean): T {
         ? null
         : draft.breedPrimary,
     breedSecondary: null,
+  };
+}
+
+/**
+ * The draft after ticking or unticking "Aproximado".
+ *
+ * Ticking says "I know the month, not the day", so any day already chosen is
+ * rewritten to the 1st — the stored value must never carry a day the tutor has
+ * just said they do not know. Unticking leaves the date alone; the picker will
+ * ask for a day next.
+ *
+ * **It lives here because it was written twice and one copy was wrong.** The
+ * profile called `toApproximateISO(month, year)` against a `(year, month)`
+ * signature, which TypeScript cannot catch when both are numbers: ticking the
+ * box on a pet born on 14/09/2025 produced `0009-2025-01`, which fails to
+ * parse, so the field fell back to its placeholder and the birth date was
+ * gone. Same reasoning as `withMixed` above — the part of a duplicated form
+ * that hurts when it drifts belongs in one place, and the layout around it is
+ * inert.
+ */
+export function withApproximateBirthDate<
+  T extends { birthDate: string | null; birthDateApproximate: boolean },
+>(draft: T, next: boolean): T {
+  if (!next) return { ...draft, birthDateApproximate: false };
+  const parts = parseISO(draft.birthDate);
+  return {
+    ...draft,
+    birthDateApproximate: true,
+    birthDate: parts ? toApproximateISO(parts) : draft.birthDate,
   };
 }
 
