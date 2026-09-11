@@ -660,6 +660,40 @@ test("carries the marks with it when the month is paged", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("waits in the shape of the log, not on the day before it", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-log-skeleton")).toBeHidden();
+
+  // Hold the day's read open so the waiting state is a state and not a
+  // flicker. Without this the assertion is a race the network usually wins.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/rest/v1/pet_events*", async (route) => {
+    await held;
+    await route.continue();
+  });
+
+  await page.getByTestId("home-prev-day").click();
+
+  // The header moved, and the rows under it did not stay on the day before.
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+  await expect(page.getByTestId("home-log-skeleton")).toBeVisible();
+  await expect(page.getByTestId("home-goal-skeleton")).toBeVisible();
+  await expect(page.getByTestId("home-log")).toBeHidden();
+  await expect(page.getByTestId("home-goal")).toBeHidden();
+
+  release();
+  await expect(page.getByTestId("home-log-skeleton")).toBeHidden();
+  await expect(page.getByTestId("home-goal")).toBeVisible();
+});
+
 test("walks home from any day with one tap", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
