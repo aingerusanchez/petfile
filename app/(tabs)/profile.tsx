@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import {
+  Cake,
   Mars,
   Pencil,
   Power,
@@ -30,7 +31,7 @@ import {
 import { describeAge } from "../../lib/age";
 import { useAuth } from "../../lib/auth";
 import { useSettings } from "../../lib/settings";
-import { parseISO, toApproximateISO } from "../../lib/dates";
+import { birthdayOn, parseISO, toApproximateISO } from "../../lib/dates";
 import {
   DURATION_HINT,
   formatDuration,
@@ -423,6 +424,16 @@ export default function Profile() {
   const sexLabel = pet.sex === "male" ? "Macho" : "Hembra";
   const breed = pet.breed_primary?.trim() || null;
   const age = describeAge(pet.birth_date, pet.birth_date_approximate);
+  /**
+   * **The birthday is said on the age line, not badged on the portrait.**
+   *
+   * The portrait's lower-right corner is already the camera — the whole point
+   * of the `Avatar` badge is that the picture is how the picture is changed —
+   * and a second badge on a 96dp circle would be two markers arguing. The age
+   * is the fact a birthday actually changes, and it is already on the screen.
+   */
+  const birthdayYears = birthdayOn(new Date(), pet.birth_date);
+  const isBirthday = birthdayYears !== null && birthdayYears > 0;
   // The photo is not in this list: it has its own affordance on the portrait,
   // and a link promising to complete the file would open a form without it.
   const incomplete = !pet.sex || !breed;
@@ -495,13 +506,27 @@ export default function Profile() {
             </Text>
           ) : null}
           {age ? (
-            <Text
-              testID="profile-age"
-              accessibilityLabel={`${age.text}, ${age.stageLabel}`}
-              className="mt-0.5 text-sm text-text-tertiary"
-            >
-              {`${age.text} · ${age.stageLabel}`}
-            </Text>
+            <View className="mt-0.5 flex-row items-center gap-1.5">
+              {isBirthday ? (
+                <Cake size={14} color={colors.accentSecondary} />
+              ) : null}
+              <Text
+                testID="profile-age"
+                accessibilityLabel={
+                  isBirthday
+                    ? `Hoy cumple ${age.text}, ${age.stageLabel}`
+                    : `${age.text}, ${age.stageLabel}`
+                }
+                numberOfLines={1}
+                className={`shrink text-sm ${
+                  isBirthday ? "text-accent-secondary" : "text-text-tertiary"
+                }`}
+              >
+                {isBirthday
+                  ? `Hoy cumple ${age.text} · ${age.stageLabel}`
+                  : `${age.text} · ${age.stageLabel}`}
+              </Text>
+            </View>
           ) : null}
           {incomplete && editing !== "main" ? (
             <Button

@@ -28,6 +28,11 @@ import {
   useToast,
 } from "../../components/ui";
 import {
+  birthdayMilestone,
+  markCelebrated,
+  wasCelebrated,
+} from "../../lib/celebrated";
+import {
   birthdayOn,
   daysAgo,
   formatDayDate,
@@ -250,6 +255,41 @@ export default function Home() {
     setAttempt((n) => n + 1);
   }, []);
 
+  // Hoisted above the early returns, because the birthday effect below is a
+  // hook and cannot sit after them. `birthdayOn` takes a null birth date, so
+  // this is safe before the pet has loaded.
+  const isToday = daysAgo(day, today) === 0;
+  const birthdayYears = birthdayOn(day, pet?.birth_date ?? null);
+  const petId = pet?.id ?? null;
+
+  /**
+   * **The birthday gets the confetti, once a year, on the day itself.**
+   *
+   * The same rule the goal's confetti follows: it fires on a threshold being
+   * crossed, and a year is a threshold. Navigating back to a past birthday is
+   * bookkeeping and gets nothing, which is why this asks for `isToday`; and
+   * the year it has already fired for is remembered on the device, so opening
+   * the app twice on the same birthday is not two parties.
+   *
+   * Year 0 is the day the animal was born, which the header names but does
+   * not celebrate — there is no year to have crossed yet.
+   */
+  useEffect(() => {
+    if (!petId || !isToday || birthdayYears === null || birthdayYears < 1) {
+      return;
+    }
+    const milestone = birthdayMilestone(petId, day.getFullYear());
+    let cancelled = false;
+    wasCelebrated(milestone).then((already) => {
+      if (cancelled || already) return;
+      void markCelebrated(milestone);
+      celebrate();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [petId, isToday, birthdayYears, day, celebrate]);
+
   if (petError) {
     return (
       <Screen center edges={["top"]}>
@@ -269,7 +309,6 @@ export default function Home() {
   const walked = walkedMinutes(events);
   const goal = pet.exercise_goal_minutes;
   const met = goal !== null && walked >= goal;
-  const isToday = daysAgo(day, today) === 0;
   /**
    * **The birthday takes the headline over "Hoy" or the weekday.**
    *
@@ -278,7 +317,6 @@ export default function Home() {
    * the log's own title still says whether it is today. On the day the animal
    * was actually born there is no birthday yet, so it says that instead.
    */
-  const birthdayYears = birthdayOn(day, pet.birth_date);
   const headline =
     birthdayYears === null
       ? formatDayHeadline(day, today)
@@ -410,16 +448,24 @@ export default function Home() {
         </Group>
       ) : events.length === 0 ? (
         <Group testID="home-empty">
-          {/* A past day is not still going, so it cannot say "todavía". */}
+          {/* A past day is not still going, so it cannot say "todavía" — and
+              on a birthday the emptiest moment of the day is the one worth
+              saying something warm in. */}
           <Text className="mb-2 font-semibold text-text-primary">
-            {isToday
-              ? "Todavía no hay nada registrado"
-              : "Ese día no se apuntó nada"}
+            {birthdayYears !== null && birthdayYears > 0
+              ? `${pet.name} cumple ${birthdayYears} ${birthdayYears === 1 ? "año" : "años"}`
+              : isToday
+                ? "Todavía no hay nada registrado"
+                : "Ese día no se apuntó nada"}
           </Text>
           <Text className="mb-5 text-text-tertiary">
-            {isToday
-              ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y no se pierde.`
-              : "Puedes apuntarlo ahora: se guarda en ese día, no en hoy."}
+            {birthdayYears !== null && birthdayYears > 0
+              ? isToday
+                ? "Nada apuntado aún. ¿Un paseo largo para celebrarlo?"
+                : "Ese día no se apuntó nada."
+              : isToday
+                ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y no se pierde.`
+                : "Puedes apuntarlo ahora: se guarda en ese día, no en hoy."}
           </Text>
         </Group>
       ) : (
@@ -775,6 +821,33 @@ function EntrySheet({
    * plausible time of day, so the entry would look ordinary and be nonsense;
    * `logEvent` would then reject it into a toast, which is the wrong place for
    * a message about one field. Nothing moves and the field says why.
+   *
+   * ---
+   *
+   * **KNOWN BUG: a duration that reaches back across midnight resets itself.**
+   *
+   * Step +15 on a walk that ends just after midnight — HASTA 00:20, tap +15
+   * three times — and the duration climbs to 45 min while DESDE shows 23:35.
+   * Blur it and the duration field **empties**; press Guardar instead and the
+   * save is refused with "Tiene que ser antes de la hora de vuelta", about a
+   * field the tutor never typed.
+   *
+   * The cause is that `from` is a **time of day with no date**.
+   * `formatTimeOfDay` drops everything but HH:MM, so the 23:35 this function
+   * computes on the previous day is re-parsed by `parseTimeOfDay(from, day)`
+   * as 23:35 on the day on screen — after the end rather than before it.
+   * `minutesBetween` then returns null, `showDuration` writes "" into the
+   * field, and `save` blames DESDE.
+   *
+   * The fix is to stop round-tripping the start through a string: keep the
+   * instant this function already computed and let `save` use it, with the
+   * text as display only. That also makes a legitimate walk across midnight
+   * (23:30 → 00:15) representable, which is refused outright today — see the
+   * note on that refusal in DESIGN.md, which is a deliberate decision about a
+   * *typed* start and not about one the app produced itself.
+   *
+   * Left unfixed on purpose: the window is the few minutes after midnight, and
+   * the failure is loud rather than silent — nothing wrong is ever saved.
    */
   const applyMinutes = useCallback(
     (total: number) => {
