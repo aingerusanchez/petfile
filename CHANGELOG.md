@@ -63,6 +63,11 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   verdad está fuera se guarda tal cual. **Las valencias son una sola entrada**:
   penta, hexa y octovalente son el mismo refuerzo anual, y separarlas rompería
   justo la pauta que la lista existe para mantener unida.
+- **Apuntar sale de las secciones y baja al pulgar.** Cada sección tenía su
+  botón, lo que dejaba lo único a lo que se entra a hacer al final de un bloque
+  que había que recorrer — y, peor, hacía que las secciones parecieran
+  formularios. Ahora hay una acción flotante con sus dos opciones, como en el
+  Diario: las secciones se leen, el botón flotante escribe.
 - **Un sheet que crece ya no se sale de la pantalla.** El formulario de
   tratamiento ganó una fila y el panel entero se fue por encima del reloj del
   sistema: sin scrim visible dejaba de leerse como un panel, y no había forma

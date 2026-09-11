@@ -19,6 +19,14 @@ function addDays(from: Date, days: number): Date {
   return new Date(from.getFullYear(), from.getMonth(), from.getDate() + days);
 }
 
+/**
+ * Adding lives behind the floating action now, so every add is two taps.
+ */
+async function addHealth(page: Page, what: "weight" | "treatment") {
+  await page.getByTestId("health-add").click();
+  await page.getByTestId(`health-add-${what}`).click();
+}
+
 async function openHealth(page: Page) {
   await page.goto("/health");
   await expect(page.getByTestId("health-title")).toBeVisible();
@@ -50,21 +58,17 @@ test("opens on what is pending, and says so when nothing is", async ({
 test("records a weight and reads it back in kilograms", async ({ page }) => {
   await openHealth(page);
 
-  await page.getByTestId("health-weight-add").click();
+  await addHealth(page, "weight");
   // The comma is what the Spanish keyboard's decimal key gives.
   await page.getByTestId("weight-value").fill("12,4");
   await page.getByTestId("weight-save").click();
 
   await expect(page.getByTestId("health-weight")).toContainText("12,4 kg");
 
-  // **The button never claims to be about today**, because the sheet is where
-  // the day is chosen and the first thing anybody does with an empty line is
-  // type in months of past weighings. It does open on the day's own row when
-  // there is one, so an upsert can never replace a weight it never showed.
-  await expect(page.getByTestId("health-weight-add")).toContainText(
-    "Anotar peso",
-  );
-  await page.getByTestId("health-weight-add").click();
+  // **It opens on the day's own row when there is one**, so an upsert can
+  // never replace a weight it never showed — and nothing on screen has to
+  // explain which of the two is about to happen.
+  await addHealth(page, "weight");
   await expect(page.getByTestId("weight-value")).toHaveValue("12,4");
 });
 
@@ -73,7 +77,7 @@ test("saving twice on one day corrects the weight instead of adding another", as
 }) => {
   await openHealth(page);
 
-  await page.getByTestId("health-weight-add").click();
+  await addHealth(page, "weight");
   await page.getByTestId("weight-value").fill("12,4");
   await page.getByTestId("weight-save").click();
   await expect(page.getByTestId("health-weight")).toContainText("12,4 kg");
@@ -81,7 +85,7 @@ test("saving twice on one day corrects the weight instead of adding another", as
   // Reweighing because the first number looked wrong is a correction. The
   // unique constraint would otherwise reject it with a message about a
   // constraint, and the tutor has not done anything wrong.
-  await page.getByTestId("health-weight-add").click();
+  await addHealth(page, "weight");
   await page.getByTestId("weight-value").fill("12,6");
   await page.getByTestId("weight-save").click();
 
@@ -96,7 +100,7 @@ test("will not save until there is a weight, and not again until it changes", as
 }) => {
   await openHealth(page);
 
-  await page.getByTestId("health-weight-add").click();
+  await addHealth(page, "weight");
   // Nothing typed is nothing to save: the same rule the profile's blocks use.
   await expect(page.getByTestId("weight-save")).toHaveAttribute(
     "aria-disabled",
@@ -126,7 +130,7 @@ test("proposes the next date from the kind, and keeps what is confirmed", async 
   const today = new Date();
   await openHealth(page);
 
-  await page.getByTestId("health-treatment-add").click();
+  await addHealth(page, "treatment");
 
   // A vaccine's proposal is a year out; switching to the antiparasitic moves
   // it to a month, because the proposal follows the kind until somebody
@@ -169,7 +173,7 @@ test("picks a vaccine from a list, and keeps a free field for the rest", async (
   page,
 }) => {
   await openHealth(page);
-  await page.getByTestId("health-treatment-add").click();
+  await addHealth(page, "treatment");
 
   // A vaccine suggests from a list, because its name *is* the schedule key.
   await page.getByTestId("treatment-name").click();
@@ -179,7 +183,7 @@ test("picks a vaccine from a list, and keeps a free field for the rest", async (
 
   // The two dewormings keep the field: there the name is whichever product the
   // vet handed over, and the kind is the schedule.
-  await page.getByTestId("health-treatment-add").click();
+  await addHealth(page, "treatment");
   await page.getByTestId("treatment-kind-deworming").click();
   await expect(page.getByTestId("treatment-name")).toBeVisible();
   await page.getByTestId("treatment-name").fill("Milbemax");
@@ -191,7 +195,7 @@ test("takes a vaccine the list has never heard of, exactly as written", async ({
   page,
 }) => {
   await openHealth(page);
-  await page.getByTestId("health-treatment-add").click();
+  await addHealth(page, "treatment");
 
   // A combobox, not a picker: no list of vaccines is complete, and refusing
   // what is off it would be refusing the truth.
@@ -215,7 +219,7 @@ test("stops proposing once the tutor has written the date themselves", async ({
   const today = new Date();
   await openHealth(page);
 
-  await page.getByTestId("health-treatment-add").click();
+  await addHealth(page, "treatment");
 
   // Opening the picker and confirming is the tutor answering the question,
   // even when the answer is the one already offered. From then on the date is
@@ -233,7 +237,7 @@ test("a treatment with no next date is not pending, because it is done", async (
 }) => {
   await openHealth(page);
 
-  await page.getByTestId("health-treatment-add").click();
+  await addHealth(page, "treatment");
   // A deworming, because that is the kind that still has a free name field.
   await page.getByTestId("treatment-kind-deworming").click();
   await page.getByTestId("treatment-name").fill("Una sola vez");
@@ -252,7 +256,7 @@ test("a treatment with no next date is not pending, because it is done", async (
 test("corrects a treatment, and can delete one", async ({ page }) => {
   await openHealth(page);
 
-  await page.getByTestId("health-treatment-add").click();
+  await addHealth(page, "treatment");
   await page.getByTestId("treatment-kind-deworming").click();
   await page.getByTestId("treatment-name").fill("Milbemx");
   await page.getByTestId("treatment-save").click();
@@ -279,7 +283,7 @@ test("corrects a treatment, and can delete one", async ({ page }) => {
 
 test("keeps every control on the 48dp floor", async ({ page }) => {
   await openHealth(page);
-  await page.getByTestId("health-treatment-add").click();
+  await addHealth(page, "treatment");
 
   for (const id of [
     "treatment-kind-vaccine",

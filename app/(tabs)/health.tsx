@@ -6,6 +6,7 @@ import {
   Chip,
   ChipGroup,
   DateField,
+  Fab,
   Group,
   LoadingScreen,
   Screen,
@@ -158,7 +159,38 @@ export default function Health() {
   const todayRow = weights?.find((row) => row.measured_on === todayKey) ?? null;
 
   return (
-    <Screen scroll edges={["top"]}>
+    <Screen
+      scroll
+      edges={["top"]}
+      // **Adding moved out of the sections and under the thumb.** Each section
+      // had its own button, which put the one thing a tutor comes here to do
+      // at the bottom of a block they had to scroll to — and, worse, made the
+      // sections look like forms. The diary settled this shape already: the
+      // sections read, the floating action writes.
+      overlay={(position) => (
+        <Fab
+          testID="health-add"
+          position={position}
+          label="Apuntar en salud"
+          actions={[
+            {
+              key: "weight",
+              testID: "health-add-weight",
+              label: "Peso",
+              icon: Scale,
+              onPress: () => setWeighing(todayRow ?? "new"),
+            },
+            {
+              key: "treatment",
+              testID: "health-add-treatment",
+              label: "Tratamiento",
+              icon: ShieldPlus,
+              onPress: () => setTreating("new"),
+            },
+          ]}
+        />
+      )}
+    >
       <Text
         testID="health-title"
         accessibilityRole="header"
@@ -241,32 +273,6 @@ export default function Health() {
             ) : null}
           </Pressable>
         )}
-
-        {/* **The trailing margin is the child's, not the group's.** `Group`
-            ends in `pb-1` because every field it was built for carries its
-            own `mb-5`; a button does not, so it sat flush against the
-            section's own border. Fixed here rather than in `Group`, which
-            would then double-space every form in the app. */}
-        <View className="mb-4">
-          <Button
-            testID="health-weight-add"
-            // **Always "Anotar peso", because the sheet is where the day is
-            // chosen.** It said "Corregir el peso de hoy" once the day had
-            // one, which is true of the default and false of the control: the
-            // first thing a tutor does with an empty line is type in months
-            // of weighings, most recent first, and every one of them went
-            // through a button claiming to be about today.
-            label="Anotar peso"
-            variant="secondary"
-            icon={Scale}
-            // Landing on today's row rather than on a blank one when the day
-            // already has a weight: `saveWeight` upserts, so a blank sheet
-            // over an existing day would replace it without ever showing what
-            // it replaced. The sheet then titles itself a correction, which
-            // is what it is.
-            onPress={() => setWeighing(todayRow ?? "new")}
-          />
-        </View>
       </Group>
 
       <Group
@@ -329,16 +335,6 @@ export default function Health() {
             Aquí van las vacunas, las desparasitaciones y los antiparasitarios.
           </Text>
         )}
-
-        <View className="mb-4">
-          <Button
-            testID="health-treatment-add"
-            label="Apuntar tratamiento"
-            variant="secondary"
-            icon={ShieldPlus}
-            onPress={() => setTreating("new")}
-          />
-        </View>
       </Group>
 
       {weighing ? (
