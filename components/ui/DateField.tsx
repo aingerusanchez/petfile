@@ -37,6 +37,23 @@ type DateFieldProps = {
    * never hand it back, which is what keeps the day grid out of reach.
    */
   approximate?: boolean;
+  /**
+   * How far the picker may reach.
+   *
+   * **`"past"` by default, because this field was born for a birth date** and
+   * nothing is born tomorrow. A treatment's next dose is in the future by
+   * definition, so that one asks for `"any"` — and it has to reach backwards
+   * too, since a dose that is overdue has a due date that has already passed.
+   */
+  reach?: "past" | "any";
+  /**
+   * Offer "Sin fecha" in the picker, for a field whose empty answer is real.
+   *
+   * A one-off treatment has nothing scheduled after it, and that is a fact
+   * rather than a blank waiting to be filled. Off by default: on a field that
+   * must hold a date, a way to empty it is a way to lose one.
+   */
+  clearable?: boolean;
   required?: boolean;
   /** Reports the field's offset within its parent, for scroll-to-error. */
   onLayout?: (event: LayoutChangeEvent) => void;
@@ -49,6 +66,8 @@ export function DateField({
   value,
   onChange,
   approximate = false,
+  reach = "past",
+  clearable = false,
   required = false,
   onLayout,
   error = null,
@@ -214,12 +233,30 @@ export function DateField({
                 onChange={({ date }) => {
                   if (date) setDraft(new Date(date as string | number | Date));
                 }}
-                maxDate={today}
+                maxDate={reach === "past" ? today : undefined}
                 showOutsideDays={false}
                 monthCaptionFormat="full"
                 classNames={NORDIC_ICE}
               />
             )}
+
+            {clearable ? (
+              <Pressable
+                testID="datepicker-clear"
+                onPress={() => {
+                  onChange(null);
+                  setOpen(false);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Sin fecha"
+                style={{ minHeight: TOUCH_TARGET }}
+                className="mt-2 items-center justify-center active:opacity-70"
+              >
+                <Text className="font-semibold text-accent-secondary">
+                  Sin fecha
+                </Text>
+              </Pressable>
+            ) : null}
 
             <View className="mt-4 flex-row gap-3">
               <Pressable

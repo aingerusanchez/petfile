@@ -16,6 +16,45 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.8.0] — 2026-09-11
+
+### Nuevo
+
+- **La pestaña de Salud deja de ser un título.** Una sola pantalla con
+  secciones y sin sub-navegación: dos tutores y un perro producen un puñado de
+  filas al año, y partir eso en pestañas sería inventarse una jerarquía para
+  esconder un vacío. El orden responde a la pregunta con la que se abre la
+  pestaña — **¿hay algo pendiente?** — antes que a ninguna otra.
+- **Lo que toca, primero, y casi todo el año no es nada.** Las próximas fechas
+  ordenadas por cercanía, en rojo solo cuando ya vencieron: "dentro de nueve
+  días" no es un fallo, es un recordatorio. Un vacío aquí es una buena noticia
+  y se dice con palabras, no dejando un hueco.
+- **El peso, con su línea.** El último valor grande, cuánto ha cambiado desde
+  la medición anterior, y una línea **espaciada por fecha y no por posición**:
+  puntos equidistantes dibujarían igual una rutina semanal y un salto de seis
+  meses, que es justo lo que una curva de crecimiento no puede hacer.
+- **Un peso por día.** Volver a pesarle porque el primer número parecía raro es
+  una corrección, no dos datos: guardar sobre el mismo día reemplaza en vez de
+  duplicar, y el botón lo dice ("Corregir el peso de hoy").
+- **Los tratamientos proponen su próxima fecha y guardan la que confirmes.**
+  Un año para la vacuna, tres meses para la desparasitación, un mes para el
+  antiparasitario — y la propuesta sigue al tipo hasta que alguien la cambia,
+  momento en el que deja de moverse: lo que dijo el veterinario es el dato.
+  "Sin fecha" también es una respuesta; un tratamiento de una sola vez no está
+  pendiente, está hecho.
+- **Una pauta pertenece al par tipo+nombre, no al tipo.** "Rabia" y
+  "Polivalente" son las dos vacunas y corren en relojes distintos: agruparlas
+  dejaría que la última puesta borrase la fecha de la otra, y la que se borra
+  es precisamente de la que nadie volvería a acordarse.
+- El campo de fecha aprende dos cosas que una fecha de nacimiento nunca
+  necesitó: **mirar al futuro** y **quedarse vacío**.
+
+### Arreglado
+
+- **El changelog generado y Prettier se peleaban por las comillas** en cada
+  ejecución del script, dejando un fichero modificado que el hook volvía a
+  formatear. Ahora el generador escribe ya formateado.
+
 ## [v0.7.0] — 2026-09-11
 
 ### Nuevo

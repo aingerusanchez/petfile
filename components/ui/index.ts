@@ -24,6 +24,7 @@ export { useKeyboardInset } from "./keyboard";
 export { Toast, type ToastOptions, type ToastVariant } from "./Toast";
 export { ToastProvider, useToast } from "./ToastProvider";
 export { Text } from "./Text";
+export { WeightLine } from "./WeightLine";
 export { Version, APP_VERSION, APP_COMMIT } from "./Version";
 export { TextField } from "./TextField";
 export {
