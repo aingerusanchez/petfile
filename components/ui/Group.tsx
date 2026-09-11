@@ -47,8 +47,22 @@ export function Group({
       onLayout={onLayout}
       className={`rounded-xl border border-border-default px-5 pt-5 pb-1 ${className}`}
     >
+      {/* **The heading is the anchor, so it stops being dimmer than what it
+          anchors.** It was `text-secondary` against rows in `text-primary`,
+          which is the hierarchy upside down: on a screen long enough to
+          scroll, the eye looks for where a section *starts* and found the
+          quietest line on the page. Tried three ways at 412dp — the grey, one
+          step up to `text-primary`, and the accent — and only the accent
+          actually caught the eye; brightening the grey was indistinguishable
+          from leaving it.
+
+          **Aqua Glaciar rather than Ice Blue Glacial**, because the primary
+          accent means "this is the one thing to do here" and a heading is not
+          an action. The quiet half of the family is already what text links
+          and the met-goal bar wear, so this spends no new colour — and the
+          uppercase tracking keeps it from reading as a link. */}
       {title ? (
-        <Text className="mb-5 font-semibold text-xs tracking-[0.05em] text-text-secondary uppercase">
+        <Text className="mb-5 font-semibold text-xs tracking-[0.05em] text-accent-secondary uppercase">
           {title}
         </Text>
       ) : null}

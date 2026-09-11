@@ -502,6 +502,13 @@ The diary: the day's heading, the exercise goal, the four kinds each one tap awa
 - **Saving an entry nobody changed is refused, and only for an edit.** The profile's blocks disable their save until something differs from the row, and correcting an entry is the same situation. A _new_ entry is not: it has no stored version to differ from, and an untouched walk is a complete record on purpose — nothing but the time you got back. The rule applies where it means something and nowhere else.
 - **The row is the way back in, and delete lives inside the sheet it opens.** Tapping an entry reopens the form it was created from, prefilled, headed "Editar comida"; the button still says "Guardar cambios", because a control labelled "Editar" describes the sheet rather than the press. A delete affordance in the list is a mis-tap waiting for a scroll, so it sits at the foot of the sheet and asks once **in place** — a modal on top of a modal is worse on Android than the question it would ask.
 
+### Group
+
+A hairline-outlined section, and its heading is the anchor on any screen long enough to scroll.
+
+- **The heading is Aqua Glaciar, and it used to be dimmer than its own content.** `text-secondary` above rows in `text-primary` is the hierarchy upside down: scanning a long screen means looking for where a section _starts_, and that line was the quietest on the page. Three ways were rendered at 412dp — the grey, one step up to `text-primary`, and the accent — and only the accent caught the eye; brightening the grey was indistinguishable from leaving it alone.
+- **The secondary accent, not the primary.** Ice Blue Glacial means "this is the one thing to do here" and a heading is not an action. Aqua Glaciar is already what text links and the met-goal bar wear, so this spends no new colour, and the uppercase tracking keeps a heading from reading as a link.
+
 ### Health
 
 One scrolling screen, three sections, no sub-navigation: the file the app's name promises.

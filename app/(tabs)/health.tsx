@@ -178,7 +178,7 @@ export default function Health() {
           answer the first thing on the screen is the whole reason the section
           exists, and an empty one is good news that has to be said out loud
           rather than a gap. */}
-      <Group title="LO QUE TOCA" testID="health-due" className="mb-6">
+      <Group title="PRÓXIMOS TRATAMIENTOS" testID="health-due" className="mb-6">
         {loading ? (
           <Text className="text-text-tertiary">…</Text>
         ) : due.length === 0 ? (
@@ -265,7 +265,11 @@ export default function Health() {
         </View>
       </Group>
 
-      <Group title="TRATAMIENTOS" testID="health-treatments" className="mb-6">
+      <Group
+        title="HISTORIAL DE TRATAMIENTOS"
+        testID="health-treatments"
+        className="mb-6"
+      >
         {loading ? (
           <Text className="text-text-tertiary">…</Text>
         ) : treatments && treatments.length > 0 ? (

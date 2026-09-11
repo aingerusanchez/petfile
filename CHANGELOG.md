@@ -74,6 +74,14 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   el primer tratamiento que lo reutilizó abrió un selector titulado con otro
   asunto.
 
+- **Los títulos de sección anclan.** Eran más apagados que las filas que
+  encabezan, que es la jerarquía del revés: en una pantalla que hay que
+  recorrer, lo que se busca es dónde empieza cada bloque. Pasan al acento
+  secundario en toda la app. Probadas las tres variantes en pantalla de móvil:
+  subir el gris un escalón no se distinguía de no hacer nada.
+- En Salud, "LO QUE TOCA" pasa a **"PRÓXIMOS TRATAMIENTOS"** y "TRATAMIENTOS" a
+  **"HISTORIAL DE TRATAMIENTOS"**, que dicen cuál mira adelante y cuál atrás.
+
 ### Arreglado
 
 - **"Lo que toca" listaba recordatorios ya superados.** Una pauta estaba
