@@ -46,6 +46,12 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   "Polivalente" son las dos vacunas y corren en relojes distintos: agruparlas
   dejaría que la última puesta borrase la fecha de la otra, y la que se borra
   es precisamente de la que nadie volvería a acordarse.
+- **Las horas siempre se pudieron escribir sin los dos puntos, y ahora se
+  sabe.** `915` y `0915` son las 09:15 desde el primer día: el separador es
+  opcional en el analizador y no lo decía nadie. Los dos campos de hora lo
+  enseñan en su placeholder y Ajustes lo dice con palabras, junto al formato
+  de hora, que es donde alguien ya está pensando en eso. Anunciarlo lo
+  convierte en un compromiso, así que el atajo tiene ahora su propia prueba.
 - El campo de fecha aprende dos cosas que una fecha de nacimiento nunca
   necesitó: **mirar al futuro** y **quedarse vacío**.
 - Y una tercera: **su título es de quien pregunta.** Estaba escrito a fuego

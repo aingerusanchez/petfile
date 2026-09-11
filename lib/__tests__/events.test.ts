@@ -131,7 +131,9 @@ describe("parseTimeOfDay", () => {
   const day = new Date(2026, 8, 10, 18, 0);
 
   it("reads the shapes a tutor actually types", () => {
-    for (const text of ["09:15", "9:15", "09.15", " 09:15 ", "0915"]) {
+    // "915" and "0915" are advertised now — in both time placeholders and in
+    // Ajustes — so the shorthand is a promise rather than a coincidence.
+    for (const text of ["09:15", "9:15", "09.15", " 09:15 ", "0915", "915"]) {
       const at = parseTimeOfDay(text, day);
       expect(at).not.toBeNull();
       expect(at!.getHours()).toBe(9);

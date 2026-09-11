@@ -42,6 +42,20 @@ test("opens from the profile and says what it is for", async ({ page }) => {
   await expect(page.getByTestId("profile-title")).toBeVisible();
 });
 
+test("says the colon is optional, where somebody is thinking about time", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/settings");
+
+  // Advertised in two places now — the placeholders and this line — so the
+  // shorthand has to be true. `lib/__tests__/events.test.ts` holds the other
+  // half of that promise.
+  await expect(page.getByTestId("settings-time-tip")).toContainText(
+    "Los dos puntos son opcionales",
+  );
+});
+
 test("carries the duration format into the day and the file", async ({
   page,
 }) => {

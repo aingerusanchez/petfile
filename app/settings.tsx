@@ -1,20 +1,20 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft, X } from "lucide-react-native";
+import { ChevronLeft, Info, X } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import {
   APP_CHANGELOG,
+  Button,
   Changelog,
   Chip,
   ChipGroup,
+  colors,
   Group,
   Screen,
   Sheet,
   Text,
   TOUCH_TARGET,
   Version,
-  Button,
-  colors,
 } from "../components/ui";
 import { formatDuration } from "../lib/duration";
 import { formatTimeOfDay } from "../lib/events";
@@ -98,7 +98,8 @@ export default function SettingsScreen() {
           per device. The reassurance about stored data went — nothing on this
           screen suggests otherwise. */}
       <Text className="mb-8 text-text-tertiary">
-        Cómo se lee la app en este móvil.
+        Ajustes personalizados para formatos de hora, unidades, accesibilidad.
+        Estos ajustes se aplican a este dispositivo, no a tu cuenta.
       </Text>
 
       <Group testID="settings-formats" title="Formatos">
@@ -120,9 +121,35 @@ export default function SettingsScreen() {
             chips cannot show: this changes reading, not writing. Cut to the
             fact — the reason (a number pad has no meridiem) belongs in the
             code, not on the screen. */}
-        <Text className="-mt-3 mb-5 text-xs text-text-tertiary">
+        <Text className="-mt-3 mb-2 text-xs text-text-tertiary">
           Solo para leer: al escribir una hora se sigue usando 24h.
         </Text>
+        {/* **The shorthand the fields have always accepted, said once where
+            somebody is already thinking about time.** `parseTimeOfDay` treats
+            the separator as optional, so "915" is 9:15 — a real saving on a
+            number pad and completely invisible until now. The placeholders
+            show it in passing; this says it in words, and the two agree.
+
+            An icon rather than a fourth grey line: the caveat above is a
+            limit and this is a gift, and at this size the only thing that
+            tells them apart at a glance is a mark. It is decoration — the
+            sentence carries the meaning — so it is hidden from a reader. */}
+        <View className="mb-5 flex-row items-start gap-2">
+          <View
+            className="pt-[2px]"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            aria-hidden
+          >
+            <Info size={14} color={colors.textTertiary} />
+          </View>
+          <Text
+            testID="settings-time-tip"
+            className="flex-1 text-xs text-text-tertiary"
+          >
+            Los dos puntos son opcionales: 915 y 0915 se guardan como 09:15.
+          </Text>
+        </View>
 
         <ChipGroup label="Duración">
           {durations.map(({ value, label }) => (

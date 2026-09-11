@@ -44,8 +44,8 @@ import {
 } from "../../lib/dates";
 import { formatDuration, parseDuration } from "../../lib/duration";
 import {
-  deleteEvent,
   dayKey,
+  deleteEvent,
   eventsForDay,
   eventsForMonths,
   formatTimeOfDay,
@@ -1271,7 +1271,7 @@ function EntrySheet({
                   value={from}
                   onChangeText={editFrom}
                   onBlur={() => tidyTime(from, setFrom)}
-                  placeholder="09:15"
+                  placeholder="09:15 o 915"
                   error={fromError}
                   keyboardType="number-pad"
                   maxLength={5}
@@ -1284,7 +1284,7 @@ function EntrySheet({
                   value={at}
                   onChangeText={editAt}
                   onBlur={() => tidyTime(at, setAt)}
-                  placeholder="09:45"
+                  placeholder="09:45 o 945"
                   error={atError}
                   keyboardType="number-pad"
                   maxLength={5}
@@ -1341,7 +1341,7 @@ function EntrySheet({
             value={at}
             onChangeText={editAt}
             onBlur={() => tidyTime(at, setAt)}
-            placeholder="09:15"
+            placeholder="09:15 o 915"
             error={atError}
             keyboardType="number-pad"
             maxLength={5}
