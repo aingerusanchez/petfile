@@ -446,10 +446,9 @@ export default function Profile() {
    *
    * Fifteen days is long enough to buy something and short enough that the
    * line is never just decoration on a screen a tutor opens to look at their
-   * dog. It escalates rather than repeats: quiet text while it approaches, and
-   * on the day itself the age line takes over with the accent and the emoji —
-   * so the two never appear together and the arrival is a change of voice
-   * rather than one more line.
+   * dog. It escalates rather than repeats: an extra line while it approaches,
+   * and on the day the age line itself is rewritten — so the two never appear
+   * together and the arrival is a change of voice rather than one more line.
    */
   const daysToBirthday = daysUntilBirthday(new Date(), pet.birth_date);
   const countdown =
@@ -575,9 +574,21 @@ export default function Profile() {
             </View>
           ) : null}
           {countdown ? (
+            // **Aqua Glaciar, and at regular weight on purpose.** It was Mist
+            // Grey and disappeared into the age line above it, which is the
+            // wrong outcome for something that shows on fifteen days of the
+            // year. The secondary accent is already this screen's colour for
+            // the birthday, so before and on the day it is one subject in one
+            // colour — and on a profile whose only other hues are the dog's
+            // own photo, it is the thing the eye finds.
+            //
+            // The weight is what keeps it from lying: `Button variant="link"`
+            // is aqua *semibold*, and the link it would impersonate —
+            // "Completa su ficha" — sits in this very block. Regular weight
+            // says "notable" without saying "tappable".
             <Text
               testID="profile-countdown"
-              className="mt-1 text-xs text-text-tertiary"
+              className="mt-1 text-sm text-accent-secondary"
             >
               {countdown}
             </Text>
