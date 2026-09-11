@@ -53,6 +53,23 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   que casi nunca ocurre: lo que merece atención veterinaria es una incidencia
   hoy, y la pestaña de Salud cuando exista.
 
+### Cambiado
+
+- **La tarta del cumpleaños se ve por fin.** A 22 dp no se reconocía: velas,
+  piso y bandeja son tres detalles metidos en el hueco de un dígito. Ahora mide
+  32 y cruza el anillo del día actual — que era justo lo que la obligaba a ser
+  pequeña —, así que **el anillo cambia de color en vez de la tarta de
+  tamaño**: pasa a Aqua Glaciar, y dos formas que se cruzan con tonos
+  distintos se leen como dos formas y no como un garabato. De paso, el día de
+  hoy se ve; en Steel Frost apenas estaba.
+- **Y se ve también el día de su cumpleaños**, que era el único día en que no
+  se veía: el calendario abre sobre hoy, el relleno del día seleccionado tapaba
+  la marca de agua entera, y esa es precisamente la celda por la que existe la
+  función. La tarta se dibuja dos veces — detrás en Steel Frost, y encima del
+  relleno en la tinta oscura del número, a un quinto — recortada por el propio
+  círculo. Las dos comparten centro, así que forman una sola tarta que cambia
+  de tono al cruzar el círculo.
+
 ### Arreglado
 
 - **Guardar se deshabilita al editar un registro que nadie ha cambiado**, como

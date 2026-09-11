@@ -68,14 +68,18 @@ const CONTAINER_HEIGHT = 340;
  * strip out of the reckoning, or the cake would sit 3dp low under its own
  * number.
  *
- * **22dp, so it fits inside today's ring rather than across it.** At 30 the
- * two were the same size and concentric: the hairline circle cut straight
- * through the cake's plate, and on the one day a year both apply the cell was
- * a scribble. The ring's inner diameter is 26, so a 22dp cake clears it on
- * every side and the day reads as both — a cake in a circle, which is what a
- * badge looks like anyway.
+ * **32dp, which is wider than the chip it sits behind — on purpose.** It was
+ * 22 for a while, sized to clear today's 28dp ring, and at that size nobody
+ * could tell it was a cake: a 22dp glyph of candles, icing and a plate is
+ * three details in the space of a digit. Growing it puts it across the ring,
+ * which is exactly what made 30 unreadable the first time — two concentric
+ * grey circles cutting through each other. **So the ring changed colour
+ * instead of the cake changing size.** Aqua Glaciar against the cake's Steel
+ * Frost separates them by hue, and a crossing is then two shapes rather than
+ * a scribble. 32 also keeps clear of the corner marks: centred in a 48×46dp
+ * box it spans 8 to 40 across, and the medication and incident dots end at 10.
  */
-const CAKE = 22;
+const CAKE = 32;
 
 /** What one day carries, from `summariseMonth` in `lib/events.ts`. */
 export type CalendarMark = {
@@ -254,7 +258,7 @@ export function MonthCalendar({
                     It is the rarest thing the calendar shows — once a year
                     against the goal's eighteen days a month — and as a 10dp
                     glyph in the strip it was the quietest. Behind the number
-                    it can be 30dp wide and still take nothing: Steel Frost
+                    it can be 32dp wide and still take nothing: Steel Frost
                     reads 1.65:1 against the panel, a texture rather than a
                     mark, and the number sits 9.45:1 above it.
 
@@ -336,15 +340,57 @@ export function MonthCalendar({
                     minHeight: DAY_CHIP,
                     paddingHorizontal: 5,
                     borderRadius: DAY_CHIP / 2,
+                    // Only where something is drawn over the fill, so a large
+                    // font can never meet a clip it did not need.
+                    ...(birthday && day.isSelected
+                      ? { overflow: "hidden" as const }
+                      : null),
                   }}
                   className={`items-center justify-center ${
                     day.isSelected
                       ? "bg-accent-primary"
                       : day.isToday
-                        ? "border border-border-strong"
+                        ? "border border-accent-secondary"
                         : ""
                   }`}
                 >
+                  {/* **The selected day is the one that hid the cake, and
+                      it is the day that needs it most.** The calendar opens
+                      on today, so on the birthday itself the accent fill
+                      covered the watermark completely — the one cell the
+                      whole feature exists for. The cake is therefore drawn
+                      **twice**: once behind everything in Steel Frost, and
+                      once here over the fill in the dark ink the number uses,
+                      held down to a fifth so it stays a texture rather than a
+                      second number. Both are centred on the same point —
+                      the watermark's box excludes the bar strip precisely so
+                      that it shares the chip's centre — so the two halves
+                      line up into one continuous cake that changes tone where
+                      it crosses the circle, dark inside, grey out. Clipped by
+                      the chip, because the part of this copy that fell on the
+                      panel would be invisible ink on a dark ground. */}
+                  {birthday && day.isSelected ? (
+                    <View
+                      testID="calendar-mark-birthday-selected"
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: 0.2,
+                      }}
+                    >
+                      <Cake
+                        size={CAKE}
+                        color={colors.onAccent}
+                        strokeWidth={2}
+                      />
+                    </View>
+                  ) : null}
+
                   <Text
                     maxFontSizeMultiplier={DAY_MAX_SCALE}
                     // A birthday is drawn bright whether or not anything was

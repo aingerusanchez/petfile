@@ -996,6 +996,14 @@ test("names the birthday and marks it on the calendar", async ({ page }) => {
   await page.getByTestId("home-day").click();
   await expect(page.getByTestId("calendar-mark-birthday")).toHaveCount(1);
 
+  // **The calendar opens on today, so on the birthday the accent fill lands
+  // on the one cell the whole feature exists for.** The watermark behind it
+  // is covered; a second copy over the fill is what keeps the cake visible on
+  // its own day, and this is the cell that had none.
+  await expect(page.getByTestId("calendar-mark-birthday-selected")).toHaveCount(
+    1,
+  );
+
   // Not colour or a glyph alone: the day says it in words, with the years.
   await expect(
     page
