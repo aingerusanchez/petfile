@@ -519,6 +519,10 @@ Its own screen, because a section stopped being able to hold it.
 - **The search is accent-blind, and Spanish is why.** A tutor types "desparasitacion" on a keyboard that did not offer the accent; exact matching would report the word absent from a list where it appears eleven times. It reaches the note as well as the name, because that is where a diagnosis ends up.
 - **A row opens the same sheet Salud uses**, which is why the form lives in `components/ui` rather than in either screen. A history nobody can correct from is a list you scroll to find the typo and then have to leave.
 
+### Screen
+
+- **A scrolling page ends above whatever floats over it.** The diary got away without the clearance because a day's log is short; the treatment history did not — measured on the device, its last two rows had their dates sitting behind the floating button, which is the half of a row nobody thinks to scroll for. `Screen` adds the button's own height to the scroll's bottom padding whenever a scrolling page has an overlay.
+
 ### Screen Header
 
 The way back and the name of where you are, on a screen the tabs do not reach.

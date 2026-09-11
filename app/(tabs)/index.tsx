@@ -222,6 +222,12 @@ type Editing = { kind: EventKind; event: PetEventRow | null };
  * meaning it has everywhere else — a toast, the confetti — which is a **moment
  * that just happened**, never a state sitting on the screen.
  */
+/** The local day a `?day=` parameter names, when it names one. */
+function dayFromParam(value: string | string[] | undefined): Date | null {
+  const parts = typeof value === "string" ? parseISO(value) : null;
+  return parts ? new Date(parts.year, parts.month - 1, parts.day) : null;
+}
+
 export default function Home() {
   const toast = useToast();
   const { celebrate } = useCelebration();
@@ -248,16 +254,29 @@ export default function Home() {
    * **`?day=` exists so Salud can point at an illness.** The incidents are
    * written here and read there, and a list of them that could not lead back
    * to the day each one happened would be a list of dates you then have to go
-   * and find. Read once, at mount: it is where to open, not a binding — the
-   * arrows and the calendar move from there like any other day.
+   * and find.
+   *
+   * **Applied when it changes, not only at mount — measured on the device.**
+   * Reading it in the `useState` initialiser looked right and did nothing at
+   * all: this screen is a tab, so it is already mounted when Salud pushes, the
+   * initialiser never runs again, and tapping an illness from December landed
+   * on today. This is React's own "adjust state when an input changes" shape —
+   * during render, against a remembered value — rather than an effect, which
+   * is the derived-state mistake `react-hooks/set-state-in-effect` catches.
+   *
+   * It sets where to open and then lets go: the arrows and the calendar move
+   * from there like any other day, and the parameter is not consulted again
+   * until it changes.
    */
   const { day: askedFor } = useLocalSearchParams<{ day?: string }>();
-  const [day, setDay] = useState(() => {
-    const parts = typeof askedFor === "string" ? parseISO(askedFor) : null;
-    return parts
-      ? new Date(parts.year, parts.month - 1, parts.day)
-      : new Date();
-  });
+  const [day, setDay] = useState(() => dayFromParam(askedFor) ?? new Date());
+  const [appliedParam, setAppliedParam] = useState(askedFor);
+
+  if (askedFor !== appliedParam) {
+    setAppliedParam(askedFor);
+    const asked = dayFromParam(askedFor);
+    if (asked) setDay(asked);
+  }
   const [picking, setPicking] = useState(false);
   /** One month of marks for the calendar, fetched only once it is opened. */
   const [marks, setMarks] = useState<Map<string, DaySummary>>(new Map());

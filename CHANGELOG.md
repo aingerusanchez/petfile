@@ -77,6 +77,15 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   **No hay editor**: el campo es un textarea de tres líneas, sin barra de
   herramientas ni vista previa. El renderizador es el que ya tenía el
   changelog, extraído el día que una nota lo necesitó.
+- **Una pantalla con scroll termina por encima del botón flotante.** El Diario
+  se libraba porque el registro de un día es corto; el historial de
+  tratamientos no: medido en el dispositivo, las dos últimas filas tenían la
+  fecha detrás del botón — la mitad de una fila que a nadie se le ocurre
+  desplazar para ver.
+- Una nota larga en ENFERMEDADES se corta a tres líneas. El protocolo entero
+  del veterinario es justo lo que hay que escribir en una nota, y justo lo que
+  no puede ocupar cinco líneas en una sección que resume; el texto completo
+  está a un toque, en su día.
 - **Las enfermedades se leen en Salud**, aunque se escriban en el Diario. Una
   incidencia pasa a una hora de un día y se apunta donde el tutor ya está;
   pero "¿cuándo fue lo del oído?" es una pregunta de salud, y recorrer un

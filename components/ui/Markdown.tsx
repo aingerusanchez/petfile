@@ -62,6 +62,16 @@ type MarkdownProps = {
   className?: string;
   /** Rendered instead of a paragraph's own spacing, for a compact list row. */
   compact?: boolean;
+  /**
+   * Cap each block at this many lines.
+   *
+   * **For a section that summarises rather than holds.** A tutor pasting a
+   * vet's whole protocol into one note — the dose, the three medicines, the
+   * hours between them — is doing exactly the right thing, and a read-back
+   * list that renders all five lines of it stops being a list. The full text
+   * is one tap away on the day it belongs to.
+   */
+  lines?: number;
   testID?: string;
 };
 
@@ -69,6 +79,7 @@ export function Markdown({
   text,
   className = "text-sm text-text-secondary",
   compact = false,
+  lines,
   testID,
 }: MarkdownProps) {
   // Blank lines separate blocks; a block's own newlines are soft wraps, which
@@ -106,7 +117,10 @@ export function Markdown({
               {block.split(/\n(?=- )/).map((item, line) => (
                 <View key={line} className="flex-row gap-2">
                   <Text className={className}>·</Text>
-                  <Text className={`min-w-0 flex-1 ${className}`}>
+                  <Text
+                    numberOfLines={lines}
+                    className={`min-w-0 flex-1 ${className}`}
+                  >
                     <Inline
                       text={item.replace(/^- /, "").replace(/\n\s+/g, " ")}
                     />
@@ -120,6 +134,7 @@ export function Markdown({
         return (
           <Text
             key={index}
+            numberOfLines={lines}
             className={`${className} ${index === blocks.length - 1 ? "" : gap}`}
           >
             <Inline text={block.replace(/\n\s*/g, " ")} />

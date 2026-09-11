@@ -392,6 +392,11 @@ export default function Health() {
                     text={event.note}
                     className="text-text-primary"
                     compact
+                    // Three, because the vet's whole protocol is a perfectly
+                    // good thing to write in a note and a bad thing to render
+                    // five lines of in a section that summarises. The rest is
+                    // one tap away, on the day it happened.
+                    lines={3}
                   />
                 ) : (
                   <Text className="text-text-primary">Incidencia</Text>
