@@ -89,6 +89,32 @@ export function monthBounds(day: Date): { from: string; to: string } {
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
+/**
+ * The bounds covering `months` whole months back through the end of `day`'s.
+ *
+ * **The calendar reads a window, not a month, and the library is why.** Its
+ * header arrows change the displayed month by dispatching internal state and
+ * calling nobody — `onMonthChange` fires only from the month *list* — so a
+ * per-month fetch could not know it had to run again. Paging back one month
+ * left every cell falling through to the unlogged branch, which had the
+ * calendar asserting that nothing happened all August. Measured: one seeded
+ * incident, zero marks after one tap.
+ *
+ * A year of one dog's entries is a few thousand rows at the very most and one
+ * request, so the window is the cheap fix and the honest one. Past its edge
+ * the marks stop, which is a bounded limit rather than a lie that moves.
+ */
+export function monthsBackBounds(
+  day: Date,
+  months: number,
+): { from: string; to: string } {
+  const from = new Date(day);
+  from.setDate(1);
+  from.setMonth(from.getMonth() - months);
+  from.setHours(0, 0, 0, 0);
+  return { from: from.toISOString(), to: monthBounds(day).to };
+}
+
 /** The local calendar day an instant falls on, as `YYYY-MM-DD`. */
 export function dayKey(at: Date): string {
   return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
@@ -342,15 +368,17 @@ export async function eventsForDay(
 /**
  * Every entry in a month, for the calendar's marks.
  *
- * One request per month rather than one per day: a month is at most a few
- * hundred rows, and thirty round trips to draw one calendar is the kind of
- * thing that works on a desk and not in a vet's waiting room.
+ * One request for the whole window rather than one per month, let alone one
+ * per day: thirty round trips to draw one calendar is the kind of thing that
+ * works on a desk and not in a vet's waiting room — and a per-month fetch
+ * cannot know when to run again, which is what `monthsBackBounds` explains.
  */
-export async function eventsForMonth(
+export async function eventsForMonths(
   petId: string,
   month: Date,
+  monthsBack: number,
 ): Promise<{ days: Map<string, DaySummary>; error: string | null }> {
-  const { from, to } = monthBounds(month);
+  const { from, to } = monthsBackBounds(month, monthsBack);
 
   const query = supabase
     .from("pet_events")
@@ -360,15 +388,18 @@ export async function eventsForMonth(
     .lt("occurred_at", to);
 
   try {
-    const { data, error } = await withTimeout(query, "eventsForMonth");
+    const { data, error } = await withTimeout(query, "eventsForMonths");
     if (error)
       return {
         days: new Map(),
-        error: describeFailure(error, "eventsForMonth"),
+        error: describeFailure(error, "eventsForMonths"),
       };
     return { days: summariseMonth(data ?? []), error: null };
   } catch (cause) {
-    return { days: new Map(), error: describeFailure(cause, "eventsForMonth") };
+    return {
+      days: new Map(),
+      error: describeFailure(cause, "eventsForMonths"),
+    };
   }
 }
 

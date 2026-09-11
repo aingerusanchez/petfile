@@ -1,5 +1,4 @@
 import { Cake } from "lucide-react-native";
-import { useState } from "react";
 import { Pressable, View } from "react-native";
 import DateTimePicker from "react-native-ui-datepicker";
 import { birthdayOn } from "../../lib/dates";
@@ -95,8 +94,8 @@ type MonthCalendarProps = {
   /** Latest selectable day — today, on this surface. */
   maxDate: Date;
   onSelect: (day: Date) => void;
-  /** Fires when the visible month changes, so the caller can fetch its marks. */
-  onMonthChange: (month: Date) => void;
+  /** Set when the marks could not be read, so the grid can stop pretending. */
+  error?: string | null;
   /**
    * The animal's birth date, ISO. Marked with a cake — including the 1st of
    * the month when the date is approximate, which is the convention the tutor
@@ -187,12 +186,11 @@ export function MonthCalendar({
   value,
   maxDate,
   onSelect,
-  onMonthChange,
+  error = null,
   birthDate = null,
   onToday,
   testID,
 }: MonthCalendarProps) {
-  const [shown, setShown] = useState(value);
   // `maxDate` is today on this surface, which is what the button offers to go
   // back to. Already there, it stays visible and inert rather than vanishing —
   // the same call the forward arrow makes in the header above.
@@ -211,20 +209,9 @@ export function MonthCalendar({
         onChange={({ date }) => {
           if (date) onSelect(new Date(date as string | number | Date));
         }}
-        onMonthChange={(month) => {
-          const next = new Date(shown);
-          next.setDate(1);
-          next.setMonth(month);
-          setShown(next);
-          onMonthChange(next);
-        }}
-        onYearChange={(year) => {
-          const next = new Date(shown);
-          next.setDate(1);
-          next.setFullYear(year);
-          setShown(next);
-          onMonthChange(next);
-        }}
+        // The library's own arrows change the month without calling either
+        // of these — `onMonthChange` fires from the month *list* alone — which
+        // is why the caller reads a window instead of a month.
         components={{
           Day: (day) => {
             const mark = marks.get(keyOf(day.date));
@@ -409,12 +396,32 @@ export function MonthCalendar({
       {/* Centred rather than bottom-aligned: on one line the legend then
           pairs with the button's middle instead of sitting under it, and a
           legend wrapped by a large font still reads as its opposite number. */}
+      {/* **A month that could not be read says so.** An empty map and a quiet
+          month render identically — dimmed numbers, "sin registros" — so a
+          timed-out read had the calendar asserting that nothing happened,
+          which for a product whose promise is never losing a record is worse
+          than an error. */}
+      {error ? (
+        <Text
+          testID="calendar-marks-error"
+          accessibilityLiveRegion="polite"
+          className="mt-2 text-xs text-error"
+        >
+          No he podido leer lo que pasó estos días.
+        </Text>
+      ) : null}
+
       <View className="mt-2 flex-row items-center justify-between gap-4">
         <View className="flex-1 flex-row flex-wrap items-center gap-x-4 gap-y-2">
-          <Legend
-            className="h-[4px] w-[16px] rounded-xl bg-accent-secondary"
-            label="Objetivo conseguido"
-          />
+          {/* Without a goal there is no bar to explain, and a legend that
+              names a mark the grid can never draw is a promise it cannot
+              keep. */}
+          {goalMinutes === null ? null : (
+            <Legend
+              className="h-[4px] w-[16px] rounded-xl bg-accent-secondary"
+              label="Objetivo conseguido"
+            />
+          )}
           <Legend
             className="h-[6px] w-[6px] rounded-[3px] border border-warning"
             label="Medicación"

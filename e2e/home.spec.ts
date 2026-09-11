@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   eventsTableExists,
   resetE2EPets,
+  seedE2EEvents,
   seedE2EPet,
   seedSession,
 } from "./auth";
@@ -516,8 +517,9 @@ test("opens the calendar from the date and says what each day carried", async ({
   // The mark is not colour alone: the day says it in words too — and it says
   // both things. The two marks used to collapse into the more severe one,
   // which threw the medication away on the day it mattered most.
+  const cal = page.getByTestId("home-calendar");
   await expect(
-    page
+    cal
       .getByLabel(
         `${yesterday.getDate()}, objetivo sin conseguir, con incidencia, con medicación`,
       )
@@ -535,7 +537,9 @@ test("opens the calendar from the date and says what each day carried", async ({
   }
 
   // Choosing a day navigates and closes.
-  await page
+  // Scoped to the calendar: a bare "10," also matches an entry logged at
+  // 13:10, which is a collision the wall clock decides.
+  await cal
     .getByLabel(`${yesterday.getDate()},`, { exact: false })
     .first()
     .click();
@@ -608,6 +612,54 @@ test("does not celebrate a goal reached on a day that has passed", async ({
   await expect(page.getByTestId("celebration")).toBeHidden();
 });
 
+test("carries the marks with it when the month is paged", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  // The 12th of last month: an incident, so the day carries a mark that can
+  // only come from that month's own fetch.
+  const lastMonth = new Date();
+  lastMonth.setDate(1);
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
+  lastMonth.setDate(12);
+  lastMonth.setHours(10, 0, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "incident", occurredAt: lastMonth, what: "Cojeaba" },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("home-calendar")).toBeVisible();
+  await expect(page.getByTestId("calendar-mark-incident")).toHaveCount(0);
+  // The sheet fades in, and a tap on the month arrow during that fade is
+  // swallowed — the grid stays on the month it opened at and the assertion
+  // below then blames the fetch for a click that never landed.
+  await page.waitForTimeout(600);
+
+  // Page back a month with the library's own arrow, the way anybody looking
+  // for "which day did he have diarrhoea?" would. That arrow changes the
+  // month without calling `onMonthChange`, so a per-month fetch never learned
+  // it had to run — and every cell fell through to the unlogged branch, the
+  // calendar asserting that nothing happened all month.
+  await page.getByTestId("btn-prev").click();
+
+  // The month on screen must be the month the marks belong to. Falling
+  // through to the unlogged branch would have the calendar assert that
+  // nothing happened all month, which is worse than showing nothing.
+  await expect(page.getByTestId("calendar-mark-incident")).toHaveCount(1);
+  // And it says which day in words, not by position in the grid.
+  await expect(
+    page
+      .getByTestId("home-calendar")
+      .getByLabel("12, objetivo sin conseguir, con incidencia", {
+        exact: false,
+      })
+      .first(),
+  ).toBeVisible();
+});
+
 test("walks home from any day with one tap", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
@@ -676,6 +728,7 @@ test("names the birthday and marks it on the calendar", async ({ page }) => {
   // Not colour or a glyph alone: the day says it in words, with the years.
   await expect(
     page
+      .getByTestId("home-calendar")
       .getByLabel(`${born.getDate()}, cumple 2 años`, { exact: false })
       .first(),
   ).toBeVisible();
