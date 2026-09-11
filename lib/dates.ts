@@ -153,6 +153,47 @@ export function birthdayOn(day: Date, birthDate: string | null): number | null {
   return years < 0 ? null : years;
 }
 
+/**
+ * Whole days from `day` to the animal's next birthday, or null without one.
+ *
+ * **It finds a date that round-trips, rather than trusting the constructor.**
+ * `new Date(2027, 1, 29)` is the 1st of March, so a dog born on a leap day
+ * would otherwise be told its birthday is a day the calendar does not mark —
+ * `birthdayOn` compares month and day exactly and would return null on that
+ * same date. Skipping to the next year that really has a 29th of February
+ * keeps the two agreeing: such a dog has a birthday every four years, which
+ * is the joke and not a bug.
+ *
+ * Returns 0 on the day itself. An approximate birth date counts to the 1st of
+ * its month, the same convention `birthdayOn` follows.
+ */
+export function daysUntilBirthday(
+  day: Date,
+  birthDate: string | null,
+): number | null {
+  const parts = parseISO(birthDate);
+  if (!parts) return null;
+
+  const from = new Date(day);
+  from.setHours(0, 0, 0, 0);
+
+  // Eight tries covers this year, next year, and any run of non-leap years a
+  // 29th of February can hide behind.
+  for (let i = 0; i <= 8; i++) {
+    const candidate = new Date(
+      from.getFullYear() + i,
+      parts.month - 1,
+      parts.day,
+    );
+    const rolled =
+      candidate.getMonth() + 1 !== parts.month ||
+      candidate.getDate() !== parts.day;
+    if (rolled || candidate.getTime() < from.getTime()) continue;
+    return Math.round((candidate.getTime() - from.getTime()) / 86_400_000);
+  }
+  return null;
+}
+
 /** "10 de septiembre" — the date under the headline, without the weekday. */
 export function formatDayDate(day: Date): string {
   return `${day.getDate()} de ${MONTHS_ES[day.getMonth()].toLowerCase()}`;

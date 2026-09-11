@@ -1,6 +1,7 @@
 import {
   birthdayOn,
   daysAgo,
+  daysUntilBirthday,
   daysInMonth,
   formatDayDate,
   formatDayHeadline,
@@ -175,5 +176,40 @@ describe("birthdayOn", () => {
   it("survives a leap day by simply not matching a year without one", () => {
     expect(on("2028-02-29", "2024-02-29")).toBe(4);
     expect(on("2027-03-01", "2024-02-29")).toBeNull();
+  });
+});
+
+describe("daysUntilBirthday", () => {
+  const on = (iso: string, birth: string | null) =>
+    daysUntilBirthday(new Date(`${iso}T12:00:00`), birth);
+
+  it("counts the days left this year", () => {
+    expect(on("2026-09-11", "2024-09-26")).toBe(15);
+    expect(on("2026-09-25", "2024-09-26")).toBe(1);
+  });
+
+  it("is 0 on the day itself", () => {
+    expect(on("2026-09-26", "2024-09-26")).toBe(0);
+  });
+
+  it("rolls into the next year once the day has passed", () => {
+    expect(on("2026-09-27", "2024-09-26")).toBe(364);
+    expect(on("2026-12-27", "2024-01-05")).toBe(9);
+  });
+
+  it("counts to the 1st for an approximate date", () => {
+    expect(on("2026-09-20", "2024-10-01")).toBe(11);
+  });
+
+  it("skips to a year that really has a 29th of February", () => {
+    // 2027 has none, so the next birthday is in 2028 — and `birthdayOn` marks
+    // that same date and no other.
+    expect(on("2027-02-20", "2024-02-29")).toBe(374);
+    expect(on("2028-02-29", "2024-02-29")).toBe(0);
+  });
+
+  it("has nothing to count without a birth date", () => {
+    expect(on("2026-09-11", null)).toBeNull();
+    expect(on("2026-09-11", "nonsense")).toBeNull();
   });
 });
