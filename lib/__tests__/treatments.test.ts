@@ -81,17 +81,29 @@ describe("dueStatus", () => {
 
 describe("scheduleKey", () => {
   it("keeps two vaccines on two clocks", () => {
-    // Grouping by kind alone would let a rabies shot replace the polivalente's
-    // due date, and the one it replaced is the one nobody gets reminded about.
+    // Grouping vaccines by kind alone would let a rabies shot replace the
+    // pentavalente's due date, and the one it replaced is the one nobody
+    // gets reminded about.
     expect(scheduleKey({ kind: "vaccine", name: "Rabia" })).not.toBe(
-      scheduleKey({ kind: "vaccine", name: "Polivalente" }),
+      scheduleKey({ kind: "vaccine", name: "Pentavalente" }),
     );
-    // The same schedule typed twice is one schedule.
     expect(scheduleKey({ kind: "vaccine", name: " rabia " })).toBe(
       scheduleKey({ kind: "vaccine", name: "Rabia" }),
     );
-    expect(scheduleKey({ kind: "vaccine", name: null })).toBe(
-      scheduleKey({ kind: "vaccine", name: "  " }),
+  });
+
+  it("puts every product of one deworming on one clock", () => {
+    // Measured against nine months of a real puppy's records: Panacur,
+    // Panacur 500mg and Milbemax are not three schedules, they are whatever
+    // the vet handed over that month for the same habit. Keyed by name, the
+    // pending section listed all three and shouted that one had expired in
+    // April — five months after the dose that had already replaced it.
+    const key = scheduleKey({ kind: "deworming", name: "Panacur" });
+    expect(scheduleKey({ kind: "deworming", name: "Panacur 500mg" })).toBe(key);
+    expect(scheduleKey({ kind: "deworming", name: "Milbemax" })).toBe(key);
+    expect(scheduleKey({ kind: "deworming", name: null })).toBe(key);
+    expect(scheduleKey({ kind: "antiparasitic", name: "Nexgard" })).not.toBe(
+      key,
     );
   });
 });
@@ -111,6 +123,22 @@ describe("pending", () => {
       given("vaccine", "Polivalente", "2026-08-01", "2027-08-01"),
     ];
     expect(pending(rows)).toHaveLength(2);
+  });
+
+  it("collapses a year of dewormings into the one that is still standing", () => {
+    // The real shape of the defect this fixed: three products, one habit, and
+    // two expired reminders from doses that had already been superseded.
+    const rows = [
+      given("deworming", "Panacur", "2026-01-05", "2026-04-05"),
+      given("deworming", "Panacur 500mg", "2025-12-26", "2026-03-26"),
+      given("deworming", "Milbemax", "2026-04-15", "2026-07-14"),
+      given("deworming", "Milbemax", "2026-07-14", "2026-10-12"),
+      given("antiparasitic", "Nexgard", "2026-09-02", "2026-10-11"),
+    ];
+    expect(pending(rows).map((row) => [row.kind, row.next_due_on])).toEqual([
+      ["antiparasitic", "2026-10-11"],
+      ["deworming", "2026-10-12"],
+    ]);
   });
 
   it("drops what has no next date, because a one-off is not pending", () => {

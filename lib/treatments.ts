@@ -176,19 +176,29 @@ export function dueStatus(nextDueOn: string, today: Date): DueStatus | null {
 }
 
 /**
- * The key a schedule belongs to.
+ * The key a schedule belongs to, and it is not the same question for all three.
  *
- * **Not the kind alone.** "Rabia" and "Polivalente" are both vaccines and they
- * run on different clocks, so grouping by kind would let whichever was given
- * last silently replace the other's due date — and the one it replaced is the
- * one nobody would be reminded about. The pair is the schedule; a treatment
- * with no name is its kind's only unnamed schedule.
+ * **A vaccine is a disease; a deworming is a habit.** Rabia and Pentavalente
+ * protect against different things on different clocks, so replacing one with
+ * the other would drop a reminder nobody would miss until it was a year late —
+ * the name is part of the schedule there. But "Panacur", "Panacur 500mg" and
+ * "Milbemax" are not three schedules: they are whatever the vet handed over
+ * that month for *the internal deworming*, which is one habit with one clock.
+ *
+ * **This was keyed on the name for all three, and a real year of records
+ * showed what that costs.** Nine months of a puppy's history put five rows in
+ * "lo que toca", three of them the same internal deworming under three product
+ * names, one of those shouting in red that it had expired in April — five
+ * months after the dose that had already replaced it. A superseded record
+ * claiming to be pending is worse than no reminder at all: it teaches the
+ * tutor to distrust the section that exists to be trusted.
  */
 export function scheduleKey(row: {
   kind: string;
   name: string | null;
 }): string {
-  return `${row.kind}·${(row.name ?? "").trim().toLocaleLowerCase("es")}`;
+  if (row.kind !== "vaccine") return row.kind;
+  return `vaccine·${(row.name ?? "").trim().toLocaleLowerCase("es")}`;
 }
 
 /**

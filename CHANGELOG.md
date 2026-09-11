@@ -76,7 +76,17 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
 ### Arreglado
 
-- **El changelog generado y Prettier se peleaban por las comillas** en cada
+- **"Lo que toca" listaba recordatorios ya superados.** Una pauta estaba
+  identificada por tipo **y nombre**, y eso solo es cierto en las vacunas:
+  Rabia y Pentavalente corren en relojes distintos, pero "Panacur", "Panacur
+  500mg" y "Milbemax" son lo que tocó ese mes para la misma costumbre. Con
+  nueve meses de historial real salían cinco filas, tres de ellas la misma
+  desparasitación interna, y una gritando en rojo que había vencido en abril —
+  cinco meses después de la dosis que ya la había sustituido. Un registro
+  superado que se presenta como pendiente es peor que no avisar: enseña a
+  desconfiar justo de la sección que existe para confiar en ella.
+- Los botones de añadir quedaban pegados al borde inferior de su sección.
+- El changelog generado y Prettier se peleaban por las comillas en cada
   ejecución del script, dejando un fichero modificado que el hook volvía a
   formatear. Ahora el generador escribe ya formateado.
 

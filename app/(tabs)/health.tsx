@@ -13,6 +13,7 @@ import {
   Text,
   TextField,
   WeightLine,
+  colors,
   useToast,
 } from "../../components/ui";
 import { MONTHS_ES, parseISO } from "../../lib/dates";
@@ -237,13 +238,20 @@ export default function Health() {
           </Pressable>
         )}
 
-        <Button
-          testID="health-weight-add"
-          label={weighedToday ? "Corregir el peso de hoy" : "Apuntar peso"}
-          variant="secondary"
-          icon={Scale}
-          onPress={() => setWeighing("new")}
-        />
+        {/* **The trailing margin is the child's, not the group's.** `Group`
+            ends in `pb-1` because every field it was built for carries its
+            own `mb-5`; a button does not, so it sat flush against the
+            section's own border. Fixed here rather than in `Group`, which
+            would then double-space every form in the app. */}
+        <View className="mb-4">
+          <Button
+            testID="health-weight-add"
+            label={weighedToday ? "Corregir el peso de hoy" : "Apuntar peso"}
+            variant="secondary"
+            icon={Scale}
+            onPress={() => setWeighing("new")}
+          />
+        </View>
       </Group>
 
       <Group title="TRATAMIENTOS" testID="health-treatments" className="mb-6">
@@ -262,8 +270,24 @@ export default function Health() {
                 )}${row.name ? `, ${row.name}` : ""}, el ${displayDate(
                   row.administered_on,
                 )}. Editarlo`}
-                className="flex-row items-baseline justify-between gap-4 py-3 active:opacity-70"
+                className="flex-row items-start justify-between gap-3 py-3 active:opacity-70"
               >
+                {/* **The glyph leads the row, not just the chip.** A year of
+                    monthly antiparasitics is fifteen rows that all start with
+                    the same three words; the icon is what lets an eye find
+                    the vaccine among them without reading. Decoration to a
+                    reader — the row's name already says the kind. */}
+                <View
+                  className="shrink-0 pt-0.5"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  aria-hidden
+                >
+                  {(() => {
+                    const Glyph = KIND_ICONS[row.kind as TreatmentKind];
+                    return <Glyph size={16} color={colors.textTertiary} />;
+                  })()}
+                </View>
                 <View className="min-w-0 flex-1">
                   <Text className="font-semibold text-text-primary">
                     {treatmentLabel(row.kind as TreatmentKind)}
@@ -287,13 +311,15 @@ export default function Health() {
           </Text>
         )}
 
-        <Button
-          testID="health-treatment-add"
-          label="Apuntar tratamiento"
-          variant="secondary"
-          icon={ShieldPlus}
-          onPress={() => setTreating("new")}
-        />
+        <View className="mb-4">
+          <Button
+            testID="health-treatment-add"
+            label="Apuntar tratamiento"
+            variant="secondary"
+            icon={ShieldPlus}
+            onPress={() => setTreating("new")}
+          />
+        </View>
       </Group>
 
       {weighing ? (
