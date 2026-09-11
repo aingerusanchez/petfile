@@ -39,6 +39,24 @@ const BAR = 4;
 const BAR_GAP = 2;
 
 /**
+ * The height the month is given, and the only lever that reaches a day cell.
+ *
+ * **A calendar with a custom `Day` cannot be sized from the outside.** The
+ * library applies `classNames.day` — where `calendar.ts` writes its
+ * `min-h-[48px]` — only in its default branch; the `components.Day` branch
+ * gets a `style` alone, the same drop that costs us `selected` and `today`.
+ * Nor can the cell be grown from the inside: its `Pressable` is `flex: 1`
+ * inside a parent whose height is a minimum, so content never pushes it.
+ * Both were tried on the device and both left 30 targets at 42.5dp.
+ *
+ * What does reach it is the library's own arithmetic:
+ * `dayCell.minHeight = (containerHeight - 25) / 6`, less the cell's `p-0.5`
+ * (1.75dp a side on native) to get the pressable itself. The default 300
+ * yields 42.3dp — measured, and 5.7 under Android's floor. 340 yields 49.
+ */
+const CONTAINER_HEIGHT = 340;
+
+/**
  * The birthday's cake, behind the number rather than beside it.
  *
  * **It was a 10dp glyph sharing the strip, and it was too quiet for the one
@@ -184,6 +202,7 @@ export function MonthCalendar({
     <View testID={testID}>
       <DateTimePicker
         mode="single"
+        containerHeight={CONTAINER_HEIGHT}
         date={value}
         maxDate={maxDate}
         locale="es"
@@ -423,7 +442,9 @@ export function MonthCalendar({
           // See Button: the web renders the role and drops the state.
           aria-disabled={atToday}
           style={{ minHeight: TOUCH_TARGET }}
-          className={`shrink-0 items-center justify-center rounded-xl border px-4 ${
+          // `min-w`, not just the padding: "Hoy" at `text-xs` measured 47.4dp
+          // wide on the device, and the floor is both axes.
+          className={`min-w-[48px] shrink-0 items-center justify-center rounded-xl border px-4 ${
             atToday
               ? "border-border-default"
               : "border-border-strong active:opacity-70"

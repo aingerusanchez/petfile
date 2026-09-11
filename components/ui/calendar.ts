@@ -28,11 +28,19 @@ export const NORDIC_ICE: CalendarClassNames = {
     "min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border border-border-default bg-base",
   button_next:
     "min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border border-border-default bg-base",
-  month_selector: "min-h-[48px] justify-center px-2",
-  year_selector: "min-h-[48px] justify-center px-2",
+  month_selector: "min-h-[48px] min-w-[48px] justify-center px-2",
+  // The width matters too: "2026" with `px-2` measured 43.7dp on the device,
+  // and Android's floor applies to both axes.
+  year_selector: "min-h-[48px] min-w-[48px] justify-center px-2",
   weekdays: "mb-1",
   weekday_label: "text-xs font-semibold uppercase text-text-tertiary",
   day_cell: "p-0.5",
+  // **This never reaches a calendar with a custom `Day`.** The library applies
+  // `classNames.day` to its own Pressable only in the default branch; the
+  // `components.Day` branch passes `style` and drops the className, the same
+  // way it drops `selected` and `today`. `MonthCalendar` sets the floor on its
+  // own cell instead — see `DAY_MIN` there. Kept for `DateField`, which uses
+  // the library's own day.
   day: "min-h-[48px] rounded-xl",
   // The library renders its own Text nodes, so the typeface reaches them
   // through these classNames rather than through the Text primitive.
