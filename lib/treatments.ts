@@ -43,6 +43,58 @@ const LABELS: Record<TreatmentKind, string> = {
 };
 
 /**
+ * The vaccines a household actually names, and "Otra" for the rest.
+ *
+ * **A closed list here is not tidiness, it is the schedule key.** A vaccine's
+ * pauta is identified by its name — Rabia and Polivalente run on different
+ * clocks — so free text means "Rabia", "rabia " and "Vacuna antirrábica" are
+ * three schedules, each holding a third of the history and none of them
+ * reminding anybody of anything. The two dewormings keep their free field on
+ * purpose: there the name is the product, the kind is the schedule, and a
+ * closed list would just be a list nobody's vet reads from.
+ *
+ * **"Polivalente" is one entry, not three.** Penta, hexa and octovalente are
+ * the same annual booster with a different valency; offering them separately
+ * would split the very schedule this list exists to hold together, so the
+ * valency belongs in the note.
+ */
+export const VACCINE_NAMES = [
+  "Polivalente",
+  "Rabia",
+  "Bivalente",
+  "Tos de las perreras",
+  "Leishmaniosis",
+] as const;
+
+/** The label for the escape hatch, and the value that reveals the text field. */
+export const VACCINE_OTHER = "Otra";
+
+/** Whether a stored name is one of the standard ones, for reopening a row. */
+export function isStandardVaccine(name: string | null): boolean {
+  const trimmed = (name ?? "").trim().toLocaleLowerCase("es");
+  return VACCINE_NAMES.some(
+    (known) => known.toLocaleLowerCase("es") === trimmed,
+  );
+}
+
+/**
+ * What a given vaccine is, where the name alone does not say it.
+ *
+ * Only where somebody would otherwise guess wrong: the valency names that look
+ * like different vaccines and are not, and the one whose common name says
+ * nothing about what it protects against.
+ */
+const VACCINE_NOTES: Record<string, string> = {
+  Polivalente: "Penta, hexa u octovalente: la misma pauta anual.",
+  "Tos de las perreras":
+    "Bordetella. Suelen pedirla en guarderías y residencias.",
+};
+
+export function vaccineNote(name: string): string | null {
+  return VACCINE_NOTES[name] ?? null;
+}
+
+/**
  * What to write in the name field, per kind.
  *
  * **The examples are the other half of the label.** "(Int.)" says which of the

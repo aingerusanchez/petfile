@@ -62,7 +62,7 @@ test("records a weight and reads it back in kilograms", async ({ page }) => {
   // type in months of past weighings. It does open on the day's own row when
   // there is one, so an upsert can never replace a weight it never showed.
   await expect(page.getByTestId("health-weight-add")).toContainText(
-    "Apuntar peso",
+    "Anotar peso",
   );
   await page.getByTestId("health-weight-add").click();
   await expect(page.getByTestId("weight-value")).toHaveValue("12,4");
@@ -165,6 +165,57 @@ test("proposes the next date from the kind, and keeps what is confirmed", async 
   await expect(page.getByTestId("health-treatments")).toContainText("Milbemax");
 });
 
+test("picks a vaccine from a list, and keeps a free field for the rest", async ({
+  page,
+}) => {
+  await openHealth(page);
+  await page.getByTestId("health-treatment-add").click();
+
+  // A vaccine's name *is* its schedule key, so it comes off a list: free text
+  // would make "Rabia" and "rabia" two pautas, each holding half the history.
+  await expect(page.getByTestId("treatment-name")).toBeHidden();
+  await expect(page.getByTestId("treatment-vaccine-note")).toContainText(
+    "hexa",
+  );
+
+  await page.getByTestId("treatment-vaccine-rabia").click();
+  await expect(page.getByTestId("treatment-vaccine-note")).toBeHidden();
+  await page.getByTestId("treatment-save").click();
+  await expect(page.getByTestId("health-treatments")).toContainText("Rabia");
+
+  // The two dewormings keep the field: there the name is whichever product the
+  // vet handed over, and the kind is the schedule.
+  await page.getByTestId("health-treatment-add").click();
+  await page.getByTestId("treatment-kind-deworming").click();
+  await expect(page.getByTestId("treatment-name")).toBeVisible();
+  await page.getByTestId("treatment-name").fill("Milbemax");
+  await page.getByTestId("treatment-save").click();
+  await expect(page.getByTestId("health-treatments")).toContainText("Milbemax");
+});
+
+test("reveals the field for a vaccine the list has never heard of", async ({
+  page,
+}) => {
+  await openHealth(page);
+  await page.getByTestId("health-treatment-add").click();
+
+  await page.getByTestId("treatment-vaccine-otra").click();
+  await expect(page.getByTestId("treatment-name")).toBeVisible();
+  await page.getByTestId("treatment-name").fill("Pentavalente");
+  await page.getByTestId("treatment-save").click();
+  await expect(page.getByTestId("health-treatments")).toContainText(
+    "Pentavalente",
+  );
+
+  // And it reopens on "Otra" with the name intact: a closed list must never
+  // rewrite what somebody already wrote down.
+  await page
+    .getByTestId(/^health-treatment-[0-9a-f]/)
+    .first()
+    .click();
+  await expect(page.getByTestId("treatment-name")).toHaveValue("Pentavalente");
+});
+
 test("stops proposing once the tutor has written the date themselves", async ({
   page,
 }) => {
@@ -190,6 +241,8 @@ test("a treatment with no next date is not pending, because it is done", async (
   await openHealth(page);
 
   await page.getByTestId("health-treatment-add").click();
+  // A deworming, because that is the kind that still has a free name field.
+  await page.getByTestId("treatment-kind-deworming").click();
   await page.getByTestId("treatment-name").fill("Una sola vez");
   // "Sin fecha" is an answer, not an empty field: a one-off has nothing
   // scheduled after it, and the section above must not invent a reminder.
@@ -207,21 +260,18 @@ test("corrects a treatment, and can delete one", async ({ page }) => {
   await openHealth(page);
 
   await page.getByTestId("health-treatment-add").click();
-  await page.getByTestId("treatment-name").fill("Polivalnte");
+  await page.getByTestId("treatment-kind-deworming").click();
+  await page.getByTestId("treatment-name").fill("Milbemx");
   await page.getByTestId("treatment-save").click();
-  await expect(page.getByTestId("health-treatments")).toContainText(
-    "Polivalnte",
-  );
+  await expect(page.getByTestId("health-treatments")).toContainText("Milbemx");
 
   const row = page.getByTestId(/^health-treatment-[0-9a-f]/).first();
   await row.click();
-  await page.getByTestId("treatment-name").fill("Polivalente");
+  await page.getByTestId("treatment-name").fill("Milbemax");
   await page.getByTestId("treatment-save").click();
-  await expect(page.getByTestId("health-treatments")).toContainText(
-    "Polivalente",
-  );
+  await expect(page.getByTestId("health-treatments")).toContainText("Milbemax");
   await expect(page.getByTestId("health-treatments")).not.toContainText(
-    "Polivalnte",
+    "Milbemx",
   );
 
   await page
@@ -242,8 +292,9 @@ test("keeps every control on the 48dp floor", async ({ page }) => {
     "treatment-kind-vaccine",
     "treatment-kind-deworming",
     "treatment-kind-antiparasitic",
+    "treatment-vaccine-rabia",
+    "treatment-vaccine-otra",
     "treatment-save",
-    "treatment-name",
   ]) {
     const box = await page.getByTestId(id).boundingBox();
     expect(

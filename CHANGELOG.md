@@ -51,6 +51,14 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   lleva además su icono, y nombran para qué sirven y no a qué se parecen: una
   jeringuilla, un gusano para lo que vive dentro y una garrapata para lo que
   vive fuera.
+- **Las vacunas se eligen de una lista; las desparasitaciones se escriben.** En
+  las vacunas el nombre _es_ la pauta, así que el texto libre la parte en
+  tantas como formas haya de escribirla — "Rabia", "rabia ", "Vacuna
+  antirrábica" — y cada trozo se queda con un cacho del historial sin recordar
+  nada a nadie. Polivalente · Rabia · Bivalente · Tos de las perreras ·
+  Leishmaniosis, y "Otra" para el resto. **Las valencias son una sola entrada**:
+  penta, hexa y octovalente son el mismo refuerzo anual, y separarlas rompería
+  justo la pauta que la lista existe para mantener unida.
 - **La fecha que se rellena sola dice cada cuánto toca.** "Suele tocar cada 3
   meses" bajo el campo: una fecha que aparece de la nada invita o a confiar a
   ciegas o a corregirla sin saber por qué. La frase sale del mismo constante
@@ -96,7 +104,7 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
 - **El botón del peso decía "Corregir el peso de hoy"**, que es cierto de lo
   que propone y falso del botón: lo primero que se hace con una línea vacía es
   meter meses de pesajes del más reciente al más antiguo, y todos pasaban por
-  un botón que hablaba de hoy. Ahora dice siempre "Apuntar peso" y abre sobre
+  un botón que hablaba de hoy. Ahora dice siempre "Anotar peso" y abre sobre
   el registro del día cuando lo hay, para que un guardado no pueda sustituir
   un peso que nunca llegó a enseñar.
 - Los botones de añadir quedaban pegados al borde inferior de su sección.

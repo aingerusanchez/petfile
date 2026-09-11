@@ -1,5 +1,9 @@
 import {
   addDays,
+  isStandardVaccine,
+  VACCINE_NAMES,
+  VACCINE_OTHER,
+  vaccineNote,
   TREATMENT_INTERVAL_DAYS,
   TREATMENT_KINDS,
   treatmentCadence,
@@ -194,6 +198,37 @@ describe("validateTreatment", () => {
         nextDueOn: new Date(2026, 8, 11),
       }),
     ).toEqual({});
+  });
+});
+
+describe("the vaccine list", () => {
+  it("recognises a standard name however it was typed", () => {
+    expect(isStandardVaccine("Rabia")).toBe(true);
+    expect(isStandardVaccine(" rabia ")).toBe(true);
+    expect(isStandardVaccine("Tos de las perreras")).toBe(true);
+  });
+
+  it("does not claim one it has never heard of", () => {
+    // The rows written before the list existed reopen on "Otra" with their
+    // own name intact: a closed list must not rewrite what somebody already
+    // wrote down.
+    expect(isStandardVaccine("Pentavalente")).toBe(false);
+    expect(isStandardVaccine(null)).toBe(false);
+    expect(isStandardVaccine("")).toBe(false);
+  });
+
+  it("keeps the valencies as one schedule", () => {
+    // Penta, hexa and octovalente are the same annual booster. Offering them
+    // separately would split the very pauta the list exists to hold together,
+    // so the list says "Polivalente" and the note explains it.
+    expect(VACCINE_NAMES).not.toContain("Pentavalente");
+    expect(VACCINE_NAMES).toContain("Polivalente");
+    expect(vaccineNote("Polivalente")).toContain("hexa");
+    expect(vaccineNote("Rabia")).toBeNull();
+  });
+
+  it("never offers the escape hatch as a name", () => {
+    expect(VACCINE_NAMES).not.toContain(VACCINE_OTHER);
   });
 });
 

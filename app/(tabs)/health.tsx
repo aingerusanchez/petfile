@@ -19,6 +19,7 @@ import {
 import { MONTHS_ES, parseISO } from "../../lib/dates";
 import { getMyPet, type PetRow } from "../../lib/pets";
 import {
+  TREATMENT_KINDS,
   dateKey,
   deleteTreatment,
   dueStatus,
@@ -31,7 +32,10 @@ import {
   treatmentNameExamples,
   treatmentsFor,
   updateTreatment,
-  TREATMENT_KINDS,
+  isStandardVaccine,
+  vaccineNote,
+  VACCINE_NAMES,
+  VACCINE_OTHER,
   type PetTreatmentRow,
   type TreatmentKind,
 } from "../../lib/treatments";
@@ -246,13 +250,13 @@ export default function Health() {
         <View className="mb-4">
           <Button
             testID="health-weight-add"
-            // **Always "Apuntar peso", because the sheet is where the day is
+            // **Always "Anotar peso", because the sheet is where the day is
             // chosen.** It said "Corregir el peso de hoy" once the day had
             // one, which is true of the default and false of the control: the
             // first thing a tutor does with an empty line is type in months
             // of weighings, most recent first, and every one of them went
             // through a button claiming to be about today.
-            label="Apuntar peso"
+            label="Anotar peso"
             variant="secondary"
             icon={Scale}
             // Landing on today's row rather than on a blank one when the day
@@ -503,7 +507,7 @@ function WeightSheet({
         accessibilityRole="header"
         className="mb-5 font-bold text-lg text-text-primary"
       >
-        {existing ? "Corregir el peso" : "Apuntar peso"}
+        {existing ? "Corregir el peso" : "Anotar peso"}
       </Text>
 
       <View className="mb-5">
@@ -603,6 +607,24 @@ function TreatmentSheet({
     (existing?.kind as TreatmentKind) ?? "vaccine",
   );
   const [name, setName] = useState(existing?.name ?? "");
+  /**
+   * Which vaccine the selector is on — a name, or "Otra".
+   *
+   * **Reopening a row that predates the list lands on "Otra" with its name
+   * intact.** A closed list cannot be allowed to quietly rewrite what somebody
+   * already wrote down: "Pentavalente" was a perfectly good answer before
+   * there were chips, and it stays one.
+   */
+  const [vaccine, setVaccine] = useState<string>(() => {
+    if (!existing || existing.kind !== "vaccine") return VACCINE_NAMES[0];
+    return isStandardVaccine(existing.name)
+      ? (VACCINE_NAMES.find(
+          (known) =>
+            known.toLocaleLowerCase("es") ===
+            (existing.name ?? "").trim().toLocaleLowerCase("es"),
+        ) ?? VACCINE_OTHER)
+      : VACCINE_OTHER;
+  });
   const [on, setOn] = useState<string | null>(
     existing?.administered_on ?? dateKey(today),
   );
@@ -630,9 +652,12 @@ function TreatmentSheet({
     if (from) setNext(dateKey(proposeNextDue(forKind, from)));
   };
 
+  const savedName =
+    kind === "vaccine" && vaccine !== VACCINE_OTHER ? vaccine : name.trim();
+
   const changed = existing
     ? kind !== existing.kind ||
-      name.trim() !== (existing.name ?? "") ||
+      savedName !== (existing.name ?? "") ||
       on !== existing.administered_on ||
       next !== existing.next_due_on ||
       note.trim() !== (existing.note ?? "")
@@ -647,7 +672,9 @@ function TreatmentSheet({
 
     const treatment = {
       kind,
-      name,
+      // A vaccine's name is the one the selector holds, unless the tutor
+      // reached for "Otra" and typed their own.
+      name: kind === "vaccine" && vaccine !== VACCINE_OTHER ? vaccine : name,
       administeredOn,
       nextDueOn: next ? dateOf(next) : null,
       note,
@@ -692,15 +719,51 @@ function TreatmentSheet({
         </ChipGroup>
       </View>
 
-      <View className="mb-5">
-        <TextField
-          testID="treatment-name"
-          label="NOMBRE"
-          value={name}
-          onChangeText={setName}
-          placeholder={treatmentNameExamples(kind)}
-        />
-      </View>
+      {/* **The vaccines are a list; the dewormings are a field.** Here the
+          name *is* the schedule key, so free text splits a pauta into as many
+          as there are ways to write it — and each fragment holds a third of
+          the history and reminds nobody of anything. The other two kinds keep
+          their field, because there the name is the product the vet happened
+          to hand over and the kind is the schedule. */}
+      {kind === "vaccine" ? (
+        <View className="mb-5">
+          <ChipGroup label="CUÁL">
+            {[...VACCINE_NAMES, VACCINE_OTHER].map((option) => (
+              <Chip
+                key={option}
+                testID={`treatment-vaccine-${option
+                  .toLocaleLowerCase("es")
+                  .replace(/\s+/g, "-")}`}
+                label={option}
+                selected={vaccine === option}
+                onPress={() => setVaccine(option)}
+              />
+            ))}
+          </ChipGroup>
+          {vaccineNote(vaccine) ? (
+            <Text
+              testID="treatment-vaccine-note"
+              className="-mt-3 mb-5 text-xs text-text-tertiary"
+            >
+              {vaccineNote(vaccine)}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {kind !== "vaccine" || vaccine === VACCINE_OTHER ? (
+        <View className="mb-5">
+          <TextField
+            testID="treatment-name"
+            label="NOMBRE"
+            value={name}
+            onChangeText={setName}
+            placeholder={
+              kind === "vaccine" ? "¿Cuál?" : treatmentNameExamples(kind)
+            }
+          />
+        </View>
+      ) : null}
 
       <View className="mb-5">
         <DateField
