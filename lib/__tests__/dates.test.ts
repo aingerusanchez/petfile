@@ -64,7 +64,7 @@ describe("toISO", () => {
 
 describe("toApproximateISO", () => {
   it("pins the day to the first of the month", () => {
-    expect(toApproximateISO(2025, 9)).toBe("2025-09-01");
+    expect(toApproximateISO({ year: 2025, month: 9 })).toBe("2025-09-01");
   });
 });
 

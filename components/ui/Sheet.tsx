@@ -59,7 +59,13 @@ export function Sheet({
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      {/* **The scrim is a control and has to say so.** It is the largest
+          clickable node on any sheet — full screen — and it announced nothing,
+          so a screen reader met an unlabelled button covering the page. It is
+          one of the four documented ways out. */}
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Cerrar"
         testID={scrimTestID}
         onPress={onClose}
         className={`flex-1 bg-base/80 ${fromTop ? "justify-start" : "justify-end"}`}

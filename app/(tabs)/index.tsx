@@ -9,7 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { AppState, Pressable, View } from "react-native";
 import {
   Button,
   colors,
@@ -41,7 +41,7 @@ import { formatDuration, parseDuration } from "../../lib/duration";
 import {
   deleteEvent,
   eventsForDay,
-  eventsForMonth,
+  eventsForMonths,
   formatTimeOfDay,
   logEvent,
   MAX_WALK_MINUTES,
@@ -138,6 +138,15 @@ const ORDER: EventKind[] = ["walk", "meal", "medication", "incident"];
 const STEP_MINUTES = 15;
 
 /**
+ * How far back the calendar's marks reach, in whole months.
+ *
+ * One request covers the lot — see `monthsBackBounds`. A year is past any
+ * "which day did he have diarrhoea?" anybody asks, and past its edge the
+ * marks stop rather than lying, which the calendar says in words.
+ */
+const MARKED_MONTHS = 12;
+
+/**
  * The clock time `total` minutes before `at` — or "" when that leaves the day.
  *
  * DESDE holds a time of day with no date, so a start on the previous day comes
@@ -204,16 +213,24 @@ export default function Home() {
   /**
    * The day on screen, and the boundary it cannot pass.
    *
-   * `today` is captured once: a session that crosses midnight keeps calling
-   * the day it started on "Hoy", which is wrong for about as long as it takes
-   * to notice and is cheaper than a ticking clock.
+   * **Re-read whenever the app comes back to the foreground**, because it used
+   * to be captured once and that is not "wrong until somebody notices" — it is
+   * wrong with no way out. `today` caps the forward arrow and the calendar's
+   * `maxDate`, so a session opened at 22:00 and reopened at 00:10 called
+   * yesterday "Hoy" and could not reach the real day at all without killing
+   * the app. The goal confetti would not fire either, on the one walk of the
+   * night that earned it.
+   *
+   * A foreground check rather than a ticking clock: a phone asleep in a pocket
+   * does not need a timer, and the moment that matters is the one where
+   * somebody picks it up.
    */
-  const [today] = useState(() => new Date());
+  const [today, setToday] = useState(() => new Date());
   const [day, setDay] = useState(() => new Date());
   const [picking, setPicking] = useState(false);
   /** One month of marks for the calendar, fetched only once it is opened. */
   const [marks, setMarks] = useState<Map<string, DaySummary>>(new Map());
-  const [marksMonth, setMarksMonth] = useState(() => new Date());
+  const [marksError, setMarksError] = useState<string | null>(null);
   const [pet, setPet] = useState<PetRow | null>(null);
   const [events, setEvents] = useState<PetEventRow[] | null>(null);
   /** Fatal: with no pet there is no day to show. */
@@ -249,20 +266,52 @@ export default function Home() {
     };
   }, [day, attempt]);
 
-  // Lazily, and only while the calendar is open: a month of rows is cheap but
-  // it is not free, and most visits to the diary never open it.
+  /**
+   * Lazily, and only while the calendar is open: most visits to the diary
+   * never open it.
+   *
+   * **A window rather than the month on screen**, because the library's
+   * header arrows move the month without telling anybody — see
+   * `monthsBackBounds`. A year of one dog's entries is one cheap request, and
+   * it means paging back says what happened instead of asserting that nothing
+   * did.
+   *
+   * A failed read is kept and said out loud: an empty map and a clean grid are
+   * indistinguishable, and a calendar quietly reporting a month of nothing is
+   * worse than one admitting it could not look.
+   */
   useEffect(() => {
     if (!picking || !pet) return;
     let cancelled = false;
-    eventsForMonth(pet.id, marksMonth).then(({ days }) => {
-      // A failed month read costs the marks, not the picker: the calendar
-      // still navigates, it just stops saying what happened.
-      if (!cancelled) setMarks(days);
+    // The reset lands with the result rather than before the request: a
+    // synchronous setState in an effect body is the cascading render
+    // `react-hooks/set-state-in-effect` exists to stop.
+    eventsForMonths(pet.id, today, MARKED_MONTHS).then(({ days, error }) => {
+      if (cancelled) return;
+      setMarks(days);
+      setMarksError(error);
     });
     return () => {
       cancelled = true;
     };
-  }, [picking, pet, marksMonth, attempt]);
+  }, [picking, pet, today, attempt]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") return;
+      const now = new Date();
+      // Only when the date actually turned: a `setToday` on every foreground
+      // would refetch the day for nothing.
+      if (daysAgo(now, today) === 0) return;
+      setToday(now);
+      // **The day on screen follows only if it was the old today.** Somebody
+      // who left the app reading Tuesday comes back to Tuesday; dragging them
+      // to the new day would lose their place to fix a boundary they were not
+      // standing on.
+      if (daysAgo(day, today) === 0) setDay(now);
+    });
+    return () => sub.remove();
+  }, [today, day]);
 
   const reload = useCallback(() => {
     setPetError(null);
@@ -387,10 +436,7 @@ export default function Home() {
 
         <Pressable
           testID="home-day"
-          onPress={() => {
-            setMarksMonth(day);
-            setPicking(true);
-          }}
+          onPress={() => setPicking(true)}
           accessibilityRole="button"
           accessibilityLabel={`${headline}, ${formatDayDate(day)}. Elegir otro día`}
           style={{ minHeight: TOUCH_TARGET }}
@@ -454,13 +500,18 @@ export default function Home() {
           </View>
           {/* A bar, not a ring: the question is "how much of the day's target
               is done", which is one dimension. */}
-          <View className="h-1 overflow-hidden rounded-xl bg-surface">
+          {/* `h-[4px]`, not `h-1`. The calendar draws this same bar in
+              miniature and sizes it in literal pixels; `h-1` is 0.25rem,
+              which native resolves at 14px/rem to 3.38dp — measured, against
+              the calendar's 4.00. Two surfaces quoting one element cannot
+              round differently. */}
+          <View className="h-[4px] overflow-hidden rounded-xl bg-surface">
             <View
               testID="home-goal-bar"
               style={{
                 width: `${Math.min(100, goal === 0 ? 0 : (walked / goal) * 100)}%`,
               }}
-              className={`h-1 ${met ? "bg-accent-secondary" : "bg-text-secondary"}`}
+              className={`h-[4px] ${met ? "bg-accent-secondary" : "bg-text-secondary"}`}
             />
           </View>
         </View>
@@ -537,7 +588,7 @@ export default function Home() {
             value={day}
             maxDate={today}
             birthDate={pet.birth_date}
-            onMonthChange={setMarksMonth}
+            error={marksError}
             onSelect={(picked) => {
               setDay(picked);
               setPicking(false);

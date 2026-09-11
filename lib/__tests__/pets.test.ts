@@ -1,4 +1,8 @@
-import { validatePetDraft, type PetDraft } from "../pets";
+import {
+  validatePetDraft,
+  withApproximateBirthDate,
+  type PetDraft,
+} from "../pets";
 
 // `pets` reaches for the client at module scope, so the mock has to be in
 // place before it loads. `jest.mock` is hoisted above the imports by babel,
@@ -97,5 +101,44 @@ describe("validatePetDraft", () => {
         today,
       ),
     ).toEqual({});
+  });
+});
+
+describe("withApproximateBirthDate", () => {
+  const draft = { birthDate: "2025-09-14", birthDateApproximate: false };
+
+  it("pins the day to the 1st and keeps the month and the year", () => {
+    // The defect this exists to prevent: the profile called the old
+    // `(year, month)` signature the other way round and produced
+    // "0009-2025-01", which parses as nothing and emptied the field.
+    expect(withApproximateBirthDate(draft, true)).toEqual({
+      birthDate: "2025-09-01",
+      birthDateApproximate: true,
+    });
+  });
+
+  it("leaves the date alone when the flag comes off", () => {
+    const approximate = { birthDate: "2025-09-01", birthDateApproximate: true };
+    expect(withApproximateBirthDate(approximate, false)).toEqual({
+      birthDate: "2025-09-01",
+      birthDateApproximate: false,
+    });
+  });
+
+  it("has nothing to pin when there is no date yet", () => {
+    expect(
+      withApproximateBirthDate(
+        { birthDate: null, birthDateApproximate: false },
+        true,
+      ),
+    ).toEqual({ birthDate: null, birthDateApproximate: true });
+  });
+
+  it("carries the rest of the draft through untouched", () => {
+    const full = { ...draft, name: "Loki", isMixed: true };
+    expect(withApproximateBirthDate(full, true)).toMatchObject({
+      name: "Loki",
+      isMixed: true,
+    });
   });
 });

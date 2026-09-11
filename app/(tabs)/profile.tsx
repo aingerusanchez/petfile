@@ -32,12 +32,7 @@ import {
 import { describeAge } from "../../lib/age";
 import { useAuth } from "../../lib/auth";
 import { useSettings } from "../../lib/settings";
-import {
-  birthdayOn,
-  daysUntilBirthday,
-  parseISO,
-  toApproximateISO,
-} from "../../lib/dates";
+import { birthdayOn, daysUntilBirthday } from "../../lib/dates";
 import {
   DURATION_HINT,
   formatDuration,
@@ -51,6 +46,7 @@ import {
   updatePet,
   updatePetPhoto,
   validatePetDraft,
+  withApproximateBirthDate,
   withMixed,
   type PetEdit,
   type PetRow,
@@ -620,17 +616,22 @@ export default function Profile() {
             maxLength={40}
           />
 
+          {/* The icons were on the registration form and not on this one —
+              the same two chips, drifted. They carry the selected/unselected
+              signal alongside the weight change, so the form that edits the
+              value should not be the quieter of the two. */}
           <ChipGroup label="Sexo" className="mb-5">
             {(
               [
-                { value: "male", label: "Macho" },
-                { value: "female", label: "Hembra" },
+                { value: "male", label: "Macho", icon: Mars },
+                { value: "female", label: "Hembra", icon: Venus },
               ] as const
-            ).map(({ value, label }) => (
+            ).map(({ value, label, icon }) => (
               <Chip
                 key={value}
                 testID={`profile-sex-${value}`}
                 label={label}
+                icon={icon}
                 selected={edit.sex === value}
                 onPress={() => setEdit((d) => d && { ...d, sex: value })}
               />
@@ -653,21 +654,9 @@ export default function Profile() {
               accessibilityLabel="Fecha de nacimiento aproximada"
               checked={edit.birthDateApproximate}
               onChange={(approximate) =>
-                setEdit((d) => {
-                  if (!d) return d;
-                  const parsed = d.birthDate ? parseISO(d.birthDate) : null;
-                  return {
-                    ...d,
-                    birthDateApproximate: approximate,
-                    // Rewrites the day to the 1st when the date becomes
-                    // approximate, so the stored value cannot keep a day the
-                    // tutor has just said they do not know.
-                    birthDate:
-                      approximate && parsed
-                        ? toApproximateISO(parsed.month, parsed.year)
-                        : d.birthDate,
-                  };
-                })
+                setEdit((d) =>
+                  d ? withApproximateBirthDate(d, approximate) : d,
+                )
               }
             />
           </View>
@@ -908,7 +897,7 @@ export default function Profile() {
                 onPress={() => setConfirmingDelete(false)}
                 accessibilityRole="button"
                 accessibilityLabel="Cancelar"
-                style={{ minHeight: 48 }}
+                style={{ minHeight: TOUCH_TARGET }}
                 className="flex-1 items-center justify-center rounded-xl border border-border-strong py-4 active:opacity-70"
               >
                 <Text className="text-text-secondary">Cancelar</Text>

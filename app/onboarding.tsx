@@ -19,12 +19,12 @@ import {
   useToast,
 } from "../components/ui";
 import { useAuth } from "../lib/auth";
-import { parseISO, toApproximateISO } from "../lib/dates";
 import {
   createPet,
   getMyPet,
   isMixedShown,
   validatePetDraft,
+  withApproximateBirthDate,
   withMixed,
   type PetDraft,
 } from "../lib/pets";
@@ -327,17 +327,7 @@ export default function Onboarding() {
    * Unticking leaves the value alone — the picker will ask for a day next.
    */
   function setApproximate(next: boolean) {
-    setDraft((d) => {
-      if (!next) return { ...d, birthDateApproximate: false };
-      const parts = parseISO(d.birthDate);
-      return {
-        ...d,
-        birthDateApproximate: true,
-        birthDate: parts
-          ? toApproximateISO(parts.year, parts.month)
-          : d.birthDate,
-      };
-    });
+    setDraft((d) => withApproximateBirthDate(d, next));
   }
 
   /**
