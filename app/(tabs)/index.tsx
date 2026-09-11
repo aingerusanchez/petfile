@@ -48,6 +48,7 @@ import {
   minutesBetween,
   parseTimeOfDay,
   shiftMinutes,
+  startWithinDay,
   updateEvent,
   walkedMinutes,
   type DaySummary,
@@ -135,6 +136,21 @@ const ORDER: EventKind[] = ["walk", "meal", "medication", "incident"];
 
 /** How much a tap on -15 or +15 moves a walk's duration. */
 const STEP_MINUTES = 15;
+
+/**
+ * The clock time `total` minutes before `at` — or "" when that leaves the day.
+ *
+ * DESDE holds a time of day with no date, so a start on the previous day comes
+ * back as that same clock time on the day on screen, which is *after* the end.
+ * Rather than write a time that means the wrong thing, the field goes empty
+ * and the duration carries the walk on its own. See `applyMinutes`.
+ */
+function startOnDay(atText: string, day: Date, total: number): string {
+  const end = parseTimeOfDay(atText, day);
+  if (!end) return "";
+  const start = startWithinDay(end, total);
+  return start ? formatTimeOfDay(start) : "";
+}
 
 /** The same clock time, `by` days away. */
 function shiftDays(day: Date, by: number): Date {
@@ -322,6 +338,20 @@ export default function Home() {
       : birthdayYears === 0
         ? `${pet.name} nació este día`
         : `Cumpleaños de ${pet.name}`;
+  /**
+   * **The emoji is ornament, so it is shown and not spoken.**
+   *
+   * Same split the onboarding headline and the activity hint already make: a
+   * reader announcing "tarta de cumpleaños, cara de fiesta" describes the
+   * decoration instead of the day. It also sidesteps The No-Glyph Rule rather
+   * than breaking it — the rule bans a character standing in for an *icon*,
+   * and nothing here depends on these two: strip them and the headline still
+   * says everything.
+   */
+  const headlineShown =
+    birthdayYears !== null && birthdayYears > 0
+      ? `🎂 ${headline} 🎉`
+      : headline;
 
   return (
     <Screen
@@ -366,20 +396,29 @@ export default function Home() {
           style={{ minHeight: TOUCH_TARGET }}
           className="flex-1 items-center justify-center active:opacity-70"
         >
-          {/* **No cake up here, and that was measured.** It read well and it
-              cost "Cumpleaños de Loki" a line wrap — the icon plus its gap
-              took the string past the width between the two arrows, so the
-              decoration broke the exact phrase it decorated. The words say
-              it, the calendar's watermark is the mark, and the file's age
-              line keeps the glyph where it has room. Two lines at most, so a
-              long name wraps rather than being clipped. */}
+          {/* **The ornament is in the string, not beside it.** A separate
+              icon plus its gap took the phrase past the width between the two
+              arrows and broke the exact line it decorated; inside the text it
+              is just two more characters, and `text-balance` gets to split
+              the whole thing evenly rather than leaving one word alone on the
+              second line.
+
+              **Two lines is the ceiling, measured in pixels rather than
+              characters.** "Cumpleaños de Silver Odinsonn" is a real name and
+              a real two-liner, and a longer one truncates at the end of the
+              second line instead of reaching a third — which is the right
+              limit, because a character cap would cut the same name on a
+              phone where it fitted. `text-balance` is dropped by the native
+              compiler (see AvatarEditor), so on the device the split is
+              whatever the line breaker does; on the web it is even. */}
           <Text
             testID="home-title"
             accessibilityRole="header"
+            accessibilityLabel={headline}
             numberOfLines={2}
-            className="text-center text-2xl text-text-primary"
+            className="text-center text-2xl text-balance text-text-primary"
           >
-            {headline}
+            {headlineShown}
           </Text>
           <View className="flex-row items-center gap-2">
             <Text testID="home-date" className="text-text-tertiary">
@@ -455,11 +494,11 @@ export default function Home() {
           <Text className="mb-5 text-text-tertiary">
             {birthdayYears !== null && birthdayYears > 0
               ? isToday
-                ? "Nada apuntado aún. ¿Un paseo largo para celebrarlo?"
-                : "Ese día no se apuntó nada."
+                ? "Nada registrado aún. ¿Un paseo por la playa 🏖️ o montaña ⛰️ para celebrarlo?"
+                : "No hay registros de este día."
               : isToday
-                ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y no se pierde.`
-                : "Puedes apuntarlo ahora: se guarda en ese día, no en hoy."}
+                ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y lo recordaré.`
+                : "Aún puedes registrar actividades para este día."}
           </Text>
         </Group>
       ) : (
@@ -756,13 +795,22 @@ function EntrySheet({
 
   const parsedAt = parseTimeOfDay(at, day);
   const parsedFrom = from.trim() ? parseTimeOfDay(from, day) : null;
+  // With no DESDE the duration is the fact rather than a derivation of it, so
+  // the steppers count from the field instead of from the two times.
   const minutes =
-    parsedFrom && parsedAt ? (minutesBetween(parsedFrom, parsedAt) ?? 0) : 0;
+    parsedFrom && parsedAt
+      ? (minutesBetween(parsedFrom, parsedAt) ?? 0)
+      : (parseDuration(durationText) ?? 0);
 
   /** Recomputes the display of the derived field. Never writes into a time. */
   const showDuration = useCallback(
     (fromText: string, atText: string) => {
-      const start = fromText.trim() ? parseTimeOfDay(fromText, day) : null;
+      // No DESDE means the duration is the fact rather than a reading of the
+      // two times: there is nothing to derive and nothing to throw away. This
+      // is what used to empty the field on blur after a start crossed
+      // midnight — see `applyMinutes`.
+      if (!fromText.trim()) return;
+      const start = parseTimeOfDay(fromText, day);
       const end = parseTimeOfDay(atText, day);
       if (!start || !end) return setDurationText("");
       const total = minutesBetween(start, end);
@@ -818,30 +866,32 @@ function EntrySheet({
    *
    * ---
    *
-   * **KNOWN BUG: a duration that reaches back across midnight resets itself.**
+   * **A start that reaches back past midnight is not written into DESDE.**
    *
-   * Step +15 on a walk that ends just after midnight — HASTA 00:20, tap +15
-   * three times — and the duration climbs to 45 min while DESDE shows 23:35.
-   * Blur it and the duration field **empties**; press Guardar instead and the
-   * save is refused with "Tiene que ser antes de la hora de vuelta", about a
-   * field the tutor never typed.
+   * `from` is a time of day with no date: `formatTimeOfDay` keeps only HH:MM,
+   * and `parseTimeOfDay(from, day)` puts it back on the day on screen. So a
+   * start computed on the *previous* day came back as that clock time today —
+   * after the end rather than before it. Stepping +15 three times on a walk
+   * ending at 00:20 gave "45 min" with DESDE at 23:35, and then blurring
+   * emptied the duration while Guardar blamed DESDE for a value the tutor had
+   * never typed.
    *
-   * The cause is that `from` is a **time of day with no date**.
-   * `formatTimeOfDay` drops everything but HH:MM, so the 23:35 this function
-   * computes on the previous day is re-parsed by `parseTimeOfDay(from, day)`
-   * as 23:35 on the day on screen — after the end rather than before it.
-   * `minutesBetween` then returns null, `showDuration` writes "" into the
-   * field, and `save` blames DESDE.
+   * The answer is not to make DESDE hold a date. It is that **a walk is
+   * allowed to be an end plus a length**: the tutor knows they got home at
+   * 00:20 and were out about forty-five minutes, which is a complete fact, and
+   * `pet_events.duration_minutes` is a real column rather than something
+   * derived from the two times. So when the start falls outside the day, the
+   * duration stays and DESDE goes empty — the field is optional and says so —
+   * and `save` takes the length from the duration field instead.
    *
-   * The fix is to stop round-tripping the start through a string: keep the
-   * instant this function already computed and let `save` use it, with the
-   * text as display only. That also makes a legitimate walk across midnight
-   * (23:30 → 00:15) representable, which is refused outright today — see the
-   * note on that refusal in DESIGN.md, which is a deliberate decision about a
-   * *typed* start and not about one the app produced itself.
+   * It also serves the case PRODUCT.md wanted anyway: "unos cuarenta minutos"
+   * is a real memory of a walk, and now it can be logged without inventing a
+   * start time to go with it.
    *
-   * Left unfixed on purpose: the window is the few minutes after midnight, and
-   * the failure is loud rather than silent — nothing wrong is ever saved.
+   * What is still refused is a start the tutor **typed** after its end. That
+   * is a different decision, recorded in DESIGN.md: a mistyped digit is
+   * likelier than a walk across midnight, and guessing would file the entry
+   * under a day nobody chose.
    */
   const applyMinutes = useCallback(
     (total: number) => {
@@ -857,8 +907,7 @@ function EntrySheet({
       }
       setDurationError(null);
       setDurationText(formatDuration(total, durationFormat));
-      const end = parseTimeOfDay(at, day);
-      if (end) setFrom(formatTimeOfDay(shiftMinutes(end, -total)));
+      setFrom(startOnDay(at, day, total));
     },
     [at, day, durationFormat],
   );
@@ -884,17 +933,33 @@ function EntrySheet({
         return;
       }
       setDurationError(null);
-      const end = parseTimeOfDay(at, day);
-      if (end) setFrom(formatTimeOfDay(shiftMinutes(end, -total)));
+      setFrom(startOnDay(at, day, total));
     },
     [at, day],
   );
 
-  /** Blurring discards a refused duration: the times are the truth. */
+  /**
+   * Blurring discards a refused duration.
+   *
+   * **With DESDE there are two times to fall back on, and without it there are
+   * not** — so the empty-start case has to tidy the field on its own rather
+   * than re-derive it, or a refused "99h" would sit there with its error
+   * cleared and be dropped in silence at save time. A valid value is kept and
+   * normalised; anything else goes.
+   */
   const tidyDuration = useCallback(() => {
     setDurationError(null);
-    showDuration(from, at);
-  }, [showDuration, from, at]);
+    if (from.trim()) {
+      showDuration(from, at);
+      return;
+    }
+    const total = parseDuration(durationText);
+    setDurationText(
+      total !== null && total > 0 && total <= MAX_WALK_MINUTES
+        ? formatDuration(total, durationFormat)
+        : "",
+    );
+  }, [showDuration, from, at, durationText, durationFormat]);
 
   const save = useCallback(async () => {
     const end = parseTimeOfDay(at, day);
@@ -912,6 +977,30 @@ function EntrySheet({
 
     let occurredAt = end;
     let walkMinutes: number | null = null;
+
+    // A walk known only by its end and its length. Either the tutor never
+    // wrote a start, or the one the steppers computed fell on the previous day
+    // and could not be shown as a time — see `applyMinutes`.
+    if (isWalk && !from.trim()) {
+      const typed = parseDuration(durationText);
+      // A duration out of range is refused here rather than dropped. **This
+      // is the Android path and the web target cannot reach it**: clicking a
+      // button there blurs the input first, so `tidyDuration` has already
+      // thrown the value away by the time this runs, which is why there is no
+      // e2e test for it. Tapping a Pressable on Android does not blur, so the
+      // refused value arrives here — and saving the walk while quietly
+      // discarding the only number the tutor typed is the worst of the three
+      // options.
+      if (durationText.trim() && (typed === null || typed <= 0)) {
+        setDurationError("Escríbela como 45 min o 1h 30m");
+        return false;
+      }
+      if (typed !== null && typed > MAX_WALK_MINUTES) {
+        setDurationError("Como mucho 24 horas");
+        return false;
+      }
+      walkMinutes = typed;
+    }
 
     if (isWalk && from.trim()) {
       const start = parseTimeOfDay(from, day);
@@ -950,6 +1039,7 @@ function EntrySheet({
   }, [
     at,
     from,
+    durationText,
     day,
     isWalk,
     spec,
