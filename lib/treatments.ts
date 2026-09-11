@@ -350,6 +350,39 @@ export function searchTreatments(
   });
 }
 
+/**
+ * The days a vaccine touches: the ones given, and the ones due.
+ *
+ * **Only vaccines, and only because they are rare.** The calendar's whole rule
+ * is that a mark is worth a cell when it is the exception — a monthly
+ * antiparasitic would be twelve marks a year on a grid whose other marks mean
+ * "something happened here", and a weight would be one every fortnight. After
+ * the first four months a vaccine is roughly annual, which is the same
+ * frequency as the birthday the cake already marks.
+ *
+ * Given beats due on a day that is both, because it happened.
+ */
+export function vaccineDays(
+  rows: PetTreatmentRow[],
+): Map<string, "given" | "due"> {
+  const days = new Map<string, "given" | "due">();
+
+  for (const row of rows) {
+    if (row.kind !== "vaccine") continue;
+    if (row.next_due_on && !days.has(row.next_due_on)) {
+      days.set(row.next_due_on, "due");
+    }
+  }
+  // Second pass so a day that is both reads as the dose that was actually
+  // given rather than as one still owed.
+  for (const row of rows) {
+    if (row.kind !== "vaccine") continue;
+    days.set(row.administered_on, "given");
+  }
+
+  return days;
+}
+
 export function validateTreatment(
   treatment: NewTreatment,
 ): Record<string, string> {

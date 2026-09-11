@@ -62,6 +62,7 @@ import {
   type PetEventRow,
 } from "../../lib/events";
 import { getMyPet, type PetRow } from "../../lib/pets";
+import { treatmentsFor, vaccineDays } from "../../lib/treatments";
 import { useSettings, type DurationFormat } from "../../lib/settings";
 import {
   describeStools,
@@ -242,6 +243,15 @@ export default function Home() {
   const [picking, setPicking] = useState(false);
   /** One month of marks for the calendar, fetched only once it is opened. */
   const [marks, setMarks] = useState<Map<string, DaySummary>>(new Map());
+  /**
+   * The days a vaccine touches, read with the marks.
+   *
+   * The whole history in one go, because there are a handful a year and the
+   * due dates live in the future — a window would have to guess which one.
+   */
+  const [vaccines, setVaccines] = useState<Map<string, "given" | "due">>(
+    new Map(),
+  );
   const [marksError, setMarksError] = useState<string | null>(null);
   const [pet, setPet] = useState<PetRow | null>(null);
   /**
@@ -314,6 +324,14 @@ export default function Home() {
       if (cancelled) return;
       setMarks(days);
       setMarksError(error);
+    });
+    // **The vaccines ride along, and their failure does not.** A month whose
+    // entries could not be read is a lie the calendar has to admit to; a
+    // missing syringe is a mark that did not appear, and the tab two along
+    // still has every one of them.
+    treatmentsFor(pet.id).then(({ treatments }) => {
+      if (cancelled) return;
+      setVaccines(vaccineDays(treatments));
     });
     return () => {
       cancelled = true;
@@ -633,6 +651,7 @@ export default function Home() {
         >
           <MonthCalendar
             marks={marks}
+            vaccines={vaccines}
             goalMinutes={goal}
             value={day}
             maxDate={today}

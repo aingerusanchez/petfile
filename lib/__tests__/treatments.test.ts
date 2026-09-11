@@ -4,6 +4,7 @@ import {
   VACCINE_NAMES,
   canonicalVaccine,
   searchTreatments,
+  vaccineDays,
   searchVaccines,
   vaccineNote,
   TREATMENT_INTERVAL_DAYS,
@@ -211,6 +212,31 @@ describe("searchTreatments", () => {
     expect(
       searchTreatments(rows, { kind: "deworming", text: "milbe" }),
     ).toHaveLength(1);
+  });
+});
+
+describe("vaccineDays", () => {
+  it("marks what was given and what is due, vaccines only", () => {
+    const rows = [
+      given("vaccine", "Rabia", "2026-01-29", "2027-01-29"),
+      given("deworming", "Milbemax", "2026-07-14", "2026-10-12"),
+      given("antiparasitic", "Nexgard", "2026-09-02", "2026-10-11"),
+    ];
+    const days = vaccineDays(rows);
+    expect(days.get("2026-01-29")).toBe("given");
+    expect(days.get("2027-01-29")).toBe("due");
+    // A monthly antiparasitic would be twelve marks a year on a grid whose
+    // marks mean "the exception".
+    expect(days.has("2026-10-12")).toBe(false);
+    expect(days.has("2026-10-11")).toBe(false);
+  });
+
+  it("lets the dose that happened win the day it shares", () => {
+    const rows = [
+      given("vaccine", "Rabia", "2025-01-29", "2026-01-29"),
+      given("vaccine", "Rabia", "2026-01-29", "2027-01-29"),
+    ];
+    expect(vaccineDays(rows).get("2026-01-29")).toBe("given");
   });
 });
 

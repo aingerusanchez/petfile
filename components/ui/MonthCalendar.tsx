@@ -1,4 +1,4 @@
-import { Cake } from "lucide-react-native";
+import { Cake, Syringe } from "lucide-react-native";
 import { Pressable, View } from "react-native";
 import DateTimePicker from "react-native-ui-datepicker";
 import { birthdayOn } from "../../lib/dates";
@@ -81,6 +81,16 @@ const CONTAINER_HEIGHT = 340;
  */
 const CAKE = 32;
 
+/**
+ * The vaccine's syringe, in the same slot as the cake.
+ *
+ * Smaller than the cake at 26: a syringe is a long diagonal and at 32 its
+ * barrel runs straight under the day's number, where the cake's mass sits
+ * below it. Measured against the same Steel Frost, which reads as a texture
+ * rather than as a mark.
+ */
+const VACCINE = 26;
+
 /** What one day carries, from `summariseMonth` in `lib/events.ts`. */
 export type CalendarMark = {
   walkedMinutes: number;
@@ -91,6 +101,15 @@ export type CalendarMark = {
 type MonthCalendarProps = {
   /** Keyed `YYYY-MM-DD`. A day absent from the map has nothing logged. */
   marks: Map<string, CalendarMark>;
+  /**
+   * The days a vaccine touches, given or due.
+   *
+   * **Vaccines and nothing else from Salud.** A mark earns a cell by being
+   * the exception: after the first four months a vaccine is about annual,
+   * which is the birthday's own frequency, while a monthly antiparasitic
+   * would be twelve a year on a grid whose marks mean "something happened".
+   */
+  vaccines?: Map<string, "given" | "due">;
   /** The current daily target, for the bar. Null hides it entirely. */
   goalMinutes: number | null;
   /** Selected day. */
@@ -186,6 +205,7 @@ function keyOf(date: string): string {
  */
 export function MonthCalendar({
   marks,
+  vaccines,
   goalMinutes,
   value,
   maxDate,
@@ -227,6 +247,7 @@ export function MonthCalendar({
 
             const years = birthdayOn(new Date(day.date), birthDate);
             const birthday = years !== null;
+            const vaccine = vaccines?.get(keyOf(day.date)) ?? null;
 
             const said = [
               birthday
@@ -234,6 +255,11 @@ export function MonthCalendar({
                   ? "nació este día"
                   : `cumple ${years} ${years === 1 ? "año" : "años"}`
                 : null,
+              vaccine === "given"
+                ? "vacuna puesta"
+                : vaccine === "due"
+                  ? "toca la vacuna"
+                  : null,
               logged ? null : "sin registros",
               met
                 ? "objetivo conseguido"
@@ -283,6 +309,37 @@ export function MonthCalendar({
                   >
                     <Cake
                       size={CAKE}
+                      color={colors.borderStrong}
+                      strokeWidth={2}
+                    />
+                  </View>
+                ) : null}
+
+                {/* **The vaccine borrows the birthday's slot, and yields it.**
+                    Both are watermarks behind the number for the same reason —
+                    they are what the *date* is rather than something somebody
+                    logged that day — and both are about annual, so a cell
+                    carrying both is a coincidence worth a year of waiting. On
+                    that day the cake wins: a birthday is the rarer of two rare
+                    things, and the vaccine is still in the list two tabs
+                    along. Smaller than the cake because a syringe is a long
+                    thin shape and matching the cake's 32 would run it under
+                    the day's own number. */}
+                {vaccine && !birthday ? (
+                  <View
+                    testID="calendar-mark-vaccine"
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: BAR + BAR_GAP,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Syringe
+                      size={VACCINE}
                       color={colors.borderStrong}
                       strokeWidth={2}
                     />

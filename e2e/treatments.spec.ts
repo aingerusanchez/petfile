@@ -133,3 +133,36 @@ test("keeps every control on the 48dp floor", async ({ page }) => {
     ).toBeGreaterThanOrEqual(48);
   }
 });
+
+test("the diary's calendar marks the day a vaccine touches", async ({
+  page,
+}) => {
+  await resetE2EPets();
+  const petId = await seedE2EPet();
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  // Earlier this month, so the calendar opens on the month that carries it.
+  const given = new Date(now.getFullYear(), now.getMonth(), 1);
+  await seedE2ETreatments(petId, [
+    { kind: "vaccine", name: "Rabia", administeredOn: iso(given) },
+    // A deworming on another day of the same month earns no mark: a mark is
+    // for the exception, and this one comes round every three months.
+    {
+      kind: "deworming",
+      name: "Milbemax",
+      administeredOn: iso(new Date(now.getFullYear(), now.getMonth(), 2)),
+    },
+  ]);
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-day").click();
+
+  await expect(page.getByTestId("calendar-mark-vaccine")).toHaveCount(1);
+  // The day says so in words too. Queried by attribute rather than by role:
+  // the library wraps every custom cell in its own Pressable, so the richer
+  // label sits on a node inside that one — see DESIGN.md on the two TalkBack
+  // stops every day already costs.
+  await expect(page.locator('[aria-label*="vacuna puesta"]')).toHaveCount(1);
+});

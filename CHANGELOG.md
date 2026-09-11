@@ -63,6 +63,13 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   verdad está fuera se guarda tal cual. **Las valencias son una sola entrada**:
   penta, hexa y octovalente son el mismo refuerzo anual, y separarlas rompería
   justo la pauta que la lista existe para mantener unida.
+- **El calendario del Diario marca los días de vacuna**, puestos y próximos,
+  con una jeringuilla detrás del número igual que la tarta del cumpleaños — y
+  por la misma razón: una marca se gana una celda siendo la excepción, y
+  pasados los primeros meses una vacuna es casi anual. Las desparasitaciones y
+  los pesajes no salen: serían doce y veintiséis marcas al año en una rejilla
+  cuyas marcas significan "aquí pasó algo". El día que coincida con el
+  cumpleaños gana la tarta.
 - **El historial de tratamientos tiene pantalla propia, con filtro y
   búsqueda.** Nueve meses de un cachorro ya son quince filas, once de ellas
   abriendo con las mismas tres palabras: una sección no se recorre buscando "la
