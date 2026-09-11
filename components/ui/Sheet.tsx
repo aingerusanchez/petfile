@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Modal, Pressable } from "react-native";
+import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardInset } from "./keyboard";
 import { spacing } from "./tokens";
@@ -59,20 +59,25 @@ export function Sheet({
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      {/* **The scrim is a control and has to say so.** It is the largest
-          clickable node on any sheet — full screen — and it announced nothing,
-          so a screen reader met an unlabelled button covering the page. It is
-          one of the four documented ways out. */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Cerrar"
-        testID={scrimTestID}
-        onPress={onClose}
-        className={`flex-1 bg-base/80 ${fromTop ? "justify-start" : "justify-end"}`}
-      >
+      {/* **The scrim is a sibling of the panel, not its parent.** It used to
+          wrap it, which was tidy until the scrim gained the accessible name it
+          needed: a `Pressable` with a button role renders as a real `<button>`
+          on the web, and every control in the panel became a button inside a
+          button — "cannot be a descendant of", once per sheet, in the console.
+          Laid side by side the nesting cannot happen, the panel needs no
+          `stopPropagation` to survive a tap, and the scrim keeps the name that
+          made it one of the four documented ways out. */}
+      <View className={`flex-1 ${fromTop ? "justify-start" : "justify-end"}`}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar"
+          testID={scrimTestID}
+          onPress={onClose}
+          style={StyleSheet.absoluteFill}
+          className="bg-base/80"
+        />
+        <View
           testID={testID}
-          onPress={(event) => event.stopPropagation()}
           // Anchored at the bottom, the keyboard's height is measured from the
           // bottom of the screen, so it already covers the navigation-bar
           // inset — the larger of the two, never their sum. Anchored at the
@@ -93,8 +98,8 @@ export function Sheet({
           className={`rounded-xl border bg-surface px-5 ${fromTop ? "" : "pt-5"} ${className}`}
         >
           {children}
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
