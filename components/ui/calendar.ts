@@ -34,12 +34,19 @@ export const NORDIC_ICE: CalendarClassNames = {
   year_selector: "min-h-[48px] min-w-[48px] justify-center px-2",
   weekdays: "mb-1",
   weekday_label: "text-xs font-semibold uppercase text-text-tertiary",
-  day_cell: "p-0.5",
+  // **No padding here, and the reason is the touch target.** A column is
+  // 48.1dp on a 375dp phone — seven of them exactly fill the panel — and
+  // `p-0.5` (1.75dp a side on native) took the pressable inside it down to
+  // 44.6. Measured on the device, on both calendars, 60 targets. The cell's
+  // content is a centred 28dp chip either way, so the padding bought nothing
+  // and cost the floor on the horizontal axis, which this file's own comment
+  // above says applies.
+  day_cell: "",
   // **This never reaches a calendar with a custom `Day`.** The library applies
   // `classNames.day` to its own Pressable only in the default branch; the
   // `components.Day` branch passes `style` and drops the className, the same
   // way it drops `selected` and `today`. `MonthCalendar` sets the floor on its
-  // own cell instead — see `DAY_MIN` there. Kept for `DateField`, which uses
+  // own cell instead — see `CONTAINER_HEIGHT` there. Kept for `DateField`, which
   // the library's own day.
   day: "min-h-[48px] rounded-xl",
   // The library renders its own Text nodes, so the typeface reaches them
