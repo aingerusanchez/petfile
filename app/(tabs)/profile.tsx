@@ -23,14 +23,21 @@ import {
   Screen,
   Sheet,
   Text,
+  TOUCH_TARGET,
   TextField,
   colors,
+  useCelebration,
   useToast,
 } from "../../components/ui";
 import { describeAge } from "../../lib/age";
 import { useAuth } from "../../lib/auth";
 import { useSettings } from "../../lib/settings";
-import { parseISO, toApproximateISO } from "../../lib/dates";
+import {
+  birthdayOn,
+  daysUntilBirthday,
+  parseISO,
+  toApproximateISO,
+} from "../../lib/dates";
 import {
   DURATION_HINT,
   formatDuration,
@@ -157,6 +164,7 @@ export default function Profile() {
   const { settings } = useSettings();
   const router = useRouter();
   const toast = useToast();
+  const { celebrate } = useCelebration();
 
   const [pet, setPet] = useState<PetRow | null>(null);
   const [edit, setEdit] = useState<PetEdit | null>(null);
@@ -423,6 +431,32 @@ export default function Profile() {
   const sexLabel = pet.sex === "male" ? "Macho" : "Hembra";
   const breed = pet.breed_primary?.trim() || null;
   const age = describeAge(pet.birth_date, pet.birth_date_approximate);
+  /**
+   * **The birthday is said on the age line, not badged on the portrait.**
+   *
+   * The portrait's lower-right corner is already the camera — the whole point
+   * of the `Avatar` badge is that the picture is how the picture is changed —
+   * and a second badge on a 96dp circle would be two markers arguing. The age
+   * is the fact a birthday actually changes, and it is already on the screen.
+   */
+  const birthdayYears = birthdayOn(new Date(), pet.birth_date);
+  const isBirthday = birthdayYears !== null && birthdayYears > 0;
+  /**
+   * **The fortnight before is a countdown; before that it is trivia.**
+   *
+   * Fifteen days is long enough to buy something and short enough that the
+   * line is never just decoration on a screen a tutor opens to look at their
+   * dog. It escalates rather than repeats: an extra line while it approaches,
+   * and on the day the age line itself is rewritten — so the two never appear
+   * together and the arrival is a change of voice rather than one more line.
+   */
+  const daysToBirthday = daysUntilBirthday(new Date(), pet.birth_date);
+  const countdown =
+    daysToBirthday !== null && daysToBirthday > 0 && daysToBirthday <= 15
+      ? daysToBirthday === 1
+        ? "Mañana es su cumpleaños"
+        : `Quedan ${daysToBirthday} días para su cumpleaños`
+      : null;
   // The photo is not in this list: it has its own affordance on the portrait,
   // and a link promising to complete the file would open a form without it.
   const incomplete = !pet.sex || !breed;
@@ -495,12 +529,68 @@ export default function Profile() {
             </Text>
           ) : null}
           {age ? (
+            <View className="mt-0.5 flex-row items-center gap-1.5">
+              {/* **An emoji, and it is a control.**
+                  The No-Glyph Rule bans a character standing in for an icon,
+                  and this is the other thing: a cake nobody has to read,
+                  which does something when you press it. Lucide's `Cake` was
+                  here first and was correct and flat; an emoji is the one
+                  ornament a birthday earns, and pressing it throws the
+                  confetti again — the day has already fired it once, and on
+                  the one day a year that it is offered, doing it again on
+                  purpose is the whole point.
+
+                  It sits at 48dp like every other control even though the
+                  glyph is 20, and it is not on the portrait: that corner is
+                  the camera, and two badges on a 96dp circle argue. */}
+              {isBirthday ? (
+                <Pressable
+                  testID="profile-birthday"
+                  onPress={celebrate}
+                  accessibilityRole="button"
+                  accessibilityLabel="Celebrarlo otra vez"
+                  style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
+                  className="-my-3 -ml-3 items-center justify-center active:opacity-70"
+                >
+                  <Text style={{ fontSize: 20, lineHeight: 26 }}>🎂</Text>
+                </Pressable>
+              ) : null}
+              <Text
+                testID="profile-age"
+                accessibilityLabel={
+                  isBirthday
+                    ? `Hoy cumple ${age.text}, ${age.stageLabel}`
+                    : `${age.text}, ${age.stageLabel}`
+                }
+                numberOfLines={1}
+                className={`shrink text-sm ${
+                  isBirthday ? "text-accent-secondary" : "text-text-tertiary"
+                }`}
+              >
+                {isBirthday
+                  ? `Hoy cumple ${age.text} · ${age.stageLabel}`
+                  : `${age.text} · ${age.stageLabel}`}
+              </Text>
+            </View>
+          ) : null}
+          {countdown ? (
+            // **Aqua Glaciar, and at regular weight on purpose.** It was Mist
+            // Grey and disappeared into the age line above it, which is the
+            // wrong outcome for something that shows on fifteen days of the
+            // year. The secondary accent is already this screen's colour for
+            // the birthday, so before and on the day it is one subject in one
+            // colour — and on a profile whose only other hues are the dog's
+            // own photo, it is the thing the eye finds.
+            //
+            // The weight is what keeps it from lying: `Button variant="link"`
+            // is aqua *semibold*, and the link it would impersonate —
+            // "Completa su ficha" — sits in this very block. Regular weight
+            // says "notable" without saying "tappable".
             <Text
-              testID="profile-age"
-              accessibilityLabel={`${age.text}, ${age.stageLabel}`}
-              className="mt-0.5 text-sm text-text-tertiary"
+              testID="profile-countdown"
+              className="mt-1 text-sm text-accent-secondary"
             >
-              {`${age.text} · ${age.stageLabel}`}
+              {countdown}
             </Text>
           ) : null}
           {incomplete && editing !== "main" ? (

@@ -8,6 +8,15 @@ type SheetProps = {
   children: ReactNode;
   /** Called by the scrim, and by Android's system Back. */
   onClose: () => void;
+  /**
+   * Which edge the panel is attached to. Bottom by default.
+   *
+   * **`"top"` is for a panel that comes from the header rather than the
+   * thumb** — the diary's calendar drops from the date it replaces and goes
+   * back up into it. It takes the status-bar inset instead of the keyboard's,
+   * because nothing anchored to the top is ever covered by a keyboard.
+   */
+  anchor?: "bottom" | "top";
   /** Border colour override, for a sheet that carries a consequence. */
   className?: string;
   testID?: string;
@@ -39,30 +48,43 @@ type SheetProps = {
 export function Sheet({
   children,
   onClose,
+  anchor = "bottom",
   className = "border-border-default",
   testID,
   scrimTestID,
 }: SheetProps) {
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardInset();
+  const fromTop = anchor === "top";
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable
         testID={scrimTestID}
         onPress={onClose}
-        className="flex-1 justify-end bg-base/80"
+        className={`flex-1 bg-base/80 ${fromTop ? "justify-start" : "justify-end"}`}
       >
         <Pressable
           testID={testID}
           onPress={(event) => event.stopPropagation()}
-          // The keyboard's height is measured from the bottom of the screen,
-          // so it already covers the navigation-bar inset — the larger of the
-          // two, never their sum.
-          style={{
-            paddingBottom: spacing.md + Math.max(insets.bottom, keyboard),
-          }}
-          className={`rounded-xl border bg-surface px-5 pt-5 ${className}`}
+          // Anchored at the bottom, the keyboard's height is measured from the
+          // bottom of the screen, so it already covers the navigation-bar
+          // inset — the larger of the two, never their sum. Anchored at the
+          // top, the keyboard cannot reach it and the status bar can.
+          style={
+            fromTop
+              ? {
+                  paddingTop: spacing.md + insets.top,
+                  paddingBottom: spacing.md,
+                }
+              : {
+                  paddingBottom: spacing.md + Math.max(insets.bottom, keyboard),
+                }
+          }
+          // `rounded-xl` on all four corners for both anchors: the pair
+          // against the screen edge is off-screen either way, and it keeps
+          // this off the untested `rounded-t-*` path.
+          className={`rounded-xl border bg-surface px-5 ${fromTop ? "" : "pt-5"} ${className}`}
         >
           {children}
         </Pressable>

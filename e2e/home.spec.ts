@@ -25,6 +25,21 @@ async function add(page: Page, kind: string) {
   await page.getByTestId(`home-add-${kind}`).click();
 }
 
+/**
+ * Dismisses the month calendar by its scrim.
+ *
+ * Aimed near the bottom on purpose: the calendar is the app's one
+ * top-anchored sheet, so the scrim's centre — where a plain `click()` lands —
+ * is inside the panel, and the click goes to the month's own arrows instead.
+ */
+async function closeCalendar(page: Page) {
+  const box = await page.getByTestId("home-calendar-scrim").boundingBox();
+  await page
+    .getByTestId("home-calendar-scrim")
+    .click({ position: { x: 8, y: (box?.height ?? 900) - 8 } });
+  await expect(page.getByTestId("home-calendar")).toBeHidden();
+}
+
 test.beforeAll(async () => {
   ready = await eventsTableExists();
 });
@@ -33,6 +48,27 @@ test.beforeEach(async () => {
   await resetE2EPets();
   await seedE2EPet({ exercise_goal_minutes: 60 });
 });
+
+/**
+ * **These specs assume a working day, and that is a defect in them.**
+ *
+ * Many fill real clock times — 08:30, 09:15, 10:45 — and the sheet refuses an
+ * entry in the future, correctly. Run at 00:20 and ten of them fail with
+ * "¿Todavía no habéis vuelto?", which says nothing about the code. The
+ * quarter-hour steppers have the mirror problem: counting 45 minutes back
+ * from 00:20 lands on yesterday, which the sheet also refuses, correctly.
+ *
+ * Playwright's clock is not the way out. `setFixedTime` stops Reanimated
+ * dead — the button's status animation reads progress from `Date.now()` and
+ * never finishes, so Playwright waits forever for a control that never stops
+ * moving — and `install` + `resume` patches the timers the app captures at
+ * module load, after which the day view never renders at all. Both were
+ * measured here.
+ *
+ * The fix is to derive every time in this file from a "now" the test owns,
+ * and to give the steppers a fixture whose day has time behind it. Until
+ * then: this file is green from roughly 09:00 to midnight and red before it.
+ */
 
 test.afterAll(async () => {
   await resetE2EPets();
@@ -393,6 +429,402 @@ test("refuses a time that is not one", async ({ page }) => {
   );
 });
 
+test("walks back a day and forward again, and never into tomorrow", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/");
+
+  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
+  // Nothing to log about a day that has not happened.
+  await expect(page.getByTestId("home-next-day")).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+  await expect(page.getByTestId("home-next-day")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+
+  // From two days back a person reaches for the weekday, not "anteayer".
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText(
+    /^(Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo)$/,
+  );
+
+  await page.getByTestId("home-next-day").click();
+  await page.getByTestId("home-next-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
+});
+
+test("logs into the day on screen, not into today", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+  // A past day is not still going, so the empty state cannot say "todavía".
+  await expect(page.getByTestId("home-empty")).toContainText(
+    "Ese día no se apuntó nada",
+  );
+
+  await add(page, "meal");
+  // The sheet says which day it writes to: the same form, opened a day back,
+  // saves a day back.
+  await expect(page.getByTestId("entry-day")).toHaveText(/^Ayer, \d+ de /);
+  await page.getByTestId("entry-value").fill("Pienso de ayer");
+  await page.getByTestId("entry-save").click();
+
+  await expect(page.getByTestId("home-log")).toContainText("Pienso de ayer");
+
+  // And today does not have it.
+  await page.getByTestId("home-next-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
+  await expect(page.getByTestId("home-log")).toBeHidden();
+});
+
+test("opens the calendar from the date and says what each day carried", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // Put two things on yesterday worth marking, of the two kinds that mark.
+  await page.getByTestId("home-prev-day").click();
+  await add(page, "incident");
+  await page.getByTestId("entry-value").fill("Cojea de la pata");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("Cojea");
+  await add(page, "medication");
+  await page.getByTestId("entry-value").fill("Apoquel");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("Apoquel");
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("home-calendar")).toBeVisible();
+
+  // The mark is not colour alone: the day says it in words too — and it says
+  // both things. The two marks used to collapse into the more severe one,
+  // which threw the medication away on the day it mattered most.
+  await expect(
+    page
+      .getByLabel(
+        `${yesterday.getDate()}, objetivo sin conseguir, con incidencia, con medicación`,
+      )
+      .first(),
+  ).toBeVisible();
+
+  // Both are drawn, each in its own corner. One day carries them, so one of
+  // each is on screen.
+  await expect(page.getByTestId("calendar-mark-incident")).toHaveCount(1);
+  await expect(page.getByTestId("calendar-mark-medication")).toHaveCount(1);
+
+  // The legend names all three marks, so none of them is colour alone.
+  for (const name of ["Objetivo conseguido", "Medicación", "Incidencia"]) {
+    await expect(page.getByTestId("home-calendar")).toContainText(name);
+  }
+
+  // Choosing a day navigates and closes.
+  await page
+    .getByLabel(`${yesterday.getDate()},`, { exact: false })
+    .first()
+    .click();
+  await expect(page.getByTestId("home-calendar")).toBeHidden();
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+});
+
+test("throws confetti for the walk that reaches the goal, and only that one", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  // 45 of the 60-minute goal: close, and not there.
+  await add(page, "walk");
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal")).toContainText("45 min");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  // The walk that crosses it.
+  await add(page, "walk");
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  await expect(page.getByTestId("celebration")).toBeVisible();
+
+  // It reads as decoration, not as content: nothing to announce, nothing to
+  // tap through.
+  await expect(page.getByTestId("celebration")).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
+
+  await page.reload();
+  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  // A second walk on a day already won does not celebrate again.
+  await add(page, "walk");
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1h 15m");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+});
+
+test("does not celebrate a goal reached on a day that has passed", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-prev-day").click();
+  await add(page, "walk");
+  for (let i = 0; i < 4; i++) {
+    await page.getByTestId("entry-duration-plus").click();
+  }
+  await page.getByTestId("entry-save").click();
+
+  // Yesterday's goal is met, and filling in a day that has gone is
+  // bookkeeping rather than an achievement.
+  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+});
+
+test("walks home from any day with one tap", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // On today it stays visible and inert rather than vanishing.
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("calendar-today")).toBeVisible();
+  await expect(page.getByTestId("calendar-today")).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await closeCalendar(page);
+
+  for (let i = 0; i < 4; i++) {
+    await page.getByTestId("home-prev-day").click();
+  }
+  await expect(page.getByTestId("home-title")).not.toHaveText("Hoy");
+
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("calendar-today")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.getByTestId("calendar-today").click();
+
+  // It navigates and closes in one tap.
+  await expect(page.getByTestId("home-calendar")).toBeHidden();
+  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
+});
+
+test("names the birthday and marks it on the calendar", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const born = new Date();
+  born.setFullYear(born.getFullYear() - 2);
+  const iso = `${born.getFullYear()}-${String(born.getMonth() + 1).padStart(2, "0")}-${String(born.getDate()).padStart(2, "0")}`;
+
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: iso, exercise_goal_minutes: 60 });
+  await seedSession(page);
+  await page.goto("/");
+
+  // The day has a name worth more than "Hoy" today, and the date underneath
+  // still says which day it is.
+  const title = page.getByTestId("home-title");
+  await expect(title).toContainText("Cumpleaños de Loki");
+  // The emoji is ornament: shown, never spoken.
+  await expect(title).toContainText("🎂");
+  const spoken = await title.getAttribute("aria-label");
+  expect(spoken).toBe("Cumpleaños de Loki");
+  await expect(page.getByTestId("home-date")).toContainText("de ");
+
+  // The emptiest moment of the day is the one worth saying something in.
+  await expect(page.getByTestId("home-empty")).toContainText(
+    "Loki cumple 2 años",
+  );
+
+  // And the confetti, once — a year is a threshold, like the exercise goal.
+  await expect(page.getByTestId("celebration")).toBeVisible();
+
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("calendar-mark-birthday")).toHaveCount(1);
+
+  // Not colour or a glyph alone: the day says it in words, with the years.
+  await expect(
+    page
+      .getByLabel(`${born.getDate()}, cumple 2 años`, { exact: false })
+      .first(),
+  ).toBeVisible();
+
+  // And a day that is not the birthday goes back to its ordinary name.
+  await closeCalendar(page);
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+});
+
+test("celebrates the birthday once, not once per open", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const born = new Date();
+  born.setFullYear(born.getFullYear() - 3);
+  const iso = `${born.getFullYear()}-${String(born.getMonth() + 1).padStart(2, "0")}-${String(born.getDate()).padStart(2, "0")}`;
+
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: iso, exercise_goal_minutes: 60 });
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("celebration")).toBeVisible();
+
+  // The year it fired for is remembered on the device, so opening the app
+  // again on the same birthday is not a second party.
+  await page.reload();
+  await expect(page.getByTestId("home-title")).toContainText(
+    "Cumpleaños de Loki",
+  );
+  await expect(page.getByTestId("celebration")).toBeHidden();
+});
+
+test("says the birthday on the file's age line too", async ({ page }) => {
+  const born = new Date();
+  born.setFullYear(born.getFullYear() - 4);
+  const iso = `${born.getFullYear()}-${String(born.getMonth() + 1).padStart(2, "0")}-${String(born.getDate()).padStart(2, "0")}`;
+
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: iso });
+  await seedSession(page);
+  await page.goto("/profile");
+
+  // The age is the fact a birthday changes, and the portrait's own corner is
+  // already the camera.
+  await expect(page.getByTestId("profile-age")).toContainText("Hoy cumple");
+  await expect(page.getByTestId("profile-age")).toContainText("4 años");
+
+  // The cake beside it is a control, not a decoration: once a year, pressing
+  // it throws the confetti again on purpose.
+  const cake = page.getByTestId("profile-birthday");
+  await expect(cake).toHaveAttribute("aria-label", "Celebrarlo otra vez");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+  await cake.click();
+  await expect(page.getByTestId("celebration")).toBeVisible();
+
+  // The countdown and the day itself never share the screen: the age line
+  // takes over, so the arrival is a change of voice rather than one more line.
+  await expect(page.getByTestId("profile-countdown")).toBeHidden();
+});
+
+test("counts down the fortnight before the birthday, and no longer", async ({
+  page,
+}) => {
+  const inDays = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    d.setFullYear(d.getFullYear() - 3);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: inDays(15) });
+  await seedSession(page);
+  await page.goto("/profile");
+  await expect(page.getByTestId("profile-countdown")).toHaveText(
+    "Quedan 15 días para su cumpleaños",
+  );
+
+  // The day before says it the way a person would.
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: inDays(1) });
+  await page.reload();
+  await expect(page.getByTestId("profile-countdown")).toHaveText(
+    "Mañana es su cumpleaños",
+  );
+
+  // A day further out is trivia, not a reminder.
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: inDays(16) });
+  await page.reload();
+  await expect(page.getByTestId("profile-title")).toBeVisible();
+  await expect(page.getByTestId("profile-countdown")).toBeHidden();
+});
+
+test("logs a walk known only by its end and its length", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // Typing a duration back-fills the start, which is the ordinary case.
+  await add(page, "walk");
+  await page.getByTestId("entry-duration").fill("45 min");
+
+  // Clearing it leaves an end and a length, which is a complete fact — and
+  // the one the sheet used to throw away. It is also what the steppers
+  // produce just after midnight, when counting back lands on yesterday and
+  // no time of day can say so.
+  // **Backspaced, not `fill("")`.** A real keyboard fires one change per key,
+  // so the field passes through "10:" and "1" on the way to empty — and each
+  // of those used to wipe the duration, which the single event a `fill` sends
+  // never reproduced. Found on the device.
+  const from = page.getByTestId("entry-from");
+  await from.click();
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press("Backspace");
+  }
+  await expect(from).toHaveValue("");
+  await page.getByTestId("entry-note").click();
+  await expect(page.getByTestId("entry-duration")).toHaveValue("45 min");
+
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("45 min");
+  await expect(page.getByTestId("home-goal")).toContainText("45 min de 1h");
+});
+
+test("keeps stepping a walk that reaches back past midnight", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // Whatever the hour, four taps of +15 is an hour of walk. Before the fix
+  // this emptied its own duration field the moment the computed start crossed
+  // into the previous day, and blamed DESDE on save.
+  await add(page, "walk");
+  for (let i = 0; i < 4; i++) {
+    await page.getByTestId("entry-duration-plus").click();
+  }
+  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
+  await page.getByTestId("entry-note").click();
+  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
+
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");
+});
+
 test("keeps every control on the 48dp floor here too", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
@@ -408,7 +840,7 @@ test("keeps every control on the 48dp floor here too", async ({ page }) => {
     }
   };
 
-  await floor(["home-add"]);
+  await floor(["home-prev-day", "home-next-day", "home-day", "home-add"]);
   await page.getByTestId("home-add").click();
   await floor([
     "home-add-walk",
@@ -442,7 +874,7 @@ test("marks the goal met, once", async ({ page }) => {
   await page.getByTestId("entry-save").click();
 
   await expect(page.getByTestId("home-goal")).toContainText(
-    "Objetivo cumplido",
+    "Objetivo conseguido",
   );
   // The goal reads in hours on both sides of the "de".
   await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");

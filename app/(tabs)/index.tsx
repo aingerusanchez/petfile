@@ -1,4 +1,7 @@
 import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Footprints,
   Pill,
   TriangleAlert,
@@ -14,26 +17,41 @@ import {
   FAB_CLEARANCE,
   Group,
   LoadingScreen,
+  MonthCalendar,
   Screen,
   Sheet,
   Text,
   TextField,
   TOUCH_TARGET,
+  useCelebration,
   useToast,
 } from "../../components/ui";
-import { MONTHS_ES } from "../../lib/dates";
+import {
+  birthdayMilestone,
+  markCelebrated,
+  wasCelebrated,
+} from "../../lib/celebrated";
+import {
+  birthdayOn,
+  daysAgo,
+  formatDayDate,
+  formatDayHeadline,
+} from "../../lib/dates";
 import { formatDuration, parseDuration } from "../../lib/duration";
 import {
   deleteEvent,
   eventsForDay,
+  eventsForMonth,
   formatTimeOfDay,
   logEvent,
   MAX_WALK_MINUTES,
   minutesBetween,
   parseTimeOfDay,
   shiftMinutes,
+  startWithinDay,
   updateEvent,
   walkedMinutes,
+  type DaySummary,
   type EventKind,
   type PetEventRow,
 } from "../../lib/events";
@@ -55,6 +73,12 @@ const KINDS: Record<
     action: string;
     editAction: string;
     icon: LucideIcon;
+    /**
+     * The icon's colour in the log, where the calendar marks that day in the
+     * same one. Absent for the two everyday kinds, which stay in the
+     * column's own tone — see `Entry`.
+     */
+    tone?: string;
     /**
      * The one free-text field this kind asks for. The walk has none: it asks
      * for a time range instead, which the sheet renders on its own.
@@ -93,6 +117,7 @@ const KINDS: Record<
     action: "Añadir medicación",
     editAction: "Editar medicación",
     icon: Pill,
+    tone: colors.warning,
     field: { label: "Qué le habéis dado", placeholder: "Apoquel, media" },
     describe: (event) => detail(event, "what"),
   },
@@ -101,6 +126,7 @@ const KINDS: Record<
     action: "Añadir incidencia",
     editAction: "Editar incidencia",
     icon: TriangleAlert,
+    tone: colors.error,
     field: { label: "Qué ha pasado", placeholder: "Cojea de la pata derecha" },
     describe: (event) => detail(event, "what"),
   },
@@ -111,24 +137,33 @@ const ORDER: EventKind[] = ["walk", "meal", "medication", "incident"];
 /** How much a tap on -15 or +15 moves a walk's duration. */
 const STEP_MINUTES = 15;
 
+/**
+ * The clock time `total` minutes before `at` — or "" when that leaves the day.
+ *
+ * DESDE holds a time of day with no date, so a start on the previous day comes
+ * back as that same clock time on the day on screen, which is *after* the end.
+ * Rather than write a time that means the wrong thing, the field goes empty
+ * and the duration carries the walk on its own. See `applyMinutes`.
+ */
+function startOnDay(atText: string, day: Date, total: number): string {
+  const end = parseTimeOfDay(atText, day);
+  if (!end) return "";
+  const start = startWithinDay(end, total);
+  return start ? formatTimeOfDay(start) : "";
+}
+
+/** The same clock time, `by` days away. */
+function shiftDays(day: Date, by: number): Date {
+  const next = new Date(day);
+  next.setDate(next.getDate() + by);
+  return next;
+}
+
 /** The one free-text specific each kind but the walk keeps in `details`. */
 function detail(event: PetEventRow, key: string): string | null {
   const details = event.details as Record<string, unknown> | null;
   const value = details?.[key];
   return typeof value === "string" && value.trim() ? value : null;
-}
-
-function formatDay(day: Date): string {
-  const weekdays = [
-    "domingo",
-    "lunes",
-    "martes",
-    "miércoles",
-    "jueves",
-    "viernes",
-    "sábado",
-  ];
-  return `${weekdays[day.getDay()]}, ${day.getDate()} de ${MONTHS_ES[day.getMonth()].toLowerCase()}`;
 }
 
 /** What the sheet is open for: a new entry of a kind, or an existing one. */
@@ -144,19 +179,41 @@ type Editing = { kind: EventKind; event: PetEventRow | null };
  * field opens on the current time so confirming it is the common case, and
  * **every entry is a correction waiting to happen**: tapping a row reopens it.
  *
- * **The goal bar reads in Aqua Glaciar, and turns Success Green when the goal
- * is met.** It was Steel Frost on the reasoning that progress is state rather
- * than an action, and the accent means "act here" (The One Accent Rule) — but
- * on the device a 4px hairline in a border colour did not read as a measure of
- * anything. Aqua Glaciar is the secondary accent, already the colour of links
- * and the required marker, so it stays clear of Ice Blue Glacial: the primary
- * accent still means "this is the one thing to do here", and on this screen
- * the one thing is the floating action.
+ * **The goal bar fills in a light neutral, and turns Aqua Glaciar when the
+ * goal is met.** Three versions got here. Steel Frost was first, on the
+ * reasoning that progress is state rather than an action — but a 4px hairline
+ * in a border colour measured 1.64:1 against its own track and did not read as
+ * a measure of anything. Then it was Aqua Glaciar filling and Success Green on
+ * completion, which read well and put green on eighteen days of a month in the
+ * calendar's miniature of it: enough to become the calendar's background
+ * colour rather than its exception.
+ *
+ * So the two states are the same **weight** and differ only in **hue** — Mist
+ * Light 11.48:1 and Aqua Glaciar 10.03:1 on the bar's Fjord Slate track — and
+ * the hue is the whole message: the measure is neutral while it is being read,
+ * and the secondary accent is the conclusion. Ice Blue Glacial stays out of it,
+ * so the primary accent still means "this is the one thing to do here", and on
+ * this screen the one thing is the floating action. Success Green keeps the
+ * meaning it has everywhere else — a toast, the confetti — which is a **moment
+ * that just happened**, never a state sitting on the screen.
  */
 export default function Home() {
   const toast = useToast();
+  const { celebrate } = useCelebration();
   const { settings } = useSettings();
-  const [day] = useState(() => new Date());
+  /**
+   * The day on screen, and the boundary it cannot pass.
+   *
+   * `today` is captured once: a session that crosses midnight keeps calling
+   * the day it started on "Hoy", which is wrong for about as long as it takes
+   * to notice and is cheaper than a ticking clock.
+   */
+  const [today] = useState(() => new Date());
+  const [day, setDay] = useState(() => new Date());
+  const [picking, setPicking] = useState(false);
+  /** One month of marks for the calendar, fetched only once it is opened. */
+  const [marks, setMarks] = useState<Map<string, DaySummary>>(new Map());
+  const [marksMonth, setMarksMonth] = useState(() => new Date());
   const [pet, setPet] = useState<PetRow | null>(null);
   const [events, setEvents] = useState<PetEventRow[] | null>(null);
   /** Fatal: with no pet there is no day to show. */
@@ -192,11 +249,61 @@ export default function Home() {
     };
   }, [day, attempt]);
 
+  // Lazily, and only while the calendar is open: a month of rows is cheap but
+  // it is not free, and most visits to the diary never open it.
+  useEffect(() => {
+    if (!picking || !pet) return;
+    let cancelled = false;
+    eventsForMonth(pet.id, marksMonth).then(({ days }) => {
+      // A failed month read costs the marks, not the picker: the calendar
+      // still navigates, it just stops saying what happened.
+      if (!cancelled) setMarks(days);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [picking, pet, marksMonth, attempt]);
+
   const reload = useCallback(() => {
     setPetError(null);
     setLogError(null);
     setAttempt((n) => n + 1);
   }, []);
+
+  // Hoisted above the early returns, because the birthday effect below is a
+  // hook and cannot sit after them. `birthdayOn` takes a null birth date, so
+  // this is safe before the pet has loaded.
+  const isToday = daysAgo(day, today) === 0;
+  const birthdayYears = birthdayOn(day, pet?.birth_date ?? null);
+  const petId = pet?.id ?? null;
+
+  /**
+   * **The birthday gets the confetti, once a year, on the day itself.**
+   *
+   * The same rule the goal's confetti follows: it fires on a threshold being
+   * crossed, and a year is a threshold. Navigating back to a past birthday is
+   * bookkeeping and gets nothing, which is why this asks for `isToday`; and
+   * the year it has already fired for is remembered on the device, so opening
+   * the app twice on the same birthday is not two parties.
+   *
+   * Year 0 is the day the animal was born, which the header names but does
+   * not celebrate — there is no year to have crossed yet.
+   */
+  useEffect(() => {
+    if (!petId || !isToday || birthdayYears === null || birthdayYears < 1) {
+      return;
+    }
+    const milestone = birthdayMilestone(petId, day.getFullYear());
+    let cancelled = false;
+    wasCelebrated(milestone).then((already) => {
+      if (cancelled || already) return;
+      void markCelebrated(milestone);
+      celebrate();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [petId, isToday, birthdayYears, day, celebrate]);
 
   if (petError) {
     return (
@@ -217,6 +324,34 @@ export default function Home() {
   const walked = walkedMinutes(events);
   const goal = pet.exercise_goal_minutes;
   const met = goal !== null && walked >= goal;
+  /**
+   * **The birthday takes the headline over "Hoy" or the weekday.**
+   *
+   * Once a year the day has a name worth more than the one it would otherwise
+   * carry, and nothing is lost: the line underneath still gives the date, and
+   * the log's own title still says whether it is today. On the day the animal
+   * was actually born there is no birthday yet, so it says that instead.
+   */
+  const headline =
+    birthdayYears === null
+      ? formatDayHeadline(day, today)
+      : birthdayYears === 0
+        ? `${pet.name} nació este día`
+        : `Cumpleaños de ${pet.name}`;
+  /**
+   * **The emoji is ornament, so it is shown and not spoken.**
+   *
+   * Same split the onboarding headline and the activity hint already make: a
+   * reader announcing "tarta de cumpleaños, cara de fiesta" describes the
+   * decoration instead of the day. It also sidesteps The No-Glyph Rule rather
+   * than breaking it — the rule bans a character standing in for an *icon*,
+   * and nothing here depends on these two: strip them and the headline still
+   * says everything.
+   */
+  const headlineShown =
+    birthdayYears !== null && birthdayYears > 0
+      ? `🎂 ${headline} 🎉`
+      : headline;
 
   return (
     <Screen
@@ -237,16 +372,73 @@ export default function Home() {
         />
       )}
     >
-      <Text
-        testID="home-title"
-        accessibilityRole="header"
-        className="text-2xl text-text-primary"
-      >
-        Hoy
-      </Text>
-      <Text testID="home-date" className="mb-8 text-text-tertiary">
-        {formatDay(day)}
-      </Text>
+      {/* **The header is the control.** It was a title; navigating between
+          days is the one thing this screen could not do, and the date is
+          where a person reaches for it. Two lines still, so the rhythm holds:
+          the headline names the day the way somebody would say it, the line
+          below gives the date. */}
+      <View className="mb-8 flex-row items-center justify-between">
+        <DayStep
+          testID="home-prev-day"
+          icon={ChevronLeft}
+          label="Día anterior"
+          onPress={() => setDay((d) => shiftDays(d, -1))}
+        />
+
+        <Pressable
+          testID="home-day"
+          onPress={() => {
+            setMarksMonth(day);
+            setPicking(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${headline}, ${formatDayDate(day)}. Elegir otro día`}
+          style={{ minHeight: TOUCH_TARGET }}
+          className="flex-1 items-center justify-center active:opacity-70"
+        >
+          {/* **The ornament is in the string, not beside it.** A separate
+              icon plus its gap took the phrase past the width between the two
+              arrows and broke the exact line it decorated; inside the text it
+              is just two more characters, and `text-balance` gets to split
+              the whole thing evenly rather than leaving one word alone on the
+              second line.
+
+              **Two lines is the ceiling, measured in pixels rather than
+              characters.** "Cumpleaños de Silver Odinsonn" is a real name and
+              a real two-liner, and a longer one truncates at the end of the
+              second line instead of reaching a third — which is the right
+              limit, because a character cap would cut the same name on a
+              phone where it fitted. `text-balance` is dropped by the native
+              compiler (see AvatarEditor), so on the device the split is
+              whatever the line breaker does; on the web it is even. */}
+          <Text
+            testID="home-title"
+            accessibilityRole="header"
+            accessibilityLabel={headline}
+            numberOfLines={2}
+            className="text-center text-2xl text-balance text-text-primary"
+          >
+            {headlineShown}
+          </Text>
+          <View className="flex-row items-center gap-2">
+            <Text testID="home-date" className="text-text-tertiary">
+              {formatDayDate(day)}
+            </Text>
+            <CalendarDays size={14} color={colors.textMuted} />
+          </View>
+        </Pressable>
+
+        {/* No future: there is nothing to log about a day that has not
+            happened, so the forward step stops at today rather than offering
+            an empty screen. */}
+        <DayStep
+          testID="home-next-day"
+          icon={ChevronRight}
+          label="Día siguiente"
+          disabled={isToday}
+          onPress={() => setDay((d) => shiftDays(d, 1))}
+        />
+      </View>
 
       {goal !== null ? (
         <View testID="home-goal" className="mb-8">
@@ -255,8 +447,8 @@ export default function Home() {
               {`${formatDuration(walked, settings.durationFormat)} de ${formatDuration(goal, settings.durationFormat)} paseados`}
             </Text>
             {met ? (
-              <Text className="font-semibold text-xs text-success">
-                Objetivo cumplido
+              <Text className="font-semibold text-xs text-accent-secondary">
+                Objetivo conseguido
               </Text>
             ) : null}
           </View>
@@ -268,7 +460,7 @@ export default function Home() {
               style={{
                 width: `${Math.min(100, goal === 0 ? 0 : (walked / goal) * 100)}%`,
               }}
-              className={`h-1 ${met ? "bg-success" : "bg-accent-secondary"}`}
+              className={`h-1 ${met ? "bg-accent-secondary" : "bg-text-secondary"}`}
             />
           </View>
         </View>
@@ -289,15 +481,33 @@ export default function Home() {
         </Group>
       ) : events.length === 0 ? (
         <Group testID="home-empty">
+          {/* A past day is not still going, so it cannot say "todavía" — and
+              on a birthday the emptiest moment of the day is the one worth
+              saying something warm in. */}
           <Text className="mb-2 font-semibold text-text-primary">
-            Todavía no hay nada registrado
+            {birthdayYears !== null && birthdayYears > 0
+              ? `${pet.name} cumple ${birthdayYears} ${birthdayYears === 1 ? "año" : "años"}`
+              : isToday
+                ? "Todavía no hay nada registrado"
+                : "Ese día no se apuntó nada"}
           </Text>
-          <Text className="mb-5 text-text-tertiary">
-            {`Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y no se pierde.`}
+          <Text className="mb-5 text-balance text-text-tertiary">
+            {birthdayYears !== null && birthdayYears > 0
+              ? isToday
+                ? "Nada registrado aún. ¿Un paseo por la playa 🏖️ o montaña ⛰️ para celebrarlo?"
+                : "No hay registros de este día."
+              : isToday
+                ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y lo recordaré.`
+                : "Aún puedes registrar actividades para este día."}
           </Text>
         </Group>
       ) : (
-        <Group testID="home-log" title="Registro de hoy">
+        <Group
+          testID="home-log"
+          // "de hoy" only when it is: the header already names the day, and a
+          // title reading "hoy" over Tuesday's entries contradicts it.
+          title={isToday ? "Registro de hoy" : "Registro"}
+        >
           {events.map((event) => (
             <Entry
               key={event.id}
@@ -314,15 +524,71 @@ export default function Home() {
           entry of a full day hides under the button that added it. */}
       <View style={{ height: FAB_CLEARANCE }} />
 
+      {picking ? (
+        <Sheet
+          anchor="top"
+          onClose={() => setPicking(false)}
+          testID="home-calendar"
+          scrimTestID="home-calendar-scrim"
+        >
+          <MonthCalendar
+            marks={marks}
+            goalMinutes={goal}
+            value={day}
+            maxDate={today}
+            birthDate={pet.birth_date}
+            onMonthChange={setMarksMonth}
+            onSelect={(picked) => {
+              setDay(picked);
+              setPicking(false);
+            }}
+            onToday={() => {
+              setDay(today);
+              setPicking(false);
+            }}
+          />
+        </Sheet>
+      ) : null}
+
       {editing ? (
         <EntrySheet
           kind={editing.kind}
           event={editing.event}
           day={day}
+          dayLabel={isToday ? null : `${headline}, ${formatDayDate(day)}`}
           onClose={() => setEditing(null)}
-          onSaved={() => {
+          onSaved={(walkMinutes) => {
+            // **The goal is a threshold, and this is the entry that crossed
+            // it.** Now that the bar no longer flashes green, the moment it
+            // is reached has nothing to mark it, and a bar quietly changing
+            // hue is not a moment. So the confetti — which used to fire once
+            // in an account's life, on registering the animal — fires again
+            // here, at most once a day.
+            //
+            // The arithmetic is exact rather than a re-sum: `walked` already
+            // counts the entry being edited, so its old minutes come out
+            // before the new ones go in. A non-walk contributes null on both
+            // sides and cannot cross anything. `!met` is what keeps a second
+            // walk on an already-finished day quiet.
+            //
+            // **Only on the day you are in.** Backfilling a forgotten
+            // Tuesday is bookkeeping, and a week of catch-up entries firing
+            // a week of confetti would be a party for paperwork. The cost is
+            // a walk logged after midnight, which lands on "Ayer" and gets
+            // nothing; that is the narrower mistake of the two.
+            const crossed =
+              isToday &&
+              goal !== null &&
+              goal > 0 &&
+              !met &&
+              walked -
+                (editing.event?.duration_minutes ?? 0) +
+                (walkMinutes ?? 0) >=
+                goal;
+
             setEditing(null);
             setAttempt((n) => n + 1);
+            if (crossed) celebrate();
           }}
           onFailed={(message) =>
             toast.show({ variant: "error", message, persist: true })
@@ -387,11 +653,24 @@ function Entry({
       <View className="shrink-0 items-start gap-1">
         <Text className="text-text-tertiary">{time}</Text>
         {Icon ? (
-          // The same tone as the time above it: they are one column, read as
-          // one thing. Mist Grey measured 3.96:1 here — enough for a
-          // non-text indicator, but visibly fainter than the time it pairs
-          // with, which made the pair read as two weights.
-          <Icon size={18} strokeWidth={2} color={colors.textTertiary} />
+          // **The two rare kinds wear the colour the calendar marks them in.**
+          // Nothing tied a red dot on the 9th to the row that put it there:
+          // the calendar spoke in dots and rings, the log in glyphs and words,
+          // and the only shared mark was the goal bar. The mark cannot carry a
+          // 6px glyph, so colour is the channel that fits — amber is
+          // medication and red is an incident on both surfaces, and the
+          // legend's words are the row's own label.
+          //
+          // A walk and a meal stay in the column's tone. They are as common
+          // here as they are on the calendar, where they get no hue either,
+          // and four coloured rows would leave the two that matter competing.
+          // The icon is decorative in the accessibility tree — the row names
+          // its kind in text — so no meaning rests on the colour alone.
+          <Icon
+            size={18}
+            strokeWidth={2}
+            color={spec?.tone ?? colors.textTertiary}
+          />
         ) : null}
       </View>
       <View className="flex-1">
@@ -449,6 +728,7 @@ function EntrySheet({
   kind,
   event,
   day,
+  dayLabel,
   petId,
   onClose,
   onSaved,
@@ -458,9 +738,21 @@ function EntrySheet({
   /** The entry being corrected, or null when this is a new one. */
   event: PetEventRow | null;
   day: Date;
+  /**
+   * Which day this writes to, when it is not today.
+   *
+   * Said out loud rather than assumed: the same sheet, opened from a day three
+   * back, saves three days back — and a form that looks identical whichever
+   * day it lands on is a form that will land on the wrong one. No validation
+   * changed for this: every time check compares an instant against the real
+   * now, so any hour of a past day is already in the past and today's future
+   * is still refused.
+   */
+  dayLabel: string | null;
   petId: string;
   onClose: () => void;
-  onSaved: () => void;
+  /** Reports the walk's minutes, so the day can tell whether it just won. */
+  onSaved: (walkMinutes: number | null) => void;
   onFailed: (message: string) => void;
 }) {
   const spec = KINDS[kind];
@@ -503,15 +795,31 @@ function EntrySheet({
 
   const parsedAt = parseTimeOfDay(at, day);
   const parsedFrom = from.trim() ? parseTimeOfDay(from, day) : null;
+  // With no DESDE the duration is the fact rather than a derivation of it, so
+  // the steppers count from the field instead of from the two times.
   const minutes =
-    parsedFrom && parsedAt ? (minutesBetween(parsedFrom, parsedAt) ?? 0) : 0;
+    parsedFrom && parsedAt
+      ? (minutesBetween(parsedFrom, parsedAt) ?? 0)
+      : (parseDuration(durationText) ?? 0);
 
   /** Recomputes the display of the derived field. Never writes into a time. */
   const showDuration = useCallback(
     (fromText: string, atText: string) => {
+      // **A DESDE that does not parse is not a reason to throw the duration
+      // away** — the same rule the duration field already applies to itself:
+      // not a time *yet* is mid-typing, not an error. It is also the only
+      // rule that survives a real keyboard. Deleting "10:48" on Android fires
+      // one change per key, so the field passes through "10:" and "1" on its
+      // way to empty, and clearing on each of those wiped a duration that the
+      // final empty string was then careful to preserve. The web hid it
+      // completely: `fill("")` is a single event.
+      //
+      // With nothing in DESDE the duration is the fact rather than a reading
+      // of two times, which is what lets a walk be an end plus a length —
+      // see `applyMinutes`.
       const start = fromText.trim() ? parseTimeOfDay(fromText, day) : null;
       const end = parseTimeOfDay(atText, day);
-      if (!start || !end) return setDurationText("");
+      if (!start || !end) return;
       const total = minutesBetween(start, end);
       setDurationText(
         total === null ? "" : formatDuration(total, durationFormat),
@@ -562,6 +870,35 @@ function EntrySheet({
    * plausible time of day, so the entry would look ordinary and be nonsense;
    * `logEvent` would then reject it into a toast, which is the wrong place for
    * a message about one field. Nothing moves and the field says why.
+   *
+   * ---
+   *
+   * **A start that reaches back past midnight is not written into DESDE.**
+   *
+   * `from` is a time of day with no date: `formatTimeOfDay` keeps only HH:MM,
+   * and `parseTimeOfDay(from, day)` puts it back on the day on screen. So a
+   * start computed on the *previous* day came back as that clock time today —
+   * after the end rather than before it. Stepping +15 three times on a walk
+   * ending at 00:20 gave "45 min" with DESDE at 23:35, and then blurring
+   * emptied the duration while Guardar blamed DESDE for a value the tutor had
+   * never typed.
+   *
+   * The answer is not to make DESDE hold a date. It is that **a walk is
+   * allowed to be an end plus a length**: the tutor knows they got home at
+   * 00:20 and were out about forty-five minutes, which is a complete fact, and
+   * `pet_events.duration_minutes` is a real column rather than something
+   * derived from the two times. So when the start falls outside the day, the
+   * duration stays and DESDE goes empty — the field is optional and says so —
+   * and `save` takes the length from the duration field instead.
+   *
+   * It also serves the case PRODUCT.md wanted anyway: "unos cuarenta minutos"
+   * is a real memory of a walk, and now it can be logged without inventing a
+   * start time to go with it.
+   *
+   * What is still refused is a start the tutor **typed** after its end. That
+   * is a different decision, recorded in DESIGN.md: a mistyped digit is
+   * likelier than a walk across midnight, and guessing would file the entry
+   * under a day nobody chose.
    */
   const applyMinutes = useCallback(
     (total: number) => {
@@ -577,8 +914,7 @@ function EntrySheet({
       }
       setDurationError(null);
       setDurationText(formatDuration(total, durationFormat));
-      const end = parseTimeOfDay(at, day);
-      if (end) setFrom(formatTimeOfDay(shiftMinutes(end, -total)));
+      setFrom(startOnDay(at, day, total));
     },
     [at, day, durationFormat],
   );
@@ -604,17 +940,33 @@ function EntrySheet({
         return;
       }
       setDurationError(null);
-      const end = parseTimeOfDay(at, day);
-      if (end) setFrom(formatTimeOfDay(shiftMinutes(end, -total)));
+      setFrom(startOnDay(at, day, total));
     },
     [at, day],
   );
 
-  /** Blurring discards a refused duration: the times are the truth. */
+  /**
+   * Blurring discards a refused duration.
+   *
+   * **With DESDE there are two times to fall back on, and without it there are
+   * not** — so the empty-start case has to tidy the field on its own rather
+   * than re-derive it, or a refused "99h" would sit there with its error
+   * cleared and be dropped in silence at save time. A valid value is kept and
+   * normalised; anything else goes.
+   */
   const tidyDuration = useCallback(() => {
     setDurationError(null);
-    showDuration(from, at);
-  }, [showDuration, from, at]);
+    if (from.trim()) {
+      showDuration(from, at);
+      return;
+    }
+    const total = parseDuration(durationText);
+    setDurationText(
+      total !== null && total > 0 && total <= MAX_WALK_MINUTES
+        ? formatDuration(total, durationFormat)
+        : "",
+    );
+  }, [showDuration, from, at, durationText, durationFormat]);
 
   const save = useCallback(async () => {
     const end = parseTimeOfDay(at, day);
@@ -632,6 +984,30 @@ function EntrySheet({
 
     let occurredAt = end;
     let walkMinutes: number | null = null;
+
+    // A walk known only by its end and its length. Either the tutor never
+    // wrote a start, or the one the steppers computed fell on the previous day
+    // and could not be shown as a time — see `applyMinutes`.
+    if (isWalk && !from.trim()) {
+      const typed = parseDuration(durationText);
+      // A duration out of range is refused here rather than dropped. **This
+      // is the Android path and the web target cannot reach it**: clicking a
+      // button there blurs the input first, so `tidyDuration` has already
+      // thrown the value away by the time this runs, which is why there is no
+      // e2e test for it. Tapping a Pressable on Android does not blur, so the
+      // refused value arrives here — and saving the walk while quietly
+      // discarding the only number the tutor typed is the worst of the three
+      // options.
+      if (durationText.trim() && (typed === null || typed <= 0)) {
+        setDurationError("Escríbela como 45 min o 1h 30m");
+        return false;
+      }
+      if (typed !== null && typed > MAX_WALK_MINUTES) {
+        setDurationError("Como mucho 24 horas");
+        return false;
+      }
+      walkMinutes = typed;
+    }
 
     if (isWalk && from.trim()) {
       const start = parseTimeOfDay(from, day);
@@ -665,11 +1041,12 @@ function EntrySheet({
       return false;
     }
 
-    onSaved();
+    onSaved(walkMinutes);
     return true;
   }, [
     at,
     from,
+    durationText,
     day,
     isWalk,
     spec,
@@ -689,7 +1066,8 @@ function EntrySheet({
       onFailed(error);
       return false;
     }
-    onSaved();
+    // A deletion never celebrates, whatever it does to the total.
+    onSaved(null);
     return true;
   }, [event, onFailed, onSaved]);
 
@@ -703,6 +1081,11 @@ function EntrySheet({
         >
           {event ? spec.editAction : spec.action}
         </Text>
+        {dayLabel ? (
+          <Text testID="entry-day" className="-mt-3 mb-5 text-text-tertiary">
+            {dayLabel}
+          </Text>
+        ) : null}
 
         {isWalk ? (
           <>
@@ -871,6 +1254,47 @@ function EntrySheet({
         ) : null}
       </>
     </Sheet>
+  );
+}
+
+/**
+ * One day back or forward.
+ *
+ * Icon-only, so the name is spoken rather than shown — and disabled rather
+ * than hidden on today: a control that disappears takes its own explanation
+ * with it, and "there is no tomorrow yet" is worth leaving visible.
+ */
+function DayStep({
+  testID,
+  icon: Icon,
+  label,
+  disabled = false,
+  onPress,
+}: {
+  testID: string;
+  icon: LucideIcon;
+  label: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      aria-disabled={disabled}
+      style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
+      className="items-center justify-center rounded-xl active:opacity-70"
+    >
+      <Icon
+        size={24}
+        strokeWidth={2.5}
+        color={disabled ? colors.textMuted : colors.textSecondary}
+      />
+    </Pressable>
   );
 }
 

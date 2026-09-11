@@ -1,5 +1,10 @@
 import {
+  birthdayOn,
+  daysAgo,
+  daysUntilBirthday,
   daysInMonth,
+  formatDayDate,
+  formatDayHeadline,
   formatDisplayDate,
   parseISO,
   toApproximateISO,
@@ -87,5 +92,124 @@ describe("yearChoices", () => {
   it("counts back from the current year", () => {
     const years = yearChoices(new Date("2026-09-07T00:00:00Z"), 3);
     expect(years).toEqual([2026, 2025, 2024]);
+  });
+});
+
+describe("daysAgo", () => {
+  it("counts whole days from local midnight, whatever the clock says", () => {
+    // 23:50 yesterday to 00:10 today is one day, not eleven hours.
+    expect(
+      daysAgo(new Date(2026, 8, 9, 23, 50), new Date(2026, 8, 10, 0, 10)),
+    ).toBe(1);
+    expect(
+      daysAgo(new Date(2026, 8, 10, 0, 10), new Date(2026, 8, 10, 23, 50)),
+    ).toBe(0);
+  });
+
+  it("crosses a month and a year", () => {
+    expect(daysAgo(new Date(2026, 7, 31), new Date(2026, 8, 1))).toBe(1);
+    expect(daysAgo(new Date(2025, 11, 31), new Date(2026, 0, 1))).toBe(1);
+  });
+
+  it("is negative for a day in the future", () => {
+    expect(daysAgo(new Date(2026, 8, 11), new Date(2026, 8, 10))).toBe(-1);
+  });
+});
+
+describe("formatDayHeadline", () => {
+  const today = new Date(2026, 8, 10); // a Thursday
+
+  it("names the two days a person names", () => {
+    expect(formatDayHeadline(today, today)).toBe("Hoy");
+    expect(formatDayHeadline(new Date(2026, 8, 9), today)).toBe("Ayer");
+  });
+
+  it("reaches for the weekday from two days back", () => {
+    // "Anteayer" is not what anyone says any more.
+    expect(formatDayHeadline(new Date(2026, 8, 8), today)).toBe("Martes");
+    expect(formatDayHeadline(new Date(2026, 8, 6), today)).toBe("Domingo");
+    expect(formatDayHeadline(new Date(2026, 7, 20), today)).toBe("Jueves");
+  });
+});
+
+describe("formatDayDate", () => {
+  it("gives the date without the weekday, lowercase month", () => {
+    expect(formatDayDate(new Date(2026, 8, 10))).toBe("10 de septiembre");
+    expect(formatDayDate(new Date(2026, 0, 1))).toBe("1 de enero");
+  });
+});
+
+describe("birthdayOn", () => {
+  const on = (iso: string, birth: string | null) =>
+    birthdayOn(new Date(`${iso}T12:00:00`), birth);
+
+  it("counts the years turned on the day itself", () => {
+    expect(on("2026-09-14", "2025-09-14")).toBe(1);
+    expect(on("2033-09-14", "2025-09-14")).toBe(8);
+  });
+
+  it("is null on every other day", () => {
+    expect(on("2026-09-13", "2025-09-14")).toBeNull();
+    expect(on("2026-09-15", "2025-09-14")).toBeNull();
+    expect(on("2026-10-14", "2025-09-14")).toBeNull();
+  });
+
+  it("returns 0 on the day of birth, which is not yet a birthday", () => {
+    expect(on("2025-09-14", "2025-09-14")).toBe(0);
+  });
+
+  it("is null before the animal existed", () => {
+    expect(on("2024-09-14", "2025-09-14")).toBeNull();
+  });
+
+  it("matches the 1st for an approximate date, with no special case", () => {
+    // Stored as YYYY-MM-01 with birth_date_approximate = true.
+    expect(on("2026-04-01", "2024-04-01")).toBe(2);
+    expect(on("2026-04-02", "2024-04-01")).toBeNull();
+  });
+
+  it("has no birthday without a birth date", () => {
+    expect(on("2026-09-14", null)).toBeNull();
+    expect(on("2026-09-14", "nonsense")).toBeNull();
+  });
+
+  it("survives a leap day by simply not matching a year without one", () => {
+    expect(on("2028-02-29", "2024-02-29")).toBe(4);
+    expect(on("2027-03-01", "2024-02-29")).toBeNull();
+  });
+});
+
+describe("daysUntilBirthday", () => {
+  const on = (iso: string, birth: string | null) =>
+    daysUntilBirthday(new Date(`${iso}T12:00:00`), birth);
+
+  it("counts the days left this year", () => {
+    expect(on("2026-09-11", "2024-09-26")).toBe(15);
+    expect(on("2026-09-25", "2024-09-26")).toBe(1);
+  });
+
+  it("is 0 on the day itself", () => {
+    expect(on("2026-09-26", "2024-09-26")).toBe(0);
+  });
+
+  it("rolls into the next year once the day has passed", () => {
+    expect(on("2026-09-27", "2024-09-26")).toBe(364);
+    expect(on("2026-12-27", "2024-01-05")).toBe(9);
+  });
+
+  it("counts to the 1st for an approximate date", () => {
+    expect(on("2026-09-20", "2024-10-01")).toBe(11);
+  });
+
+  it("skips to a year that really has a 29th of February", () => {
+    // 2027 has none, so the next birthday is in 2028 — and `birthdayOn` marks
+    // that same date and no other.
+    expect(on("2027-02-20", "2024-02-29")).toBe(374);
+    expect(on("2028-02-29", "2024-02-29")).toBe(0);
+  });
+
+  it("has nothing to count without a birth date", () => {
+    expect(on("2026-09-11", null)).toBeNull();
+    expect(on("2026-09-11", "nonsense")).toBeNull();
   });
 });

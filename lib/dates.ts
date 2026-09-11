@@ -95,6 +95,110 @@ export function formatDisplayDate(
   return `${String(parts.day).padStart(2, "0")}/${String(parts.month).padStart(2, "0")}/${parts.year}`;
 }
 
+const WEEKDAYS_ES = [
+  "domingo",
+  "lunes",
+  "martes",
+  "miércoles",
+  "jueves",
+  "viernes",
+  "sábado",
+] as const;
+
+/** Whole days from `day` back to `reference`, both taken at local midnight. */
+export function daysAgo(day: Date, reference: Date): number {
+  const a = new Date(day);
+  a.setHours(0, 0, 0, 0);
+  const b = new Date(reference);
+  b.setHours(0, 0, 0, 0);
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+}
+
+/**
+ * What to call a day: "Hoy", "Ayer", or its weekday.
+ *
+ * The headline names the day the way a person would. Two days back nobody
+ * says "anteayer" out loud any more, and the weekday is what they reach for
+ * instead — so from there it is "Martes", with the date on the line below.
+ */
+export function formatDayHeadline(day: Date, today: Date): string {
+  const ago = daysAgo(day, today);
+  if (ago === 0) return "Hoy";
+  if (ago === 1) return "Ayer";
+  const weekday = WEEKDAYS_ES[day.getDay()];
+  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
+}
+
+/**
+ * The years the animal turns on `day`, or null when that day is not it.
+ *
+ * **An approximate birth date needs no special case here, and that is the
+ * point.** It is stored as the 1st of the month with
+ * `birth_date_approximate = true`, so this matches the 1st every year — which
+ * is a convention the tutor opted into when they said the date was
+ * approximate, not a date the app invented. Nothing is *computed* from it,
+ * which is the line AGENTS.md draws: a due date may not be built on a
+ * placeholder day, and a greeting may.
+ *
+ * Returns 0 on the day the animal was born, which is a real day to mark and
+ * not a birthday — the caller says so in words.
+ */
+export function birthdayOn(day: Date, birthDate: string | null): number | null {
+  const parts = parseISO(birthDate);
+  if (!parts) return null;
+  if (day.getMonth() + 1 !== parts.month || day.getDate() !== parts.day) {
+    return null;
+  }
+  const years = day.getFullYear() - parts.year;
+  return years < 0 ? null : years;
+}
+
+/**
+ * Whole days from `day` to the animal's next birthday, or null without one.
+ *
+ * **It finds a date that round-trips, rather than trusting the constructor.**
+ * `new Date(2027, 1, 29)` is the 1st of March, so a dog born on a leap day
+ * would otherwise be told its birthday is a day the calendar does not mark —
+ * `birthdayOn` compares month and day exactly and would return null on that
+ * same date. Skipping to the next year that really has a 29th of February
+ * keeps the two agreeing: such a dog has a birthday every four years, which
+ * is the joke and not a bug.
+ *
+ * Returns 0 on the day itself. An approximate birth date counts to the 1st of
+ * its month, the same convention `birthdayOn` follows.
+ */
+export function daysUntilBirthday(
+  day: Date,
+  birthDate: string | null,
+): number | null {
+  const parts = parseISO(birthDate);
+  if (!parts) return null;
+
+  const from = new Date(day);
+  from.setHours(0, 0, 0, 0);
+
+  // Eight tries covers this year, next year, and any run of non-leap years a
+  // 29th of February can hide behind.
+  for (let i = 0; i <= 8; i++) {
+    const candidate = new Date(
+      from.getFullYear() + i,
+      parts.month - 1,
+      parts.day,
+    );
+    const rolled =
+      candidate.getMonth() + 1 !== parts.month ||
+      candidate.getDate() !== parts.day;
+    if (rolled || candidate.getTime() < from.getTime()) continue;
+    return Math.round((candidate.getTime() - from.getTime()) / 86_400_000);
+  }
+  return null;
+}
+
+/** "10 de septiembre" — the date under the headline, without the weekday. */
+export function formatDayDate(day: Date): string {
+  return `${day.getDate()} de ${MONTHS_ES[day.getMonth()].toLowerCase()}`;
+}
+
 /** The year range offered by the picker: this year back through `span` years. */
 export function yearChoices(today: Date = new Date(), span = 30): number[] {
   const current = today.getFullYear();

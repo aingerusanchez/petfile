@@ -1,10 +1,14 @@
 import {
   dayBounds,
+  dayKey,
   formatTimeOfDay,
   parseTimeOfDay,
   MAX_WALK_MINUTES,
   minutesBetween,
+  monthBounds,
   shiftMinutes,
+  startWithinDay,
+  summariseMonth,
   validateEvent,
   walkedMinutes,
   type NewEvent,
@@ -213,5 +217,139 @@ describe("formatTimeOfDay in 12h", () => {
     expect(parseTimeOfDay(formatTimeOfDay(at(15, 0)), day)?.getHours()).toBe(
       15,
     );
+  });
+});
+
+describe("monthBounds", () => {
+  it("spans one local month, from the 1st to the 1st", () => {
+    const { from, to } = monthBounds(new Date(2026, 8, 17, 14, 30));
+    const start = new Date(from);
+    const end = new Date(to);
+
+    expect(start.getDate()).toBe(1);
+    expect(start.getMonth()).toBe(8);
+    expect(start.getHours()).toBe(0);
+    expect(end.getDate()).toBe(1);
+    expect(end.getMonth()).toBe(9);
+  });
+
+  it("does not roll forward when asked from a 31st", () => {
+    // Incrementing the month from the 31st of March lands on a date April
+    // does not have, and the runtime rolls it into May — so the range would
+    // have started in March and ended in May.
+    const { from, to } = monthBounds(new Date(2026, 2, 31, 9, 0));
+    expect(new Date(from).getMonth()).toBe(2);
+    expect(new Date(to).getMonth()).toBe(3);
+    expect(new Date(to).getDate()).toBe(1);
+  });
+
+  it("crosses a year end", () => {
+    const { to } = monthBounds(new Date(2026, 11, 15));
+    expect(new Date(to).getFullYear()).toBe(2027);
+    expect(new Date(to).getMonth()).toBe(0);
+  });
+});
+
+describe("summariseMonth", () => {
+  const at = (day: number, hour: number, over: Partial<PetEventRow> = {}) =>
+    ({
+      ...walk(null),
+      id: `${day}-${hour}-${over.kind ?? "walk"}`,
+      occurred_at: new Date(2026, 8, day, hour).toISOString(),
+      ...over,
+    }) as PetEventRow;
+
+  it("adds up a day's walks and flags what it carried", () => {
+    const days = summariseMonth([
+      at(3, 9, { duration_minutes: 40 }),
+      at(3, 18, { duration_minutes: 35 }),
+      at(3, 20, { kind: "medication" }),
+      at(7, 11, { kind: "incident" }),
+    ]);
+
+    expect(days.get("2026-09-03")).toEqual({
+      day: "2026-09-03",
+      walkedMinutes: 75,
+      hasIncident: false,
+      hasMedication: true,
+    });
+    expect(days.get("2026-09-07")).toEqual({
+      day: "2026-09-07",
+      walkedMinutes: 0,
+      hasIncident: true,
+      hasMedication: false,
+    });
+  });
+
+  it("leaves a day with no entries out of the map entirely", () => {
+    // Absent, not zero: "nothing was logged" and "logged, and he did not walk
+    // enough" are different marks, and a zero would collapse them.
+    const days = summariseMonth([at(3, 9, { duration_minutes: 40 })]);
+    expect(days.has("2026-09-04")).toBe(false);
+    expect(days.size).toBe(1);
+  });
+
+  it("ignores meals, which carry no mark", () => {
+    const days = summariseMonth([at(5, 8, { kind: "meal" })]);
+    // The day is still present — something was logged — but nothing is
+    // flagged: eating is assumed, and not eating is an incident.
+    expect(days.get("2026-09-05")).toEqual({
+      day: "2026-09-05",
+      walkedMinutes: 0,
+      hasIncident: false,
+      hasMedication: false,
+    });
+  });
+
+  it("puts a small-hours entry on the day the device shows", () => {
+    const days = summariseMonth([at(9, 0, { duration_minutes: 20 })]);
+    expect(days.has("2026-09-09")).toBe(true);
+  });
+
+  it("has nothing to say about an empty month", () => {
+    expect(summariseMonth([]).size).toBe(0);
+  });
+});
+
+describe("dayKey", () => {
+  it("pads to YYYY-MM-DD", () => {
+    expect(dayKey(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
+    expect(dayKey(new Date(2026, 11, 31, 0, 0))).toBe("2026-12-31");
+  });
+});
+
+describe("startWithinDay", () => {
+  const at = (iso: string) => new Date(iso);
+
+  it("counts back to a start on the same day", () => {
+    const start = startWithinDay(at("2026-09-11T10:00:00"), 45);
+    expect(start?.getHours()).toBe(9);
+    expect(start?.getMinutes()).toBe(15);
+    expect(start?.getDate()).toBe(11);
+  });
+
+  it("refuses a start that lands on the day before", () => {
+    // The walk that broke the sheet: home at 00:20, out for 45 minutes.
+    expect(startWithinDay(at("2026-09-11T00:20:00"), 45)).toBeNull();
+  });
+
+  it("allows a start at the very first minute of the day", () => {
+    const start = startWithinDay(at("2026-09-11T00:45:00"), 45);
+    expect(start?.getHours()).toBe(0);
+    expect(start?.getMinutes()).toBe(0);
+    expect(start?.getDate()).toBe(11);
+  });
+
+  it("refuses the minute before that", () => {
+    expect(startWithinDay(at("2026-09-11T00:45:00"), 46)).toBeNull();
+  });
+
+  it("treats a zero-minute walk as starting when it ended", () => {
+    const start = startWithinDay(at("2026-09-11T10:00:00"), 0);
+    expect(start?.getHours()).toBe(10);
+  });
+
+  it("refuses a whole day counted back, which is another date", () => {
+    expect(startWithinDay(at("2026-09-11T10:00:00"), 24 * 60)).toBeNull();
   });
 });
