@@ -1,4 +1,4 @@
-import { Scale, Syringe } from "lucide-react-native";
+import { Bug, Scale, ShieldPlus, Syringe, Worm } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import {
@@ -25,7 +25,9 @@ import {
   logTreatment,
   pending,
   proposeNextDue,
+  treatmentCadence,
   treatmentLabel,
+  treatmentNameExamples,
   treatmentsFor,
   updateTreatment,
   TREATMENT_KINDS,
@@ -289,7 +291,7 @@ export default function Health() {
           testID="health-treatment-add"
           label="Apuntar tratamiento"
           variant="secondary"
-          icon={Syringe}
+          icon={ShieldPlus}
           onPress={() => setTreating("new")}
         />
       </Group>
@@ -330,6 +332,22 @@ export default function Health() {
     </Screen>
   );
 }
+
+/**
+ * A glyph per kind, and it is teaching rather than decoration.
+ *
+ * **The two dewormings are the pair nobody can tell apart**, which is why the
+ * labels carry "(Int.)" and "(Ext.)" at all — so the icons name what each one
+ * is *for* rather than what it looks like: a worm for what lives inside, a
+ * tick for what lives on the outside. The vaccine keeps the syringe, and the
+ * section's own button gives it up for a shield, because an action button
+ * wearing one of its three options' marks reads as a shortcut to that option.
+ */
+const KIND_ICONS = {
+  vaccine: Syringe,
+  deworming: Worm,
+  antiparasitic: Bug,
+} as const;
 
 /**
  * "4 de septiembre", and "4 de septiembre de 2025" when it is another year.
@@ -622,6 +640,7 @@ function TreatmentSheet({
               key={option}
               testID={`treatment-kind-${option}`}
               label={treatmentLabel(option)}
+              icon={KIND_ICONS[option]}
               selected={kind === option}
               onPress={() => {
                 setKind(option);
@@ -638,7 +657,7 @@ function TreatmentSheet({
           label="NOMBRE"
           value={name}
           onChangeText={setName}
-          placeholder="Polivalente, Milbemax, Seresto…"
+          placeholder={treatmentNameExamples(kind)}
         />
       </View>
 
@@ -675,6 +694,18 @@ function TreatmentSheet({
             setOwnsNext(true);
           }}
         />
+        {/* **Why that date is there, in the kind's own rhythm.** The field
+            fills itself and a date that appears out of nowhere invites either
+            blind trust or a puzzled correction; "suele tocar cada 3 meses"
+            makes the proposal legible enough to accept or to overrule on
+            purpose. It says what is usual rather than what is set, so it
+            stays true after somebody writes the vet's own date above it. */}
+        <Text
+          testID="treatment-cadence"
+          className="-mt-3 text-xs text-text-tertiary"
+        >
+          Suele tocar {treatmentCadence(kind)}.
+        </Text>
       </View>
 
       <View className="mb-5">

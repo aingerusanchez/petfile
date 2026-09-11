@@ -138,11 +138,22 @@ test("proposes the next date from the kind, and keeps what is confirmed", async 
     typed(addDays(today, 90)),
   );
 
+  // And it says why that date is there, in the kind's own rhythm — derived
+  // from the same constant that filled the field, so the two cannot drift.
+  await expect(page.getByTestId("treatment-cadence")).toContainText(
+    "cada 3 meses",
+  );
+  await page.getByTestId("treatment-kind-vaccine").click();
+  await expect(page.getByTestId("treatment-cadence")).toContainText("cada año");
+  await page.getByTestId("treatment-kind-deworming").click();
+
   await page.getByTestId("treatment-name").fill("Milbemax");
   await page.getByTestId("treatment-save").click();
 
   // And it lands in the section whose whole job is saying what is coming.
-  await expect(page.getByTestId("health-due")).toContainText("Desparasitación");
+  await expect(page.getByTestId("health-due")).toContainText(
+    "Desparasitación (Int.)",
+  );
   await expect(page.getByTestId("health-due")).not.toContainText(
     "Nada pendiente",
   );

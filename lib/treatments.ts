@@ -24,11 +24,41 @@ export const TREATMENT_KINDS: TreatmentKind[] = [
   "antiparasitic",
 ];
 
+/**
+ * The words on screen.
+ *
+ * **The qualifier is load-bearing.** Bare, "Desparasitación" and
+ * "Antiparasitario" name the same idea twice to anybody who has not had the
+ * vet explain it — the pipette on the neck against the pill for worms — and
+ * the tutor who asked for this could not tell them apart either. Int./Ext. is
+ * the contrast in the fewest characters, which keeps the three kinds on one
+ * row of chips; the brand names in the field below carry the rest of the
+ * teaching, because "Seresto" and "Milbemax" are what a tutor actually
+ * recognises.
+ */
 const LABELS: Record<TreatmentKind, string> = {
   vaccine: "Vacuna",
-  deworming: "Desparasitación",
-  antiparasitic: "Antiparasitario",
+  deworming: "Desparasitación (Int.)",
+  antiparasitic: "Antiparasitario (Ext.)",
 };
+
+/**
+ * What to write in the name field, per kind.
+ *
+ * **The examples are the other half of the label.** "(Int.)" says which of the
+ * two this is in two letters; "Milbemax, Drontal" says it in the words off the
+ * box in the cupboard. A tutor who has never heard "endoparásito" has
+ * absolutely heard of the pipette they put on the dog's neck last month.
+ */
+const NAME_EXAMPLES: Record<TreatmentKind, string> = {
+  vaccine: "Polivalente, Rabia…",
+  deworming: "Milbemax, Drontal… (giardias, lombrices)",
+  antiparasitic: "Seresto, Frontline… (pulgas, garrapatas)",
+};
+
+export function treatmentNameExamples(kind: TreatmentKind): string {
+  return NAME_EXAMPLES[kind];
+}
 
 export function treatmentLabel(kind: TreatmentKind): string {
   return LABELS[kind];
@@ -48,6 +78,31 @@ export const TREATMENT_INTERVAL_DAYS: Record<TreatmentKind, number> = {
   deworming: 90,
   antiparasitic: 30,
 };
+
+/**
+ * The interval in words: "cada 3 meses".
+ *
+ * **Derived from the same constant that fills the date, never typed beside
+ * it.** A hint reading "cada 3 meses" next to a 90 somebody later changes to
+ * 120 is worse than no hint at all — it would be the app stating a schedule it
+ * no longer follows, on the one screen whose job is remembering schedules.
+ *
+ * It says what is *usual*, not what is set, so it stays true after the tutor
+ * overrules the proposal: the vet's own instruction wins on the field above
+ * and this still answers "how often is this normally?".
+ */
+export function treatmentCadence(kind: TreatmentKind): string {
+  const days = TREATMENT_INTERVAL_DAYS[kind];
+
+  if (days % 365 === 0) {
+    const years = days / 365;
+    return years === 1 ? "cada año" : `cada ${years} años`;
+  }
+
+  const months = Math.round(days / 30);
+  if (months >= 1) return months === 1 ? "cada mes" : `cada ${months} meses`;
+  return days === 1 ? "cada día" : `cada ${days} días`;
+}
 
 /** How far ahead something stops being "later" and starts being "soon". */
 export const DUE_SOON_DAYS = 14;

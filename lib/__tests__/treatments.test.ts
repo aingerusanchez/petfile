@@ -1,5 +1,8 @@
 import {
   addDays,
+  TREATMENT_INTERVAL_DAYS,
+  TREATMENT_KINDS,
+  treatmentCadence,
   dateKey,
   daysBetween,
   dueStatus,
@@ -166,10 +169,33 @@ describe("validateTreatment", () => {
   });
 });
 
+describe("treatmentCadence", () => {
+  it("says the interval in the words a household uses", () => {
+    expect(treatmentCadence("vaccine")).toBe("cada año");
+    expect(treatmentCadence("deworming")).toBe("cada 3 meses");
+    expect(treatmentCadence("antiparasitic")).toBe("cada mes");
+  });
+
+  it("is derived from the interval, so the two cannot drift", () => {
+    // The point of the assertion: change TREATMENT_INTERVAL_DAYS and the
+    // sentence follows, rather than the app stating a schedule it no longer
+    // keeps on the one screen whose job is keeping schedules.
+    for (const kind of TREATMENT_KINDS) {
+      const days = TREATMENT_INTERVAL_DAYS[kind];
+      const months = Math.round(days / 30);
+      expect(treatmentCadence(kind)).toContain(
+        days % 365 === 0 ? "año" : months === 1 ? "mes" : String(months),
+      );
+    }
+  });
+});
+
 describe("treatmentLabel", () => {
   it("names each kind in the household's words", () => {
     expect(treatmentLabel("vaccine")).toBe("Vacuna");
-    expect(treatmentLabel("deworming")).toBe("Desparasitación");
-    expect(treatmentLabel("antiparasitic")).toBe("Antiparasitario");
+    // The qualifier is the point: without it these two name the same idea
+    // twice to anybody who has not had the vet explain it.
+    expect(treatmentLabel("deworming")).toBe("Desparasitación (Int.)");
+    expect(treatmentLabel("antiparasitic")).toBe("Antiparasitario (Ext.)");
   });
 });

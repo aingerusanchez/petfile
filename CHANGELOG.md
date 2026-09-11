@@ -42,6 +42,21 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   momento en el que deja de moverse: lo que dijo el veterinario es el dato.
   "Sin fecha" también es una respuesta; un tratamiento de una sola vez no está
   pendiente, está hecho.
+- **"Desparasitación (Int.)" y "Antiparasitario (Ext.)", con su apellido.** A
+  secas nombran la misma idea dos veces para quien no ha tenido la explicación
+  del veterinario delante: la pipeta del cuello y la pastilla de los gusanos se
+  leen como sinónimos. Y el campo del nombre propone ejemplos por tipo —
+  "Seresto, Frontline… (pulgas, garrapatas)" —, que es la mitad de la
+  explicación que de verdad se reconoce: la de la caja del armario. Cada tipo
+  lleva además su icono, y nombran para qué sirven y no a qué se parecen: una
+  jeringuilla, un gusano para lo que vive dentro y una garrapata para lo que
+  vive fuera.
+- **La fecha que se rellena sola dice cada cuánto toca.** "Suele tocar cada 3
+  meses" bajo el campo: una fecha que aparece de la nada invita o a confiar a
+  ciegas o a corregirla sin saber por qué. La frase sale del mismo constante
+  que rellena la fecha, así que no pueden acabar diciendo cosas distintas — y
+  habla de lo habitual y no de lo puesto, así que sigue siendo cierta cuando
+  el tutor escribe encima la fecha que dijo el veterinario.
 - **Una pauta pertenece al par tipo+nombre, no al tipo.** "Rabia" y
   "Polivalente" son las dos vacunas y corren en relojes distintos: agruparlas
   dejaría que la última puesta borrase la fecha de la otra, y la que se borra
