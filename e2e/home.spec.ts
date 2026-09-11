@@ -657,6 +657,14 @@ test("names the birthday and marks it on the calendar", async ({ page }) => {
   await expect(page.getByTestId("home-title")).toHaveText("Cumpleaños de Loki");
   await expect(page.getByTestId("home-date")).toContainText("de ");
 
+  // The emptiest moment of the day is the one worth saying something in.
+  await expect(page.getByTestId("home-empty")).toContainText(
+    "Loki cumple 2 años",
+  );
+
+  // And the confetti, once — a year is a threshold, like the exercise goal.
+  await expect(page.getByTestId("celebration")).toBeVisible();
+
   await page.getByTestId("home-day").click();
   await expect(page.getByTestId("calendar-mark-birthday")).toHaveCount(1);
 
@@ -671,6 +679,42 @@ test("names the birthday and marks it on the calendar", async ({ page }) => {
   await closeCalendar(page);
   await page.getByTestId("home-prev-day").click();
   await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+});
+
+test("celebrates the birthday once, not once per open", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const born = new Date();
+  born.setFullYear(born.getFullYear() - 3);
+  const iso = `${born.getFullYear()}-${String(born.getMonth() + 1).padStart(2, "0")}-${String(born.getDate()).padStart(2, "0")}`;
+
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: iso, exercise_goal_minutes: 60 });
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("celebration")).toBeVisible();
+
+  // The year it fired for is remembered on the device, so opening the app
+  // again on the same birthday is not a second party.
+  await page.reload();
+  await expect(page.getByTestId("home-title")).toHaveText("Cumpleaños de Loki");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+});
+
+test("says the birthday on the file's age line too", async ({ page }) => {
+  const born = new Date();
+  born.setFullYear(born.getFullYear() - 4);
+  const iso = `${born.getFullYear()}-${String(born.getMonth() + 1).padStart(2, "0")}-${String(born.getDate()).padStart(2, "0")}`;
+
+  await resetE2EPets();
+  await seedE2EPet({ birth_date: iso });
+  await seedSession(page);
+  await page.goto("/profile");
+
+  // The age is the fact a birthday changes, and the portrait's own corner is
+  // already the camera.
+  await expect(page.getByTestId("profile-age")).toContainText("Hoy cumple");
+  await expect(page.getByTestId("profile-age")).toContainText("4 años");
 });
 
 test("keeps every control on the 48dp floor here too", async ({ page }) => {
