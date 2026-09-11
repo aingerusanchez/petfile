@@ -179,6 +179,8 @@ The web target hides all three, so **a change that has to hold on the device is 
 
 **Playwright's clock is not the way out**, and both halves were measured here: `page.clock.setFixedTime` stops Reanimated dead — the button's status animation reads its progress from `Date.now()` and never finishes, so Playwright waits forever for a control that never stops moving — and `page.clock.install` + `resume` patches the timers the app captures at module load, after which the day view never renders at all. The fix is to derive every time in that file from a "now" the test owns, and to give the steppers a fixture whose day has time behind it.
 
+**The e2e suite needs Node 22 or newer.** `@supabase/supabase-js` reaches for a native `WebSocket`, and on Node 20 every spec fails in `e2e/auth.ts` before the browser opens: "Node.js detected but native WebSocket not found." This project's default is 24; a shell that lands on 20 produces a total failure that looks nothing like a version problem. `node -v` is the first thing to check when the whole suite dies in the helper.
+
 **The Expo web dev server dies during long runs.** Three times in one session a suite failed in bulk with `net::ERR_CONNECTION_REFUSED at http://localhost:8081/` — nothing to do with the code under test. A mass failure whose first error is that one is a dead server: `pkill -f "expo start"`, then run again.
 
 ## Documentation maintenance
