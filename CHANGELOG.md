@@ -39,8 +39,15 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   un solo extremo, y la suposición natural es que la mejor es la más lejana a
   la diarrea — le pasó a quien diseñó la escala. Una frase debajo se lee una
   vez y nunca más; una marca está siempre. El peldaño sano lleva el filete más
-  fuerte y su palabra en el tono primario, sin color nuevo.
-- Las kakas salen a la derecha de la fila del paseo en el registro del día.
+  fuerte y su dibujo en el tono primario, sin color nuevo.
+- **Cada peldaño es un dibujo, no un número.** Bolitas sueltas, un tronco
+  segmentado, ese mismo tronco sin aristas, una masa extendida y rota, y un
+  charco con algo cayendo todavía: lo que la escala mide es **cómo se sostiene**,
+  y eso es una silueta. El número y la palabra estaban de paso. Los dibujos
+  siguen la misma retícula de 24 y el mismo trazo de 2 que los iconos de la
+  app, así que no parecen pegatinas caídas sobre el formulario.
+- Las kakas salen a la derecha de la fila del paseo en el registro del día, con
+  el mismo dibujo a 20 dp.
 - Moco y sangre **no se registran en el paseo**. Estuvieron un rato como dos
   casillas y era fricción en el camino que todo el mundo recorre por culpa del
   que casi nunca ocurre: lo que merece atención veterinaria es una incidencia

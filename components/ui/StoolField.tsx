@@ -7,8 +7,9 @@ import {
   stoolSpoken,
   type Stools,
 } from "../../lib/stools";
+import { StoolMark } from "./StoolMark";
 import { Text } from "./Text";
-import { TOUCH_TARGET } from "./tokens";
+import { colors, TOUCH_TARGET } from "./tokens";
 
 /**
  * The button that reveals the scale, in the slot beside the note.
@@ -121,8 +122,16 @@ export function StoolField({
               style={{ minHeight: TOUCH_TARGET }}
               className="flex-row items-center gap-2 rounded-xl border border-border-strong bg-surface px-4 active:opacity-70"
             >
+              {/* Mark and word together: this one is a record being read
+                  back rather than a control being aimed at, and it has the
+                  room — and it is where the drawings are learnt. A collected
+                  one appears **right above** the palette, still open, so
+                  anybody unsure which shape is which taps one and reads its
+                  name without leaving the row they are tapping. The legend is
+                  the act of choosing. */}
+              <StoolMark value={stool} size={20} color={colors.textPrimary} />
               <Text className="font-semibold text-text-primary">
-                {`${stool} · ${stoolLabel(stool)}`}
+                {stoolLabel(stool)}
               </Text>
             </Pressable>
           ))}
@@ -151,23 +160,14 @@ export function StoolField({
                   ideal ? "border-border-strong" : "border-border-default"
                 } ${full ? "opacity-40" : "active:opacity-70"}`}
               >
-                <Text className="font-semibold text-text-primary">
-                  {step.value}
-                </Text>
-                {/* One line, always, and allowed to shrink: five in a row on a
-                  375dp phone is 67dp each, and a wrapped word inside its own
-                  button reads worse than a shorter one. */}
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  className={`text-xs ${
-                    ideal
-                      ? "font-semibold text-text-primary"
-                      : "text-text-tertiary"
-                  }`}
-                >
-                  {step.label}
-                </Text>
+                {/* The drawing carries it. The word is gone from here on
+                    purpose — a scale of five reads faster as a shape than as
+                    a digit, and it survives where there is room to read it:
+                    on a collected one, and in every accessible name. */}
+                <StoolMark
+                  value={step.value}
+                  color={ideal ? colors.textPrimary : colors.textTertiary}
+                />
               </Pressable>
             );
           })}

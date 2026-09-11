@@ -23,6 +23,7 @@ import {
   Sheet,
   Skeleton,
   StoolField,
+  StoolMark,
   StoolToggle,
   Text,
   TextField,
@@ -791,11 +792,11 @@ function Entry({
       </View>
 
       {/* **Right of the row, where the eye ends up rather than starts.** The
-          walk's own facts read first; this is what it left behind. One token
-          per stool with its number — the count is the thing a glance wants
-          during a food transition, and the number is what makes two days
-          comparable. The row's accessible name already says all of it in
-          words, so these are decoration to a reader. */}
+          walk's own facts read first; this is what it left behind. One mark
+          per stool — the count is what a glance wants during a food
+          transition, and the shape is what makes two days comparable without
+          reading anything. The row's accessible name already says all of it
+          in words, so these are decoration to a reader. */}
       {stools.length > 0 ? (
         <View className="shrink-0 flex-row items-start gap-1 pt-0.5">
           {stools.map((stool, index) => (
@@ -804,9 +805,8 @@ function Entry({
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
               aria-hidden
-              className="h-[22px] w-[22px] items-center justify-center rounded-[11px] border border-border-strong"
             >
-              <Text className="text-xs text-text-secondary">{stool}</Text>
+              <StoolMark value={stool} size={20} color={colors.textTertiary} />
             </View>
           ))}
         </View>

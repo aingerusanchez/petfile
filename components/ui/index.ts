@@ -18,6 +18,7 @@ export { Screen } from "./Screen";
 export { Sheet } from "./Sheet";
 export { LogSkeleton, Skeleton } from "./Skeleton";
 export { StoolField, StoolToggle } from "./StoolField";
+export { StoolMark } from "./StoolMark";
 export { Slider } from "./Slider";
 export { useKeyboardInset } from "./keyboard";
 export { Toast, type ToastOptions, type ToastVariant } from "./Toast";
