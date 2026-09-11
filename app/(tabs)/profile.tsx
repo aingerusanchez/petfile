@@ -1,6 +1,5 @@
 import { useRouter } from "expo-router";
 import {
-  Cake,
   Mars,
   Pencil,
   Power,
@@ -24,8 +23,10 @@ import {
   Screen,
   Sheet,
   Text,
+  TOUCH_TARGET,
   TextField,
   colors,
+  useCelebration,
   useToast,
 } from "../../components/ui";
 import { describeAge } from "../../lib/age";
@@ -158,6 +159,7 @@ export default function Profile() {
   const { settings } = useSettings();
   const router = useRouter();
   const toast = useToast();
+  const { celebrate } = useCelebration();
 
   const [pet, setPet] = useState<PetRow | null>(null);
   const [edit, setEdit] = useState<PetEdit | null>(null);
@@ -507,8 +509,30 @@ export default function Profile() {
           ) : null}
           {age ? (
             <View className="mt-0.5 flex-row items-center gap-1.5">
+              {/* **An emoji, and it is a control.**
+                  The No-Glyph Rule bans a character standing in for an icon,
+                  and this is the other thing: a cake nobody has to read,
+                  which does something when you press it. Lucide's `Cake` was
+                  here first and was correct and flat; an emoji is the one
+                  ornament a birthday earns, and pressing it throws the
+                  confetti again — the day has already fired it once, and on
+                  the one day a year that it is offered, doing it again on
+                  purpose is the whole point.
+
+                  It sits at 48dp like every other control even though the
+                  glyph is 20, and it is not on the portrait: that corner is
+                  the camera, and two badges on a 96dp circle argue. */}
               {isBirthday ? (
-                <Cake size={14} color={colors.accentSecondary} />
+                <Pressable
+                  testID="profile-birthday"
+                  onPress={celebrate}
+                  accessibilityRole="button"
+                  accessibilityLabel="Celebrarlo otra vez"
+                  style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
+                  className="-my-3 -ml-3 items-center justify-center active:opacity-70"
+                >
+                  <Text style={{ fontSize: 20, lineHeight: 26 }}>🎂</Text>
+                </Pressable>
               ) : null}
               <Text
                 testID="profile-age"
