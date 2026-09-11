@@ -537,6 +537,11 @@ A value display that opens a picker. **No text input** — the field previously 
 - **`reach` and `clearable` exist because a birth date is not every date.** The field was built for one, so it hard-coded `maxDate={today}` and had no way to hold nothing — and a treatment's next dose is in the future by definition, while a one-off treatment's next dose is genuinely null. `reach="any"` lifts the ceiling (it has to reach backwards too: an overdue dose has a due date already passed), and `clearable` puts a "Sin fecha" out in the picker's own footer. Both default to the old behaviour, because on a field that must hold a date, a way to empty it is a way to lose one.
 - **Capitalisation:** month names are capitalised at the source in `lib/dates.ts`; the library's own header caption comes from dayjs in lowercase and is corrected with a `capitalize` class on `month_selector_label`.
 
+### Sheet
+
+- **The panel is capped and its content scrolls.** The treatment form gained a row and the whole sheet slid off the top of the phone: the title under the system clock, no scrim left so it stopped reading as a panel, and no way back to the content above. The cap is the window minus the status bar and a strip of scrim; a sheet shorter than it is laid out exactly as before.
+- **The `ScrollView` goes _inside_ the panel, never in place of it.** Moving the panel's `className` onto the `ScrollView` looked right in the browser and arrived on the device with no fill, no border, no radius and no side padding — a form floating edge to edge over the list behind it. A `ScrollView`'s own box ignores padding and does not take this styling, so the `View` stays the panel and only the overflow is delegated. Measured on device, twice: once to find the overflow, once to find this.
+
 ### Suggest Field
 
 A text field that offers a list and accepts anything. The breed field's mechanism, extracted the day the vaccines needed it.

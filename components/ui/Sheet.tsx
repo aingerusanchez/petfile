@@ -93,44 +93,45 @@ export function Sheet({
           style={StyleSheet.absoluteFill}
           className="bg-base/80"
         />
-        <ScrollView
+        <View
           testID={testID}
-          // The cap: everything but the status bar and a strip of scrim, so a
-          // full sheet still reads as a panel over a page rather than as a
-          // screen that arrived without warning. `bounces={false}` because a
-          // rubber band on a panel anchored to an edge looks like the panel
-          // coming loose.
+          // **The cap lives on the panel and the scroll lives inside it.**
+          // Putting the `className` on the `ScrollView` looked right in the
+          // browser and arrived on the device with no fill, no border, no
+          // radius and no side padding — the form floated edge to edge over
+          // the list behind it. A `ScrollView`'s own box ignores padding and
+          // does not take the styling this panel is made of, so the panel
+          // stays a `View` and only the overflow is delegated.
           style={{
             maxHeight:
               height - insets.top - spacing.lg - (fromTop ? 0 : insets.bottom),
-          }}
-          bounces={false}
-          overScrollMode="never"
-          // A tap on a field while another field's keyboard is up should land
-          // on the field, not be eaten dismissing the keyboard.
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={
-            fromTop
+            ...(fromTop
               ? {
                   paddingTop: spacing.md + insets.top,
                   paddingBottom: spacing.md,
                 }
               : {
-                  paddingTop: spacing.md,
                   paddingBottom: spacing.md + Math.max(insets.bottom, keyboard),
-                }
-          }
-          // The insets live on the content rather than on the box now: a
-          // `ScrollView`'s own padding would scroll away with the content,
-          // which is exactly what the keyboard inset must not do.
-          //
+                }),
+          }}
           // `rounded-xl` on all four corners for both anchors: the pair
           // against the screen edge is off-screen either way, and it keeps
           // this off the untested `rounded-t-*` path.
-          className={`rounded-xl border bg-surface px-5 ${className}`}
+          className={`rounded-xl border bg-surface px-5 ${fromTop ? "" : "pt-5"} ${className}`}
         >
-          {children}
-        </ScrollView>
+          <ScrollView
+            bounces={false}
+            overScrollMode="never"
+            // A tap on a field while another field's keyboard is up should
+            // land on the field, not be eaten dismissing the keyboard.
+            keyboardShouldPersistTaps="handled"
+            // Nothing to scroll is nothing to show: a sheet shorter than the
+            // cap is laid out exactly as it was before this existed.
+            contentContainerStyle={{ flexGrow: 0 }}
+          >
+            {children}
+          </ScrollView>
+        </View>
       </View>
     </Modal>
   );
