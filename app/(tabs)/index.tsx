@@ -22,6 +22,8 @@ import {
   Screen,
   Sheet,
   Skeleton,
+  StoolField,
+  StoolToggle,
   Text,
   TextField,
   TOUCH_TARGET,
@@ -60,6 +62,12 @@ import {
 } from "../../lib/events";
 import { getMyPet, type PetRow } from "../../lib/pets";
 import { useSettings, type DurationFormat } from "../../lib/settings";
+import {
+  describeStools,
+  readStools,
+  writeStools,
+  type Stools,
+} from "../../lib/stools";
 
 /**
  * What each kind asks for beyond a time and a note.
@@ -719,6 +727,7 @@ function Entry({
     settings.timeFormat,
   );
   const described = spec?.describe(event, settings.durationFormat);
+  const stools = readStools(event.details);
   const Icon = spec?.icon;
 
   return (
@@ -726,7 +735,12 @@ function Entry({
       testID={`home-entry-${event.id}`}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={[spec?.label ?? event.kind, time, described]
+      accessibilityLabel={[
+        spec?.label ?? event.kind,
+        time,
+        described,
+        describeStools(stools),
+      ]
         .filter(Boolean)
         .join(", ")}
       accessibilityHint="Ábrelo para corregirlo o borrarlo"
@@ -775,6 +789,28 @@ function Entry({
           <Text className="text-xs text-text-tertiary">{event.note}</Text>
         ) : null}
       </View>
+
+      {/* **Right of the row, where the eye ends up rather than starts.** The
+          walk's own facts read first; this is what it left behind. One token
+          per stool with its number — the count is the thing a glance wants
+          during a food transition, and the number is what makes two days
+          comparable. The row's accessible name already says all of it in
+          words, so these are decoration to a reader. */}
+      {stools.length > 0 ? (
+        <View className="shrink-0 flex-row items-start gap-1 pt-0.5">
+          {stools.map((stool, index) => (
+            <View
+              key={`${index}-${stool}`}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              aria-hidden
+              className="h-[22px] w-[22px] items-center justify-center rounded-[11px] border border-border-strong"
+            >
+              <Text className="text-xs text-text-secondary">{stool}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -881,8 +917,50 @@ function EntrySheet({
   const [note, setNote] = useState(() => event?.note ?? "");
   const [atError, setAtError] = useState<string | null>(null);
   const [fromError, setFromError] = useState<string | null>(null);
+  const [stools, setStools] = useState<Stools>(() =>
+    readStools(event?.details),
+  );
+  const [stoolsOpen, setStoolsOpen] = useState(false);
+
+  /**
+   * What the entry looked like when the sheet opened, for the dirty check.
+   *
+   * A `useState` initialiser rather than a ref, because this is read during
+   * render and a ref read there is the defect `react-hooks/refs` exists to
+   * catch. It never changes: the sheet is remounted for each entry.
+   */
+  const [opened] = useState(() => ({
+    at: formatTimeOfDay(
+      occurred && storedMinutes
+        ? shiftMinutes(occurred, storedMinutes)
+        : (occurred ?? new Date()),
+    ),
+    from: occurred && storedMinutes ? formatTimeOfDay(occurred) : "",
+    value: (event && detail(event, "what")) || "",
+    note: event?.note ?? "",
+    stools: readStools(event?.details).join(","),
+  }));
   const [durationError, setDurationError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  /**
+   * **Only an edit can be unchanged.** The profile's blocks disable their save
+   * until something differs from the row, and correcting an entry is the same
+   * situation: reopening a walk and pressing Guardar with nothing touched is a
+   * write with nothing in it.
+   *
+   * A *new* entry is not. It has no stored version to differ from, and an
+   * untouched walk is a complete record on purpose — nothing but the time you
+   * got back is a documented, valid entry, and the fastest one there is. So
+   * the rule applies where it means something and nowhere else.
+   */
+  const dirty =
+    !event ||
+    at !== opened.at ||
+    from !== opened.from ||
+    value !== opened.value ||
+    note !== opened.note ||
+    stools.join(",") !== opened.stools;
 
   const parsedAt = parseTimeOfDay(at, day);
   const parsedFrom = from.trim() ? parseTimeOfDay(from, day) : null;
@@ -1120,7 +1198,11 @@ function EntrySheet({
       occurredAt,
       durationMinutes: walkMinutes,
       note: note || null,
-      details: spec.field && value.trim() ? { what: value.trim() } : {},
+      details: {
+        ...(spec.field && value.trim() ? { what: value.trim() } : {}),
+        // Absent rather than empty on a walk with none — see `writeStools`.
+        ...(isWalk ? writeStools(stools) : {}),
+      },
     };
 
     const { error } = event
@@ -1138,6 +1220,7 @@ function EntrySheet({
     at,
     from,
     durationText,
+    stools,
     day,
     isWalk,
     spec,
@@ -1276,14 +1359,34 @@ function EntrySheet({
           />
         ) : null}
 
-        <TextField
-          testID="entry-note"
-          label="Nota"
-          value={note}
-          onChangeText={setNote}
-          placeholder="¿Algo que contar?"
-          maxLength={200}
-        />
+        {/* **The kaka button rides in the note's own row**, because typing
+            "💩" into the note is the habit it replaces — and it costs the
+            walk no vertical space at all until somebody asks for it. Only the
+            walk has one: the other three kinds are a moment, not an outing. */}
+        <View className="flex-row items-end gap-3">
+          <View className="min-w-0 flex-1">
+            <TextField
+              testID="entry-note"
+              label="Nota"
+              value={note}
+              onChangeText={setNote}
+              placeholder="¿Algo que contar?"
+              maxLength={200}
+            />
+          </View>
+          {isWalk ? (
+            <View className="mb-5">
+              <StoolToggle
+                open={stoolsOpen}
+                onToggle={() => setStoolsOpen((was) => !was)}
+              />
+            </View>
+          ) : null}
+        </View>
+
+        {isWalk ? (
+          <StoolField open={stoolsOpen} value={stools} onChange={setStools} />
+        ) : null}
 
         <View className="mt-2 flex-row gap-3">
           <Pressable
@@ -1303,6 +1406,9 @@ function EntrySheet({
               label={event ? "Guardar cambios" : "Guardar"}
               successLabel="Apuntado"
               errorLabel="No se ha podido guardar"
+              // Nothing to save says so rather than inviting a pointless
+              // write — the profile's rule, and it only reaches an edit.
+              disabled={!dirty}
               onPress={save}
             />
           </View>

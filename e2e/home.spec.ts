@@ -369,6 +369,243 @@ test("still logs a walk nobody timed", async ({ page }) => {
   await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
 });
 
+test("records several stools on one walk, the second in one tap", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await add(page, "walk");
+  await page.getByTestId("entry-duration-plus").click();
+
+  // Nothing is offered until it is asked for: the walk costs no extra space
+  // and no extra decision unless somebody reaches for it.
+  await expect(page.getByTestId("stool-add-2")).toBeHidden();
+
+  // The button reveals; the palette adds. No default is ever written.
+  await page.getByTestId("stool-toggle").click();
+  await page.getByTestId("stool-add-2").click();
+  await expect(page.getByTestId("stool-token-0")).toContainText("Perfecta");
+
+  // The palette stays open **and stays put**, so the second costs one tap on
+  // the same spot. A bottom sheet grows upward, so anything appearing below
+  // it would lift it out from under the thumb — on the device that tap landed
+  // on whatever had taken its place.
+  const before = await page.getByTestId("stool-add-4").boundingBox();
+  await page.getByTestId("stool-add-4").click();
+  const after = await page.getByTestId("stool-add-4").boundingBox();
+  expect(after?.y).toBe(before?.y);
+
+  await page.getByTestId("entry-save").click();
+
+  const row = page.getByTestId("home-log").getByRole("button").first();
+  await expect(row).toHaveAttribute(
+    "aria-label",
+    /2 kakas: perfecta, sin forma/,
+  );
+});
+
+test("runs the scale toward the thumb, and keeps it on one row", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await add(page, "walk");
+  await page.getByTestId("stool-toggle").click();
+
+  // 5 to 1, so "Perfecta" — the one tapped on almost every walk — sits near
+  // the hand rather than across the phone from it.
+  const xs = await Promise.all(
+    [5, 4, 3, 2, 1].map(async (value) => {
+      const box = await page.getByTestId(`stool-add-${value}`).boundingBox();
+      return box?.x ?? 0;
+    }),
+  );
+  expect(xs).toEqual([...xs].sort((a, b) => a - b));
+
+  // The ideal is marked, because a five-point scale reads as one-ended and
+  // the assumption is that the best is whatever is furthest from diarrhoea.
+  await expect(page.getByTestId("stool-add-2")).toHaveAttribute(
+    "aria-label",
+    /Es la buena/,
+  );
+  await expect(page.getByTestId("stool-add-5")).not.toHaveAttribute(
+    "aria-label",
+    /Es la buena/,
+  );
+
+  // One row, never wrapped: a wrapped row moves the options between taps.
+  const ys = await Promise.all(
+    [5, 4, 3, 2, 1].map(async (value) => {
+      const box = await page.getByTestId(`stool-add-${value}`).boundingBox();
+      return box?.y ?? 0;
+    }),
+  );
+  expect(new Set(ys).size).toBe(1);
+});
+
+test("undoes a mis-tap with one press on the chip", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await add(page, "walk");
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("stool-toggle").click();
+  await page.getByTestId("stool-add-2").click();
+  await page.getByTestId("stool-add-2").click();
+  await page.getByTestId("stool-add-5").click();
+
+  // Two stools can share a value: removing the first of two "2"s must not
+  // take the second with it.
+  await page.getByTestId("stool-token-0").click();
+  await expect(page.getByTestId("stool-token-0")).toContainText("Perfecta");
+  await expect(page.getByTestId("stool-token-1")).toContainText("Diarrea");
+  await expect(page.getByTestId("stool-token-2")).toBeHidden();
+
+  // Closing leaves the button and what was collected, and nothing else.
+  await page.getByTestId("stool-toggle").click();
+  await expect(page.getByTestId("stool-add-2")).toBeHidden();
+  await expect(page.getByTestId("stool-token-0")).toBeVisible();
+  await expect(page.getByTestId("stool-toggle")).toBeVisible();
+});
+
+test("reopens a walk with its stools, and can save without them", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await add(page, "walk");
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("stool-toggle").click();
+  await page.getByTestId("stool-add-5").click();
+  await page.getByTestId("entry-save").click();
+
+  const row = page.getByTestId("home-log").getByRole("button").first();
+  await expect(row).toHaveAttribute("aria-label", /una kaka: diarrea/);
+
+  // An edit reopens what was stored rather than an empty field — collapsed,
+  // because the tokens are the record and the palette is the tool.
+  await row.click();
+  await expect(page.getByTestId("stool-token-0")).toContainText("Diarrea");
+  await expect(page.getByTestId("stool-add-5")).toBeHidden();
+
+  await page.getByTestId("stool-token-0").click();
+  await page.getByTestId("entry-save").click();
+  await expect(
+    page.getByTestId("home-log").getByRole("button").first(),
+  ).not.toHaveAttribute("aria-label", /kaka/);
+});
+
+test("will not re-save an entry nobody changed", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // A *new* entry has nothing to differ from, and an untouched walk is a
+  // complete record on purpose: nothing but the time you got back.
+  await add(page, "walk");
+  await expect(page.getByTestId("entry-save")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.getByTestId("entry-duration-plus").click();
+  await page.getByTestId("entry-save").click();
+
+  // Reopening it is the profile's situation: pressing save with nothing
+  // touched is a write with nothing in it.
+  const row = page.getByTestId("home-log").getByRole("button").first();
+  await row.click();
+  await expect(page.getByTestId("entry-save")).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+
+  // A stool counts as a change, like any other field.
+  await page.getByTestId("stool-toggle").click();
+  await page.getByTestId("stool-add-2").click();
+  await expect(page.getByTestId("entry-save")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+
+  // And taking it away again puts the button back where it was.
+  await page.getByTestId("stool-token-0").click();
+  await expect(page.getByTestId("entry-save")).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+});
+
+test("puts no control inside another, on any sheet", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **Only the web can see this.** React Native has no rule against a
+  // pressable inside a pressable, so the defect is invisible on the device and
+  // arrives as a hydration warning here: the sheet's scrim gained the
+  // accessible name it needed, a `Pressable` with a button role renders as a
+  // real `<button>`, and every control in the panel became a button inside a
+  // button.
+  const complaints: string[] = [];
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      /descendant|nested/.test(message.text())
+    ) {
+      complaints.push(message.text().slice(0, 80));
+    }
+  });
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await add(page, "walk");
+  await page.getByTestId("stool-toggle").click();
+  expect(
+    await page.evaluate(
+      () => document.querySelectorAll("button button").length,
+    ),
+  ).toBe(0);
+  await page.getByTestId("entry-cancel").click();
+
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("home-calendar")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.querySelectorAll("button button").length,
+    ),
+  ).toBe(0);
+
+  expect(complaints).toEqual([]);
+});
+
+test("offers the scale on a walk and nowhere else", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // A meal, a medication and an incident are a moment, not an outing.
+  for (const kind of ["meal", "medication", "incident"]) {
+    await add(page, kind);
+    await expect(page.getByTestId("entry-note")).toBeVisible();
+    await expect(page.getByTestId("stool-toggle")).toBeHidden();
+    await page.getByTestId("entry-cancel").click();
+  }
+
+  await add(page, "walk");
+  await expect(page.getByTestId("stool-toggle")).toBeVisible();
+});
+
 test("logs the other three kinds without touching the goal", async ({
   page,
 }) => {
