@@ -221,6 +221,25 @@ export function shiftMinutes(at: Date, minutes: number): Date {
   return new Date(at.getTime() + minutes * 60_000);
 }
 
+/**
+ * The start `minutes` before `end`, or null when that start is another day.
+ *
+ * **The day boundary is the whole point.** A walk's DESDE is shown as a time
+ * of day with no date, so a start computed on the previous day comes back —
+ * when that text is re-parsed against the day on screen — as the same clock
+ * time *after* the end. Stepping a walk that finished at 00:20 up to 45
+ * minutes produced exactly that, and the entry sheet then emptied its own
+ * duration field. Null is the honest answer: there is no time of day that
+ * means "23:35 yesterday" on today's form.
+ *
+ * Here rather than in the screen because it is arithmetic about a boundary,
+ * and arithmetic can be checked without a screen.
+ */
+export function startWithinDay(end: Date, minutes: number): Date | null {
+  const start = shiftMinutes(end, -minutes);
+  return dayKey(start) === dayKey(end) ? start : null;
+}
+
 /** Minutes walked across a set of entries. Pure, so the day view can trust it. */
 export function walkedMinutes(events: PetEventRow[]): number {
   return events.reduce(

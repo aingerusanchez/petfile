@@ -7,6 +7,7 @@ import {
   minutesBetween,
   monthBounds,
   shiftMinutes,
+  startWithinDay,
   summariseMonth,
   validateEvent,
   walkedMinutes,
@@ -314,5 +315,41 @@ describe("dayKey", () => {
   it("pads to YYYY-MM-DD", () => {
     expect(dayKey(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
     expect(dayKey(new Date(2026, 11, 31, 0, 0))).toBe("2026-12-31");
+  });
+});
+
+describe("startWithinDay", () => {
+  const at = (iso: string) => new Date(iso);
+
+  it("counts back to a start on the same day", () => {
+    const start = startWithinDay(at("2026-09-11T10:00:00"), 45);
+    expect(start?.getHours()).toBe(9);
+    expect(start?.getMinutes()).toBe(15);
+    expect(start?.getDate()).toBe(11);
+  });
+
+  it("refuses a start that lands on the day before", () => {
+    // The walk that broke the sheet: home at 00:20, out for 45 minutes.
+    expect(startWithinDay(at("2026-09-11T00:20:00"), 45)).toBeNull();
+  });
+
+  it("allows a start at the very first minute of the day", () => {
+    const start = startWithinDay(at("2026-09-11T00:45:00"), 45);
+    expect(start?.getHours()).toBe(0);
+    expect(start?.getMinutes()).toBe(0);
+    expect(start?.getDate()).toBe(11);
+  });
+
+  it("refuses the minute before that", () => {
+    expect(startWithinDay(at("2026-09-11T00:45:00"), 46)).toBeNull();
+  });
+
+  it("treats a zero-minute walk as starting when it ended", () => {
+    const start = startWithinDay(at("2026-09-11T10:00:00"), 0);
+    expect(start?.getHours()).toBe(10);
+  });
+
+  it("refuses a whole day counted back, which is another date", () => {
+    expect(startWithinDay(at("2026-09-11T10:00:00"), 24 * 60)).toBeNull();
   });
 });
