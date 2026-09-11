@@ -17,9 +17,11 @@ import {
   FAB_CLEARANCE,
   Group,
   LoadingScreen,
+  LogSkeleton,
   MonthCalendar,
   Screen,
   Sheet,
+  Skeleton,
   Text,
   TextField,
   TOUCH_TARGET,
@@ -40,6 +42,7 @@ import {
 import { formatDuration, parseDuration } from "../../lib/duration";
 import {
   deleteEvent,
+  dayKey,
   eventsForDay,
   eventsForMonths,
   formatTimeOfDay,
@@ -232,7 +235,19 @@ export default function Home() {
   const [marks, setMarks] = useState<Map<string, DaySummary>>(new Map());
   const [marksError, setMarksError] = useState<string | null>(null);
   const [pet, setPet] = useState<PetRow | null>(null);
-  const [events, setEvents] = useState<PetEventRow[] | null>(null);
+  /**
+   * The log, **and the day it belongs to**.
+   *
+   * Carrying the key is what lets the screen know its rows are stale without
+   * a second flag: `log.day !== dayKey(day)` is derived, and derived is what
+   * `react-hooks/set-state-in-effect` asks for. Before this the rows simply
+   * stayed put while the header changed, so tapping ‹ showed "Ayer" over
+   * today's four entries for as long as the network took — a tutor checking
+   * "did he walk yesterday?" got a confident yes.
+   */
+  const [log, setLog] = useState<{ day: string; events: PetEventRow[] } | null>(
+    null,
+  );
   /** Fatal: with no pet there is no day to show. */
   const [petError, setPetError] = useState<string | null>(null);
   /** Not fatal: the header, the goal and the actions all still work. */
@@ -258,7 +273,7 @@ export default function Home() {
       // craft floor's rule is that one component's error must not block the
       // whole interface, and everything above the log comes from the pet.
       setLogError(eventError);
-      setEvents(rows);
+      setLog({ day: dayKey(day), events: rows ?? [] });
     });
 
     return () => {
@@ -368,8 +383,13 @@ export default function Home() {
     );
   }
 
-  if (!pet || !events) return <LoadingScreen />;
+  // Only the pet is fatal to the whole screen: without it there is no day to
+  // show. The log has its own waiting state below, inside the shape it will
+  // fill, so the header a tutor just used stays under their thumb.
+  if (!pet) return <LoadingScreen />;
 
+  const loading = log === null || log.day !== dayKey(day);
+  const events = loading ? [] : log.events;
   const walked = walkedMinutes(events);
   const goal = pet.exercise_goal_minutes;
   const met = goal !== null && walked >= goal;
@@ -486,7 +506,20 @@ export default function Home() {
         />
       </View>
 
-      {goal !== null ? (
+      {/* **The measure waits in its own shape too.** Leaving the previous
+          day's "2h 30m de 3h paseados" over a header that already says "Ayer"
+          is the same lie the log used to tell, in fewer words and larger
+          type. */}
+      {goal !== null && loading ? (
+        <View testID="home-goal-skeleton" className="mb-8">
+          <View className="mb-2">
+            <Skeleton width="58%" height={16} />
+          </View>
+          <Skeleton width="100%" height={4} />
+        </View>
+      ) : null}
+
+      {goal !== null && !loading ? (
         <View testID="home-goal" className="mb-8">
           <View className="mb-2 flex-row items-baseline justify-between">
             <Text className="font-semibold text-text-primary">
@@ -517,7 +550,14 @@ export default function Home() {
         </View>
       ) : null}
 
-      {logError ? (
+      {/* The log's own waiting state, in the slots the rows will fill: see
+          `LogSkeleton`. The title is the real word, because it is true before
+          the rows land. */}
+      {loading ? (
+        <Group testID="home-log-skeleton" title="Registro">
+          <LogSkeleton />
+        </Group>
+      ) : logError ? (
         <Group testID="home-log-error">
           <Text accessibilityLiveRegion="polite" className="mb-5 text-error">
             {logError}

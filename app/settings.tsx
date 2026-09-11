@@ -1,14 +1,20 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
-import { View } from "react-native";
+import { ChevronLeft, X } from "lucide-react-native";
+import { useState } from "react";
+import { Pressable, View } from "react-native";
 import {
+  APP_CHANGELOG,
+  Changelog,
   Chip,
   ChipGroup,
   Group,
   Screen,
+  Sheet,
   Text,
+  TOUCH_TARGET,
   Version,
   Button,
+  colors,
 } from "../components/ui";
 import { formatDuration } from "../lib/duration";
 import { formatTimeOfDay } from "../lib/events";
@@ -49,13 +55,25 @@ export default function SettingsScreen() {
     { value: "12h", label: formatTimeOfDay(SAMPLE, "12h") },
   ];
 
+  const [showChangelog, setShowChangelog] = useState(false);
+
   const durations: { value: DurationFormat; label: string }[] = [
     { value: "hours", label: formatDuration(SAMPLE_MINUTES, "hours") },
     { value: "minutes", label: formatDuration(SAMPLE_MINUTES, "minutes") },
   ];
 
   return (
-    <Screen scroll footer={<Version testID="settings-version" />}>
+    <Screen
+      scroll
+      footer={
+        <Version
+          testID="settings-version"
+          // Only here: the login screen's copy stays inert text, because
+          // nobody signed out is asking what changed.
+          onReveal={APP_CHANGELOG ? () => setShowChangelog(true) : undefined}
+        />
+      }
+    >
       {/* This route has no tab bar and the Stack draws no header, so the way
           back is the screen's own business. */}
       <View className="mb-8 -ml-3">
@@ -131,6 +149,39 @@ export default function SettingsScreen() {
           el botón de añadir al pulgar hábil.
         </Text>
       </Group>
+
+      {/* Five taps on the version. The sheet is the ordinary one, with the
+          ordinary four ways out — the gesture is the only unusual thing, and
+          what it opens should not be. */}
+      {showChangelog ? (
+        <Sheet
+          onClose={() => setShowChangelog(false)}
+          testID="settings-changelog"
+          scrimTestID="settings-changelog-scrim"
+        >
+          <>
+            <View className="mb-2 flex-row items-center justify-between">
+              <Text
+                accessibilityRole="header"
+                className="font-bold text-xl text-text-primary"
+              >
+                Qué ha ido cambiando
+              </Text>
+              <Pressable
+                testID="settings-changelog-close"
+                onPress={() => setShowChangelog(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar"
+                style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
+                className="items-center justify-center rounded-xl active:opacity-70"
+              >
+                <X size={20} color={colors.textTertiary} />
+              </Pressable>
+            </View>
+            <Changelog testID="settings-changelog-body" />
+          </>
+        </Sheet>
+      ) : null}
     </Screen>
   );
 }

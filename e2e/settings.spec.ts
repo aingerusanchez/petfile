@@ -78,6 +78,50 @@ test("keeps the preference across a reload", async ({ page }) => {
   );
 });
 
+test("opens the changelog on the fifth tap, and not before", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/settings");
+
+  const version = page.getByTestId("settings-version");
+  await expect(version).toBeVisible();
+  await expect(page.getByTestId("settings-changelog")).toBeHidden();
+
+  // Four is not five. A gesture that fires early is an accident waiting on a
+  // settings screen.
+  for (let i = 0; i < 4; i++) await version.click();
+  await expect(page.getByTestId("settings-changelog")).toBeHidden();
+
+  await version.click();
+  await expect(page.getByTestId("settings-changelog")).toBeVisible();
+
+  // It is the file from the repo, read at build time — so it names the
+  // version the build carries.
+  const body = page.getByTestId("settings-changelog-body");
+  await expect(body).toContainText("0.5.0");
+  // The Markdown is rendered, not shown: no heading marks, no emphasis marks,
+  // and the H1 that titles the file is dropped because the sheet has its own.
+  await expect(body).not.toContainText("##");
+  await expect(body).not.toContainText("**");
+  await expect(body).not.toContainText("`");
+  await expect(body).not.toContainText("# Changelog");
+
+  // An ordinary sheet, with the ordinary way out.
+  await page.getByTestId("settings-changelog-close").click();
+  await expect(page.getByTestId("settings-changelog")).toBeHidden();
+});
+
+test("leaves the version inert where nobody is asking what changed", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  const version = page.getByTestId("login-version");
+  await expect(version).toBeVisible();
+  for (let i = 0; i < 6; i++) await version.click({ force: true });
+  await expect(page.getByTestId("settings-changelog")).toBeHidden();
+});
+
 test("shows the build's version before anyone signs in", async ({ page }) => {
   await page.goto("/login");
   await expect(page.getByTestId("login-version")).toHaveText(

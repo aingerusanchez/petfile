@@ -2,6 +2,9 @@
 
 Lo que ha cambiado en cada versión, en el orden en que pasó.
 
+<!-- Este párrafo se borra al desplegar el MVP: explica una regla que deja de
+     existir en cuanto la versión llegue a v1.0.0. -->
+
 Mientras el MVP no esté montado la versión se queda en `0.x`, para que llegar
 a `1.0.0` signifique algo: todas las pantallas en pie, y de momento falta
 Salud como mínimo. `versionCode` se deriva de aquí
@@ -13,7 +16,24 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
-## [0.5.0] — 2026-09-11
+## [v0.6.0] — 2026-09-11
+
+### Nuevo
+
+- **El diario espera con la forma de lo que va a llegar.** Cambiar de día ya
+  no deja los registros del día anterior bajo una cabecera que dice otra cosa:
+  aparecen unos esqueletos en los mismos huecos que ocuparán las filas — hora
+  y tipo a la izquierda, líneas de contenido y nota a la derecha — y el título
+  "REGISTRO", que es cierto antes de que lleguen los datos. Se quedan quietos
+  si el sistema tiene las animaciones desactivadas.
+- **Cinco pulsaciones sobre la versión en Ajustes abren esto mismo.** El gesto
+  de Android, y deja la línea pareciendo lo que es en vez de gastar una fila
+  permanente de una pantalla de ajustes en algo que se lee dos veces al año.
+  El texto viaja dentro de la app, leído al compilar: el momento en que
+  alguien quiere saber si su móvil tiene el arreglo no es momento de depender
+  de la red.
+
+## [v0.5.0] — 2026-09-11
 
 Ronda de revisión sobre la feature del diario, con dos evaluaciones
 independientes y el móvil delante.
@@ -56,7 +76,7 @@ independientes y el móvil delante.
 - Los iconos de sexo vuelven a los chips del perfil, que se habían quedado
   atrás respecto al formulario de alta.
 
-## [0.4.1] — 2026-09-11
+## [v0.4.1] — 2026-09-11
 
 ### Arreglado
 
@@ -69,9 +89,9 @@ independientes y el móvil delante.
   dispara un cambio por tecla, así que el campo pasa por "10:" y "1" camino de
   vacío; el `fill("")` de los tests es un solo evento y lo tapaba.
 
-## [0.4.0] — 2026-09-11
+## [v0.4.0] — 2026-09-11
 
-### Añadido
+### Nuevo
 
 - **El cumpleaños, en tres superficies y ninguna insiste.** Una tarta detrás
   del número del día en el calendario, la cabecera del diario pasa a ser del
@@ -82,9 +102,9 @@ independientes y el móvil delante.
   permanente.
 - **La tarta de la ficha es un emoji pulsable** que vuelve a lanzar el confeti.
 
-## [0.3.0] — 2026-09-10
+## [v0.3.0] — 2026-09-10
 
-### Añadido
+### Nuevo
 
 - **Navegación entre días**: flechas a ambos lados de la cabecera, sin futuro
   más allá de hoy, y un calendario que baja desde arriba al tocar la fecha.
@@ -105,7 +125,7 @@ independientes y el móvil delante.
   el color de la fila que la produjo, y el estado se llama igual en los dos
   sitios.
 
-## [0.2.0] — 2026-09-10
+## [v0.2.0] — 2026-09-10
 
 Primera versión numerada. El diario del día, la ficha del animal, los ajustes
 y el alta con Google.
