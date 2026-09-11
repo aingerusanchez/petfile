@@ -182,7 +182,9 @@ The web target hides all three, so **a change that has to hold on the device is 
 
 ## Tests
 
-**`e2e/home.spec.ts` assumes a working day, and ten of its tests fail before about 09:00.** They fill real clock times — 08:30, 09:15, 10:45 — and the entry sheet refuses a time in the future, correctly; the quarter-hour steppers have the mirror problem, since counting 45 minutes back from 00:20 lands on yesterday, which the sheet also refuses. A red suite at 01:00 therefore says nothing about the code, and the failures all read "¿Todavía no habéis vuelto?" or "Tiene que ser antes de la hora de vuelta".
+**`e2e/home.spec.ts` used to assume a working day, and it does not any more.** Ten of its tests failed before about 09:00: they fill real clock times — 08:30, 09:15, 10:45 — and the entry sheet refuses a time in the future, correctly, so a red suite at 01:00 said nothing about the code and every failure read "¿Todavía no habéis vuelto?". **The fix was the day, not the time**: a fixed morning hour has already happened on _yesterday_, whatever hour the suite runs at, and the diary can be written on a past day. Tests that need a specific clock time now press ‹ first; the two that are about today derive their times from a "now" they own. Measured: the whole suite green at 01:00.
+
+Keep it that way. A new test that types a fixed morning time onto today is a test that fails half the day.
 
 **Playwright's clock is not the way out**, and both halves were measured here: `page.clock.setFixedTime` stops Reanimated dead — the button's status animation reads its progress from `Date.now()` and never finishes, so Playwright waits forever for a control that never stops moving — and `page.clock.install` + `resume` patches the timers the app captures at module load, after which the day view never renders at all. The fix is to derive every time in that file from a "now" the test owns, and to give the steppers a fixture whose day has time behind it.
 

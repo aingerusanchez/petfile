@@ -6,13 +6,13 @@ import {
   Button,
   Chip,
   colors,
-  LoadingScreen,
   Markdown,
   PLACEHOLDER_COLOR,
   Screen,
   ScreenHeader,
   Text,
   TOUCH_TARGET,
+  TreatmentSkeleton,
   TREATMENT_ICONS,
   TreatmentSheet,
   useToast,
@@ -152,7 +152,12 @@ export default function Treatments() {
           />
         </View>
       ) : rows === null ? (
-        <LoadingScreen />
+        // **In the shape of the list, not a spinner in the middle of the
+        // page.** This is the screen where a wait sits longest — every dose
+        // the animal has had, filtered on a server — and a full-screen
+        // loader would take away the search field and the chips the tutor
+        // just used.
+        <TreatmentSkeleton testID="treatments-loading" />
       ) : shown.length === 0 ? (
         <Text testID="treatments-empty" className="text-text-tertiary">
           {filtering

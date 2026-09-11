@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
+import { MONTHS_ES, parseISO } from "../../lib/dates";
 import {
   canonicalVaccine,
   dateKey,
@@ -20,6 +21,7 @@ import {
 import { Button } from "./Button";
 import { Chip, ChipGroup } from "./Chip";
 import { DateField } from "./DateField";
+import { MarkdownHelp } from "./MarkdownHelp";
 import { Sheet } from "./Sheet";
 import { SuggestField } from "./SuggestField";
 import { Text } from "./Text";
@@ -72,6 +74,23 @@ export function TreatmentSheet({
    * catches. It happens in the handlers, where the intent is.
    */
   const [ownsNext, setOwnsNext] = useState(existing !== null);
+  /**
+   * Whether the next date is on screen at all.
+   *
+   * **Two adjacent date fields is one date field too many.** They looked
+   * identical, sat one above the other, and the date being typed was the one
+   * the vet just said — which is the *first* field, not the second. The tutor
+   * who designed this form filled in the wrong one more than once, and the
+   * fix is not a clearer label: it is one date to fill.
+   *
+   * So the proposal is a sentence, and the field appears only when somebody
+   * disagrees with it. An existing row that already carries a date of its own
+   * opens with it showing, because hiding a stored value behind a link is how
+   * a value gets forgotten.
+   */
+  const [changingNext, setChangingNext] = useState(
+    existing !== null && existing.next_due_on !== null,
+  );
   const [note, setNote] = useState(existing?.note ?? "");
   const [error, setError] = useState<string | null>(null);
 
@@ -192,7 +211,7 @@ export function TreatmentSheet({
         <DateField
           testID="treatment-on"
           title="¿Qué día se lo disteis?"
-          label="SE LO DIMOS EL"
+          label="FECHA"
           value={on}
           onChange={(iso) => {
             setOn(iso);
@@ -204,46 +223,67 @@ export function TreatmentSheet({
         />
       </View>
 
+      {/* **The next dose is a sentence until somebody disagrees with it.**
+          The app knows the rhythm of all three kinds, so on an ordinary visit
+          there is nothing here to decide — and the one thing PRODUCT.md says
+          the row must keep, the vet's own instruction, is still one tap away
+          and still stored as confirmed rather than recomputed. */}
       <View className="mb-5">
-        <DateField
-          testID="treatment-next"
-          title="¿Cuándo toca la siguiente?"
-          label="PRÓXIMA"
-          value={next}
-          // Forwards, because that is the only direction this date points —
-          // and backwards too, because a dose can be overdue.
-          reach="any"
-          // "Sin fecha" is a real answer here: a one-off is not pending, it is
-          // done, and the section above must not invent a reminder for it.
-          clearable
-          onChange={(iso) => {
-            setNext(iso);
-            setOwnsNext(true);
-          }}
-        />
-        {/* **Why that date is there, in the kind's own rhythm.** The field
-            fills itself and a date that appears out of nowhere invites either
-            blind trust or a puzzled correction; "suele tocar cada 3 meses"
-            makes the proposal legible enough to accept or to overrule on
-            purpose. It says what is usual rather than what is set, so it
-            stays true after somebody writes the vet's own date above it. */}
-        <Text
-          testID="treatment-cadence"
-          className="-mt-3 text-xs text-text-tertiary"
-        >
-          Suele tocar {treatmentCadence(kind)}.
-        </Text>
+        {changingNext ? (
+          <>
+            <DateField
+              testID="treatment-next"
+              title="¿Cuándo toca la siguiente?"
+              label="PRÓXIMA"
+              value={next}
+              // Forwards, because that is the only direction this date points
+              // — and backwards too, because a dose can be overdue.
+              reach="any"
+              // "Sin fecha" is a real answer here: a one-off is not pending,
+              // it is done, and the section above must not invent a reminder.
+              clearable
+              onChange={(iso) => {
+                setNext(iso);
+                setOwnsNext(true);
+              }}
+            />
+            <Text className="-mt-3 text-xs text-text-tertiary">
+              Suele tocar {treatmentCadence(kind)}.
+            </Text>
+          </>
+        ) : (
+          <View className="flex-row flex-wrap items-baseline gap-x-2">
+            <Text testID="treatment-cadence" className="text-text-tertiary">
+              {next
+                ? `La siguiente tocará el ${displayDate(next)}`
+                : "Sin siguiente"}
+              , {treatmentCadence(kind)}.
+            </Text>
+            <Button
+              testID="treatment-next-change"
+              label="Cambiar"
+              variant="link"
+              onPress={() => setChangingNext(true)}
+            />
+          </View>
+        )}
       </View>
 
-      <View className="mb-5">
-        <TextField
-          testID="treatment-note"
-          multiline
-          label="NOTA"
-          value={note}
-          onChangeText={setNote}
-          placeholder="¿Algo que contar?"
-        />
+      {/* The vocabulary of a field, beside the field: a three-line textarea
+          leaves exactly enough room for it in the column alongside. */}
+      <View className="mb-5 flex-row items-end gap-3">
+        <View className="min-w-0 flex-1">
+          <TextField
+            testID="treatment-note"
+            multiline
+            label="NOTA"
+            value={note}
+            onChangeText={setNote}
+            placeholder="¿Algo que contar?"
+            className="mb-0"
+          />
+        </View>
+        <MarkdownHelp testID="treatment-note-help" />
       </View>
 
       <View className="flex-row gap-3">
@@ -291,4 +331,14 @@ export function TreatmentSheet({
 /** The local Date an ISO day names. */
 function dateOf(iso: string): Date | null {
   return fromDateKey(iso);
+}
+
+/** "4 de diciembre", and the year when it is not this one. */
+function displayDate(iso: string): string {
+  const parts = parseISO(iso);
+  if (!parts) return iso;
+  const month = MONTHS_ES[parts.month - 1].toLowerCase();
+  const year =
+    parts.year === new Date().getFullYear() ? "" : ` de ${parts.year}`;
+  return `${parts.day} de ${month}${year}`;
 }

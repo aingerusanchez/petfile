@@ -415,6 +415,19 @@ export async function eventsForMonths(
  * A limit rather than the whole history: the section shows the last few and
  * each one leads to its day, which holds the medication that went with it.
  */
+/**
+ * One of an entry's per-kind specifics, when it has one.
+ *
+ * `details` is `jsonb`, so everything in it arrives as `unknown` and a blank
+ * string is the same as nothing — a field somebody opened and left empty is
+ * not a value.
+ */
+export function eventDetail(event: PetEventRow, key: string): string | null {
+  const details = event.details as Record<string, unknown> | null;
+  const value = details?.[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
 export async function incidentsFor(
   petId: string,
   limit = 5,

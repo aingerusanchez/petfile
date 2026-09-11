@@ -510,6 +510,13 @@ A hairline-outlined section, and its heading is the anchor on any screen long en
 - **The heading is Aqua Glaciar, and it used to be dimmer than its own content.** `text-secondary` above rows in `text-primary` is the hierarchy upside down: scanning a long screen means looking for where a section _starts_, and that line was the quietest on the page. Three ways were rendered at 412dp — the grey, one step up to `text-primary`, and the accent — and only the accent caught the eye; brightening the grey was indistinguishable from leaving it alone.
 - **The secondary accent, not the primary.** Ice Blue Glacial means "this is the one thing to do here" and a heading is not an action. Aqua Glaciar is already what text links and the met-goal bar wear, so this spends no new colour, and the uppercase tracking keeps a heading from reading as a link.
 
+### Weight, Full Screen
+
+- **The miniature answers "which way"; the screen answers "when, and how much".** Every value and every month on the section's own chart would turn a glance into a document, so the labels live where there is width for them and the section keeps the four that fit.
+- **It scrolls sideways rather than squeezing.** Fourteen weighings across a phone is a point every 25dp, which is a row of dots. Turning the phone makes it wider still — the real answer to a long line, and one the app cannot _force_ without a native module it does not have.
+- **The room above the line is for the breed-and-sex band**, a planned feature: "is that normal for a husky?" is the same question this screen is already about, so it goes behind the line rather than beside it.
+- **The chart is a sibling of the weight above it, not a child.** They were one Pressable inside another for as long as it took a test to click the first and land on the second — the same nesting the sheets were cured of, invalid markup on the web and a tap that goes somewhere nobody aimed on the device.
+
 ### Treatment History
 
 Its own screen, because a section stopped being able to hold it.

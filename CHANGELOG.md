@@ -77,6 +77,31 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   **No hay editor**: el campo es un textarea de tres líneas, sin barra de
   herramientas ni vista previa. El renderizador es el que ya tenía el
   changelog, extraído el día que una nota lo necesitó.
+- **El formulario de tratamiento tiene una sola fecha.** Dos campos de fecha
+  idénticos, uno encima del otro, y el que se rellenaba era siempre el
+  segundo: la fecha que acaba de decir el veterinario es la primera. La
+  siguiente pasa a ser una frase — "La siguiente tocará el 12 de diciembre,
+  cada 3 meses" — con un "Cambiar" que saca el campo solo para quien no esté
+  de acuerdo. Lo que la app calcula deja de pedirse, y lo que dijo el
+  veterinario se sigue guardando tal cual.
+- **La lista de tratamientos espera con su propia forma**, en Salud y en el
+  historial: es la pantalla donde una espera dura más, y un spinner a pantalla
+  completa se habría llevado por delante el buscador y los filtros que el
+  tutor acaba de usar.
+- **La gráfica de peso se abre a pantalla completa.** La miniatura contesta
+  "hacia dónde"; la pantalla contesta "cuándo y cuánto", con todos los pesajes
+  etiquetados, los meses de referencia y scroll lateral cuando el historial es
+  largo. Un icono de maximizar en la esquina dice que la línea es una puerta.
+- **Las notas explican su formato.** Un botón junto al textarea abre cuatro
+  ejemplos con lo que teclearías y en lo que se convierte — renderizados por
+  el mismo componente que pinta las notas, así que un formato que dejara de
+  funcionar dejaría de funcionar también en su propia ayuda.
+- **Una enfermedad se presenta por su nombre**, no por su nota. El dato ya
+  existía: "Qué ha pasado" es el campo de la incidencia en el Diario, y la
+  sección de Salud abría con el protocolo del veterinario — contestando "cuál
+  fue el tratamiento" a quien preguntaba "qué tuvo".
+- **El selector de fecha empieza la semana en lunes**, como el calendario del
+  Diario ya hacía. La misma app enseñaba dos semanas distintas.
 - **Una pantalla con scroll termina por encima del botón flotante.** El Diario
   se libraba porque el registro de un día es corto; el historial de
   tratamientos no: medido en el dispositivo, las dos últimas filas tenían la

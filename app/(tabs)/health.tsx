@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { Scale, ShieldPlus } from "lucide-react-native";
+import { Maximize2, Scale, ShieldPlus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import {
@@ -10,17 +10,25 @@ import {
   Group,
   LoadingScreen,
   Markdown,
+  MarkdownHelp,
   Screen,
   Sheet,
+  Skeleton,
   Text,
   TextField,
   TREATMENT_ICONS,
+  TreatmentSkeleton,
   TreatmentSheet,
   useToast,
   WeightLine,
 } from "../../components/ui";
 import { MONTHS_ES, parseISO } from "../../lib/dates";
-import { dayKey, incidentsFor, type PetEventRow } from "../../lib/events";
+import {
+  dayKey,
+  eventDetail,
+  incidentsFor,
+  type PetEventRow,
+} from "../../lib/events";
 import { getMyPet, type PetRow } from "../../lib/pets";
 import {
   dueStatus,
@@ -221,7 +229,7 @@ export default function Health() {
           rather than a gap. */}
       <Group title="PRÓXIMOS TRATAMIENTOS" testID="health-due" className="mb-6">
         {loading ? (
-          <Text className="text-text-tertiary">…</Text>
+          <TreatmentSkeleton rows={2} />
         ) : due.length === 0 ? (
           <Text className="text-text-tertiary">
             Nada pendiente. Al apuntar una vacuna o una desparasitación, su
@@ -234,7 +242,11 @@ export default function Health() {
 
       <Group title="PESO" testID="health-weight" className="mb-6">
         {loading ? (
-          <Text className="text-text-tertiary">…</Text>
+          <View className="gap-3 pb-4">
+            <Skeleton width="46%" height={26} />
+            <Skeleton width="30%" height={11} />
+            <Skeleton width="100%" height={72} />
+          </View>
         ) : latest === null ? (
           <Text className="mb-4 text-text-tertiary">
             Todavía no le habéis pesado. El primer peso es el que da sentido a
@@ -275,13 +287,37 @@ export default function Health() {
                 />
               </View>
             ) : null}
-            {weights && weights.length > 1 ? (
-              <View className="mt-3">
-                <WeightLine weights={weights} />
-              </View>
-            ) : null}
           </Pressable>
         )}
+
+        {/* **The chart is its own control, and a sibling of the number above
+            it.** Two intentions — correct this weighing, open every weighing
+            — and they were one Pressable inside another for as long as it
+            took a test to click the first and land on the second. A button
+            inside a button is also the nesting the sheets were just cured of;
+            on the web it is invalid markup, and on the device it is a tap
+            that goes somewhere nobody aimed. */}
+        {!loading && weights && weights.length > 1 ? (
+          <Pressable
+            testID="health-weight-chart"
+            onPress={() => router.push("/weights")}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver los ${weights.length} pesajes`}
+            className="mb-4 active:opacity-70"
+          >
+            <WeightLine weights={weights} />
+            {/* The mark that says the line is a door. Bottom right, where a
+                chart's own furniture ends. */}
+            <View
+              style={{ position: "absolute", right: 0, bottom: 0 }}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              aria-hidden
+            >
+              <Maximize2 size={16} color={colors.textMuted} />
+            </View>
+          </Pressable>
+        ) : null}
       </Group>
 
       <Group
@@ -290,7 +326,7 @@ export default function Health() {
         className="mb-6"
       >
         {loading ? (
-          <Text className="text-text-tertiary">…</Text>
+          <TreatmentSkeleton rows={3} />
         ) : treatments && treatments.length > 0 ? (
           <View className="mb-4">
             {treatments.slice(0, HISTORY_PREVIEW).map((row) => (
@@ -381,26 +417,38 @@ export default function Health() {
                 router.push(`/?day=${dayKey(new Date(event.occurred_at))}`)
               }
               accessibilityRole="button"
-              accessibilityLabel={`${event.note ?? "Incidencia"}, el ${displayDate(
+              accessibilityLabel={`${
+                eventDetail(event, "what") ?? "Incidencia"
+              }, el ${displayDate(
                 dayKey(new Date(event.occurred_at)),
               )}. Ver ese día`}
               className="flex-row items-start justify-between gap-3 py-3 active:opacity-70"
             >
               <View className="min-w-0 flex-1">
+                {/* **The name of the illness first, then whatever was written
+                    about it.** The note tends to hold the vet's protocol —
+                    three medicines and the hours between them — and a section
+                    that opened with that was answering "what was the
+                    treatment" to somebody asking "what did he have". The
+                    entry already carries the answer: "Qué ha pasado" is the
+                    incident's own field in the diary. */}
+                <Text className="font-semibold text-text-primary">
+                  {eventDetail(event, "what") ?? "Incidencia"}
+                </Text>
                 {event.note ? (
-                  <Markdown
-                    text={event.note}
-                    className="text-text-primary"
-                    compact
-                    // Three, because the vet's whole protocol is a perfectly
-                    // good thing to write in a note and a bad thing to render
-                    // five lines of in a section that summarises. The rest is
-                    // one tap away, on the day it happened.
-                    lines={3}
-                  />
-                ) : (
-                  <Text className="text-text-primary">Incidencia</Text>
-                )}
+                  <View className="mt-0.5">
+                    <Markdown
+                      text={event.note}
+                      className="text-xs text-text-tertiary"
+                      compact
+                      // Three, because the vet's whole protocol is a perfectly
+                      // good thing to write in a note and a bad thing to
+                      // render five lines of in a section that summarises. The
+                      // rest is one tap away, on the day it happened.
+                      lines={3}
+                    />
+                  </View>
+                ) : null}
               </View>
               <Text className="shrink-0 text-xs text-text-tertiary">
                 {displayDate(dayKey(new Date(event.occurred_at)))}
@@ -591,15 +639,21 @@ function WeightSheet({
         />
       </View>
 
-      <View className="mb-5">
-        <TextField
-          testID="weight-note"
-          multiline
-          label="NOTA"
-          value={note}
-          onChangeText={setNote}
-          placeholder="¿Algo que contar?"
-        />
+      {/* The vocabulary of a field, beside the field: a three-line textarea
+          leaves exactly enough room for it in the column alongside. */}
+      <View className="mb-5 flex-row items-end gap-3">
+        <View className="min-w-0 flex-1">
+          <TextField
+            testID="weight-note"
+            multiline
+            label="NOTA"
+            value={note}
+            onChangeText={setNote}
+            placeholder="¿Algo que contar?"
+            className="mb-0"
+          />
+        </View>
+        <MarkdownHelp testID="weight-note-help" />
       </View>
 
       <View className="flex-row gap-3">

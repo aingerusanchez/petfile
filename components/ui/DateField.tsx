@@ -240,6 +240,14 @@ export function DateField({
               <DateTimePicker
                 mode="single"
                 locale="es"
+                // **Monday, like every calendar in Spain.** The month
+                // calendar has said so since it was written and this one had
+                // not, so the same app showed two different weeks: the diary's
+                // grid starting on Monday and the picker underneath it
+                // starting on Sunday. A locale-driven first day belongs in
+                // Ajustes the day the app leaves es-ES; today it is one
+                // number and one truth.
+                firstDayOfWeek={1}
                 date={draft}
                 onChange={({ date }) => {
                   if (date) setDraft(new Date(date as string | number | Date));

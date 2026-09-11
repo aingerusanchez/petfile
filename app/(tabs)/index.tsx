@@ -19,6 +19,7 @@ import {
   Group,
   LoadingScreen,
   Markdown,
+  MarkdownHelp,
   LogSkeleton,
   MonthCalendar,
   Screen,
@@ -48,6 +49,7 @@ import {
 import { formatDuration, parseDuration } from "../../lib/duration";
 import {
   dayKey,
+  eventDetail,
   deleteEvent,
   eventsForDay,
   eventsForMonths,
@@ -126,7 +128,7 @@ const KINDS: Record<
     editAction: "Editar comida",
     icon: UtensilsCrossed,
     field: { label: "Qué ha comido", placeholder: "Pienso" },
-    describe: (event) => detail(event, "what"),
+    describe: (event) => eventDetail(event, "what"),
   },
   medication: {
     label: "Medicación",
@@ -135,7 +137,7 @@ const KINDS: Record<
     icon: Pill,
     tone: colors.warning,
     field: { label: "Qué le habéis dado", placeholder: "Apoquel, media" },
-    describe: (event) => detail(event, "what"),
+    describe: (event) => eventDetail(event, "what"),
   },
   incident: {
     label: "Incidencia",
@@ -144,7 +146,7 @@ const KINDS: Record<
     icon: TriangleAlert,
     tone: colors.error,
     field: { label: "Qué ha pasado", placeholder: "Cojea de la pata derecha" },
-    describe: (event) => detail(event, "what"),
+    describe: (event) => eventDetail(event, "what"),
   },
 };
 
@@ -185,11 +187,6 @@ function shiftDays(day: Date, by: number): Date {
 }
 
 /** The one free-text specific each kind but the walk keeps in `details`. */
-function detail(event: PetEventRow, key: string): string | null {
-  const details = event.details as Record<string, unknown> | null;
-  const value = details?.[key];
-  return typeof value === "string" && value.trim() ? value : null;
-}
 
 /** What the sheet is open for: a new entry of a kind, or an existing one. */
 type Editing = { kind: EventKind; event: PetEventRow | null };
@@ -976,7 +973,7 @@ function EntrySheet({
     storedMinutes ? formatDuration(storedMinutes, durationFormat) : "",
   );
   const [value, setValue] = useState(
-    () => (event && detail(event, "what")) || "",
+    () => (event && eventDetail(event, "what")) || "",
   );
   const [note, setNote] = useState(() => event?.note ?? "");
   const [atError, setAtError] = useState<string | null>(null);
@@ -1000,7 +997,7 @@ function EntrySheet({
         : (occurred ?? new Date()),
     ),
     from: occurred && storedMinutes ? formatTimeOfDay(occurred) : "",
-    value: (event && detail(event, "what")) || "",
+    value: (event && eventDetail(event, "what")) || "",
     note: event?.note ?? "",
     stools: readStools(event?.details).join(","),
   }));
@@ -1439,14 +1436,18 @@ function EntrySheet({
               maxLength={200}
             />
           </View>
-          {isWalk ? (
-            <View className="mb-5">
+          {/* **The space the three-line note opened up.** A textarea is tall
+              and the column beside it was empty above the kaka button; the
+              vocabulary of a field belongs next to the field. */}
+          <View className="mb-5 gap-2">
+            <MarkdownHelp testID="entry-note-help" />
+            {isWalk ? (
               <StoolToggle
                 open={stoolsOpen}
                 onToggle={() => setStoolsOpen((was) => !was)}
               />
-            </View>
-          ) : null}
+            ) : null}
+          </View>
         </View>
 
         {isWalk ? (

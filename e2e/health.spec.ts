@@ -127,35 +127,20 @@ test("will not save until there is a weight, and not again until it changes", as
 test("proposes the next date from the kind, and keeps what is confirmed", async ({
   page,
 }) => {
-  const today = new Date();
   await openHealth(page);
 
   await addHealth(page, "treatment");
 
-  // A vaccine's proposal is a year out; switching to the antiparasitic moves
-  // it to a month, because the proposal follows the kind until somebody
-  // overrules it.
-  await expect(page.getByTestId("treatment-next")).toContainText(
-    typed(addDays(today, 365)),
-  );
-  await page.getByTestId("treatment-kind-antiparasitic").click();
-  await expect(page.getByTestId("treatment-next")).toContainText(
-    typed(addDays(today, 30)),
-  );
+  // **A sentence, not a second date field.** Two adjacent dates was one too
+  // many and the one being typed was always the first, so the rhythm is said
+  // in words and the field appears only for somebody who disagrees. It is
+  // derived from the constant that fills the date, so the two cannot drift.
+  await expect(page.getByTestId("treatment-next")).toBeHidden();
+  await expect(page.getByTestId("treatment-cadence")).toContainText("cada año");
   await page.getByTestId("treatment-kind-deworming").click();
-  await expect(page.getByTestId("treatment-next")).toContainText(
-    typed(addDays(today, 90)),
-  );
-
-  // And it says why that date is there, in the kind's own rhythm — derived
-  // from the same constant that filled the field, so the two cannot drift.
   await expect(page.getByTestId("treatment-cadence")).toContainText(
     "cada 3 meses",
   );
-  await page.getByTestId("treatment-kind-vaccine").click();
-  await expect(page.getByTestId("treatment-cadence")).toContainText("cada año");
-  await page.getByTestId("treatment-kind-deworming").click();
-
   await page.getByTestId("treatment-name").fill("Milbemax");
   await page.getByTestId("treatment-save").click();
 
@@ -221,9 +206,11 @@ test("stops proposing once the tutor has written the date themselves", async ({
 
   await addHealth(page, "treatment");
 
-  // Opening the picker and confirming is the tutor answering the question,
-  // even when the answer is the one already offered. From then on the date is
-  // theirs: changing the kind must not overwrite what the vet said.
+  // The vet said something else, so the field comes out — and confirming is
+  // the tutor answering the question, even when the answer is the one already
+  // offered. From then on the date is theirs: changing the kind must not
+  // overwrite it.
+  await page.getByTestId("treatment-next-change").click();
   await page.getByTestId("treatment-next").click();
   await page.getByTestId("datepicker-confirm").click();
   await page.getByTestId("treatment-kind-antiparasitic").click();
@@ -243,6 +230,7 @@ test("a treatment with no next date is not pending, because it is done", async (
   await page.getByTestId("treatment-name").fill("Una sola vez");
   // "Sin fecha" is an answer, not an empty field: a one-off has nothing
   // scheduled after it, and the section above must not invent a reminder.
+  await page.getByTestId("treatment-next-change").click();
   await page.getByTestId("treatment-next").click();
   await page.getByTestId("datepicker-clear").click();
   await page.getByTestId("treatment-save").click();
