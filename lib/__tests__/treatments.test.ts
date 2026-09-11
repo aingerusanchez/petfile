@@ -2,7 +2,8 @@ import {
   addDays,
   isStandardVaccine,
   VACCINE_NAMES,
-  VACCINE_OTHER,
+  canonicalVaccine,
+  searchVaccines,
   vaccineNote,
   TREATMENT_INTERVAL_DAYS,
   TREATMENT_KINDS,
@@ -227,8 +228,25 @@ describe("the vaccine list", () => {
     expect(vaccineNote("Rabia")).toBeNull();
   });
 
-  it("never offers the escape hatch as a name", () => {
-    expect(VACCINE_NAMES).not.toContain(VACCINE_OTHER);
+  it("stores the list's own spelling of what was typed", () => {
+    // The combobox accepts anything, as it must — no list of vaccines is
+    // complete. What keeps it from undoing the schedule key is storing the
+    // canonical form: "rabia" and "Rabia " are one pauta, not three.
+    expect(canonicalVaccine("rabia")).toBe("Rabia");
+    expect(canonicalVaccine(" RABIA ")).toBe("Rabia");
+    expect(canonicalVaccine("Pentavalente")).toBeNull();
+    expect(canonicalVaccine("")).toBeNull();
+  });
+
+  it("offers the whole list until there is something to narrow it with", () => {
+    expect(searchVaccines("")).toHaveLength(VACCINE_NAMES.length);
+    expect(searchVaccines("va")).toContain("Polivalente");
+    expect(searchVaccines("va")).toContain("Bivalente");
+    expect(searchVaccines("perr")).toEqual(["Tos de las perreras"]);
+    // Nothing left to offer once the typed text is the answer: a one-item
+    // list repeating the field is furniture to tap past.
+    expect(searchVaccines("Rabia")).toEqual([]);
+    expect(searchVaccines("Pentavalente")).toEqual([]);
   });
 });
 

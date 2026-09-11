@@ -537,6 +537,14 @@ A value display that opens a picker. **No text input** — the field previously 
 - **`reach` and `clearable` exist because a birth date is not every date.** The field was built for one, so it hard-coded `maxDate={today}` and had no way to hold nothing — and a treatment's next dose is in the future by definition, while a one-off treatment's next dose is genuinely null. `reach="any"` lifts the ceiling (it has to reach backwards too: an overdue dose has a due date already passed), and `clearable` puts a "Sin fecha" out in the picker's own footer. Both default to the old behaviour, because on a field that must hold a date, a way to empty it is a way to lose one.
 - **Capitalisation:** month names are capitalised at the source in `lib/dates.ts`; the library's own header caption comes from dayjs in lowercase and is corrected with a `capitalize` class on `month_selector_label`.
 
+### Suggest Field
+
+A text field that offers a list and accepts anything. The breed field's mechanism, extracted the day the vaccines needed it.
+
+- **Six vaccines outgrew a row of chips**, and they are the same shape of problem breeds were: a list long enough to be worth offering, open enough that refusing what is off it would be refusing the truth.
+- **Typing is always allowed; the suggestions only help.** What a caller does about spelling is its own business — a field that keys a schedule stores the list's own spelling (`canonicalVaccine`), and one that only labels a dog does not.
+- **The list empties once the typed text is the answer.** A one-item list repeating what the field already says is a row of furniture to tap past.
+
 ### Breed Combobox
 
 Suggests from a curated list, accepts anything typed.

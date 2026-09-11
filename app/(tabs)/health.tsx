@@ -10,6 +10,7 @@ import {
   LoadingScreen,
   Screen,
   Sheet,
+  SuggestField,
   Text,
   TextField,
   WeightLine,
@@ -32,10 +33,9 @@ import {
   treatmentNameExamples,
   treatmentsFor,
   updateTreatment,
-  isStandardVaccine,
+  canonicalVaccine,
+  searchVaccines,
   vaccineNote,
-  VACCINE_NAMES,
-  VACCINE_OTHER,
   type PetTreatmentRow,
   type TreatmentKind,
 } from "../../lib/treatments";
@@ -607,24 +607,6 @@ function TreatmentSheet({
     (existing?.kind as TreatmentKind) ?? "vaccine",
   );
   const [name, setName] = useState(existing?.name ?? "");
-  /**
-   * Which vaccine the selector is on — a name, or "Otra".
-   *
-   * **Reopening a row that predates the list lands on "Otra" with its name
-   * intact.** A closed list cannot be allowed to quietly rewrite what somebody
-   * already wrote down: "Pentavalente" was a perfectly good answer before
-   * there were chips, and it stays one.
-   */
-  const [vaccine, setVaccine] = useState<string>(() => {
-    if (!existing || existing.kind !== "vaccine") return VACCINE_NAMES[0];
-    return isStandardVaccine(existing.name)
-      ? (VACCINE_NAMES.find(
-          (known) =>
-            known.toLocaleLowerCase("es") ===
-            (existing.name ?? "").trim().toLocaleLowerCase("es"),
-        ) ?? VACCINE_OTHER)
-      : VACCINE_OTHER;
-  });
   const [on, setOn] = useState<string | null>(
     existing?.administered_on ?? dateKey(today),
   );
@@ -652,8 +634,11 @@ function TreatmentSheet({
     if (from) setNext(dateKey(proposeNextDue(forKind, from)));
   };
 
+  // Stored in the list's own spelling when it is on the list, exactly as
+  // written when it is not: the combobox accepts anything, and "rabia" and
+  // "Rabia " must still be one schedule.
   const savedName =
-    kind === "vaccine" && vaccine !== VACCINE_OTHER ? vaccine : name.trim();
+    (kind === "vaccine" ? canonicalVaccine(name) : null) ?? name.trim();
 
   const changed = existing
     ? kind !== existing.kind ||
@@ -672,9 +657,7 @@ function TreatmentSheet({
 
     const treatment = {
       kind,
-      // A vaccine's name is the one the selector holds, unless the tutor
-      // reached for "Otra" and typed their own.
-      name: kind === "vaccine" && vaccine !== VACCINE_OTHER ? vaccine : name,
+      name: savedName,
       administeredOn,
       nextDueOn: next ? dateOf(next) : null,
       note,
@@ -719,51 +702,44 @@ function TreatmentSheet({
         </ChipGroup>
       </View>
 
-      {/* **The vaccines are a list; the dewormings are a field.** Here the
-          name *is* the schedule key, so free text splits a pauta into as many
-          as there are ways to write it — and each fragment holds a third of
-          the history and reminds nobody of anything. The other two kinds keep
-          their field, because there the name is the product the vet happened
-          to hand over and the kind is the schedule. */}
+      {/* **The vaccines suggest; the dewormings do not.** Here the name is
+          the schedule key, so the curated spelling has to be the easy one —
+          but a list of vaccines is never complete, and a combobox is what
+          offers a list without refusing what is off it. Six of them outgrew a
+          row of chips; the two dewormings keep a plain field, because there
+          the name is whichever product the vet handed over. */}
       {kind === "vaccine" ? (
-        <View className="mb-5">
-          <ChipGroup label="CUÁL">
-            {[...VACCINE_NAMES, VACCINE_OTHER].map((option) => (
-              <Chip
-                key={option}
-                testID={`treatment-vaccine-${option
-                  .toLocaleLowerCase("es")
-                  .replace(/\s+/g, "-")}`}
-                label={option}
-                selected={vaccine === option}
-                onPress={() => setVaccine(option)}
-              />
-            ))}
-          </ChipGroup>
-          {vaccineNote(vaccine) ? (
+        <>
+          <SuggestField
+            testID="treatment-name"
+            label="CUÁL"
+            value={name || null}
+            onChange={(next) => setName(next ?? "")}
+            search={searchVaccines}
+            suggestionPrefix="treatment-vaccine"
+            placeholder="Polivalente, Rabia…"
+            maxLength={40}
+          />
+          {vaccineNote(canonicalVaccine(name) ?? "") ? (
             <Text
               testID="treatment-vaccine-note"
               className="-mt-3 mb-5 text-xs text-text-tertiary"
             >
-              {vaccineNote(vaccine)}
+              {vaccineNote(canonicalVaccine(name) ?? "")}
             </Text>
           ) : null}
-        </View>
-      ) : null}
-
-      {kind !== "vaccine" || vaccine === VACCINE_OTHER ? (
+        </>
+      ) : (
         <View className="mb-5">
           <TextField
             testID="treatment-name"
             label="NOMBRE"
             value={name}
             onChangeText={setName}
-            placeholder={
-              kind === "vaccine" ? "¿Cuál?" : treatmentNameExamples(kind)
-            }
+            placeholder={treatmentNameExamples(kind)}
           />
         </View>
-      ) : null}
+      )}
 
       <View className="mb-5">
         <DateField

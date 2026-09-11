@@ -51,14 +51,24 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   lleva además su icono, y nombran para qué sirven y no a qué se parecen: una
   jeringuilla, un gusano para lo que vive dentro y una garrapata para lo que
   vive fuera.
-- **Las vacunas se eligen de una lista; las desparasitaciones se escriben.** En
+- **Las vacunas sugieren de una lista; las desparasitaciones se escriben.** En
   las vacunas el nombre _es_ la pauta, así que el texto libre la parte en
   tantas como formas haya de escribirla — "Rabia", "rabia ", "Vacuna
   antirrábica" — y cada trozo se queda con un cacho del historial sin recordar
   nada a nadie. Polivalente · Rabia · Bivalente · Tos de las perreras ·
-  Leishmaniosis, y "Otra" para el resto. **Las valencias son una sola entrada**:
+  Leishmaniosis — en el mismo combo que usan las razas, porque ninguna lista de
+  vacunas está completa y rechazar lo que no está en ella sería rechazar la
+  verdad. Lo que evita que el texto libre deshaga la pauta es **guardar la
+  grafía de la lista**: "rabia" y "Rabia " se guardan como "Rabia", y lo que de
+  verdad está fuera se guarda tal cual. **Las valencias son una sola entrada**:
   penta, hexa y octovalente son el mismo refuerzo anual, y separarlas rompería
   justo la pauta que la lista existe para mantener unida.
+- **Un sheet que crece ya no se sale de la pantalla.** El formulario de
+  tratamiento ganó una fila y el panel entero se fue por encima del reloj del
+  sistema: sin scrim visible dejaba de leerse como un panel, y no había forma
+  de volver a lo de arriba. Ahora tiene tope — la ventana menos la barra de
+  estado y una franja de scrim — y su contenido se desplaza dentro. Medido en
+  el dispositivo.
 - **La fecha que se rellena sola dice cada cuánto toca.** "Suele tocar cada 3
   meses" bajo el campo: una fecha que aparece de la nada invita o a confiar a
   ciegas o a corregirla sin saber por qué. La frase sale del mismo constante

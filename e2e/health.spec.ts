@@ -171,15 +171,9 @@ test("picks a vaccine from a list, and keeps a free field for the rest", async (
   await openHealth(page);
   await page.getByTestId("health-treatment-add").click();
 
-  // A vaccine's name *is* its schedule key, so it comes off a list: free text
-  // would make "Rabia" and "rabia" two pautas, each holding half the history.
-  await expect(page.getByTestId("treatment-name")).toBeHidden();
-  await expect(page.getByTestId("treatment-vaccine-note")).toContainText(
-    "hexa",
-  );
-
-  await page.getByTestId("treatment-vaccine-rabia").click();
-  await expect(page.getByTestId("treatment-vaccine-note")).toBeHidden();
+  // A vaccine suggests from a list, because its name *is* the schedule key.
+  await page.getByTestId("treatment-name").click();
+  await page.getByTestId("treatment-vaccine-Rabia").click();
   await page.getByTestId("treatment-save").click();
   await expect(page.getByTestId("health-treatments")).toContainText("Rabia");
 
@@ -193,22 +187,21 @@ test("picks a vaccine from a list, and keeps a free field for the rest", async (
   await expect(page.getByTestId("health-treatments")).toContainText("Milbemax");
 });
 
-test("reveals the field for a vaccine the list has never heard of", async ({
+test("takes a vaccine the list has never heard of, exactly as written", async ({
   page,
 }) => {
   await openHealth(page);
   await page.getByTestId("health-treatment-add").click();
 
-  await page.getByTestId("treatment-vaccine-otra").click();
-  await expect(page.getByTestId("treatment-name")).toBeVisible();
+  // A combobox, not a picker: no list of vaccines is complete, and refusing
+  // what is off it would be refusing the truth.
   await page.getByTestId("treatment-name").fill("Pentavalente");
   await page.getByTestId("treatment-save").click();
   await expect(page.getByTestId("health-treatments")).toContainText(
     "Pentavalente",
   );
 
-  // And it reopens on "Otra" with the name intact: a closed list must never
-  // rewrite what somebody already wrote down.
+  // And it reopens with the name intact: suggesting is not rewriting.
   await page
     .getByTestId(/^health-treatment-[0-9a-f]/)
     .first()
@@ -292,8 +285,7 @@ test("keeps every control on the 48dp floor", async ({ page }) => {
     "treatment-kind-vaccine",
     "treatment-kind-deworming",
     "treatment-kind-antiparasitic",
-    "treatment-vaccine-rabia",
-    "treatment-vaccine-otra",
+    "treatment-name",
     "treatment-save",
   ]) {
     const box = await page.getByTestId(id).boundingBox();

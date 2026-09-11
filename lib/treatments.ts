@@ -66,15 +66,42 @@ export const VACCINE_NAMES = [
   "Leishmaniosis",
 ] as const;
 
-/** The label for the escape hatch, and the value that reveals the text field. */
-export const VACCINE_OTHER = "Otra";
-
-/** Whether a stored name is one of the standard ones, for reopening a row. */
+/** Whether a stored name is one of the standard ones. */
 export function isStandardVaccine(name: string | null): boolean {
+  return canonicalVaccine(name) !== null;
+}
+
+/**
+ * The list's own spelling of what somebody typed, or null when it is not on it.
+ *
+ * **This is what keeps a combobox from undoing the schedule key.** The field
+ * accepts anything, as a combobox must — no list of vaccines is complete and
+ * refusing what is not on it would be refusing the truth — but "rabia",
+ * "Rabia " and "RABIA" are one pauta, and storing them as typed would make
+ * them three. Matched loosely, stored canonically, and anything genuinely off
+ * the list is kept exactly as written.
+ */
+export function canonicalVaccine(name: string | null): string | null {
   const trimmed = (name ?? "").trim().toLocaleLowerCase("es");
-  return VACCINE_NAMES.some(
-    (known) => known.toLocaleLowerCase("es") === trimmed,
+  if (!trimmed) return null;
+  return (
+    VACCINE_NAMES.find((known) => known.toLocaleLowerCase("es") === trimmed) ??
+    null
   );
+}
+
+/** What the combobox offers for what has been typed so far. */
+export function searchVaccines(text: string): string[] {
+  const needle = text.trim().toLocaleLowerCase("es");
+  if (!needle) return [...VACCINE_NAMES];
+  const matches = VACCINE_NAMES.filter((name) =>
+    name.toLocaleLowerCase("es").includes(needle),
+  );
+  // Nothing to offer once the typed text *is* the answer: a one-item list
+  // repeating what the field already says is a row of furniture to tap past.
+  return matches.length === 1 && matches[0].toLocaleLowerCase("es") === needle
+    ? []
+    : matches;
 }
 
 /**
