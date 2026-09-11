@@ -56,9 +56,9 @@ test("the section hands over once it stops being a summary", async ({
   await seed(page);
   await page.goto("/health");
 
-  // Five, and the count is what turns "there is more" into a reason to tap.
+  // Five in the section; the rest is a screen away.
   await expect(page.getByTestId("health-treatments-all")).toContainText(
-    "Ver los 10",
+    "Ver más",
   );
   await page.getByTestId("health-treatments-all").click();
   await expect(page.getByTestId("treatments-title")).toBeVisible();

@@ -63,6 +63,31 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   verdad está fuera se guarda tal cual. **Las valencias son una sola entrada**:
   penta, hexa y octovalente son el mismo refuerzo anual, y separarlas rompería
   justo la pauta que la lista existe para mantener unida.
+- **La curva de peso dice cuánto y desde cuándo.** Salió sin un solo número
+  encima, y una línea que solo dice "hacia arriba" responde a una pregunta que
+  nadie hizo: de una curva de crecimiento se leen _cuánto_ subió y _en cuánto
+  tiempo_. Los extremos del rango a la izquierda, el primer y el último mes
+  debajo, y un punto por pesaje — que es lo único que distingue siete medidas
+  de una curva dibujada a mano. Sin ejes ni rejilla: el marco de un gráfico
+  cuesta más sitio del que devuelve a este tamaño.
+- **Las notas admiten Markdown.** Negrita, listas y párrafos en las notas de
+  paseo, de peso y de tratamiento — que es donde acaba "**Cojea** de la pata
+  derecha" o la lista de síntomas de una visita. Quien escriba una frase normal
+  recibe su frase tal cual, que es todo el trato de escribir Markdown a mano.
+  **No hay editor**: el campo es un textarea de tres líneas, sin barra de
+  herramientas ni vista previa. El renderizador es el que ya tenía el
+  changelog, extraído el día que una nota lo necesitó.
+- **Las enfermedades se leen en Salud**, aunque se escriban en el Diario. Una
+  incidencia pasa a una hora de un día y se apunta donde el tutor ya está;
+  pero "¿cuándo fue lo del oído?" es una pregunta de salud, y recorrer un
+  calendario hacia atrás no es una respuesta. Cada una lleva a su día, que es
+  donde está la medicación que la acompañó.
+- **Un solo header para las pantallas fuera de las pestañas.** Ajustes apilaba
+  un enlace "Perfil" sobre su título y Tratamientos ponía una flecha al lado
+  del suyo: las dos funcionaban y juntas parecían dos apps. Gana la de al
+  lado, que gasta una línea donde la otra gasta dos, y el nombre del destino
+  no se pierde — se va al nombre accesible, que es quien de verdad lo
+  necesita.
 - **El calendario del Diario marca los días de vacuna**, puestos y próximos,
   con una jeringuilla detrás del número igual que la tarta del cumpleaños — y
   por la misma razón: una marca se gana una celda siendo la excepción, y
@@ -79,7 +104,7 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   diagnóstico) y en la palabra del propio tipo, y **se salta los acentos** que
   el teclado no ofreció: buscar "desparasitacion" no puede decir que la palabra
   no aparece en una lista donde sale once veces. La sección se queda con los
-  cinco últimos y un "Ver los 15" que dice cuántos faltan.
+  cinco últimos y un "Ver más" para ver el resto.
 - **Apuntar sale de las secciones y baja al pulgar.** Cada sección tenía su
   botón, lo que dejaba lo único a lo que se entra a hacer al final de un bloque
   que había que recorrer — y, peor, hacía que las secciones parecieran

@@ -4,21 +4,23 @@ import { useCallback, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import {
   Button,
+  colors,
   DateField,
   Fab,
   Group,
   LoadingScreen,
+  Markdown,
   Screen,
   Sheet,
   Text,
   TextField,
   TREATMENT_ICONS,
   TreatmentSheet,
-  WeightLine,
-  colors,
   useToast,
+  WeightLine,
 } from "../../components/ui";
 import { MONTHS_ES, parseISO } from "../../lib/dates";
+import { dayKey, incidentsFor, type PetEventRow } from "../../lib/events";
 import { getMyPet, type PetRow } from "../../lib/pets";
 import {
   dueStatus,
@@ -74,6 +76,7 @@ export default function Health() {
   const [petError, setPetError] = useState<string | null>(null);
   const [weights, setWeights] = useState<PetWeightRow[] | null>(null);
   const [treatments, setTreatments] = useState<PetTreatmentRow[] | null>(null);
+  const [incidents, setIncidents] = useState<PetEventRow[]>([]);
   const [dataError, setDataError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [weighing, setWeighing] = useState<PetWeightRow | "new" | null>(null);
@@ -118,16 +121,19 @@ export default function Health() {
     if (!petId) return;
     let cancelled = false;
 
-    Promise.all([weightsFor(petId), treatmentsFor(petId)]).then(
-      ([weighed, treated]) => {
-        if (cancelled) return;
-        setWeights(weighed.weights);
-        setTreatments(treated.treatments);
-        // One message for both: a tutor who cannot reach the server cannot
-        // reach it twice, and two identical lines read as two faults.
-        setDataError(weighed.error ?? treated.error);
-      },
-    );
+    Promise.all([
+      weightsFor(petId),
+      treatmentsFor(petId),
+      incidentsFor(petId),
+    ]).then(([weighed, treated, incident]) => {
+      if (cancelled) return;
+      setWeights(weighed.weights);
+      setTreatments(treated.treatments);
+      setIncidents(incident.events);
+      // One message for both: a tutor who cannot reach the server cannot
+      // reach it twice, and two identical lines read as two faults.
+      setDataError(weighed.error ?? treated.error);
+    });
 
     return () => {
       cancelled = true;
@@ -261,9 +267,13 @@ export default function Health() {
             {/* A field somebody can write into and never read back is a trap.
                 The note belongs to the weight, so it appears with it. */}
             {latest.note ? (
-              <Text className="mt-1 text-xs text-text-tertiary">
-                {latest.note}
-              </Text>
+              <View className="mt-1">
+                <Markdown
+                  text={latest.note}
+                  className="text-xs text-text-tertiary"
+                  compact
+                />
+              </View>
             ) : null}
             {weights && weights.length > 1 ? (
               <View className="mt-3">
@@ -318,9 +328,13 @@ export default function Health() {
                     {row.name ? ` · ${row.name}` : ""}
                   </Text>
                   {row.note ? (
-                    <Text className="mt-0.5 text-xs text-text-tertiary">
-                      {row.note}
-                    </Text>
+                    <View className="mt-0.5">
+                      <Markdown
+                        text={row.note}
+                        className="text-xs text-text-tertiary"
+                        compact
+                      />
+                    </View>
                   ) : null}
                 </View>
                 <Text className="shrink-0 text-xs text-text-tertiary">
@@ -337,7 +351,7 @@ export default function Health() {
               <View className="mt-2 items-start">
                 <Button
                   testID="health-treatments-all"
-                  label={`Ver los ${treatments.length}`}
+                  label={`Ver más`}
                   variant="link"
                   onPress={() => router.push("/treatments")}
                 />
@@ -350,6 +364,46 @@ export default function Health() {
           </Text>
         )}
       </Group>
+
+      {/* **Read here, written in the diary.** An incident happens at a time on
+          a day and is logged where the tutor already is; but "¿cuándo fue lo
+          del oído?" is a health question, and walking a calendar backwards is
+          not an answer to it. Each one leads to its own day, which is where
+          the medication that went with it lives — four rows at 11:31 that are
+          really one episode, until the data model learns to say so. */}
+      {incidents.length > 0 ? (
+        <Group title="ENFERMEDADES" testID="health-incidents" className="mb-6">
+          {incidents.map((event) => (
+            <Pressable
+              key={event.id}
+              testID={`health-incident-${event.id}`}
+              onPress={() =>
+                router.push(`/?day=${dayKey(new Date(event.occurred_at))}`)
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`${event.note ?? "Incidencia"}, el ${displayDate(
+                dayKey(new Date(event.occurred_at)),
+              )}. Ver ese día`}
+              className="flex-row items-start justify-between gap-3 py-3 active:opacity-70"
+            >
+              <View className="min-w-0 flex-1">
+                {event.note ? (
+                  <Markdown
+                    text={event.note}
+                    className="text-text-primary"
+                    compact
+                  />
+                ) : (
+                  <Text className="text-text-primary">Incidencia</Text>
+                )}
+              </View>
+              <Text className="shrink-0 text-xs text-text-tertiary">
+                {displayDate(dayKey(new Date(event.occurred_at)))}
+              </Text>
+            </Pressable>
+          ))}
+        </Group>
+      ) : null}
 
       {weighing ? (
         <WeightSheet
@@ -535,6 +589,7 @@ function WeightSheet({
       <View className="mb-5">
         <TextField
           testID="weight-note"
+          multiline
           label="NOTA"
           value={note}
           onChangeText={setNote}

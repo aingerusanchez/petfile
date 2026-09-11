@@ -238,6 +238,7 @@ export function TreatmentSheet({
       <View className="mb-5">
         <TextField
           testID="treatment-note"
+          multiline
           label="NOTA"
           value={note}
           onChangeText={setNote}

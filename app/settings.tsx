@@ -1,16 +1,16 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft, Info, X } from "lucide-react-native";
+import { Info, X } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import {
   APP_CHANGELOG,
-  Button,
   Changelog,
   Chip,
   ChipGroup,
   colors,
   Group,
   Screen,
+  ScreenHeader,
   Sheet,
   Text,
   TOUCH_TARGET,
@@ -75,25 +75,16 @@ export default function SettingsScreen() {
       }
     >
       {/* This route has no tab bar and the Stack draws no header, so the way
-          back is the screen's own business. */}
-      <View className="mb-8 -ml-3">
-        <Button
-          testID="settings-back"
-          variant="link"
-          icon={ChevronLeft}
-          label="Perfil"
-          accessibilityLabel="Volver al perfil"
-          onPress={() => router.back()}
-        />
-      </View>
-
-      <Text
+          back is the screen's own business — but not the screen's own
+          invention: see `ScreenHeader`, which the treatment history shares. */}
+      <ScreenHeader
         testID="settings-title"
-        accessibilityRole="header"
-        className="mb-1 font-bold text-2xl text-text-primary"
-      >
-        Ajustes
-      </Text>
+        backTestID="settings-back"
+        title="Ajustes"
+        backTo="Perfil"
+        onBack={() => router.back()}
+        className="mb-1"
+      />
       {/* One line, and only the part the options cannot show: that this is
           per device. The reassurance about stored data went — nothing on this
           screen suggests otherwise. */}

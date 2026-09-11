@@ -299,3 +299,36 @@ test("keeps every control on the 48dp floor", async ({ page }) => {
     ).toBeGreaterThanOrEqual(48);
   }
 });
+
+test("reads the illnesses back, and each one leads to its day", async ({
+  page,
+}) => {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  await openHealth(page);
+
+  // Written where it happened — the day view — and read here.
+  await expect(page.getByTestId("health-incidents")).toBeHidden();
+
+  await page.goto("/");
+  await page.getByTestId("home-add").click();
+  await page.getByTestId("home-add-incident").click();
+  await page.getByTestId("entry-note").fill("**Diarrea** y vómitos");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("Diarrea");
+
+  await page.goto("/health");
+  await expect(page.getByTestId("health-incidents")).toContainText("Diarrea");
+  // The note renders its Markdown: the asterisks are emphasis, not text.
+  await expect(page.getByTestId("health-incidents")).not.toContainText("**");
+
+  await page
+    .getByTestId(/^health-incident-[0-9a-f]/)
+    .first()
+    .click();
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
+    now.getDate(),
+  )}`;
+  await expect(page).toHaveURL(new RegExp(`day=${today}`));
+  await expect(page.getByTestId("home-log")).toContainText("Diarrea");
+});

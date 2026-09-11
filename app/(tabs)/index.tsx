@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from "expo-router";
 import {
   CalendarDays,
   ChevronLeft,
@@ -17,6 +18,7 @@ import {
   FAB_CLEARANCE,
   Group,
   LoadingScreen,
+  Markdown,
   LogSkeleton,
   MonthCalendar,
   Screen,
@@ -39,6 +41,7 @@ import {
 import {
   birthdayOn,
   daysAgo,
+  parseISO,
   formatDayDate,
   formatDayHeadline,
 } from "../../lib/dates";
@@ -239,7 +242,22 @@ export default function Home() {
    * somebody picks it up.
    */
   const [today, setToday] = useState(() => new Date());
-  const [day, setDay] = useState(() => new Date());
+  /**
+   * The day on screen, which another screen may have asked for.
+   *
+   * **`?day=` exists so Salud can point at an illness.** The incidents are
+   * written here and read there, and a list of them that could not lead back
+   * to the day each one happened would be a list of dates you then have to go
+   * and find. Read once, at mount: it is where to open, not a binding — the
+   * arrows and the calendar move from there like any other day.
+   */
+  const { day: askedFor } = useLocalSearchParams<{ day?: string }>();
+  const [day, setDay] = useState(() => {
+    const parts = typeof askedFor === "string" ? parseISO(askedFor) : null;
+    return parts
+      ? new Date(parts.year, parts.month - 1, parts.day)
+      : new Date();
+  });
   const [picking, setPicking] = useState(false);
   /** One month of marks for the calendar, fetched only once it is opened. */
   const [marks, setMarks] = useState<Map<string, DaySummary>>(new Map());
@@ -806,7 +824,15 @@ function Entry({
           <Text className="text-text-secondary">{described}</Text>
         ) : null}
         {event.note ? (
-          <Text className="text-xs text-text-tertiary">{event.note}</Text>
+          // **The note renders its Markdown.** A tutor writing "**Cojea** de
+          // la pata derecha" after a vet visit gets the emphasis they meant;
+          // one who writes a plain sentence gets a plain sentence back, which
+          // is the whole bargain of writing Markdown by hand.
+          <Markdown
+            text={event.note}
+            className="text-xs text-text-tertiary"
+            compact
+          />
         ) : null}
       </View>
 
@@ -1386,6 +1412,7 @@ function EntrySheet({
           <View className="min-w-0 flex-1">
             <TextField
               testID="entry-note"
+              multiline
               label="Nota"
               value={note}
               onChangeText={setNote}

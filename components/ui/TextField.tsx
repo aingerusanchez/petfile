@@ -61,6 +61,15 @@ type TextFieldProps = Omit<
  * `maxLength` all pass straight through and should be set per field — an
  * ISO-date field raising the alphabetic keyboard is a defect, not a default.
  */
+/**
+ * Three lines, which is what a note about a vet visit tends to take.
+ *
+ * Not a `numberOfLines`: on Android that prop caps a multiline input rather
+ * than sizing it, so a fourth line would be unreachable. A minimum height and
+ * the field grows.
+ */
+const MULTILINE_HEIGHT = 88;
+
 export function TextField({
   label,
   required = false,
@@ -102,10 +111,17 @@ export function TextField({
           // TextInput is an <input>, whose default intrinsic width is about 20
           // characters, so inside a narrowed field the row grew past its
           // container and pushed the unit out over the controls beside it.
+          //
+          // **A multiline field starts at the top and stands three lines
+          // tall.** Centring a note that has grown to four lines would leave
+          // the first one floating in the middle of the box while the caret
+          // sat elsewhere, and Android's default height for a multiline input
+          // is one line — which reads as a single-line field that mysteriously
+          // wraps.
           style={{
-            minHeight: TOUCH_TARGET,
+            minHeight: inputProps.multiline ? MULTILINE_HEIGHT : TOUCH_TARGET,
             minWidth: 0,
-            textAlignVertical: "center",
+            textAlignVertical: inputProps.multiline ? "top" : "center",
           }}
           // `pl-4 pr-*` and not `px-4`: Android drops `padding-inline` on a
           // TextInput, which measured 4.9dp against the 16 the browser showed.

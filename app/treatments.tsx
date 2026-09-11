@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft, Search } from "lucide-react-native";
+import { Search } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import {
@@ -7,8 +7,10 @@ import {
   Chip,
   colors,
   LoadingScreen,
+  Markdown,
   PLACEHOLDER_COLOR,
   Screen,
+  ScreenHeader,
   Text,
   TOUCH_TARGET,
   TREATMENT_ICONS,
@@ -81,25 +83,13 @@ export default function Treatments() {
 
   return (
     <Screen scroll>
-      <View className="mb-6 flex-row items-center gap-2">
-        <Pressable
-          testID="treatments-back"
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Volver"
-          style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
-          className="-ml-3 items-center justify-center active:opacity-70"
-        >
-          <ChevronLeft size={24} color={colors.textSecondary} />
-        </Pressable>
-        <Text
-          testID="treatments-title"
-          accessibilityRole="header"
-          className="font-bold text-2xl text-text-primary"
-        >
-          Tratamientos
-        </Text>
-      </View>
+      <ScreenHeader
+        testID="treatments-title"
+        backTestID="treatments-back"
+        title="Tratamientos"
+        backTo="Salud"
+        onBack={() => router.back()}
+      />
 
       {/* **The search is a field, not a chip.** It answers a question the
           filter cannot — a product name, a note, a diagnosis — and a tutor
@@ -200,9 +190,13 @@ export default function Treatments() {
                     {row.name ? ` · ${row.name}` : ""}
                   </Text>
                   {row.note ? (
-                    <Text className="mt-0.5 text-xs text-text-tertiary">
-                      {row.note}
-                    </Text>
+                    <View className="mt-0.5">
+                      <Markdown
+                        text={row.note}
+                        className="text-xs text-text-tertiary"
+                        compact
+                      />
+                    </View>
                   ) : null}
                   {row.next_due_on ? (
                     <Text className="mt-0.5 text-xs text-text-muted">

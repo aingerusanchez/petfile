@@ -514,10 +514,25 @@ A hairline-outlined section, and its heading is the anchor on any screen long en
 
 Its own screen, because a section stopped being able to hold it.
 
-- **Five in the section, and a count on the way out.** The section's job is saying what has been happening lately; the moment it becomes a list somebody scrolls, it is the wrong place. "Ver los 15" turns "there is more" into a reason to tap.
+- **Five in the section, and a count on the way out.** The section's job is saying what has been happening lately; the moment it becomes a list somebody scrolls, it is the wrong place. "Ver más" turns "there is more" into a reason to tap.
 - **The kind filters and the text searches.** Different questions — "show me the dewormings" against "where does Panacur appear" — and one control answering both would answer neither well. "Todos" is a chip like the rest rather than a clear button: a filter whose current state is invisible is a filter that gets left on.
 - **The search is accent-blind, and Spanish is why.** A tutor types "desparasitacion" on a keyboard that did not offer the accent; exact matching would report the word absent from a list where it appears eleven times. It reaches the note as well as the name, because that is where a diagnosis ends up.
 - **A row opens the same sheet Salud uses**, which is why the form lives in `components/ui` rather than in either screen. A history nobody can correct from is a list you scroll to find the typo and then have to leave.
+
+### Screen Header
+
+The way back and the name of where you are, on a screen the tabs do not reach.
+
+- **Two screens had invented it separately**, and the pair read as two different apps. The arrow sits beside the title rather than above it: one line where the stack spends two, on screens whose content is the point.
+- **The destination moves to the accessible name** — "Volver a Perfil". It is the reader who needs it; a sighted tutor pressing back on a screen they opened thirty seconds ago knows where it goes.
+
+### Markdown
+
+Four constructs, and no editor.
+
+- **`###`, `- `, a paragraph, and `**bold**` or `` `code` `` inline.** It was the changelog's private renderer until a treatment note wanted the same things — a couple of bold words, a list of symptoms, a blank line between two thoughts. A dependency for that would ship a general-purpose renderer to display a vet's note.
+- **The writing side is a plain three-line field.** No toolbar, no preview, no live formatting: somebody who writes asterisks gets bold and somebody who does not gets their sentence back unchanged. A multiline field starts its text at the top — centring a note that has grown to four lines leaves the first floating in the middle while the caret sits elsewhere.
+- **If it does not render, it does not belong in the text.** Tables, links and code fences are outside the vocabulary, which is a fine constraint on a field whose job is to say what the vet said.
 
 ### Health
 
@@ -526,6 +541,7 @@ One scrolling screen, three sections, no sub-navigation: the file the app's name
 - **Pending first, because that is the question the tab is opened with.** "Lo que toca" lists one row per schedule, soonest first, and most of the year it is empty — which is good news, so it is said in a sentence rather than left as a gap. Overdue takes Error Red, due-within-a-fortnight takes Warning Amber, and everything further out takes no colour at all: the calendar's own rule, where an alert hue is spent on what is wrong and "in nine days" is a reminder.
 - **The weight reads as a number first and a shape second.** The current value large, the change against the previous measurement beside it, the date under it, and the line below that. The numbers that matter are in words; the line only has to say which way it has been going.
 - **The line is spaced by date, not by index.** Evenly spaced points draw a weekly routine and a six-month gap identically, which is the one thing a growth curve must not do. No axis, no grid, no zero baseline — a y axis from zero flattens every real change a dog makes, and the range is fitted with padding so a flat month does not look like a cliff. One dot, on the last point, because a dot per measurement turns a line into a constellation at phone sizes.
+- **The line carries four labels and no axis.** It shipped with none, and a line that says only "upwards" answers a question nobody asked: what a tutor reads off a growth curve is _how much_ and _over how long_. The ends of the range sit left, the first and last months under the ends, and there is a dot per measurement — the only thing that says "seven weighings" rather than "a curve somebody drew". The frame of a real chart costs more room than it returns at this size.
 - **Tapping the weight corrects it; there is no second row for today.** The day is unique in the table and the screen upserts, so a re-weigh replaces. The button says which of the two it is about to do.
 - **The proposal follows the kind until somebody overrules it, then stops.** A treatment's next date is offered from a per-kind interval — a year, three months, a month — and the moment the tutor confirms a date of their own, nothing recomputes it. Recomputing after an edit would throw away the vet's actual instruction, which is the one thing the row exists to keep. It happens in the change handlers rather than in an effect, which is also what the derived-state lint rule asks for.
 - **The vaccines are a list and the dewormings are a field, for the same reason the schedule key differs.** Where the name identifies the pauta, free text fragments it; where the name is just the product on the box, a closed list would be one nobody's vet reads from. A row written before the list existed reopens on "Otra" with its own name intact — a closed list must never quietly rewrite what somebody already wrote down.
