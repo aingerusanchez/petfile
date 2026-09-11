@@ -654,7 +654,12 @@ test("names the birthday and marks it on the calendar", async ({ page }) => {
 
   // The day has a name worth more than "Hoy" today, and the date underneath
   // still says which day it is.
-  await expect(page.getByTestId("home-title")).toHaveText("Cumpleaños de Loki");
+  const title = page.getByTestId("home-title");
+  await expect(title).toContainText("Cumpleaños de Loki");
+  // The emoji is ornament: shown, never spoken.
+  await expect(title).toContainText("🎂");
+  const spoken = await title.getAttribute("aria-label");
+  expect(spoken).toBe("Cumpleaños de Loki");
   await expect(page.getByTestId("home-date")).toContainText("de ");
 
   // The emptiest moment of the day is the one worth saying something in.
@@ -697,7 +702,9 @@ test("celebrates the birthday once, not once per open", async ({ page }) => {
   // The year it fired for is remembered on the device, so opening the app
   // again on the same birthday is not a second party.
   await page.reload();
-  await expect(page.getByTestId("home-title")).toHaveText("Cumpleaños de Loki");
+  await expect(page.getByTestId("home-title")).toContainText(
+    "Cumpleaños de Loki",
+  );
   await expect(page.getByTestId("celebration")).toBeHidden();
 });
 
@@ -715,6 +722,60 @@ test("says the birthday on the file's age line too", async ({ page }) => {
   // already the camera.
   await expect(page.getByTestId("profile-age")).toContainText("Hoy cumple");
   await expect(page.getByTestId("profile-age")).toContainText("4 años");
+
+  // The cake beside it is a control, not a decoration: once a year, pressing
+  // it throws the confetti again on purpose.
+  const cake = page.getByTestId("profile-birthday");
+  await expect(cake).toHaveAttribute("aria-label", "Celebrarlo otra vez");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+  await cake.click();
+  await expect(page.getByTestId("celebration")).toBeVisible();
+});
+
+test("logs a walk known only by its end and its length", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // Typing a duration back-fills the start, which is the ordinary case.
+  await add(page, "walk");
+  await page.getByTestId("entry-duration").fill("45 min");
+
+  // Clearing it leaves an end and a length, which is a complete fact — and
+  // the one the sheet used to throw away. It is also what the steppers
+  // produce just after midnight, when counting back lands on yesterday and
+  // no time of day can say so.
+  await page.getByTestId("entry-from").fill("");
+  await page.getByTestId("entry-note").click();
+  await expect(page.getByTestId("entry-duration")).toHaveValue("45 min");
+
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("45 min");
+  await expect(page.getByTestId("home-goal")).toContainText("45 min de 1h");
+});
+
+test("keeps stepping a walk that reaches back past midnight", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // Whatever the hour, four taps of +15 is an hour of walk. Before the fix
+  // this emptied its own duration field the moment the computed start crossed
+  // into the previous day, and blamed DESDE on save.
+  await add(page, "walk");
+  for (let i = 0; i < 4; i++) {
+    await page.getByTestId("entry-duration-plus").click();
+  }
+  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
+  await page.getByTestId("entry-note").click();
+  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
+
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");
 });
 
 test("keeps every control on the 48dp floor here too", async ({ page }) => {
