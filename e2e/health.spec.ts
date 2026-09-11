@@ -56,11 +56,16 @@ test("records a weight and reads it back in kilograms", async ({ page }) => {
   await page.getByTestId("weight-save").click();
 
   await expect(page.getByTestId("health-weight")).toContainText("12,4 kg");
-  // The button knows the day already has a weight, so the next tap is a
-  // correction rather than a second data point.
+
+  // **The button never claims to be about today**, because the sheet is where
+  // the day is chosen and the first thing anybody does with an empty line is
+  // type in months of past weighings. It does open on the day's own row when
+  // there is one, so an upsert can never replace a weight it never showed.
   await expect(page.getByTestId("health-weight-add")).toContainText(
-    "Corregir el peso de hoy",
+    "Apuntar peso",
   );
+  await page.getByTestId("health-weight-add").click();
+  await expect(page.getByTestId("weight-value")).toHaveValue("12,4");
 });
 
 test("saving twice on one day corrects the weight instead of adding another", async ({

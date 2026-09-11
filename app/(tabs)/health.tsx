@@ -151,7 +151,7 @@ export default function Health() {
   const latest = weights?.[0] ?? null;
   const change = weightChange(weights ?? []);
   const todayKey = measuredKey(today);
-  const weighedToday = weights?.some((row) => row.measured_on === todayKey);
+  const todayRow = weights?.find((row) => row.measured_on === todayKey) ?? null;
 
   return (
     <Screen scroll edges={["top"]}>
@@ -246,10 +246,21 @@ export default function Health() {
         <View className="mb-4">
           <Button
             testID="health-weight-add"
-            label={weighedToday ? "Corregir el peso de hoy" : "Apuntar peso"}
+            // **Always "Apuntar peso", because the sheet is where the day is
+            // chosen.** It said "Corregir el peso de hoy" once the day had
+            // one, which is true of the default and false of the control: the
+            // first thing a tutor does with an empty line is type in months
+            // of weighings, most recent first, and every one of them went
+            // through a button claiming to be about today.
+            label="Apuntar peso"
             variant="secondary"
             icon={Scale}
-            onPress={() => setWeighing("new")}
+            // Landing on today's row rather than on a blank one when the day
+            // already has a weight: `saveWeight` upserts, so a blank sheet
+            // over an existing day would replace it without ever showing what
+            // it replaced. The sheet then titles itself a correction, which
+            // is what it is.
+            onPress={() => setWeighing(todayRow ?? "new")}
           />
         </View>
       </Group>

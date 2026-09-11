@@ -85,6 +85,12 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   cinco meses después de la dosis que ya la había sustituido. Un registro
   superado que se presenta como pendiente es peor que no avisar: enseña a
   desconfiar justo de la sección que existe para confiar en ella.
+- **El botón del peso decía "Corregir el peso de hoy"**, que es cierto de lo
+  que propone y falso del botón: lo primero que se hace con una línea vacía es
+  meter meses de pesajes del más reciente al más antiguo, y todos pasaban por
+  un botón que hablaba de hoy. Ahora dice siempre "Apuntar peso" y abre sobre
+  el registro del día cuando lo hay, para que un guardado no pueda sustituir
+  un peso que nunca llegó a enseñar.
 - Los botones de añadir quedaban pegados al borde inferior de su sección.
 - El changelog generado y Prettier se peleaban por las comillas en cada
   ejecución del script, dejando un fichero modificado que el hook volvía a
