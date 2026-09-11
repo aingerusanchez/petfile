@@ -32,7 +32,12 @@ import {
 import { describeAge } from "../../lib/age";
 import { useAuth } from "../../lib/auth";
 import { useSettings } from "../../lib/settings";
-import { birthdayOn, parseISO, toApproximateISO } from "../../lib/dates";
+import {
+  birthdayOn,
+  daysUntilBirthday,
+  parseISO,
+  toApproximateISO,
+} from "../../lib/dates";
 import {
   DURATION_HINT,
   formatDuration,
@@ -436,6 +441,23 @@ export default function Profile() {
    */
   const birthdayYears = birthdayOn(new Date(), pet.birth_date);
   const isBirthday = birthdayYears !== null && birthdayYears > 0;
+  /**
+   * **The fortnight before is a countdown; before that it is trivia.**
+   *
+   * Fifteen days is long enough to buy something and short enough that the
+   * line is never just decoration on a screen a tutor opens to look at their
+   * dog. It escalates rather than repeats: quiet text while it approaches, and
+   * on the day itself the age line takes over with the accent and the emoji —
+   * so the two never appear together and the arrival is a change of voice
+   * rather than one more line.
+   */
+  const daysToBirthday = daysUntilBirthday(new Date(), pet.birth_date);
+  const countdown =
+    daysToBirthday !== null && daysToBirthday > 0 && daysToBirthday <= 15
+      ? daysToBirthday === 1
+        ? "Mañana es su cumpleaños"
+        : `Quedan ${daysToBirthday} días para su cumpleaños`
+      : null;
   // The photo is not in this list: it has its own affordance on the portrait,
   // and a link promising to complete the file would open a form without it.
   const incomplete = !pet.sex || !breed;
@@ -551,6 +573,14 @@ export default function Profile() {
                   : `${age.text} · ${age.stageLabel}`}
               </Text>
             </View>
+          ) : null}
+          {countdown ? (
+            <Text
+              testID="profile-countdown"
+              className="mt-1 text-xs text-text-tertiary"
+            >
+              {countdown}
+            </Text>
           ) : null}
           {incomplete && editing !== "main" ? (
             <Button
