@@ -50,8 +50,15 @@ const BAR_GAP = 2;
  * Centred on the chip and not on the cell — `bottom: BAR + BAR_GAP` takes the
  * strip out of the reckoning, or the cake would sit 3dp low under its own
  * number.
+ *
+ * **22dp, so it fits inside today's ring rather than across it.** At 30 the
+ * two were the same size and concentric: the hairline circle cut straight
+ * through the cake's plate, and on the one day a year both apply the cell was
+ * a scribble. The ring's inner diameter is 26, so a 22dp cake clears it on
+ * every side and the day reads as both — a cake in a circle, which is what a
+ * badge looks like anyway.
  */
-const CAKE = 30;
+const CAKE = 22;
 
 /** What one day carries, from `summariseMonth` in `lib/events.ts`. */
 export type CalendarMark = {
