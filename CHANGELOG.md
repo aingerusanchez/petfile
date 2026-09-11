@@ -59,9 +59,15 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   piso y bandeja son tres detalles metidos en el hueco de un dígito. Ahora mide
   32 y cruza el anillo del día actual — que era justo lo que la obligaba a ser
   pequeña —, así que **el anillo cambia de color en vez de la tarta de
-  tamaño**: pasa a Aqua Glaciar, y dos formas que se cruzan con tonos
-  distintos se leen como dos formas y no como un garabato. De paso, el día de
-  hoy se ve; en Steel Frost apenas estaba.
+  tamaño**: toma el acento, y dos formas que se cruzan con tonos distintos se
+  leen como dos formas y no como un garabato. De paso, el día de hoy se ve; en
+  Steel Frost apenas estaba.
+- **Un acento responde "qué día" y el otro "qué tal fue".** Ice Blue Glacial
+  rellena el día seleccionado, dibuja el anillo de hoy y el borde del botón que
+  vuelve a hoy — los dos últimos hablan del mismo día, así que compartir color
+  es el mensaje. Aqua Glaciar se queda para una sola cosa en la rejilla: el
+  objetivo conseguido. En el botón va al borde y no a la palabra: los enlaces
+  de texto de la app son Aqua Glaciar.
 - **Y se ve también el día de su cumpleaños**, que era el único día en que no
   se veía: el calendario abre sobre hoy, el relleno del día seleccionado tapaba
   la marca de agua entera, y esa es precisamente la celda por la que existe la

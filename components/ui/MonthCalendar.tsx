@@ -74,10 +74,10 @@ const CONTAINER_HEIGHT = 340;
  * three details in the space of a digit. Growing it puts it across the ring,
  * which is exactly what made 30 unreadable the first time — two concentric
  * grey circles cutting through each other. **So the ring changed colour
- * instead of the cake changing size.** Aqua Glaciar against the cake's Steel
- * Frost separates them by hue, and a crossing is then two shapes rather than
- * a scribble. 32 also keeps clear of the corner marks: centred in a 48×46dp
- * box it spans 8 to 40 across, and the medication and incident dots end at 10.
+ * instead of the cake changing size.** Ice Blue Glacial against the cake's
+ * Steel Frost separates them by hue, and a crossing is then two shapes rather
+ * than a scribble. 32 also keeps clear of the corner marks: centred in a
+ * 48×46dp box it spans 8 to 40 across, and the dots end at 10.
  */
 const CAKE = 32;
 
@@ -325,8 +325,11 @@ export function MonthCalendar({
                     replaces the library's cell content, so its `selected`
                     styling never reaches the number — the chosen day was
                     indistinguishable from any other. Same vocabulary as the
-                    chips: the accent fills what is chosen, a hairline marks
-                    today when it is not. */}
+                    chips: the accent fills what is chosen, and the same
+                    accent outlines today when it is not — one colour for
+                    where you are and where you can go, which is why the way
+                    back wears it on its own border too. The secondary accent
+                    is left to mean one thing on this grid: the goal, met. */}
                 <View
                   // **The chip grows with the number; the grid cannot.**
                   // Fixed at 28dp square it held "10" flush against the
@@ -350,7 +353,7 @@ export function MonthCalendar({
                     day.isSelected
                       ? "bg-accent-primary"
                       : day.isToday
-                        ? "border border-accent-secondary"
+                        ? "border border-accent-primary"
                         : ""
                   }`}
                 >
@@ -484,7 +487,13 @@ export function MonthCalendar({
             sits in its own column so the legend can wrap under a large font
             without ever running into it, and it wears the chip's own
             vocabulary — a hairline pill — because a bare word beside three
-            labels reads as a fourth label. */}
+            labels reads as a fourth label.
+
+            **Its border is the ring's own colour**, because it is the ring's
+            own subject: the circle in the grid says where today is, and this
+            says take me there. On the border and not on the word — the app's
+            text actions are Aqua Glaciar, and a link in the primary accent
+            here would say something this button does not mean. */}
         <Pressable
           testID="calendar-today"
           onPress={onToday}
@@ -500,7 +509,7 @@ export function MonthCalendar({
           className={`min-w-[48px] shrink-0 items-center justify-center rounded-xl border px-4 ${
             atToday
               ? "border-border-default"
-              : "border-border-strong active:opacity-70"
+              : "border-accent-primary active:opacity-70"
           }`}
         >
           <Text
