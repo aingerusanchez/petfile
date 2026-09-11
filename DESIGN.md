@@ -509,6 +509,15 @@ A hairline-outlined section, and its heading is the anchor on any screen long en
 - **The heading is Aqua Glaciar, and it used to be dimmer than its own content.** `text-secondary` above rows in `text-primary` is the hierarchy upside down: scanning a long screen means looking for where a section _starts_, and that line was the quietest on the page. Three ways were rendered at 412dp — the grey, one step up to `text-primary`, and the accent — and only the accent caught the eye; brightening the grey was indistinguishable from leaving it alone.
 - **The secondary accent, not the primary.** Ice Blue Glacial means "this is the one thing to do here" and a heading is not an action. Aqua Glaciar is already what text links and the met-goal bar wear, so this spends no new colour, and the uppercase tracking keeps a heading from reading as a link.
 
+### Treatment History
+
+Its own screen, because a section stopped being able to hold it.
+
+- **Five in the section, and a count on the way out.** The section's job is saying what has been happening lately; the moment it becomes a list somebody scrolls, it is the wrong place. "Ver los 15" turns "there is more" into a reason to tap.
+- **The kind filters and the text searches.** Different questions — "show me the dewormings" against "where does Panacur appear" — and one control answering both would answer neither well. "Todos" is a chip like the rest rather than a clear button: a filter whose current state is invisible is a filter that gets left on.
+- **The search is accent-blind, and Spanish is why.** A tutor types "desparasitacion" on a keyboard that did not offer the accent; exact matching would report the word absent from a list where it appears eleven times. It reaches the note as well as the name, because that is where a diagnosis ends up.
+- **A row opens the same sheet Salud uses**, which is why the form lives in `components/ui` rather than in either screen. A history nobody can correct from is a list you scroll to find the typo and then have to leave.
+
 ### Health
 
 One scrolling screen, three sections, no sub-navigation: the file the app's name promises.

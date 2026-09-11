@@ -305,6 +305,51 @@ export function pending(rows: PetTreatmentRow[]): PetTreatmentRow[] {
     .sort((a, b) => (a.next_due_on ?? "").localeCompare(b.next_due_on ?? ""));
 }
 
+/**
+ * Text without its accents or its case, for matching what somebody typed.
+ *
+ * **Spanish makes this necessary rather than nice.** A tutor hunting for the
+ * deworming types "desparasitacion" on a phone keyboard that did not offer the
+ * accent, and an exact match would tell them the word does not appear in a
+ * list where it appears eleven times.
+ */
+function fold(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase("es");
+}
+
+/**
+ * The history, narrowed by kind and by what has been typed.
+ *
+ * **The kind is a filter and the text is a search, and they are different
+ * questions.** "Show me the dewormings" is a category; "where does Panacur
+ * appear" is a hunt through whatever was written down — the product, the note,
+ * and the kind's own name, because "vacuna" is a perfectly good thing to type
+ * when you mean the vaccines.
+ *
+ * Order is preserved: the caller reads most recent first and a filter has no
+ * business reordering what it did not remove.
+ */
+export function searchTreatments(
+  rows: PetTreatmentRow[],
+  { kind, text }: { kind?: TreatmentKind | null; text?: string },
+): PetTreatmentRow[] {
+  const needle = fold((text ?? "").trim());
+
+  return rows.filter((row) => {
+    if (kind && row.kind !== kind) return false;
+    if (!needle) return true;
+    const haystack = fold(
+      [treatmentLabel(row.kind as TreatmentKind), row.name, row.note]
+        .filter(Boolean)
+        .join(" "),
+    );
+    return haystack.includes(needle);
+  });
+}
+
 export function validateTreatment(
   treatment: NewTreatment,
 ): Record<string, string> {

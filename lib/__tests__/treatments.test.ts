@@ -3,6 +3,7 @@ import {
   isStandardVaccine,
   VACCINE_NAMES,
   canonicalVaccine,
+  searchTreatments,
   searchVaccines,
   vaccineNote,
   TREATMENT_INTERVAL_DAYS,
@@ -169,6 +170,47 @@ describe("pending", () => {
 
   it("says nothing when nothing was ever logged", () => {
     expect(pending([])).toEqual([]);
+  });
+});
+
+describe("searchTreatments", () => {
+  const rows = [
+    given("antiparasitic", "Nexgard", "2026-09-02", "2026-10-11"),
+    given("deworming", "Milbemax", "2026-07-14", "2026-10-12"),
+    given("deworming", "Panacur 500mg", "2025-12-26", null),
+    given("vaccine", "Rabia", "2026-01-29", "2027-01-29"),
+  ];
+
+  it("narrows by kind without reordering what it kept", () => {
+    expect(
+      searchTreatments(rows, { kind: "deworming" }).map((row) => row.name),
+    ).toEqual(["Milbemax", "Panacur 500mg"]);
+    expect(searchTreatments(rows, { kind: null })).toHaveLength(4);
+  });
+
+  it("searches the product, the kind's own word, and the note", () => {
+    expect(searchTreatments(rows, { text: "panacur" })).toHaveLength(1);
+    // "vacuna" is a perfectly good thing to type when you mean the vaccines.
+    expect(searchTreatments(rows, { text: "vacuna" })).toHaveLength(1);
+    const noted = [given("deworming", "Panacur", "2026-01-05", null)];
+    noted[0].note = "Por giardias";
+    expect(searchTreatments(noted, { text: "giardias" })).toHaveLength(1);
+  });
+
+  it("ignores the accents a phone keyboard did not offer", () => {
+    // Exact matching would report that the word does not appear in a list
+    // where it appears twice.
+    expect(searchTreatments(rows, { text: "desparasitacion" })).toHaveLength(2);
+    expect(searchTreatments(rows, { text: "DESPARASITACIÓN" })).toHaveLength(2);
+  });
+
+  it("combines the two, because they are different questions", () => {
+    expect(
+      searchTreatments(rows, { kind: "deworming", text: "nexgard" }),
+    ).toHaveLength(0);
+    expect(
+      searchTreatments(rows, { kind: "deworming", text: "milbe" }),
+    ).toHaveLength(1);
   });
 });
 

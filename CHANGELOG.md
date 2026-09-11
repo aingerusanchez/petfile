@@ -63,6 +63,16 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   verdad está fuera se guarda tal cual. **Las valencias son una sola entrada**:
   penta, hexa y octovalente son el mismo refuerzo anual, y separarlas rompería
   justo la pauta que la lista existe para mantener unida.
+- **El historial de tratamientos tiene pantalla propia, con filtro y
+  búsqueda.** Nueve meses de un cachorro ya son quince filas, once de ellas
+  abriendo con las mismas tres palabras: una sección no se recorre buscando "la
+  del Panacur". El tipo filtra y el texto busca, porque son preguntas
+  distintas — una es "enséñame las desparasitaciones" y la otra "dónde sale
+  Panacur". La búsqueda entra en el nombre, en la nota (que es donde acaba el
+  diagnóstico) y en la palabra del propio tipo, y **se salta los acentos** que
+  el teclado no ofreció: buscar "desparasitacion" no puede decir que la palabra
+  no aparece en una lista donde sale once veces. La sección se queda con los
+  cinco últimos y un "Ver los 15" que dice cuántos faltan.
 - **Apuntar sale de las secciones y baja al pulgar.** Cada sección tenía su
   botón, lo que dejaba lo único a lo que se entra a hacer al final de un bloque
   que había que recorrer — y, peor, hacía que las secciones parecieran

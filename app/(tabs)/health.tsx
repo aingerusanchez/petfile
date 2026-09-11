@@ -1,19 +1,19 @@
-import { Bug, Scale, ShieldPlus, Syringe, Worm } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { Scale, ShieldPlus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import {
   Button,
-  Chip,
-  ChipGroup,
   DateField,
   Fab,
   Group,
   LoadingScreen,
   Screen,
   Sheet,
-  SuggestField,
   Text,
   TextField,
+  TREATMENT_ICONS,
+  TreatmentSheet,
   WeightLine,
   colors,
   useToast,
@@ -21,22 +21,11 @@ import {
 import { MONTHS_ES, parseISO } from "../../lib/dates";
 import { getMyPet, type PetRow } from "../../lib/pets";
 import {
-  TREATMENT_KINDS,
-  dateKey,
-  deleteTreatment,
   dueStatus,
   fromDateKey,
-  logTreatment,
   pending,
-  proposeNextDue,
-  treatmentCadence,
   treatmentLabel,
-  treatmentNameExamples,
   treatmentsFor,
-  updateTreatment,
-  canonicalVaccine,
-  searchVaccines,
-  vaccineNote,
   type PetTreatmentRow,
   type TreatmentKind,
 } from "../../lib/treatments";
@@ -68,7 +57,17 @@ import {
  * app computes from: a weight, which becomes a line, and a treatment, which
  * becomes a date.
  */
+/**
+ * How many of the history the section shows before handing over to the screen.
+ *
+ * **Five, because the sixth is where a month of antiparasitics starts.** The
+ * section's job is saying what has been happening lately; the moment it starts
+ * being a list somebody scrolls, it has become the wrong place for it.
+ */
+const HISTORY_PREVIEW = 5;
+
 export default function Health() {
+  const router = useRouter();
   const toast = useToast();
 
   const [pet, setPet] = useState<PetRow | null>(null);
@@ -284,7 +283,7 @@ export default function Health() {
           <Text className="text-text-tertiary">…</Text>
         ) : treatments && treatments.length > 0 ? (
           <View className="mb-4">
-            {treatments.map((row) => (
+            {treatments.slice(0, HISTORY_PREVIEW).map((row) => (
               <Pressable
                 key={row.id}
                 testID={`health-treatment-${row.id}`}
@@ -309,7 +308,7 @@ export default function Health() {
                   aria-hidden
                 >
                   {(() => {
-                    const Glyph = KIND_ICONS[row.kind as TreatmentKind];
+                    const Glyph = TREATMENT_ICONS[row.kind as TreatmentKind];
                     return <Glyph size={16} color={colors.textTertiary} />;
                   })()}
                 </View>
@@ -329,6 +328,21 @@ export default function Health() {
                 </Text>
               </Pressable>
             ))}
+
+            {/* **The way through, and it says how far there is to go.** Eleven
+                monthly antiparasitics behind a section is not a list, it is a
+                wall; the count is what turns "there is more" into a reason to
+                tap. */}
+            {treatments.length > HISTORY_PREVIEW ? (
+              <View className="mt-2 items-start">
+                <Button
+                  testID="health-treatments-all"
+                  label={`Ver los ${treatments.length}`}
+                  variant="link"
+                  onPress={() => router.push("/treatments")}
+                />
+              </View>
+            ) : null}
           </View>
         ) : (
           <Text className="mb-4 text-text-tertiary">
@@ -373,22 +387,6 @@ export default function Health() {
     </Screen>
   );
 }
-
-/**
- * A glyph per kind, and it is teaching rather than decoration.
- *
- * **The two dewormings are the pair nobody can tell apart**, which is why the
- * labels carry "(Int.)" and "(Ext.)" at all — so the icons name what each one
- * is *for* rather than what it looks like: a worm for what lives inside, a
- * tick for what lives on the outside. The vaccine keeps the syringe, and the
- * section's own button gives it up for a shield, because an action button
- * wearing one of its three options' marks reads as a shortcut to that option.
- */
-const KIND_ICONS = {
-  vaccine: Syringe,
-  deworming: Worm,
-  antiparasitic: Bug,
-} as const;
 
 /**
  * "4 de septiembre", and "4 de septiembre de 2025" when it is another year.
@@ -582,259 +580,4 @@ function WeightSheet({
       ) : null}
     </Sheet>
   );
-}
-
-function TreatmentSheet({
-  petId,
-  today,
-  existing,
-  onClose,
-  onSaved,
-  onFailed,
-}: {
-  petId: string;
-  today: Date;
-  existing: PetTreatmentRow | null;
-  onClose: () => void;
-  onSaved: (message: string) => void;
-  onFailed: (message: string) => void;
-}) {
-  const [kind, setKind] = useState<TreatmentKind>(
-    (existing?.kind as TreatmentKind) ?? "vaccine",
-  );
-  const [name, setName] = useState(existing?.name ?? "");
-  const [on, setOn] = useState<string | null>(
-    existing?.administered_on ?? dateKey(today),
-  );
-  const [next, setNext] = useState<string | null>(
-    existing
-      ? existing.next_due_on
-      : dateKey(proposeNextDue("vaccine", dateOf(dateKey(today)) ?? today)),
-  );
-  /**
-   * Whether the next date is the tutor's answer or the app's proposal.
-   *
-   * **The proposal follows the kind and the date until somebody overrules it,
-   * and then it stops.** Recomputing after an edit would throw away the vet's
-   * actual instruction — the one thing PRODUCT.md says the row must keep — and
-   * doing it in an effect would be the derived-state mistake the lint rule
-   * catches. It happens in the handlers, where the intent is.
-   */
-  const [ownsNext, setOwnsNext] = useState(existing !== null);
-  const [note, setNote] = useState(existing?.note ?? "");
-  const [error, setError] = useState<string | null>(null);
-
-  const propose = (forKind: TreatmentKind, iso: string | null) => {
-    if (ownsNext) return;
-    const from = iso ? dateOf(iso) : null;
-    if (from) setNext(dateKey(proposeNextDue(forKind, from)));
-  };
-
-  // Stored in the list's own spelling when it is on the list, exactly as
-  // written when it is not: the combobox accepts anything, and "rabia" and
-  // "Rabia " must still be one schedule.
-  const savedName =
-    (kind === "vaccine" ? canonicalVaccine(name) : null) ?? name.trim();
-
-  const changed = existing
-    ? kind !== existing.kind ||
-      savedName !== (existing.name ?? "") ||
-      on !== existing.administered_on ||
-      next !== existing.next_due_on ||
-      note.trim() !== (existing.note ?? "")
-    : on !== null;
-
-  const save = async () => {
-    const administeredOn = on ? dateOf(on) : null;
-    if (!administeredOn) {
-      setError("¿Qué día se lo disteis?");
-      return false;
-    }
-
-    const treatment = {
-      kind,
-      name: savedName,
-      administeredOn,
-      nextDueOn: next ? dateOf(next) : null,
-      note,
-    };
-
-    const { error: failure } = existing
-      ? await updateTreatment(existing.id, petId, treatment)
-      : await logTreatment(petId, treatment);
-
-    if (failure) {
-      onFailed(failure);
-      return false;
-    }
-    onSaved(existing ? "Tratamiento actualizado" : "Tratamiento apuntado");
-    return true;
-  };
-
-  return (
-    <Sheet onClose={onClose} testID="treatment-sheet">
-      <Text
-        accessibilityRole="header"
-        className="mb-5 font-bold text-lg text-text-primary"
-      >
-        {existing ? "Editar tratamiento" : "Apuntar tratamiento"}
-      </Text>
-
-      <View className="mb-5">
-        <ChipGroup label="QUÉ">
-          {TREATMENT_KINDS.map((option) => (
-            <Chip
-              key={option}
-              testID={`treatment-kind-${option}`}
-              label={treatmentLabel(option)}
-              icon={KIND_ICONS[option]}
-              selected={kind === option}
-              onPress={() => {
-                setKind(option);
-                propose(option, on);
-              }}
-            />
-          ))}
-        </ChipGroup>
-      </View>
-
-      {/* **The vaccines suggest; the dewormings do not.** Here the name is
-          the schedule key, so the curated spelling has to be the easy one —
-          but a list of vaccines is never complete, and a combobox is what
-          offers a list without refusing what is off it. Six of them outgrew a
-          row of chips; the two dewormings keep a plain field, because there
-          the name is whichever product the vet handed over. */}
-      {kind === "vaccine" ? (
-        <>
-          <SuggestField
-            testID="treatment-name"
-            label="CUÁL"
-            value={name || null}
-            onChange={(next) => setName(next ?? "")}
-            search={searchVaccines}
-            suggestionPrefix="treatment-vaccine"
-            placeholder="Polivalente, Rabia…"
-            maxLength={40}
-          />
-          {vaccineNote(canonicalVaccine(name) ?? "") ? (
-            <Text
-              testID="treatment-vaccine-note"
-              className="-mt-3 mb-5 text-xs text-text-tertiary"
-            >
-              {vaccineNote(canonicalVaccine(name) ?? "")}
-            </Text>
-          ) : null}
-        </>
-      ) : (
-        <View className="mb-5">
-          <TextField
-            testID="treatment-name"
-            label="NOMBRE"
-            value={name}
-            onChangeText={setName}
-            placeholder={treatmentNameExamples(kind)}
-          />
-        </View>
-      )}
-
-      <View className="mb-5">
-        <DateField
-          testID="treatment-on"
-          title="¿Qué día se lo disteis?"
-          label="SE LO DIMOS EL"
-          value={on}
-          onChange={(iso) => {
-            setOn(iso);
-            setError(null);
-            propose(kind, iso);
-          }}
-          error={error}
-          required
-        />
-      </View>
-
-      <View className="mb-5">
-        <DateField
-          testID="treatment-next"
-          title="¿Cuándo toca la siguiente?"
-          label="PRÓXIMA"
-          value={next}
-          // Forwards, because that is the only direction this date points —
-          // and backwards too, because a dose can be overdue.
-          reach="any"
-          // "Sin fecha" is a real answer here: a one-off is not pending, it is
-          // done, and the section above must not invent a reminder for it.
-          clearable
-          onChange={(iso) => {
-            setNext(iso);
-            setOwnsNext(true);
-          }}
-        />
-        {/* **Why that date is there, in the kind's own rhythm.** The field
-            fills itself and a date that appears out of nowhere invites either
-            blind trust or a puzzled correction; "suele tocar cada 3 meses"
-            makes the proposal legible enough to accept or to overrule on
-            purpose. It says what is usual rather than what is set, so it
-            stays true after somebody writes the vet's own date above it. */}
-        <Text
-          testID="treatment-cadence"
-          className="-mt-3 text-xs text-text-tertiary"
-        >
-          Suele tocar {treatmentCadence(kind)}.
-        </Text>
-      </View>
-
-      <View className="mb-5">
-        <TextField
-          testID="treatment-note"
-          label="NOTA"
-          value={note}
-          onChangeText={setNote}
-          placeholder="¿Algo que contar?"
-        />
-      </View>
-
-      <View className="flex-row gap-3">
-        <View className="flex-1">
-          <Button label="Cancelar" variant="secondary" onPress={onClose} />
-        </View>
-        <View className="flex-1">
-          <Button
-            testID="treatment-save"
-            variant="primary"
-            label="Guardar"
-            successLabel="Apuntado"
-            errorLabel="No se ha podido guardar"
-            disabled={!changed}
-            onPress={save}
-          />
-        </View>
-      </View>
-
-      {existing ? (
-        <View className="mt-3 items-center">
-          <Button
-            testID="treatment-delete"
-            label="Borrar este tratamiento"
-            variant="link"
-            tone="danger"
-            onPress={async () => {
-              const { error: failure } = await deleteTreatment(existing.id);
-              if (failure) {
-                onFailed(failure);
-                return false;
-              }
-              onSaved("Tratamiento borrado");
-              return true;
-            }}
-          />
-        </View>
-      ) : null}
-    </Sheet>
-  );
-}
-
-/** The local Date an ISO day names. Shared by both sheets. */
-function dateOf(iso: string): Date | null {
-  return fromDateKey(iso);
 }
