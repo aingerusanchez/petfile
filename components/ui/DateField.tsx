@@ -54,6 +54,16 @@ type DateFieldProps = {
    * must hold a date, a way to empty it is a way to lose one.
    */
   clearable?: boolean;
+  /**
+   * The picker's own heading.
+   *
+   * **It used to be the string "Fecha de nacimiento", hard-coded**, from when
+   * this field only ever collected one date — and the first treatment that
+   * borrowed it opened a sheet titled with the wrong subject entirely. The
+   * label above the field is shouted in caps and cannot double as a heading,
+   * so the title is said once, here, by whoever knows what is being picked.
+   */
+  title?: string;
   required?: boolean;
   /** Reports the field's offset within its parent, for scroll-to-error. */
   onLayout?: (event: LayoutChangeEvent) => void;
@@ -68,6 +78,7 @@ export function DateField({
   approximate = false,
   reach = "past",
   clearable = false,
+  title = "Elige una fecha",
   required = false,
   onLayout,
   error = null,
@@ -145,7 +156,7 @@ export function DateField({
           <>
             <View className="mb-4 flex-row items-center justify-between">
               <Text className="font-bold text-xl text-text-primary">
-                {approximate ? "Mes y año" : "Fecha de nacimiento"}
+                {title}
               </Text>
               <Pressable
                 testID="datepicker-close"

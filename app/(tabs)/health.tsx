@@ -450,6 +450,7 @@ function WeightSheet({
       <View className="mb-5">
         <DateField
           testID="weight-day"
+          title="¿Qué día le pesasteis?"
           label="DÍA"
           value={on}
           onChange={setOn}
@@ -491,7 +492,10 @@ function WeightSheet({
         <View className="flex-1">
           <Button
             testID="weight-save"
+            variant="primary"
             label="Guardar"
+            successLabel="Apuntado"
+            errorLabel="No se ha podido guardar"
             disabled={!changed}
             onPress={save}
           />
@@ -641,6 +645,7 @@ function TreatmentSheet({
       <View className="mb-5">
         <DateField
           testID="treatment-on"
+          title="¿Qué día se lo disteis?"
           label="SE LO DIMOS EL"
           value={on}
           onChange={(iso) => {
@@ -656,6 +661,7 @@ function TreatmentSheet({
       <View className="mb-5">
         <DateField
           testID="treatment-next"
+          title="¿Cuándo toca la siguiente?"
           label="PRÓXIMA"
           value={next}
           // Forwards, because that is the only direction this date points —
@@ -688,7 +694,10 @@ function TreatmentSheet({
         <View className="flex-1">
           <Button
             testID="treatment-save"
+            variant="primary"
             label="Guardar"
+            successLabel="Apuntado"
+            errorLabel="No se ha podido guardar"
             disabled={!changed}
             onPress={save}
           />

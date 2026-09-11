@@ -506,6 +506,7 @@ export default function Onboarding() {
           ))}
         </ChipGroup>
         <DateField
+          title="Fecha de nacimiento"
           testID="onboarding-birthdate"
           onLayout={(e) => {
             fieldY.current.birthDate = e.nativeEvent.layout.y;

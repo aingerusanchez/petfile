@@ -48,6 +48,10 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   es precisamente de la que nadie volvería a acordarse.
 - El campo de fecha aprende dos cosas que una fecha de nacimiento nunca
   necesitó: **mirar al futuro** y **quedarse vacío**.
+- Y una tercera: **su título es de quien pregunta.** Estaba escrito a fuego
+  ("Fecha de nacimiento"), correcto mientras solo hubo una fecha en la app, y
+  el primer tratamiento que lo reutilizó abrió un selector titulado con otro
+  asunto.
 
 ### Arreglado
 
