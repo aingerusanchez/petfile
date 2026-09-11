@@ -1,0 +1,111 @@
+# Changelog
+
+Lo que ha cambiado en cada versión, en el orden en que pasó.
+
+Mientras el MVP no esté montado la versión se queda en `0.x`, para que llegar
+a `1.0.0` signifique algo: todas las pantallas en pie, y de momento falta
+Salud como mínimo. `versionCode` se deriva de aquí
+(`major * 10000 + minor * 100 + patch`), así que sube sola y de forma monótona
+hasta el 1.0.0 — pero **bajar la versión a mano obliga a desinstalar**, porque
+Android rechaza la instalación.
+
+Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
+`main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
+adelante cada entrada corresponde a lo que se construyó bajo ese número.
+
+## [0.5.0] — 2026-09-11
+
+Ronda de revisión sobre la feature del diario, con dos evaluaciones
+independientes y el móvil delante.
+
+### Arreglado
+
+- **El calendario mentía al pasar de mes.** Las flechas de la cabecera cambian
+  el mes sin avisar a nadie — `onMonthChange` solo se dispara desde la lista de
+  meses — así que las marcas se quedaban en el mes anterior y todas las celdas
+  caían en la rama de "sin registros": el calendario afirmaba que en agosto no
+  había pasado nada. Ahora se lee una ventana de 12 meses de una sola petición.
+- **Un mes que no se pudo leer ya lo dice.** Un fallo de red y un mes tranquilo
+  se dibujaban igual. En un producto cuya promesa es no perder registros,
+  inventarse la pérdida es peor que admitir el fallo.
+- **Marcar "Aproximado" en la ficha borraba la fecha de nacimiento.** El perfil
+  llamaba a `toApproximateISO(mes, año)` contra una firma `(año, mes)`, que
+  TypeScript no podía ver con dos números: producía `0009-2025-01`, que no
+  parsea, y el campo se quedaba en su placeholder. La regla vive ahora en un
+  solo sitio y la firma toma un objeto, así que el intercambio ya no se puede
+  escribir.
+- **Las 30 celdas del calendario estaban por debajo del suelo táctil de 48 dp**
+  en el eje horizontal, en los dos calendarios de la app. La causa era el
+  `p-0.5` del contenedor de celda, que se comía 3,5 dp de una columna que sí
+  medía 48,1. Medido en el dispositivo: 44,6 × 42,5 antes, 48,3 × 52,6 después.
+- **El scrim de cualquier sheet era el mayor control de la pantalla y no tenía
+  nombre**: un lector de pantalla se encontraba un botón sin etiqueta cubriendo
+  la página.
+- La barra de objetivo del diario medía 3,38 dp y la del calendario 4,00 —
+  documentadas como "el mismo elemento". `h-1` es 0.25rem y nativo resuelve
+  1rem a 14.
+- El calendario anunciaba "Objetivo conseguido" en la leyenda aunque no hubiera
+  objetivo puesto, prometiendo una marca que nunca podía aparecer.
+- **Pasada la medianoche no se podía volver al día real.** `today` se capturaba
+  una vez, así que una sesión abierta a las 22:00 seguía llamando "Hoy" al día
+  anterior y bloqueaba la flecha de avanzar. Ahora se relee al volver a primer
+  plano, sin arrastrar al tutor fuera del día que estuviera leyendo.
+
+### Cambiado
+
+- Los iconos de sexo vuelven a los chips del perfil, que se habían quedado
+  atrás respecto al formulario de alta.
+
+## [0.4.1] — 2026-09-11
+
+### Arreglado
+
+- **La duración de un paseo se borraba sola al cruzar la medianoche.** Subir
+  +15 en un paseo terminado a las 00:20 ponía "23:35" en DESDE, y al salir del
+  campo la duración se vaciaba y Guardar culpaba a un campo que nadie había
+  escrito. Un paseo puede ser **un final y una duración**: cuando el inicio
+  calculado se sale del día, no se escribe y la duración se sostiene sola.
+- **Borrar DESDE tecla a tecla también tiraba la duración.** Un teclado real
+  dispara un cambio por tecla, así que el campo pasa por "10:" y "1" camino de
+  vacío; el `fill("")` de los tests es un solo evento y lo tapaba.
+
+## [0.4.0] — 2026-09-11
+
+### Añadido
+
+- **El cumpleaños, en tres superficies y ninguna insiste.** Una tarta detrás
+  del número del día en el calendario, la cabecera del diario pasa a ser del
+  animal, el estado vacío lo dice, y confeti el día — una vez, recordado en el
+  dispositivo para que los dos tutores lo reciban.
+- **Cuenta atrás los quince días previos** bajo los datos de la ficha, en el
+  acento secundario. Suficiente para comprar algo, poco para ser decoración
+  permanente.
+- **La tarta de la ficha es un emoji pulsable** que vuelve a lanzar el confeti.
+
+## [0.3.0] — 2026-09-10
+
+### Añadido
+
+- **Navegación entre días**: flechas a ambos lados de la cabecera, sin futuro
+  más allá de hoy, y un calendario que baja desde arriba al tocar la fecha.
+- **El calendario dice qué pasó cada día**: incidencia en rojo, medicación en
+  ámbar, objetivo cumplido con la propia barra del diario en miniatura. El tono
+  se reserva para lo que es raro.
+- **Se puede apuntar en un día pasado**: un diario cuyo martes olvidado no se
+  puede rellenar castiga el olvido.
+- **Botón "Hoy"** en el calendario, para volver desde cualquier día.
+- **Confeti al registrar el paseo que alcanza el objetivo diario.**
+
+### Cambiado
+
+- La barra del objetivo se llena en un neutro claro y pasa al acento secundario
+  al cumplirse. El verde salía dieciocho días de cada mes en el calendario, lo
+  que lo convertía en el fondo en vez de la excepción.
+- El registro y el calendario comparten vocabulario: el color de una marca es
+  el color de la fila que la produjo, y el estado se llama igual en los dos
+  sitios.
+
+## [0.2.0] — 2026-09-10
+
+Primera versión numerada. El diario del día, la ficha del animal, los ajustes
+y el alta con Google.
