@@ -40,12 +40,15 @@ export function VetCard({
   kind,
   vet,
   petId,
+  petName,
   onSaved,
   onFailed,
 }: {
   kind: VetKind;
   vet: Vet;
   petId: string;
+  /** The dog's own name: an empty card says whose clinic it is asking for. */
+  petName: string;
   onSaved: (message: string) => void;
   onFailed: (message: string) => void;
 }) {
@@ -118,10 +121,14 @@ export function VetCard({
           ) : null}
         </View>
       ) : (
+        // **An empty card says what it is for, in the household's own terms.**
+        // "Veterinario" is a category; "la que conoce a Loki" is the clinic
+        // the tutor is actually thinking of — and naming the dog is what turns
+        // a field into a question somebody can answer.
         <Text className="mb-4 text-text-tertiary">
           {kind === "primary"
-            ? "La clínica de siempre: a quién llamar y dónde está."
-            : "A quién llamar cuando la clínica de siempre está cerrada. Puede ser la misma si hace urgencias."}
+            ? `La clínica de siempre, la que conoce a ${petName}.`
+            : "A quién llamar o dónde ir cuando surge una urgencia a cualquier hora del día. Puede ser la misma si la clínica habitual abre 24h."}
         </Text>
       )}
 

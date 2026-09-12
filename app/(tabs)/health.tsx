@@ -473,6 +473,7 @@ export default function Health() {
           key={kind}
           kind={kind}
           petId={pet.id}
+          petName={pet.name}
           vet={readVet(pet[vetColumn(kind)])}
           onSaved={(message) => {
             toast.show({ variant: "success", message });

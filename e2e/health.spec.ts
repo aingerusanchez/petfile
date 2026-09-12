@@ -301,6 +301,15 @@ test("keeps both clinics on the screen before anybody fills them", async ({
   await expect(page.getByTestId("vet-emergency")).toContainText("URGENCIAS");
   await expect(page.getByTestId("vet-primary-edit")).toContainText("Añadir");
   await expect(page.getByTestId("vet-primary-call")).toBeHidden();
+
+  // An empty card asks in the household's own terms, and naming the dog is
+  // what turns a field into a question somebody can answer.
+  await expect(page.getByTestId("vet-primary")).toContainText(
+    "la que conoce a Loki",
+  );
+  await expect(page.getByTestId("vet-emergency")).toContainText(
+    "a cualquier hora del día",
+  );
 });
 
 test("dials and maps what was written down", async ({ page }) => {

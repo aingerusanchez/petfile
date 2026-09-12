@@ -79,7 +79,9 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   changelog, extraído el día que una nota lo necesitó.
 - **Las dos clínicas, siempre en pantalla.** Veterinario y Urgencias, con el
   teléfono pulsable para llamar y la dirección para abrir el mapa. Vacías
-  dicen para qué son y se ofrecen a rellenarse — **no están detrás del botón
+  preguntan en los términos de la casa — "la clínica de siempre, la que conoce
+  a Loki" — porque nombrar al perro es lo que convierte un campo en una
+  pregunta que alguien puede contestar, y se ofrecen a rellenarse — **no están detrás del botón
   flotante**: un veterinario es una propiedad del animal, no un registro que
   se acumula, son exactamente dos, y la de urgencias la lee alguien asustado.
   Una tarjeta que hay que descubrir antes de poder rellenarla es una tarjeta
