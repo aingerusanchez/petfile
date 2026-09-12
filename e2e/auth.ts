@@ -165,6 +165,60 @@ export async function seedE2EEvents(
   if (error) throw new Error(`Failed to seed e2e events: ${error.message}`);
 }
 
+/** A weight line, for the specs that need a shape rather than one number. */
+export async function seedE2EWeights(
+  petId: string,
+  rows: { measuredOn: string; grams: number; note?: string | null }[],
+): Promise<void> {
+  if (email !== E2E_ACCOUNT_EMAIL) {
+    throw new Error(
+      `Refusing to seed weights: E2E_EMAIL is not the dedicated test account (${E2E_ACCOUNT_EMAIL}).`,
+    );
+  }
+
+  const { client } = await signInE2EUser();
+  const { error } = await client.from("pet_weights").insert(
+    rows.map((row) => ({
+      pet_id: petId,
+      measured_on: row.measuredOn,
+      grams: row.grams,
+      note: row.note ?? null,
+    })),
+  );
+  if (error) throw new Error(`Failed to seed e2e weights: ${error.message}`);
+}
+
+/** Treatments with their due dates already set, for the pending section. */
+export async function seedE2ETreatments(
+  petId: string,
+  rows: {
+    kind: "vaccine" | "deworming" | "antiparasitic";
+    name?: string | null;
+    administeredOn: string;
+    nextDueOn?: string | null;
+    note?: string | null;
+  }[],
+): Promise<void> {
+  if (email !== E2E_ACCOUNT_EMAIL) {
+    throw new Error(
+      `Refusing to seed treatments: E2E_EMAIL is not the dedicated test account (${E2E_ACCOUNT_EMAIL}).`,
+    );
+  }
+
+  const { client } = await signInE2EUser();
+  const { error } = await client.from("pet_treatments").insert(
+    rows.map((row) => ({
+      pet_id: petId,
+      kind: row.kind,
+      name: row.name ?? null,
+      administered_on: row.administeredOn,
+      next_due_on: row.nextDueOn ?? null,
+      note: row.note ?? null,
+    })),
+  );
+  if (error) throw new Error(`Failed to seed e2e treatments: ${error.message}`);
+}
+
 /**
  * Creates the pet the profile specs edit.
  *

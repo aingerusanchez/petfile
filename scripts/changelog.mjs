@@ -15,6 +15,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { format } from "prettier";
 
 const root = process.cwd();
 const source = readFileSync(join(root, "CHANGELOG.md"), "utf8");
@@ -24,5 +25,18 @@ const out = `// Generated from CHANGELOG.md by scripts/changelog.mjs. Do not edi
 export const CHANGELOG = ${JSON.stringify(source)};
 `;
 
-writeFileSync(join(root, "lib/changelog.generated.ts"), out);
+/**
+ * Formatted before it is written, because otherwise it is written twice.
+ *
+ * `JSON.stringify` always emits double quotes and escapes the ones inside;
+ * Prettier picks whichever quote costs fewer escapes, which for a changelog
+ * full of "quoted words" is the single one. So every run of this script left a
+ * modified file that the pre-commit hook immediately reformatted back —
+ * a diff that appeared out of nowhere three times before anybody chased it.
+ */
+const formatted = await format(out, {
+  filepath: join(root, "lib/changelog.generated.ts"),
+});
+
+writeFileSync(join(root, "lib/changelog.generated.ts"), formatted);
 console.log(`changelog: ${source.length} chars -> lib/changelog.generated.ts`);

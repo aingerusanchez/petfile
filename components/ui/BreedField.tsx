@@ -1,14 +1,6 @@
-import { useId, useState } from "react";
-import {
-  Pressable,
-  TextInput,
-  View,
-  type LayoutChangeEvent,
-} from "react-native";
+import type { LayoutChangeEvent } from "react-native";
 import { isKnownBreed, searchBreeds } from "../../lib/breeds";
-import { FieldLabel } from "./FieldLabel";
-import { PLACEHOLDER_COLOR, TOUCH_TARGET } from "./tokens";
-import { Text } from "./Text";
+import { SuggestField } from "./SuggestField";
 
 type BreedFieldProps = {
   label: string;
@@ -30,114 +22,26 @@ type BreedFieldProps = {
 /**
  * A combobox for breed: suggests from a curated list, accepts anything.
  *
- * **Why not free text.** `breed_primary` has no enum or foreign key, so the
- * same dog can be recorded as "Husky Siberiano", "husky", "Siberian Husky" or
- * "Huski". Breed is now one of the fields a tutor uses to tell pets apart, and
- * the breed-percentile weight band PRODUCT.md has parked needs a normalised
- * value to be computable at all.
+ * **Why not free text alone.** `breed_primary` has no enum or foreign key, so
+ * the column will hold whatever is typed — and a household that writes "husky"
+ * one day and "Husky Siberiano" the next has two breeds for one dog. The list
+ * makes the curated spelling the easy one without ever refusing another: a
+ * mixed-breed rescue's real answer, and most working names, sit outside any
+ * list.
  *
- * **Why not a closed dropdown.** Mixed breeds, unknown provenance and regional
- * names sit outside any list. Typing is always allowed; the suggestions only
- * make the canonical spelling the path of least resistance.
+ * **The mechanism now lives in `SuggestField`**, extracted the day the vaccines
+ * needed the same thing. What stays here is what is true of breeds: the list
+ * itself, the proper-noun capitalisation, and the reassurance that a typed
+ * name landed on one the app knows.
  */
-export function BreedField({
-  label,
-  value,
-  onChange,
-  required = false,
-  onLayout,
-  error = null,
-  placeholder,
-  onFocus,
-  testID,
-}: BreedFieldProps) {
-  const labelID = useId();
-  const [focused, setFocused] = useState(false);
-  const text = value ?? "";
-  const suggestions = focused ? searchBreeds(text) : [];
-  const recognised = text.trim().length > 0 && isKnownBreed(text);
-
+export function BreedField(props: BreedFieldProps) {
   return (
-    <View className="mb-5" onLayout={onLayout}>
-      <FieldLabel nativeID={labelID} required={required} errored={!!error}>
-        {label}
-      </FieldLabel>
-
-      <TextInput
-        testID={testID}
-        value={text}
-        onChangeText={(next) => onChange(next || null)}
-        onFocus={() => {
-          setFocused(true);
-          onFocus?.();
-        }}
-        // Delay the blur so a tap on a suggestion lands before the list unmounts.
-        onBlur={() => setTimeout(() => setFocused(false), 120)}
-        placeholder={placeholder}
-        placeholderTextColor={PLACEHOLDER_COLOR}
-        // The 48dp floor, plus the vertical centring it needs: Android draws a
-        // TextInput's text from the top of its box, so a minHeight without
-        // this leaves the value riding above the field's middle.
-        style={{ minHeight: TOUCH_TARGET, textAlignVertical: "center" }}
-        accessibilityLabel={label}
-        accessibilityLabelledBy={labelID}
-        // A breed is a proper noun: sentence-case would lower-case the second
-        // word of "Husky Siberiano", and autocorrect actively mangles them.
-        autoCapitalize="words"
-        autoCorrect={false}
-        autoComplete="off"
-        returnKeyType="next"
-        maxLength={60}
-        className={`rounded-xl border bg-surface py-3 pr-4 pl-4 font-sans text-text-primary ${
-          error ? "border-error" : "border-border-default"
-        }`}
-      />
-
-      {suggestions.length > 0 ? (
-        <View
-          accessibilityRole="list"
-          accessibilityLabel={`Sugerencias para ${label}`}
-          className="mt-2 overflow-hidden rounded-xl border border-border-default bg-elevated"
-        >
-          {suggestions.map((breed) => (
-            <Pressable
-              key={breed}
-              testID={`breed-suggestion-${breed}`}
-              onPress={() => {
-                onChange(breed);
-                setFocused(false);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={breed}
-              style={{ minHeight: TOUCH_TARGET }}
-              className="justify-center border-b border-border-default px-4 py-3 last:border-b-0 active:opacity-70"
-            >
-              <Text className="text-text-primary">{breed}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-
-      {/* Confirms the typed value landed on a known breed. Free text is valid,
-          so this is reassurance, never a warning about being off-list. */}
-      {recognised && !focused ? (
-        <Text
-          accessibilityLabel="Raza reconocida"
-          className="mt-2 text-xs text-text-tertiary"
-        >
-          Esa la conocemos
-        </Text>
-      ) : null}
-
-      {error ? (
-        <Text
-          testID={testID ? `${testID}-error` : undefined}
-          accessibilityLiveRegion="polite"
-          className="mt-2 text-xs text-error"
-        >
-          {error}
-        </Text>
-      ) : null}
-    </View>
+    <SuggestField
+      {...props}
+      search={searchBreeds}
+      isKnown={isKnownBreed}
+      knownHint="Esa la conocemos"
+      suggestionPrefix="breed-suggestion"
+    />
   );
 }

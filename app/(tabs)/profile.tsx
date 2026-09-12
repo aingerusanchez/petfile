@@ -639,6 +639,7 @@ export default function Profile() {
           </ChipGroup>
 
           <DateField
+            title="Fecha de nacimiento"
             testID="profile-birthdate"
             label="Fecha de nacimiento"
             required

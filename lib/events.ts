@@ -403,6 +403,53 @@ export async function eventsForMonths(
   }
 }
 
+/**
+ * The incidents, most recent first, for the health tab to read back.
+ *
+ * **Read here, written where they happen.** An incident is logged on the day
+ * it happened, on the day view, because that is where the tutor already is —
+ * moving the writing into Salud would mean leaving the day to record what
+ * happened that day. But "¿cuándo fue lo del oído?" is a health question, and
+ * answering it by walking a calendar backwards is not an answer.
+ *
+ * A limit rather than the whole history: the section shows the last few and
+ * each one leads to its day, which holds the medication that went with it.
+ */
+/**
+ * One of an entry's per-kind specifics, when it has one.
+ *
+ * `details` is `jsonb`, so everything in it arrives as `unknown` and a blank
+ * string is the same as nothing — a field somebody opened and left empty is
+ * not a value.
+ */
+export function eventDetail(event: PetEventRow, key: string): string | null {
+  const details = event.details as Record<string, unknown> | null;
+  const value = details?.[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+export async function incidentsFor(
+  petId: string,
+  limit = 5,
+): Promise<{ events: PetEventRow[]; error: string | null }> {
+  const query = supabase
+    .from("pet_events")
+    .select("*")
+    .eq("pet_id", petId)
+    .eq("kind", "incident")
+    .order("occurred_at", { ascending: false })
+    .limit(limit);
+
+  try {
+    const { data, error } = await withTimeout(query, "incidentsFor");
+    if (error)
+      return { events: [], error: describeFailure(error, "incidentsFor") };
+    return { events: data ?? [], error: null };
+  } catch (cause) {
+    return { events: [], error: describeFailure(cause, "incidentsFor") };
+  }
+}
+
 export async function deleteEvent(
   id: string,
 ): Promise<{ error: string | null }> {

@@ -84,6 +84,15 @@ const BOTH: readonly Edge[] = ["top", "bottom"];
  *
  * Requires `SafeAreaProvider` above it in the tree (see `app/_layout.tsx`).
  */
+/**
+ * How much room a scrolling page leaves under itself for a floating action.
+ *
+ * The button is 56dp and sits `spacing.md` from the window's edge; a page that
+ * ends exactly there ends flush against it, so this is the pair plus one more
+ * gap — enough that the last row reads as finished rather than as cut off.
+ */
+const FLOATING_CLEARANCE = 56 + spacing.md * 2;
+
 export function Screen({
   children,
   scroll = false,
@@ -116,7 +125,18 @@ export function Screen({
     // The keyboard's height is measured from the bottom of the screen, so it
     // already covers the navigation-bar inset — the larger of the two, never
     // their sum.
-    paddingBottom: padY + Math.max(bottomInset, keyboard),
+    //
+    // **A floating action's own height is added on a scrolling screen**,
+    // because the content passes under it. The diary got away without it —
+    // a day's log is short and ends above the button — and the treatment
+    // history did not: measured on the device, the last two rows had their
+    // dates sitting behind the button, which is the half of a row nobody
+    // would think to scroll for. The floor of a scroll is the one place a
+    // page can end, so it ends above the thing floating over it.
+    paddingBottom:
+      padY +
+      Math.max(bottomInset, keyboard) +
+      (overlay && scroll ? FLOATING_CLEARANCE : 0),
   };
   const alignment = center ? "items-center justify-center" : "";
 

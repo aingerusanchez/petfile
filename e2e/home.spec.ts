@@ -121,6 +121,11 @@ test("logs a walk from its two ends and counts it toward the goal", async ({
   await seedSession(page);
   await page.goto("/");
 
+  // On yesterday, where a fixed morning time has already happened whatever
+  // hour the suite runs at. See "reads the day forwards" for the whole story.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+
   await expect(page.getByTestId("home-empty")).toBeVisible();
   await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
 
@@ -160,6 +165,11 @@ test("counts back from the end when the duration is what changed", async ({
   await seedSession(page);
   await page.goto("/");
 
+  // On yesterday, where a fixed morning time has already happened whatever
+  // hour the suite runs at. See "reads the day forwards" for the whole story.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+
   await add(page, "walk");
   await page.getByTestId("entry-to").fill("10:45");
   await page.getByTestId("entry-duration").fill("45");
@@ -180,6 +190,11 @@ test("counts a walk up in quarters of an hour", async ({ page }) => {
 
   await seedSession(page);
   await page.goto("/");
+
+  // On yesterday, where a fixed morning time has already happened whatever
+  // hour the suite runs at. See "reads the day forwards" for the whole story.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
 
   await add(page, "walk");
   await page.getByTestId("entry-to").fill("09:45");
@@ -221,6 +236,11 @@ test("takes a duration written in hours", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
 
+  // On yesterday, where a fixed morning time has already happened whatever
+  // hour the suite runs at. See "reads the day forwards" for the whole story.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+
   await add(page, "walk");
   await page.getByTestId("entry-to").fill("11:30");
   await page.getByTestId("entry-duration").fill("1h 30m");
@@ -239,6 +259,11 @@ test("reopens an entry to correct it", async ({ page }) => {
 
   await seedSession(page);
   await page.goto("/");
+
+  // On yesterday, where a fixed morning time has already happened whatever
+  // hour the suite runs at. See "reads the day forwards" for the whole story.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
 
   await add(page, "meal");
   await page.getByTestId("entry-time").fill("08:00");
@@ -295,6 +320,11 @@ test("takes a time typed without the colon a number pad has not got", async ({
   await seedSession(page);
   await page.goto("/");
 
+  // On yesterday, where 09:00 has already happened whatever hour the suite
+  // runs at. See "reads the day forwards".
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+
   await add(page, "walk");
   const to = page.getByTestId("entry-to");
 
@@ -320,6 +350,11 @@ test("refuses a duration longer than a day, at the field", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
 
+  // On yesterday, where a fixed morning time has already happened whatever
+  // hour the suite runs at. See "reads the day forwards" for the whole story.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+
   await add(page, "walk");
   await page.getByTestId("entry-to").fill("10:00");
   await page.getByTestId("entry-duration").fill("99h");
@@ -343,6 +378,12 @@ test("refuses an end that comes before its start", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
 
+  // On yesterday, so the only thing wrong with these two times is their
+  // order. Run before ten in the morning, both are also in the future, and
+  // the sheet says so first — a correct message about the wrong problem.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+
   await add(page, "walk");
   await page.getByTestId("entry-to").fill("09:00");
   await page.getByTestId("entry-from").fill("10:00");
@@ -358,6 +399,11 @@ test("still logs a walk nobody timed", async ({ page }) => {
 
   await seedSession(page);
   await page.goto("/");
+
+  // On yesterday, where 08:30 has already happened whatever time the suite
+  // runs at. See "reads the day forwards".
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
 
   await add(page, "walk");
   await page.getByTestId("entry-to").fill("08:30");
@@ -637,6 +683,14 @@ test("reads the day forwards", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
 
+  // **On yesterday, where every hour has already happened.** The times are
+  // fixed because the assertion is about their order, and a fixed morning
+  // time is in the future for anybody running the suite before it — the sheet
+  // refuses that, correctly, and the ordering assertion then blames the log.
+  // A past day has no such edge, and the diary can be written on one.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+
   // Logged out of order on purpose: the list is chronological, not
   // most-recently-entered.
   for (const at of ["11:30", "08:00", "09:45"]) {
@@ -657,6 +711,11 @@ test("refuses a time that is not one", async ({ page }) => {
 
   await seedSession(page);
   await page.goto("/");
+
+  // On yesterday, where a fixed morning time has already happened whatever
+  // hour the suite runs at. See "reads the day forwards" for the whole story.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
 
   await add(page, "walk");
   await page.getByTestId("entry-to").fill("99:99");
@@ -1200,8 +1259,20 @@ test("marks the goal met, once", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
 
+  // **Derived from a "now" the test owns.** It filled "10:00", which is in
+  // the future for anybody running the suite before ten in the morning — and
+  // the sheet refuses a walk that has not happened yet, correctly, so the
+  // walk saved with no duration and the assertion blamed the goal. A walk is
+  // an end plus a length, so an hour that runs back past midnight is fine:
+  // the start is simply not stored.
+  const now = new Date();
+  const endsAt = new Date(now.getTime() - 5 * 60000);
+  const hhmm = `${String(endsAt.getHours()).padStart(2, "0")}:${String(
+    endsAt.getMinutes(),
+  ).padStart(2, "0")}`;
+
   await add(page, "walk");
-  await page.getByTestId("entry-to").fill("10:00");
+  await page.getByTestId("entry-to").fill(hhmm);
   await page.getByTestId("entry-duration").fill("1h");
   await page.getByTestId("entry-save").click();
 
@@ -1210,4 +1281,107 @@ test("marks the goal met, once", async ({ page }) => {
   );
   // The goal reads in hours on both sides of the "de".
   await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");
+});
+
+test("offers the clock beside a time field, for a thumb that would rather point", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+
+  await add(page, "meal");
+
+  // **The field stays typed and the picker is the alternative.** "915" is two
+  // seconds on a number pad; the clock is for the thumb that would rather
+  // point at one.
+  await page.getByTestId("entry-time").fill("0915");
+  await page.getByTestId("entry-time-picker").click();
+  await expect(page.getByTestId("timepicker-preview")).toContainText("09:15");
+
+  // The face opens on the half of the day the field was in, so 14 is not on
+  // it yet — one ring cannot carry twenty-four hours, and the switch is how
+  // the other twelve are reached.
+  await expect(page.getByTestId("timepicker-hour-14")).toHaveCount(0);
+  await page.getByTestId("timepicker-half-afternoon").click();
+  await expect(page.getByTestId("timepicker-preview")).toContainText("21:15");
+
+  // Choosing an hour hands over to the minutes, the way every clock picker
+  // does: the hour ring is gone and the minutes are there in its place.
+  await page.getByTestId("timepicker-hour-14").click();
+  await expect(page.getByTestId("timepicker-hour-14")).toHaveCount(0);
+  await page.getByTestId("timepicker-minute-30").click();
+  await expect(page.getByTestId("timepicker-preview")).toContainText("14:30");
+
+  // Nothing commits until Confirmar, the contract every sheet here keeps —
+  // and the field kept the tidying that opening the picker gave it, because
+  // reaching for the picker took focus off the field.
+  await page.getByTestId("timepicker-cancel").click();
+  await expect(page.getByTestId("entry-time")).toHaveValue("09:15");
+
+  await page.getByTestId("entry-time-picker").click();
+  await page.getByTestId("timepicker-half-afternoon").click();
+  await page.getByTestId("timepicker-hour-14").click();
+  await page.getByTestId("timepicker-minute-30").click();
+  await page.getByTestId("timepicker-confirm").click();
+  await expect(page.getByTestId("entry-time")).toHaveValue("14:30");
+});
+
+test("keeps the clock's own controls on the 48dp floor", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+
+  await add(page, "meal");
+  // A fixed hour, so the face is on a known half of the day: a sheet that
+  // opens on the clock would put the suite on 00-11 or on 12-23 depending on
+  // when it ran, which is the shape of failure this file has had before.
+  await page.getByTestId("entry-time").fill("0600");
+  await page.getByTestId("entry-time-picker").click();
+
+  // The numbers on the face are the reason the dial carries twelve marks and
+  // a switch instead of two rings: a second ring inside this one would put
+  // them 38dp apart.
+  for (const id of [
+    "entry-time-picker",
+    "timepicker-set-hour",
+    "timepicker-set-minute",
+    "timepicker-half-morning",
+    "timepicker-half-afternoon",
+    "timepicker-hour-00",
+    "timepicker-hour-06",
+  ]) {
+    const box = await page.getByTestId(id).boundingBox();
+    expect(
+      box?.height,
+      `${id} is under the touch floor`,
+    ).toBeGreaterThanOrEqual(48);
+    expect(box?.width, `${id} is under the touch floor`).toBeGreaterThanOrEqual(
+      48,
+    );
+  }
+});
+
+test("keeps a minute the clock has no number for", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+
+  await add(page, "meal");
+
+  // **Opening on 09:47 must not round to 09:45.** The face labels every fifth
+  // minute; rounding the other 55 on open would be the picker editing a value
+  // nobody asked it to touch.
+  await page.getByTestId("entry-time").fill("0947");
+  await page.getByTestId("entry-time-picker").click();
+  await expect(page.getByTestId("timepicker-preview")).toContainText("09:47");
+  await page.getByTestId("timepicker-confirm").click();
+  await expect(page.getByTestId("entry-time")).toHaveValue("09:47");
 });

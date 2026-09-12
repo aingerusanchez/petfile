@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import {
   TextInput,
   View,
@@ -14,6 +14,23 @@ type TextFieldProps = Omit<
   "className" | "placeholderTextColor"
 > & {
   label: string;
+  /**
+   * A control anchored in the field's own bottom-right corner.
+   *
+   * **For the furniture of a textarea, not for its value.** A three-line note
+   * has empty space nobody is typing into, and a mark that belongs to the
+   * field — what formatting it understands — reads better there than stacked
+   * beside it, where its height has to be argued with the field's. The
+   * caller draws it faint enough to sit over text; see `MarkdownHelp`.
+   */
+  corner?: ReactNode;
+  /**
+   * A control at the field's right edge, inline with its value.
+   *
+   * Where the date field keeps its calendar glyph: the field is typed and the
+   * picker is the alternative, not the other way round.
+   */
+  trailing?: ReactNode;
   /** Marks the field as one that blocks a save. */
   required?: boolean;
   /**
@@ -61,11 +78,22 @@ type TextFieldProps = Omit<
  * `maxLength` all pass straight through and should be set per field — an
  * ISO-date field raising the alphabetic keyboard is a defect, not a default.
  */
+/**
+ * Three lines, which is what a note about a vet visit tends to take.
+ *
+ * Not a `numberOfLines`: on Android that prop caps a multiline input rather
+ * than sizing it, so a fourth line would be unreachable. A minimum height and
+ * the field grows.
+ */
+const MULTILINE_HEIGHT = 88;
+
 export function TextField({
   label,
   required = false,
   suffix,
   suffixLabel,
+  corner,
+  trailing,
   onLayout,
   error = null,
   className = "mb-5",
@@ -84,6 +112,16 @@ export function TextField({
           error ? "border-error" : "border-border-default"
         }`}
       >
+        {corner ? (
+          <View
+            // Over the field's own bottom-right, inside its border. Absolute
+            // so it takes no width from the input: a note is typed across the
+            // whole field and only ever reaches this corner on its last line.
+            style={{ position: "absolute", right: 6, bottom: 6, zIndex: 1 }}
+          >
+            {corner}
+          </View>
+        ) : null}
         <TextInput
           {...inputProps}
           // The unit is part of what the field is asking for, so it belongs in
@@ -102,10 +140,17 @@ export function TextField({
           // TextInput is an <input>, whose default intrinsic width is about 20
           // characters, so inside a narrowed field the row grew past its
           // container and pushed the unit out over the controls beside it.
+          //
+          // **A multiline field starts at the top and stands three lines
+          // tall.** Centring a note that has grown to four lines would leave
+          // the first one floating in the middle of the box while the caret
+          // sat elsewhere, and Android's default height for a multiline input
+          // is one line — which reads as a single-line field that mysteriously
+          // wraps.
           style={{
-            minHeight: TOUCH_TARGET,
+            minHeight: inputProps.multiline ? MULTILINE_HEIGHT : TOUCH_TARGET,
             minWidth: 0,
-            textAlignVertical: "center",
+            textAlignVertical: inputProps.multiline ? "top" : "center",
           }}
           // `pl-4 pr-*` and not `px-4`: Android drops `padding-inline` on a
           // TextInput, which measured 4.9dp against the 16 the browser showed.
@@ -113,6 +158,7 @@ export function TextField({
             suffix ? "pr-2" : "pr-4"
           }`}
         />
+        {trailing}
         {suffix ? (
           <Text
             // Named on the input above, so this is decoration to a screen

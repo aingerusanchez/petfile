@@ -202,10 +202,11 @@ test("pins the day to the 1st when the date turns approximate", async ({
   await page.goto("/profile");
   await page.getByTestId("profile-edit-main").click();
 
-  // The seeded pet was born on 14/09/2025.
-  await expect(page.getByTestId("profile-birthdate")).toContainText(
-    "14/09/2025",
-  );
+  // The seeded pet was born on 14/09/2025. An exact date is typed into a
+  // field now, so it is a value rather than text; ticking "aproximado" turns
+  // the control back into a button, which is why the next assertion reads
+  // the other way.
+  await expect(page.getByTestId("profile-birthdate")).toHaveValue("14/09/2025");
 
   // Ticking it says "I know the month, not the day", so the stored value has
   // to drop to the 1st — and keep being September of 2025.

@@ -16,6 +16,292 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.8.0] — 2026-09-12
+
+### Nuevo
+
+- **La pestaña de Salud deja de ser un título.** Una sola pantalla con
+  secciones y sin sub-navegación: dos tutores y un perro producen un puñado de
+  filas al año, y partir eso en pestañas sería inventarse una jerarquía para
+  esconder un vacío. El orden responde a la pregunta con la que se abre la
+  pestaña — **¿hay algo pendiente?** — antes que a ninguna otra.
+- **Lo que toca, primero, y casi todo el año no es nada.** Las próximas fechas
+  ordenadas por cercanía, en rojo solo cuando ya vencieron: "dentro de nueve
+  días" no es un fallo, es un recordatorio. Un vacío aquí es una buena noticia
+  y se dice con palabras, no dejando un hueco.
+- **El peso, con su línea.** El último valor grande, cuánto ha cambiado desde
+  la medición anterior, y una línea **espaciada por fecha y no por posición**:
+  puntos equidistantes dibujarían igual una rutina semanal y un salto de seis
+  meses, que es justo lo que una curva de crecimiento no puede hacer.
+- **Un peso por día.** Volver a pesarle porque el primer número parecía raro es
+  una corrección, no dos datos: guardar sobre el mismo día reemplaza en vez de
+  duplicar, y el botón lo dice ("Corregir el peso de hoy").
+- **Los tratamientos proponen su próxima fecha y guardan la que confirmes.**
+  Un año para la vacuna, tres meses para la desparasitación, un mes para el
+  antiparasitario — y la propuesta sigue al tipo hasta que alguien la cambia,
+  momento en el que deja de moverse: lo que dijo el veterinario es el dato.
+  "Sin fecha" también es una respuesta; un tratamiento de una sola vez no está
+  pendiente, está hecho.
+- **"Desparasitación (Int.)" y "Antiparasitario (Ext.)", con su apellido.** A
+  secas nombran la misma idea dos veces para quien no ha tenido la explicación
+  del veterinario delante: la pipeta del cuello y la pastilla de los gusanos se
+  leen como sinónimos. Y el campo del nombre propone ejemplos por tipo —
+  "Seresto, Frontline… (pulgas, garrapatas)" —, que es la mitad de la
+  explicación que de verdad se reconoce: la de la caja del armario. Cada tipo
+  lleva además su icono, y nombran para qué sirven y no a qué se parecen: una
+  jeringuilla, un gusano para lo que vive dentro y una garrapata para lo que
+  vive fuera.
+- **Las vacunas sugieren de una lista; las desparasitaciones se escriben.** En
+  las vacunas el nombre _es_ la pauta, así que el texto libre la parte en
+  tantas como formas haya de escribirla — "Rabia", "rabia ", "Vacuna
+  antirrábica" — y cada trozo se queda con un cacho del historial sin recordar
+  nada a nadie. Polivalente · Rabia · Bivalente · Tos de las perreras ·
+  Leishmaniosis — en el mismo combo que usan las razas, porque ninguna lista de
+  vacunas está completa y rechazar lo que no está en ella sería rechazar la
+  verdad. Lo que evita que el texto libre deshaga la pauta es **guardar la
+  grafía de la lista**: "rabia" y "Rabia " se guardan como "Rabia", y lo que de
+  verdad está fuera se guarda tal cual. **Las valencias son una sola entrada**:
+  penta, hexa y octovalente son el mismo refuerzo anual, y separarlas rompería
+  justo la pauta que la lista existe para mantener unida.
+- **La curva de peso dice cuánto y desde cuándo.** Salió sin un solo número
+  encima, y una línea que solo dice "hacia arriba" responde a una pregunta que
+  nadie hizo: de una curva de crecimiento se leen _cuánto_ subió y _en cuánto
+  tiempo_. Los extremos del rango a la izquierda, el primer y el último mes
+  debajo, y un punto por pesaje — que es lo único que distingue siete medidas
+  de una curva dibujada a mano. Sin ejes ni rejilla: el marco de un gráfico
+  cuesta más sitio del que devuelve a este tamaño.
+- **Las notas admiten Markdown.** Negrita, listas y párrafos en las notas de
+  paseo, de peso y de tratamiento — que es donde acaba "**Cojea** de la pata
+  derecha" o la lista de síntomas de una visita. Quien escriba una frase normal
+  recibe su frase tal cual, que es todo el trato de escribir Markdown a mano.
+  **No hay editor**: el campo es un textarea de tres líneas, sin barra de
+  herramientas ni vista previa. El renderizador es el que ya tenía el
+  changelog, extraído el día que una nota lo necesitó.
+- **Y cada lado lleva su icono: un fonendoscopio y una sirena.** El par tiene
+  que leerse como un contraste —atención de siempre contra urgencia— y no como
+  dos iconos médicos; una luz de emergencia es lo único en una pantalla oscura
+  que no hay que descifrar. Le costó el fonendoscopio a la línea de la persona,
+  que era el mismo icono diciendo "a quién preguntáis" seis líneas más abajo:
+  una persona con nombre es un `User`. Y la pestaña se llama **Veterinaria**,
+  que es la clínica; el veterinario o la veterinaria con nombre es el campo de
+  dentro. De paso, "Urgencias guardado" pasa a "Urgencias guardadas": la app
+  estaba hablando de un femenino plural en masculino singular.
+- **El horario de la clínica se escribe en varias líneas.** "L-V 10:30-14:00,
+  15:00-19:30, S 10:00-13:00" es una línea que hay que descifrar cada vez que
+  se lee; lo mismo hacia abajo se ojea. El campo pasa a ser un textarea con
+  Markdown y su misma ayuda —un guion por día es una lista—, y el icono del
+  reloj se alinea con la primera línea en vez de quedarse flotando a la altura
+  del miércoles. **Aquí un salto de línea sí es un salto de línea**: en una
+  nota escrita en el móvil los saltos son accidentes del ancho de la pantalla y
+  se unen, que es lo que hace el propio Markdown; en un horario no hay ni uno
+  accidental.
+- **El selector de las dos clínicas invierte el lado activo.** Empezó como dos
+  fichas con borde, que mantenían las dos etiquetas en pantalla pero lo decían
+  como dos botones grandes —el acontecimiento principal de la tarjeta— cuando
+  son un ajuste con dos lados. Ahora es una pista unida en la que el lado vivo
+  se rellena de Ice Blue Glacial con el texto oscuro. **Un selector sutil no
+  existe en esta paleta**: Elevated Frost sobre Fjord Slate mide 1,16:1, el
+  mismo escalón imperceptible que obligó a las fichas a cambiar de grosor en
+  vez de de fondo, así que invertir es lo único que de verdad se lee. Y no es
+  una idea nueva: el día elegido del calendario y el número elegido del reloj
+  ya son un relleno del acento con el texto en oscuro.
+- **Las dos clínicas en una tarjeta, con un selector.** Salud es larga —lo que
+  toca, el peso y su línea, el historial, las enfermedades— y dos clínicas al
+  pie eran dos bloques más que recorrer; son la misma pregunta hecha dos veces.
+  **Y "Copiar de la veterinaria"** en el hueco de urgencias, porque una clínica
+  con 24h contesta a las dos y teclear los mismos cuatro campos otra vez es la
+  tarea que acaba con la segunda ficha vacía.
+- **El marcador estaba invisible para la app.** Android 11 oculta lo que no se
+  declara en `<queries>`, el manifiesto que genera Expo solo declara `https`, y
+  `Linking.openURL("tel:…")` no podía resolver ninguna actividad: la promesa se
+  rechazaba y el toque en el teléfono de la clínica no hacía absolutamente
+  nada. Sin fallo, sin log, sin marcador. Un plugin de configuración declara el
+  esquema, y lo que no se pueda abrir ahora lo dice en vez de callarse.
+- **Las dos clínicas, siempre en pantalla.** Veterinario y Urgencias, con el
+  teléfono pulsable para llamar y la dirección para abrir el mapa. Vacías
+  preguntan en los términos de la casa — "la clínica de siempre, la que conoce
+  a Loki" — porque nombrar al perro es lo que convierte un campo en una
+  pregunta que alguien puede contestar, y se ofrecen a rellenarse — **no están detrás del botón
+  flotante**: un veterinario es una propiedad del animal, no un registro que
+  se acumula, son exactamente dos, y la de urgencias la lee alguien asustado.
+  Una tarjeta que hay que descubrir antes de poder rellenarla es una tarjeta
+  vacía la noche que hace falta.
+- **El teléfono no se inventa prefijo.** "944 26 00 51" marca desde una SIM
+  española tal cual está escrito; ponerle +34 a un número que alguien escribió
+  sin él es adivinar en qué país está el móvil, y equivocarse una vez es que
+  la llamada falle en el momento que más importa. El que se escriba con
+  prefijo lo conserva.
+- **Y las horas ganan su propio selector: un reloj.** Mismo trato que las
+  fechas —el campo sigue escribiéndose, "915" son dos segundos, y el icono al
+  lado es la alternativa para el pulgar que prefiere apuntar—, pero la primera
+  versión era una tira de fichas de hora y una rejilla de minutos: correcta,
+  legible, y un control que nadie había usado nunca. Una esfera con una aguja
+  no hay que aprenderla, y contesta "¿mañana o tarde?" con su forma antes que
+  con un dígito. Se toca un número o se arrastra la aguja, y elegir la hora
+  pasa el turno a los minutos. **Una corona y un interruptor, no dos coronas**:
+  el reloj de 24 horas de Material mete un segundo anillo dentro del primero y
+  en este móvil eso deja los números a 38 dp, por debajo del suelo de 48 que se
+  respeta en toda la app; así que la esfera lleva doce marcas y un interruptor
+  dice de qué mitad del día son. La aguja no se mueve al cambiar de mitad —las
+  09 y las 21 son el mismo sitio en un reloj—, que es justo por lo que el truco
+  funciona. Un minuto sin número —09:47— se conserva en vez de redondearse, con
+  la punta de la aguja marcando dónde cayó: abrir un selector no puede editar
+  en silencio un valor que nadie le pidió tocar.
+- **Las fechas se escriben, y el calendario queda detrás de su icono.** Todas
+  pasaban por tres toques en un calendario, incluidas las que uno ya sabe — una
+  fecha de nacimiento de hace cuatro años es un año de pasar meses. Ahora el
+  campo toma `DD/MM/AAAA` (o los ocho dígitos seguidos, que es lo que da un
+  teclado numérico) y el icono abre el calendario para las fechas que es más
+  fácil señalar que deletrear. **Sin máscara en vivo**: meter las barras según
+  llegan los dígitos se construyó y se retiró aquí para las horas — un
+  `TextInput` enfocado en Android ignora lo que la capa JS reescribe —, así que
+  se ordena al salir del campo, que es la corrección que la plataforma sí
+  respeta. Una fecha que no existe lo dice; el modo aproximado sigue siendo un
+  botón, porque un mes y un año no se teclean.
+- **La ayuda de Markdown se mete en el propio textarea**, en su esquina
+  inferior derecha y difuminada, como el icono de pantalla completa de la
+  gráfica. Estaba apilada sobre el botón de la kaka, donde se leía como un
+  segundo control del formulario y no como algo del campo — y la suma de los
+  dos iconos no cuadraba con el alto del textarea. El icono pasa de una "T" a
+  un libro: una letra es lo que parece un control de _formato_, y esto no
+  formatea nada, explica. Su sheet gana la X que le faltaba.
+- **El teléfono se agrupa como se escribe un teléfono aquí**: "944 26 00 51",
+  tanto al leerlo como al salir del campo. Lo que no son nueve dígitos se deja
+  intacto — una extensión, dos números en un campo o una clínica extranjera son
+  respuestas de verdad, y darles forma sería adivinar una convención que no
+  conocemos.
+- **El formulario de tratamiento tiene una sola fecha.** Dos campos de fecha
+  idénticos, uno encima del otro, y el que se rellenaba era siempre el
+  segundo: la fecha que acaba de decir el veterinario es la primera. La
+  siguiente pasa a ser una frase — "La siguiente tocará el 12 de diciembre,
+  cada 3 meses" — con un "Cambiar" que saca el campo solo para quien no esté
+  de acuerdo. Lo que la app calcula deja de pedirse, y lo que dijo el
+  veterinario se sigue guardando tal cual.
+- **La lista de tratamientos espera con su propia forma**, en Salud y en el
+  historial: es la pantalla donde una espera dura más, y un spinner a pantalla
+  completa se habría llevado por delante el buscador y los filtros que el
+  tutor acaba de usar.
+- **La gráfica de peso se abre a pantalla completa.** La miniatura contesta
+  "hacia dónde"; la pantalla contesta "cuándo y cuánto", con todos los pesajes
+  etiquetados, los meses de referencia y scroll lateral cuando el historial es
+  largo. Un icono de maximizar en la esquina dice que la línea es una puerta.
+- **Las notas explican su formato.** Un botón junto al textarea abre cuatro
+  ejemplos con lo que teclearías y en lo que se convierte — renderizados por
+  el mismo componente que pinta las notas, así que un formato que dejara de
+  funcionar dejaría de funcionar también en su propia ayuda.
+- **Una enfermedad se presenta por su nombre**, no por su nota. El dato ya
+  existía: "Qué ha pasado" es el campo de la incidencia en el Diario, y la
+  sección de Salud abría con el protocolo del veterinario — contestando "cuál
+  fue el tratamiento" a quien preguntaba "qué tuvo".
+- **El selector de fecha empieza la semana en lunes**, como el calendario del
+  Diario ya hacía. La misma app enseñaba dos semanas distintas.
+- El icono de pantalla completa de la gráfica se montaba encima del último mes
+  de referencia.
+- La frase de la próxima fecha y su botón estaban ni en columna ni en línea: el
+  enlace caía donde rompiese la frase. Ahora la frase ocupa lo suyo y el
+  control se alinea a la derecha, que es donde está en el resto de la app. Y se
+  llama **Editar**.
+- **Una pantalla con scroll termina por encima del botón flotante.** El Diario
+  se libraba porque el registro de un día es corto; el historial de
+  tratamientos no: medido en el dispositivo, las dos últimas filas tenían la
+  fecha detrás del botón — la mitad de una fila que a nadie se le ocurre
+  desplazar para ver.
+- Una nota larga en ENFERMEDADES se corta a tres líneas. El protocolo entero
+  del veterinario es justo lo que hay que escribir en una nota, y justo lo que
+  no puede ocupar cinco líneas en una sección que resume; el texto completo
+  está a un toque, en su día.
+- **Las enfermedades se leen en Salud**, aunque se escriban en el Diario. Una
+  incidencia pasa a una hora de un día y se apunta donde el tutor ya está;
+  pero "¿cuándo fue lo del oído?" es una pregunta de salud, y recorrer un
+  calendario hacia atrás no es una respuesta. Cada una lleva a su día, que es
+  donde está la medicación que la acompañó.
+- **Un solo header para las pantallas fuera de las pestañas.** Ajustes apilaba
+  un enlace "Perfil" sobre su título y Tratamientos ponía una flecha al lado
+  del suyo: las dos funcionaban y juntas parecían dos apps. Gana la de al
+  lado, que gasta una línea donde la otra gasta dos, y el nombre del destino
+  no se pierde — se va al nombre accesible, que es quien de verdad lo
+  necesita.
+- **El calendario del Diario marca los días de vacuna**, puestos y próximos,
+  con una jeringuilla detrás del número igual que la tarta del cumpleaños — y
+  por la misma razón: una marca se gana una celda siendo la excepción, y
+  pasados los primeros meses una vacuna es casi anual. Las desparasitaciones y
+  los pesajes no salen: serían doce y veintiséis marcas al año en una rejilla
+  cuyas marcas significan "aquí pasó algo". El día que coincida con el
+  cumpleaños gana la tarta.
+- **El historial de tratamientos tiene pantalla propia, con filtro y
+  búsqueda.** Nueve meses de un cachorro ya son quince filas, once de ellas
+  abriendo con las mismas tres palabras: una sección no se recorre buscando "la
+  del Panacur". El tipo filtra y el texto busca, porque son preguntas
+  distintas — una es "enséñame las desparasitaciones" y la otra "dónde sale
+  Panacur". La búsqueda entra en el nombre, en la nota (que es donde acaba el
+  diagnóstico) y en la palabra del propio tipo, y **se salta los acentos** que
+  el teclado no ofreció: buscar "desparasitacion" no puede decir que la palabra
+  no aparece en una lista donde sale once veces. La sección se queda con los
+  cinco últimos y un "Ver más" para ver el resto.
+- **Apuntar sale de las secciones y baja al pulgar.** Cada sección tenía su
+  botón, lo que dejaba lo único a lo que se entra a hacer al final de un bloque
+  que había que recorrer — y, peor, hacía que las secciones parecieran
+  formularios. Ahora hay una acción flotante con sus dos opciones, como en el
+  Diario: las secciones se leen, el botón flotante escribe.
+- **Un sheet que crece ya no se sale de la pantalla.** El formulario de
+  tratamiento ganó una fila y el panel entero se fue por encima del reloj del
+  sistema: sin scrim visible dejaba de leerse como un panel, y no había forma
+  de volver a lo de arriba. Ahora tiene tope — la ventana menos la barra de
+  estado y una franja de scrim — y su contenido se desplaza dentro. Medido en
+  el dispositivo.
+- **La fecha que se rellena sola dice cada cuánto toca.** "Suele tocar cada 3
+  meses" bajo el campo: una fecha que aparece de la nada invita o a confiar a
+  ciegas o a corregirla sin saber por qué. La frase sale del mismo constante
+  que rellena la fecha, así que no pueden acabar diciendo cosas distintas — y
+  habla de lo habitual y no de lo puesto, así que sigue siendo cierta cuando
+  el tutor escribe encima la fecha que dijo el veterinario.
+- **Una pauta pertenece al par tipo+nombre, no al tipo.** "Rabia" y
+  "Polivalente" son las dos vacunas y corren en relojes distintos: agruparlas
+  dejaría que la última puesta borrase la fecha de la otra, y la que se borra
+  es precisamente de la que nadie volvería a acordarse.
+- **Las horas siempre se pudieron escribir sin los dos puntos, y ahora se
+  sabe.** `915` y `0915` son las 09:15 desde el primer día: el separador es
+  opcional en el analizador y no lo decía nadie. Los dos campos de hora lo
+  enseñan en su placeholder y Ajustes lo dice con palabras, junto al formato
+  de hora, que es donde alguien ya está pensando en eso. Anunciarlo lo
+  convierte en un compromiso, así que el atajo tiene ahora su propia prueba.
+- El campo de fecha aprende dos cosas que una fecha de nacimiento nunca
+  necesitó: **mirar al futuro** y **quedarse vacío**.
+- Y una tercera: **su título es de quien pregunta.** Estaba escrito a fuego
+  ("Fecha de nacimiento"), correcto mientras solo hubo una fecha en la app, y
+  el primer tratamiento que lo reutilizó abrió un selector titulado con otro
+  asunto.
+
+- **Los títulos de sección anclan.** Eran más apagados que las filas que
+  encabezan, que es la jerarquía del revés: en una pantalla que hay que
+  recorrer, lo que se busca es dónde empieza cada bloque. Pasan al acento
+  secundario en toda la app. Probadas las tres variantes en pantalla de móvil:
+  subir el gris un escalón no se distinguía de no hacer nada.
+- En Salud, "LO QUE TOCA" pasa a **"PRÓXIMOS TRATAMIENTOS"** y "TRATAMIENTOS" a
+  **"HISTORIAL DE TRATAMIENTOS"**, que dicen cuál mira adelante y cuál atrás.
+
+### Arreglado
+
+- **"Lo que toca" listaba recordatorios ya superados.** Una pauta estaba
+  identificada por tipo **y nombre**, y eso solo es cierto en las vacunas:
+  Rabia y Pentavalente corren en relojes distintos, pero "Panacur", "Panacur
+  500mg" y "Milbemax" son lo que tocó ese mes para la misma costumbre. Con
+  nueve meses de historial real salían cinco filas, tres de ellas la misma
+  desparasitación interna, y una gritando en rojo que había vencido en abril —
+  cinco meses después de la dosis que ya la había sustituido. Un registro
+  superado que se presenta como pendiente es peor que no avisar: enseña a
+  desconfiar justo de la sección que existe para confiar en ella.
+- **El botón del peso decía "Corregir el peso de hoy"**, que es cierto de lo
+  que propone y falso del botón: lo primero que se hace con una línea vacía es
+  meter meses de pesajes del más reciente al más antiguo, y todos pasaban por
+  un botón que hablaba de hoy. Ahora dice siempre "Anotar peso" y abre sobre
+  el registro del día cuando lo hay, para que un guardado no pueda sustituir
+  un peso que nunca llegó a enseñar.
+- Los botones de añadir quedaban pegados al borde inferior de su sección.
+- El changelog generado y Prettier se peleaban por las comillas en cada
+  ejecución del script, dejando un fichero modificado que el hook volvía a
+  formatear. Ahora el generador escribe ya formateado.
+
 ## [v0.7.0] — 2026-09-11
 
 ### Nuevo

@@ -88,6 +88,47 @@ export function toApproximateISO({
  * An approximate date shows only what is actually known — "septiembre de 2025"
  * rather than "01/09/2025", which would present a placeholder day as fact.
  */
+/**
+ * A date somebody typed, in the form this locale writes.
+ *
+ * **Two shapes, because a number pad gives you one and a keyboard the other.**
+ * `01/09/2026` is what the field shows and what most people copy; `01092026`
+ * is what you get when the pad has digits and nothing else, which is the same
+ * bargain the time fields already struck ("915" is 9:15). A single digit is
+ * allowed where a separator says where it ends — "1/9/2026" — and refused
+ * where nothing does, because `192026` could be the 19th or the 1st.
+ *
+ * **It rejects a date that does not exist**, not merely one out of range:
+ * 31/02 parses cleanly as three numbers and is not a day, and a field that
+ * accepted it would store a date Postgres refuses.
+ */
+export function parseTypedDate(text: string): DateParts | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  const separated = /^(\d{1,2})\D(\d{1,2})\D(\d{4})$/.exec(trimmed);
+  const digits = trimmed.replace(/\D/g, "");
+
+  const [day, month, year] = separated
+    ? [Number(separated[1]), Number(separated[2]), Number(separated[3])]
+    : digits.length === 8
+      ? [
+          Number(digits.slice(0, 2)),
+          Number(digits.slice(2, 4)),
+          Number(digits.slice(4, 8)),
+        ]
+      : [NaN, NaN, NaN];
+
+  if (!Number.isFinite(day) || !Number.isFinite(month)) return null;
+  if (month < 1 || month > 12) return null;
+  // A year outside this range is a typo rather than a date: no dog was born
+  // in the year 202, and the picker's own list does not reach there either.
+  if (year < 1900 || year > 2999) return null;
+  if (day < 1 || day > daysInMonth(year, month)) return null;
+
+  return { year, month, day };
+}
+
 export function formatDisplayDate(
   iso: string | null,
   approximate = false,

@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from "expo-router";
 import {
   CalendarDays,
   ChevronLeft,
@@ -17,6 +18,8 @@ import {
   FAB_CLEARANCE,
   Group,
   LoadingScreen,
+  Markdown,
+  MarkdownHelp,
   LogSkeleton,
   MonthCalendar,
   Screen,
@@ -27,6 +30,7 @@ import {
   StoolToggle,
   Text,
   TextField,
+  TimePicker,
   TOUCH_TARGET,
   useCelebration,
   useToast,
@@ -39,13 +43,15 @@ import {
 import {
   birthdayOn,
   daysAgo,
+  parseISO,
   formatDayDate,
   formatDayHeadline,
 } from "../../lib/dates";
 import { formatDuration, parseDuration } from "../../lib/duration";
 import {
-  deleteEvent,
   dayKey,
+  eventDetail,
+  deleteEvent,
   eventsForDay,
   eventsForMonths,
   formatTimeOfDay,
@@ -62,6 +68,7 @@ import {
   type PetEventRow,
 } from "../../lib/events";
 import { getMyPet, type PetRow } from "../../lib/pets";
+import { treatmentsFor, vaccineDays } from "../../lib/treatments";
 import { useSettings, type DurationFormat } from "../../lib/settings";
 import {
   describeStools,
@@ -122,7 +129,7 @@ const KINDS: Record<
     editAction: "Editar comida",
     icon: UtensilsCrossed,
     field: { label: "Qué ha comido", placeholder: "Pienso" },
-    describe: (event) => detail(event, "what"),
+    describe: (event) => eventDetail(event, "what"),
   },
   medication: {
     label: "Medicación",
@@ -131,7 +138,7 @@ const KINDS: Record<
     icon: Pill,
     tone: colors.warning,
     field: { label: "Qué le habéis dado", placeholder: "Apoquel, media" },
-    describe: (event) => detail(event, "what"),
+    describe: (event) => eventDetail(event, "what"),
   },
   incident: {
     label: "Incidencia",
@@ -140,7 +147,7 @@ const KINDS: Record<
     icon: TriangleAlert,
     tone: colors.error,
     field: { label: "Qué ha pasado", placeholder: "Cojea de la pata derecha" },
-    describe: (event) => detail(event, "what"),
+    describe: (event) => eventDetail(event, "what"),
   },
 };
 
@@ -181,11 +188,6 @@ function shiftDays(day: Date, by: number): Date {
 }
 
 /** The one free-text specific each kind but the walk keeps in `details`. */
-function detail(event: PetEventRow, key: string): string | null {
-  const details = event.details as Record<string, unknown> | null;
-  const value = details?.[key];
-  return typeof value === "string" && value.trim() ? value : null;
-}
 
 /** What the sheet is open for: a new entry of a kind, or an existing one. */
 type Editing = { kind: EventKind; event: PetEventRow | null };
@@ -218,6 +220,12 @@ type Editing = { kind: EventKind; event: PetEventRow | null };
  * meaning it has everywhere else — a toast, the confetti — which is a **moment
  * that just happened**, never a state sitting on the screen.
  */
+/** The local day a `?day=` parameter names, when it names one. */
+function dayFromParam(value: string | string[] | undefined): Date | null {
+  const parts = typeof value === "string" ? parseISO(value) : null;
+  return parts ? new Date(parts.year, parts.month - 1, parts.day) : null;
+}
+
 export default function Home() {
   const toast = useToast();
   const { celebrate } = useCelebration();
@@ -238,10 +246,47 @@ export default function Home() {
    * somebody picks it up.
    */
   const [today, setToday] = useState(() => new Date());
-  const [day, setDay] = useState(() => new Date());
+  /**
+   * The day on screen, which another screen may have asked for.
+   *
+   * **`?day=` exists so Salud can point at an illness.** The incidents are
+   * written here and read there, and a list of them that could not lead back
+   * to the day each one happened would be a list of dates you then have to go
+   * and find.
+   *
+   * **Applied when it changes, not only at mount — measured on the device.**
+   * Reading it in the `useState` initialiser looked right and did nothing at
+   * all: this screen is a tab, so it is already mounted when Salud pushes, the
+   * initialiser never runs again, and tapping an illness from December landed
+   * on today. This is React's own "adjust state when an input changes" shape —
+   * during render, against a remembered value — rather than an effect, which
+   * is the derived-state mistake `react-hooks/set-state-in-effect` catches.
+   *
+   * It sets where to open and then lets go: the arrows and the calendar move
+   * from there like any other day, and the parameter is not consulted again
+   * until it changes.
+   */
+  const { day: askedFor } = useLocalSearchParams<{ day?: string }>();
+  const [day, setDay] = useState(() => dayFromParam(askedFor) ?? new Date());
+  const [appliedParam, setAppliedParam] = useState(askedFor);
+
+  if (askedFor !== appliedParam) {
+    setAppliedParam(askedFor);
+    const asked = dayFromParam(askedFor);
+    if (asked) setDay(asked);
+  }
   const [picking, setPicking] = useState(false);
   /** One month of marks for the calendar, fetched only once it is opened. */
   const [marks, setMarks] = useState<Map<string, DaySummary>>(new Map());
+  /**
+   * The days a vaccine touches, read with the marks.
+   *
+   * The whole history in one go, because there are a handful a year and the
+   * due dates live in the future — a window would have to guess which one.
+   */
+  const [vaccines, setVaccines] = useState<Map<string, "given" | "due">>(
+    new Map(),
+  );
   const [marksError, setMarksError] = useState<string | null>(null);
   const [pet, setPet] = useState<PetRow | null>(null);
   /**
@@ -314,6 +359,14 @@ export default function Home() {
       if (cancelled) return;
       setMarks(days);
       setMarksError(error);
+    });
+    // **The vaccines ride along, and their failure does not.** A month whose
+    // entries could not be read is a lie the calendar has to admit to; a
+    // missing syringe is a mark that did not appear, and the tab two along
+    // still has every one of them.
+    treatmentsFor(pet.id).then(({ treatments }) => {
+      if (cancelled) return;
+      setVaccines(vaccineDays(treatments));
     });
     return () => {
       cancelled = true;
@@ -633,6 +686,7 @@ export default function Home() {
         >
           <MonthCalendar
             marks={marks}
+            vaccines={vaccines}
             goalMinutes={goal}
             value={day}
             maxDate={today}
@@ -787,7 +841,15 @@ function Entry({
           <Text className="text-text-secondary">{described}</Text>
         ) : null}
         {event.note ? (
-          <Text className="text-xs text-text-tertiary">{event.note}</Text>
+          // **The note renders its Markdown.** A tutor writing "**Cojea** de
+          // la pata derecha" after a vet visit gets the emphasis they meant;
+          // one who writes a plain sentence gets a plain sentence back, which
+          // is the whole bargain of writing Markdown by hand.
+          <Markdown
+            text={event.note}
+            className="text-xs text-text-tertiary"
+            compact
+          />
         ) : null}
       </View>
 
@@ -912,7 +974,7 @@ function EntrySheet({
     storedMinutes ? formatDuration(storedMinutes, durationFormat) : "",
   );
   const [value, setValue] = useState(
-    () => (event && detail(event, "what")) || "",
+    () => (event && eventDetail(event, "what")) || "",
   );
   const [note, setNote] = useState(() => event?.note ?? "");
   const [atError, setAtError] = useState<string | null>(null);
@@ -936,7 +998,7 @@ function EntrySheet({
         : (occurred ?? new Date()),
     ),
     from: occurred && storedMinutes ? formatTimeOfDay(occurred) : "",
-    value: (event && detail(event, "what")) || "",
+    value: (event && eventDetail(event, "what")) || "",
     note: event?.note ?? "",
     stools: readStools(event?.details).join(","),
   }));
@@ -1267,11 +1329,21 @@ function EntrySheet({
               <View className="flex-1">
                 <TextField
                   testID="entry-from"
+                  trailing={
+                    <TimePicker
+                      testID="entry-from-picker"
+                      label="Desde"
+                      value={from}
+                      onChange={(time) => {
+                        setFrom(time);
+                      }}
+                    />
+                  }
                   label="Desde"
                   value={from}
                   onChangeText={editFrom}
                   onBlur={() => tidyTime(from, setFrom)}
-                  placeholder="09:15"
+                  placeholder="09:15 o 915"
                   error={fromError}
                   keyboardType="number-pad"
                   maxLength={5}
@@ -1280,11 +1352,21 @@ function EntrySheet({
               <View className="flex-1">
                 <TextField
                   testID="entry-to"
+                  trailing={
+                    <TimePicker
+                      testID="entry-to-picker"
+                      label="Hasta"
+                      value={at}
+                      onChange={(time) => {
+                        setAt(time);
+                      }}
+                    />
+                  }
                   label="Hasta"
                   value={at}
                   onChangeText={editAt}
                   onBlur={() => tidyTime(at, setAt)}
-                  placeholder="09:45"
+                  placeholder="09:45 o 945"
                   error={atError}
                   keyboardType="number-pad"
                   maxLength={5}
@@ -1337,11 +1419,21 @@ function EntrySheet({
         ) : (
           <TextField
             testID="entry-time"
+            trailing={
+              <TimePicker
+                testID="entry-time-picker"
+                label="Hora"
+                value={at}
+                onChange={(time) => {
+                  setAt(time);
+                }}
+              />
+            }
             label="Hora"
             value={at}
             onChangeText={editAt}
             onBlur={() => tidyTime(at, setAt)}
-            placeholder="09:15"
+            placeholder="09:15 o 915"
             error={atError}
             keyboardType="number-pad"
             maxLength={5}
@@ -1367,11 +1459,13 @@ function EntrySheet({
           <View className="min-w-0 flex-1">
             <TextField
               testID="entry-note"
+              multiline
               label="Nota"
               value={note}
               onChangeText={setNote}
               placeholder="¿Algo que contar?"
               maxLength={200}
+              corner={<MarkdownHelp testID="entry-note-help" />}
             />
           </View>
           {isWalk ? (

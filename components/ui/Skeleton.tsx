@@ -90,6 +90,49 @@ export function Skeleton({
  * before the rows land and it is the one thing on the screen that does not
  * have to guess.
  */
+/**
+ * The shape a treatment row will take: a glyph, two lines, and a date.
+ *
+ * **A list that grows needs this more than a day's log does.** The diary is
+ * bounded — four or five entries — and its wait is short; a treatment history
+ * is every dose the animal has ever had, filtered on a server, and it is the
+ * screen where a spinner would sit longest. The rows are faithful to the real
+ * ones so the page does not jump when they arrive.
+ */
+export function TreatmentSkeleton({
+  rows = 6,
+  testID,
+}: {
+  rows?: number;
+  testID?: string;
+}) {
+  return (
+    <View
+      testID={testID}
+      accessibilityLiveRegion="polite"
+      accessibilityLabel="Cargando"
+    >
+      {Array.from({ length: rows }, (_, row) => (
+        <View
+          key={row}
+          className="flex-row items-start gap-3 border-b border-border-default py-4"
+        >
+          <View className="shrink-0 pt-0.5">
+            <Skeleton width={16} height={16} />
+          </View>
+          <View className="flex-1 gap-2 pt-0.5">
+            <Skeleton width={row % 3 === 1 ? "62%" : "78%"} height={14} />
+            <Skeleton width="40%" height={11} />
+          </View>
+          <View className="shrink-0 pt-0.5">
+            <Skeleton width={72} height={11} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function LogSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <View accessibilityLiveRegion="polite" accessibilityLabel="Cargando">

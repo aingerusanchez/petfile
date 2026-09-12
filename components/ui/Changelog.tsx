@@ -1,6 +1,6 @@
-import { Fragment } from "react";
 import { ScrollView, View } from "react-native";
 import { CHANGELOG } from "../../lib/changelog.generated";
+import { Inline } from "./Markdown";
 import { Text } from "./Text";
 
 /**
@@ -16,50 +16,13 @@ import { Text } from "./Text";
 export const APP_CHANGELOG: string | null = CHANGELOG || null;
 
 /**
- * Just enough Markdown to read `CHANGELOG.md`, and no more.
+ * The changelog's own blocks, on top of the shared inline renderer.
  *
- * **A parser would be the wrong shape of answer.** One file, written by us, in
- * a format we choose: four constructs cover all of it — a `##` version, a
- * `###` heading, a `- ` bullet, and a paragraph, with `**bold**` inline. A
- * dependency for that would ship a general-purpose renderer to display one
- * document whose author is in this repo.
- *
- * The rule it imposes in exchange: **if it does not render here, it does not
- * belong in the changelog.** Tables, links and code fences are not part of the
- * vocabulary, which is a fine constraint on a file whose job is to say what
- * changed in sentences.
+ * **The vocabulary moved to `Markdown` the day a treatment note wanted it.**
+ * What stays here is what is true of this document and of nothing else: the
+ * `##` version heading, the `# ` title the sheet already shows, and the HTML
+ * comments that are notes to whoever edits the file.
  */
-function Inline({ text }: { text: string }) {
-  // Split on both marks at once, keeping the delimiters, so a run knows which
-  // one opened it. Anything unbalanced simply reads as plain text — the file
-  // is written by us and a stray asterisk is not worth a parser.
-  const runs = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
-  return (
-    <>
-      {runs.map((run, index) => {
-        if (run.startsWith("**") && run.endsWith("**")) {
-          return (
-            <Text key={index} className="font-semibold text-text-primary">
-              {run.slice(2, -2)}
-            </Text>
-          );
-        }
-        // Backticks name a symbol — a prop, a file, a class. Dropping the
-        // marks and keeping the tone says the same thing without turning a
-        // sentence into source code.
-        if (run.startsWith("`") && run.endsWith("`")) {
-          return (
-            <Text key={index} className="text-text-primary">
-              {run.slice(1, -1)}
-            </Text>
-          );
-        }
-        return <Fragment key={index}>{run}</Fragment>;
-      })}
-    </>
-  );
-}
-
 export function Changelog({ testID }: { testID?: string }) {
   if (!APP_CHANGELOG) return null;
 

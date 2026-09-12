@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
-import { Modal, Pressable, StyleSheet, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardInset } from "./keyboard";
 import { spacing } from "./tokens";
@@ -44,6 +51,15 @@ type SheetProps = {
  * **Four ways out**, the contract the date picker set: the scrim, Android's
  * Back, whatever the caller puts in the footer, and — where there is one — the
  * X. Nothing here commits anything.
+ *
+ * **And it scrolls, because a panel that grows has nowhere to grow to.** The
+ * treatment form gained one row of chips and the whole sheet slid off the top
+ * of the phone: the title ended up under the system clock and the scrim was
+ * gone, so the thing no longer read as a sheet at all — and there was no way
+ * back to the content above. Measured on device. The panel is now capped at
+ * the window minus the status bar and a strip of scrim, and its content
+ * scrolls inside that; a sheet shorter than the cap is unchanged, because a
+ * `ScrollView` takes the height of what is in it until there is more.
  */
 export function Sheet({
   children,
@@ -53,6 +69,7 @@ export function Sheet({
   testID,
   scrimTestID,
 }: SheetProps) {
+  const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardInset();
   const fromTop = anchor === "top";
@@ -78,26 +95,42 @@ export function Sheet({
         />
         <View
           testID={testID}
-          // Anchored at the bottom, the keyboard's height is measured from the
-          // bottom of the screen, so it already covers the navigation-bar
-          // inset — the larger of the two, never their sum. Anchored at the
-          // top, the keyboard cannot reach it and the status bar can.
-          style={
-            fromTop
+          // **The cap lives on the panel and the scroll lives inside it.**
+          // Putting the `className` on the `ScrollView` looked right in the
+          // browser and arrived on the device with no fill, no border, no
+          // radius and no side padding — the form floated edge to edge over
+          // the list behind it. A `ScrollView`'s own box ignores padding and
+          // does not take the styling this panel is made of, so the panel
+          // stays a `View` and only the overflow is delegated.
+          style={{
+            maxHeight:
+              height - insets.top - spacing.lg - (fromTop ? 0 : insets.bottom),
+            ...(fromTop
               ? {
                   paddingTop: spacing.md + insets.top,
                   paddingBottom: spacing.md,
                 }
               : {
                   paddingBottom: spacing.md + Math.max(insets.bottom, keyboard),
-                }
-          }
+                }),
+          }}
           // `rounded-xl` on all four corners for both anchors: the pair
           // against the screen edge is off-screen either way, and it keeps
           // this off the untested `rounded-t-*` path.
           className={`rounded-xl border bg-surface px-5 ${fromTop ? "" : "pt-5"} ${className}`}
         >
-          {children}
+          <ScrollView
+            bounces={false}
+            overScrollMode="never"
+            // A tap on a field while another field's keyboard is up should
+            // land on the field, not be eaten dismissing the keyboard.
+            keyboardShouldPersistTaps="handled"
+            // Nothing to scroll is nothing to show: a sheet shorter than the
+            // cap is laid out exactly as it was before this existed.
+            contentContainerStyle={{ flexGrow: 0 }}
+          >
+            {children}
+          </ScrollView>
         </View>
       </View>
     </Modal>
