@@ -91,6 +91,22 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   sin él es adivinar en qué país está el móvil, y equivocarse una vez es que
   la llamada falle en el momento que más importa. El que se escriba con
   prefijo lo conserva.
+- **Las fechas se escriben, y el calendario queda detrás de su icono.** Todas
+  pasaban por tres toques en un calendario, incluidas las que uno ya sabe — una
+  fecha de nacimiento de hace cuatro años es un año de pasar meses. Ahora el
+  campo toma `DD/MM/AAAA` (o los ocho dígitos seguidos, que es lo que da un
+  teclado numérico) y el icono abre el calendario para las fechas que es más
+  fácil señalar que deletrear. **Sin máscara en vivo**: meter las barras según
+  llegan los dígitos se construyó y se retiró aquí para las horas — un
+  `TextInput` enfocado en Android ignora lo que la capa JS reescribe —, así que
+  se ordena al salir del campo, que es la corrección que la plataforma sí
+  respeta. Una fecha que no existe lo dice; el modo aproximado sigue siendo un
+  botón, porque un mes y un año no se teclean.
+- **El teléfono se agrupa como se escribe un teléfono aquí**: "944 26 00 51",
+  tanto al leerlo como al salir del campo. Lo que no son nueve dígitos se deja
+  intacto — una extensión, dos números en un campo o una clínica extranjera son
+  respuestas de verdad, y darles forma sería adivinar una convención que no
+  conocemos.
 - **El formulario de tratamiento tiene una sola fecha.** Dos campos de fecha
   idénticos, uno encima del otro, y el que se rellenaba era siempre el
   segundo: la fecha que acaba de decir el veterinario es la primera. La

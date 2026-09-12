@@ -30,7 +30,7 @@ async function pickExactBirthDate(
    */
   day = 1,
 ) {
-  await page.getByTestId("onboarding-birthdate").click();
+  await page.getByTestId("onboarding-birthdate-picker").click();
   // Targeted by role and accessible name rather than by text: the library
   // gives every day cell `accessibilityRole="button"` and an
   // `accessibilityLabel` of the day number, so this asserts the accessible
@@ -139,29 +139,27 @@ test("closes the picker without saving via Cancelar", async ({ page }) => {
   await seedSession(page);
   await page.goto("/onboarding");
 
-  await page.getByTestId("onboarding-birthdate").click();
+  await page.getByTestId("onboarding-birthdate-picker").click();
   await expect(page.getByTestId("datepicker-confirm")).toBeVisible();
 
   await page.getByTestId("datepicker-cancel").click();
 
   await expect(page.getByTestId("datepicker-confirm")).toBeHidden();
-  // Nothing was committed, so the field still shows its placeholder.
-  await expect(page.getByTestId("onboarding-birthdate")).toContainText(
-    "DD/MM/AAAA",
-  );
+  // Nothing was committed, so the field is still empty — and an exact date is
+  // typed into an input now, so "empty" is a value rather than a placeholder
+  // rendered as text.
+  await expect(page.getByTestId("onboarding-birthdate")).toHaveValue("");
 });
 
 test("closes the picker without saving via the X", async ({ page }) => {
   await seedSession(page);
   await page.goto("/onboarding");
 
-  await page.getByTestId("onboarding-birthdate").click();
+  await page.getByTestId("onboarding-birthdate-picker").click();
   await page.getByTestId("datepicker-close").click();
 
   await expect(page.getByTestId("datepicker-confirm")).toBeHidden();
-  await expect(page.getByTestId("onboarding-birthdate")).toContainText(
-    "DD/MM/AAAA",
-  );
+  await expect(page.getByTestId("onboarding-birthdate")).toHaveValue("");
 });
 
 test("greets the animal by name on the primary action once there is one", async ({
@@ -523,7 +521,9 @@ test("answers a press on every kind of control", async ({ page }) => {
     "onboarding-sex-male",
     "onboarding-mixed",
     "onboarding-more",
-    "onboarding-birthdate",
+    // The date field's pressable is its calendar glyph: the rest of it is a
+    // text input now, and an input does not dim under a finger.
+    "onboarding-birthdate-picker",
   ]) {
     const control = page.getByTestId(id);
     // The mouse takes viewport coordinates, so a control below the fold has to

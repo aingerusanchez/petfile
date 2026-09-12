@@ -1,5 +1,6 @@
 import {
   EMPTY_VET,
+  formatPhone,
   hasVet,
   mapsHref,
   readVet,
@@ -57,6 +58,29 @@ describe("writeVet", () => {
 
   it("round-trips", () => {
     expect(readVet(writeVet(filled))).toEqual(filled);
+  });
+});
+
+describe("formatPhone", () => {
+  it("groups a Spanish number the way a Spanish number is written", () => {
+    expect(formatPhone("944260051")).toBe("944 26 00 51");
+    expect(formatPhone("944 26 00 51")).toBe("944 26 00 51");
+    expect(formatPhone("944-26-00-51")).toBe("944 26 00 51");
+    expect(formatPhone("612345678")).toBe("612 34 56 78");
+  });
+
+  it("keeps a country prefix in its place", () => {
+    expect(formatPhone("+34944260051")).toBe("+34 944 26 00 51");
+    expect(formatPhone("+34 944 26 00 51")).toBe("+34 944 26 00 51");
+  });
+
+  it("leaves alone what it cannot be sure about", () => {
+    // An extension, two numbers in one field, a foreign clinic: all real
+    // answers, and reshaping them would be guessing at a convention this
+    // does not know.
+    expect(formatPhone("944 26 00 51 ext. 2")).toBe("944 26 00 51 ext. 2");
+    expect(formatPhone("112")).toBe("112");
+    expect(formatPhone("")).toBe("");
   });
 });
 

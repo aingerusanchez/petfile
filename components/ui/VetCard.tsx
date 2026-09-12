@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 import {
   EMPTY_VET,
+  formatPhone,
   hasVet,
   mapsHref,
   saveVet,
@@ -84,13 +85,16 @@ export function VetCard({
               testID={`vet-${kind}-call`}
               onPress={() => Linking.openURL(tel)}
               accessibilityRole="button"
-              accessibilityLabel={`Llamar a ${vet.clinic || vetLabel(kind)}`}
+              accessibilityLabel={`Llamar a ${vet.clinic || vetLabel(kind)}: ${formatPhone(vet.phone)}`}
               style={{ minHeight: TOUCH_TARGET }}
               className="mt-2 flex-row items-center gap-2 active:opacity-70"
             >
               <Phone size={16} color={colors.accentSecondary} />
+              {/* Grouped where it is read: "944260051" off a contact list
+                  and "944 26 00 51" on the fridge are the same number, and
+                  only one of them can be read back over the phone. */}
               <Text className="min-w-0 flex-1 font-semibold text-accent-secondary">
-                {vet.phone}
+                {formatPhone(vet.phone)}
               </Text>
             </Pressable>
           ) : null}
@@ -214,6 +218,14 @@ function VetSheet({
         label="TELÉFONO"
         value={draft.phone}
         onChangeText={field("phone")}
+        // **Grouped on blur, never as the digits arrive.** A focused
+        // `TextInput` on Android ignores a value the JS layer rewrites — the
+        // lesson the time fields and the date field both carry — so the
+        // spacing lands when focus goes somewhere else, which is the
+        // correction the platform honours.
+        onBlur={() =>
+          setDraft((was) => ({ ...was, phone: formatPhone(was.phone) }))
+        }
         placeholder="944 00 00 00"
         // The pad that has the digits and the symbols a number can carry.
         keyboardType="phone-pad"

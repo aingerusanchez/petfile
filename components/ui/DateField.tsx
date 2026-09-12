@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Pressable,
   ScrollView,
+  TextInput,
   View,
   type LayoutChangeEvent,
 } from "react-native";
@@ -13,12 +14,13 @@ import {
   MONTHS_ES_SHORT,
   formatDisplayDate,
   parseISO,
+  parseTypedDate,
   toISO,
   yearChoices,
 } from "../../lib/dates";
 import { Chip } from "./Chip";
 import { FieldLabel } from "./FieldLabel";
-import { colors, TOUCH_TARGET } from "./tokens";
+import { colors, PLACEHOLDER_COLOR, TOUCH_TARGET } from "./tokens";
 import { Sheet } from "./Sheet";
 import { Text } from "./Text";
 
@@ -86,6 +88,65 @@ export function DateField({
 }: DateFieldProps) {
   const today = new Date();
   const [open, setOpen] = useState(false);
+
+  /**
+   * What is in the text field, and the stored value it was last in step with.
+   *
+   * **Adjusted during render rather than in an effect.** The picker, and a
+   * parent clearing the field, both change `value` from outside while the
+   * text is the tutor's own half-finished typing — so the text follows the
+   * stored value only when the stored value is the thing that moved. This is
+   * React's own shape for it; an effect would be the derived-state mistake
+   * `react-hooks/set-state-in-effect` exists to catch.
+   */
+  const [text, setText] = useState(() => formatDisplayDate(value));
+  const [syncedValue, setSyncedValue] = useState(value);
+  const [typedError, setTypedError] = useState<string | null>(null);
+
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    setText(formatDisplayDate(value));
+    setTypedError(null);
+  }
+
+  /**
+   * Turns what was typed into a date, when focus leaves.
+   *
+   * Empty is an answer where the field allows one and a blank where it does
+   * not — the same `clearable` the picker's "Sin fecha" honours — and anything
+   * that is not a date says so rather than silently keeping the old one.
+   */
+  function commitTyped() {
+    if (approximate) return;
+
+    const trimmed = text.trim();
+    if (!trimmed) {
+      setTypedError(null);
+      if (value !== null) onChange(null);
+      return;
+    }
+
+    const parts = parseTypedDate(trimmed);
+    if (!parts) {
+      setTypedError("Escríbela como DD/MM/AAAA");
+      return;
+    }
+
+    const at = new Date(parts.year, parts.month - 1, parts.day);
+    if (reach === "past" && at.getTime() > endOfToday(today)) {
+      setTypedError("Todavía no ha llegado ese día");
+      return;
+    }
+
+    setTypedError(null);
+    const iso = toISO(parts);
+    // Normalising in place is the correction Android honours, and the one a
+    // live mask does not: "1092026" becomes "01/09/2026" the moment focus
+    // goes somewhere else.
+    setText(formatDisplayDate(iso));
+    setSyncedValue(iso);
+    if (iso !== value) onChange(iso);
+  }
   const [draft, setDraft] = useState<Date>(today);
   const [draftYear, setDraftYear] = useState(today.getFullYear());
   const [draftMonth, setDraftMonth] = useState(today.getMonth() + 1);
@@ -99,15 +160,25 @@ export function DateField({
   }
 
   function confirm() {
-    onChange(
-      approximate
-        ? toISO({ year: draftYear, month: draftMonth, day: 1 })
-        : toISO({
-            year: draft.getFullYear(),
-            month: draft.getMonth() + 1,
-            day: draft.getDate(),
-          }),
-    );
+    const iso = approximate
+      ? toISO({ year: draftYear, month: draftMonth, day: 1 })
+      : toISO({
+          year: draft.getFullYear(),
+          month: draft.getMonth() + 1,
+          day: draft.getDate(),
+        });
+
+    // **The picker's answer replaces whatever was typed, even when it agrees
+    // with what was stored.** Resyncing only on a *changed* value left a
+    // refused "31/02/2026" sitting in the field with its error under it after
+    // the tutor had gone to the calendar and chosen the very date that was
+    // already saved — the one path where nothing changes and everything on
+    // screen is stale.
+    setText(formatDisplayDate(iso));
+    setSyncedValue(iso);
+    setTypedError(null);
+
+    onChange(iso);
     setOpen(false);
   }
 
@@ -119,25 +190,102 @@ export function DateField({
         {label}
       </FieldLabel>
 
-      <Pressable
-        testID={testID}
-        onPress={openPicker}
-        accessibilityRole="button"
-        accessibilityLabel={
-          display
-            ? `${label}: ${display}. Pulsa para cambiar`
-            : `${label}. Pulsa para elegir`
-        }
-        style={{ minHeight: TOUCH_TARGET }}
-        className={`flex-row items-center justify-between rounded-xl border bg-surface px-4 py-3 active:opacity-70 ${
-          error ? "border-error" : "border-border-default"
-        }`}
-      >
-        <Text className={display ? "text-text-primary" : "text-text-tertiary"}>
-          {display || (approximate ? "Mes y año" : "DD/MM/AAAA")}
+      {/* **The field is typed and the picker is behind its own icon.** It was
+          one button: every date went through three taps in a calendar,
+          including the ones somebody already knew — a birth date four years
+          back is a year of paging. Now the text area takes `DD/MM/AAAA` and
+          the glyph opens the calendar for the dates that are easier to point
+          at than to spell.
+
+          **No live mask, and that is not an oversight.** Inserting the slashes
+          as the digits arrive was built, tested and removed here for the time
+          fields: a focused `TextInput` on Android ignores a value the JS layer
+          rewrites, so typing `9000` left `9000` on screen while state held
+          `90:00`. It worked in the browser and nowhere else. The correction
+          the platform does honour is the one on blur, which is what this does
+          — and it is the same bargain the time fields already advertise.
+
+          Approximate mode keeps the single button: a month and a year is two
+          choices off a grid, and there is nothing to type. */}
+      {approximate ? (
+        <Pressable
+          testID={testID}
+          onPress={openPicker}
+          accessibilityRole="button"
+          accessibilityLabel={
+            display
+              ? `${label}: ${display}. Pulsa para cambiar`
+              : `${label}. Pulsa para elegir`
+          }
+          style={{ minHeight: TOUCH_TARGET }}
+          className={`flex-row items-center justify-between rounded-xl border bg-surface px-4 py-3 active:opacity-70 ${
+            error ? "border-error" : "border-border-default"
+          }`}
+        >
+          <Text
+            className={display ? "text-text-primary" : "text-text-tertiary"}
+          >
+            {display || "Mes y año"}
+          </Text>
+          <CalendarDays size={18} color={colors.textTertiary} />
+        </Pressable>
+      ) : (
+        <View
+          className={`flex-row items-center rounded-xl border bg-surface ${
+            error || typedError ? "border-error" : "border-border-default"
+          }`}
+        >
+          <TextInput
+            testID={testID}
+            value={text}
+            onChangeText={(next) => {
+              setText(next);
+              setTypedError(null);
+            }}
+            onBlur={commitTyped}
+            placeholder="DD/MM/AAAA"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            accessibilityLabel={label}
+            keyboardType="number-pad"
+            autoCorrect={false}
+            maxLength={10}
+            // `pl-4` and not `px-4`: Android drops `padding-inline` on a
+            // TextInput. The floor and the centring are the same two the
+            // other fields need.
+            style={{
+              minHeight: TOUCH_TARGET,
+              minWidth: 0,
+              textAlignVertical: "center",
+            }}
+            className="flex-1 py-3 pr-2 pl-4 font-sans text-text-primary"
+          />
+          <Pressable
+            testID={testID ? `${testID}-picker` : undefined}
+            onPress={() => {
+              // Whatever is half-typed loses to the calendar rather than
+              // fighting it: opening the picker is choosing to point instead.
+              commitTyped();
+              openPicker();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`${label}. Elegir en el calendario`}
+            style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
+            className="items-center justify-center active:opacity-70"
+          >
+            <CalendarDays size={18} color={colors.textTertiary} />
+          </Pressable>
+        </View>
+      )}
+
+      {typedError ? (
+        <Text
+          testID={testID ? `${testID}-typed-error` : undefined}
+          accessibilityLiveRegion="polite"
+          className="mt-2 text-xs text-error"
+        >
+          {typedError}
         </Text>
-        <CalendarDays size={18} color={colors.textTertiary} />
-      </Pressable>
+      ) : null}
 
       {error ? (
         <Text
@@ -304,4 +452,17 @@ export function DateField({
       ) : null}
     </View>
   );
+}
+
+/** The last instant of a day, so "today" is allowed where the future is not. */
+function endOfToday(today: Date): number {
+  return new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+    23,
+    59,
+    59,
+    999,
+  ).getTime();
 }

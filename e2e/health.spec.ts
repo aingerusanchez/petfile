@@ -211,10 +211,10 @@ test("stops proposing once the tutor has written the date themselves", async ({
   // offered. From then on the date is theirs: changing the kind must not
   // overwrite it.
   await page.getByTestId("treatment-next-change").click();
-  await page.getByTestId("treatment-next").click();
+  await page.getByTestId("treatment-next-picker").click();
   await page.getByTestId("datepicker-confirm").click();
   await page.getByTestId("treatment-kind-antiparasitic").click();
-  await expect(page.getByTestId("treatment-next")).toContainText(
+  await expect(page.getByTestId("treatment-next")).toHaveValue(
     typed(addDays(today, 365)),
   );
 });
@@ -231,7 +231,7 @@ test("a treatment with no next date is not pending, because it is done", async (
   // "Sin fecha" is an answer, not an empty field: a one-off has nothing
   // scheduled after it, and the section above must not invent a reminder.
   await page.getByTestId("treatment-next-change").click();
-  await page.getByTestId("treatment-next").click();
+  await page.getByTestId("treatment-next-picker").click();
   await page.getByTestId("datepicker-clear").click();
   await page.getByTestId("treatment-save").click();
 
@@ -383,4 +383,36 @@ test("reads the illnesses back, and each one leads to its day", async ({
   )}`;
   await expect(page).toHaveURL(new RegExp(`day=${today}`));
   await expect(page.getByTestId("home-log")).toContainText("Diarrea");
+});
+
+test("takes a date typed into the field, and keeps the calendar behind its icon", async ({
+  page,
+}) => {
+  await openHealth(page);
+  await addHealth(page, "treatment");
+
+  // **The field is typed; the glyph is the calendar.** Every date used to go
+  // through three taps in a picker, including the ones somebody already knew.
+  const on = page.getByTestId("treatment-on");
+  await on.fill("01092026");
+  await page.getByTestId("treatment-name").click();
+
+  // Normalised on blur — the one correction Android honours. A live mask that
+  // inserted the slashes as the digits arrived was built and removed here for
+  // the time fields.
+  await expect(on).toHaveValue("01/09/2026");
+
+  // A date that is not one says so rather than silently keeping the old value.
+  await on.fill("31/02/2026");
+  await page.getByTestId("treatment-name").click();
+  await expect(page.getByTestId("treatment-on-typed-error")).toContainText(
+    "DD/MM/AAAA",
+  );
+
+  // And the picker still writes into it.
+  await page.getByTestId("treatment-on-picker").click();
+  await expect(page.getByTestId("datepicker-confirm")).toBeVisible();
+  await page.getByTestId("datepicker-confirm").click();
+  await expect(page.getByTestId("treatment-on-typed-error")).toBeHidden();
+  await expect(on).not.toHaveValue("");
 });

@@ -7,10 +7,69 @@ import {
   formatDayHeadline,
   formatDisplayDate,
   parseISO,
+  parseTypedDate,
   toApproximateISO,
   toISO,
   yearChoices,
 } from "../dates";
+
+describe("parseTypedDate", () => {
+  it("takes the form the field shows", () => {
+    expect(parseTypedDate("01/09/2026")).toEqual({
+      year: 2026,
+      month: 9,
+      day: 1,
+    });
+    expect(parseTypedDate("1/9/2026")).toEqual({
+      year: 2026,
+      month: 9,
+      day: 1,
+    });
+    expect(parseTypedDate("01-09-2026")).toEqual({
+      year: 2026,
+      month: 9,
+      day: 1,
+    });
+  });
+
+  it("takes the digits a number pad gives, when there are eight", () => {
+    expect(parseTypedDate("01092026")).toEqual({
+      year: 2026,
+      month: 9,
+      day: 1,
+    });
+    // Seven is ambiguous with no separator to say where the day ends: 192026
+    // could be the 19th or the 1st.
+    expect(parseTypedDate("192026")).toBeNull();
+    expect(parseTypedDate("0109202")).toBeNull();
+  });
+
+  it("refuses a date that does not exist", () => {
+    // 31/02 is three perfectly good numbers and is not a day; a field that
+    // accepted it would store a date Postgres refuses.
+    expect(parseTypedDate("31/02/2026")).toBeNull();
+    expect(parseTypedDate("30/02/2024")).toBeNull();
+    expect(parseTypedDate("29/02/2024")).toEqual({
+      year: 2024,
+      month: 2,
+      day: 29,
+    });
+    expect(parseTypedDate("29/02/2026")).toBeNull();
+    expect(parseTypedDate("00/09/2026")).toBeNull();
+    expect(parseTypedDate("01/13/2026")).toBeNull();
+  });
+
+  it("refuses a year that is a typo rather than a date", () => {
+    expect(parseTypedDate("01/09/202")).toBeNull();
+    expect(parseTypedDate("01/09/1800")).toBeNull();
+  });
+
+  it("has no answer for what is on the way to a date", () => {
+    expect(parseTypedDate("")).toBeNull();
+    expect(parseTypedDate("01/")).toBeNull();
+    expect(parseTypedDate("mañana")).toBeNull();
+  });
+});
 
 describe("parseISO", () => {
   it("splits a well-formed date", () => {

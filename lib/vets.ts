@@ -104,6 +104,45 @@ export function writeVet(vet: Vet): Record<string, string> | null {
 }
 
 /**
+ * A Spanish number, grouped the way a Spanish number is written.
+ *
+ * **3-2-2-2, which is how both of the clinics on the fridge are written.**
+ * "944 26 00 51" is the shape people read a landline in, and a nine-digit run
+ * with no spaces is the shape a phone's contact list hands you — the grouping
+ * is what turns one into the other.
+ *
+ * **Anything that is not nine digits is returned untouched.** An international
+ * number, an extension, a clinic that wrote two numbers in one field: all of
+ * them are somebody's real answer, and a formatter that reshaped them would be
+ * guessing at a convention it does not know. A `+34` prefix keeps its place
+ * and the nine behind it still group.
+ */
+export function formatPhone(phone: string): string {
+  const trimmed = phone.trim();
+  if (!trimmed) return "";
+
+  // **The national number is the last nine digits, not the ones after a
+  // prefix of guessed length.** Matching `+\d{1,3}` greedily ate the first
+  // digit of the number itself — "+34944260051" became a "+349" prefix and an
+  // eight-digit rest, which then failed the check and rendered unformatted.
+  // Counting from the end needs to know nothing about which country it is.
+  const digits = trimmed.replace(/\D/g, "");
+  const international = trimmed.startsWith("+");
+
+  if (digits.length < 9) return trimmed;
+  if (digits.length > 9 && !international) return trimmed;
+
+  const national = digits.slice(-9);
+  const prefix = international ? `+${digits.slice(0, -9)} ` : "";
+  const grouped = `${national.slice(0, 3)} ${national.slice(
+    3,
+    5,
+  )} ${national.slice(5, 7)} ${national.slice(7, 9)}`;
+
+  return `${prefix}${grouped}`;
+}
+
+/**
  * The number, ready to dial.
  *
  * **No country code is invented.** "944 26 00 51" dials from a Spanish SIM
