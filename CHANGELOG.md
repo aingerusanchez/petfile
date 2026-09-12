@@ -103,12 +103,22 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   sin él es adivinar en qué país está el móvil, y equivocarse una vez es que
   la llamada falle en el momento que más importa. El que se escriba con
   prefijo lo conserva.
-- **Y las horas ganan su propio selector**, con el mismo trato: el campo sigue
-  escribiéndose —"915" son dos segundos— y el reloj al lado es la alternativa
-  para el pulgar que prefiere apuntar a una ficha de 48 dp antes que a cuatro
-  dígitos. Las horas en una tira, los minutos en cinco en cinco, y un minuto
-  fuera de esa rejilla —09:47— se conserva en vez de redondearse: abrir un
-  selector no puede editar en silencio un valor que nadie le pidió tocar.
+- **Y las horas ganan su propio selector: un reloj.** Mismo trato que las
+  fechas —el campo sigue escribiéndose, "915" son dos segundos, y el icono al
+  lado es la alternativa para el pulgar que prefiere apuntar—, pero la primera
+  versión era una tira de fichas de hora y una rejilla de minutos: correcta,
+  legible, y un control que nadie había usado nunca. Una esfera con una aguja
+  no hay que aprenderla, y contesta "¿mañana o tarde?" con su forma antes que
+  con un dígito. Se toca un número o se arrastra la aguja, y elegir la hora
+  pasa el turno a los minutos. **Una corona y un interruptor, no dos coronas**:
+  el reloj de 24 horas de Material mete un segundo anillo dentro del primero y
+  en este móvil eso deja los números a 38 dp, por debajo del suelo de 48 que se
+  respeta en toda la app; así que la esfera lleva doce marcas y un interruptor
+  dice de qué mitad del día son. La aguja no se mueve al cambiar de mitad —las
+  09 y las 21 son el mismo sitio en un reloj—, que es justo por lo que el truco
+  funciona. Un minuto sin número —09:47— se conserva en vez de redondearse, con
+  la punta de la aguja marcando dónde cayó: abrir un selector no puede editar
+  en silencio un valor que nadie le pidió tocar.
 - **Las fechas se escriben, y el calendario queda detrás de su icono.** Todas
   pasaban por tres toques en un calendario, incluidas las que uno ya sabe — una
   fecha de nacimiento de hace cuatro años es un año de pasar meses. Ahora el

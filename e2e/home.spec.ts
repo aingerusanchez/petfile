@@ -1296,13 +1296,23 @@ test("offers the clock beside a time field, for a thumb that would rather point"
   await add(page, "meal");
 
   // **The field stays typed and the picker is the alternative.** "915" is two
-  // seconds on a number pad; this is for the thumb that would rather aim at a
-  // 48dp chip than at four digits.
+  // seconds on a number pad; the clock is for the thumb that would rather
+  // point at one.
   await page.getByTestId("entry-time").fill("0915");
   await page.getByTestId("entry-time-picker").click();
   await expect(page.getByTestId("timepicker-preview")).toContainText("09:15");
 
+  // The face opens on the half of the day the field was in, so 14 is not on
+  // it yet — one ring cannot carry twenty-four hours, and the switch is how
+  // the other twelve are reached.
+  await expect(page.getByTestId("timepicker-hour-14")).toHaveCount(0);
+  await page.getByTestId("timepicker-half-afternoon").click();
+  await expect(page.getByTestId("timepicker-preview")).toContainText("21:15");
+
+  // Choosing an hour hands over to the minutes, the way every clock picker
+  // does: the hour ring is gone and the minutes are there in its place.
   await page.getByTestId("timepicker-hour-14").click();
+  await expect(page.getByTestId("timepicker-hour-14")).toHaveCount(0);
   await page.getByTestId("timepicker-minute-30").click();
   await expect(page.getByTestId("timepicker-preview")).toContainText("14:30");
 
@@ -1313,8 +1323,65 @@ test("offers the clock beside a time field, for a thumb that would rather point"
   await expect(page.getByTestId("entry-time")).toHaveValue("09:15");
 
   await page.getByTestId("entry-time-picker").click();
+  await page.getByTestId("timepicker-half-afternoon").click();
   await page.getByTestId("timepicker-hour-14").click();
   await page.getByTestId("timepicker-minute-30").click();
   await page.getByTestId("timepicker-confirm").click();
   await expect(page.getByTestId("entry-time")).toHaveValue("14:30");
+});
+
+test("keeps the clock's own controls on the 48dp floor", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+
+  await add(page, "meal");
+  // A fixed hour, so the face is on a known half of the day: a sheet that
+  // opens on the clock would put the suite on 00-11 or on 12-23 depending on
+  // when it ran, which is the shape of failure this file has had before.
+  await page.getByTestId("entry-time").fill("0600");
+  await page.getByTestId("entry-time-picker").click();
+
+  // The numbers on the face are the reason the dial carries twelve marks and
+  // a switch instead of two rings: a second ring inside this one would put
+  // them 38dp apart.
+  for (const id of [
+    "entry-time-picker",
+    "timepicker-set-hour",
+    "timepicker-set-minute",
+    "timepicker-half-morning",
+    "timepicker-half-afternoon",
+    "timepicker-hour-00",
+    "timepicker-hour-06",
+  ]) {
+    const box = await page.getByTestId(id).boundingBox();
+    expect(
+      box?.height,
+      `${id} is under the touch floor`,
+    ).toBeGreaterThanOrEqual(48);
+    expect(box?.width, `${id} is under the touch floor`).toBeGreaterThanOrEqual(
+      48,
+    );
+  }
+});
+
+test("keeps a minute the clock has no number for", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+
+  await add(page, "meal");
+
+  // **Opening on 09:47 must not round to 09:45.** The face labels every fifth
+  // minute; rounding the other 55 on open would be the picker editing a value
+  // nobody asked it to touch.
+  await page.getByTestId("entry-time").fill("0947");
+  await page.getByTestId("entry-time-picker").click();
+  await expect(page.getByTestId("timepicker-preview")).toContainText("09:47");
+  await page.getByTestId("timepicker-confirm").click();
+  await expect(page.getByTestId("entry-time")).toHaveValue("09:47");
 });

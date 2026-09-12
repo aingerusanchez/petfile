@@ -97,6 +97,10 @@ export function VetCard({
             label={vetLabel(option)}
             selected={kind === option}
             onPress={() => setKind(option)}
+            // Sized to their own labels rather than stretched across the card.
+            // Full-width they read as two large buttons — the card's main
+            // event — when what they are is a pair of tabs over one body.
+            className="shrink-0 flex-row items-center justify-center rounded-xl border px-5 py-3"
           />
         ))}
       </View>

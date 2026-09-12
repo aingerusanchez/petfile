@@ -105,6 +105,7 @@ components/ui/            → the design-system primitives every screen composes
   Celebration.tsx         → one-shot confetti; CelebrationProvider hosts it above the navigator
   Checkbox.tsx            → voluntary boolean flag, unchecked by default
   DateField.tsx           → date display + in-house picker (month+year when approximate)
+  TimePicker.tsx          → the clock face behind a time field's own glyph
   BreedField.tsx          → breed combobox: suggests from a list, accepts free text
   TextField.tsx           → labelled input; label linked for readers, unit inside the field
   FieldLabel.tsx          → the uppercase field label
@@ -122,6 +123,7 @@ lib/                      → domain logic and data access
   photos.ts               → the pet's photo: pick, upload, and sign a read URL
   failures.ts             → the timeout on every request, and its message in the app's voice
   dates.ts                → the ISO/DD-MM-AAAA conversion at the edge
+  clock.ts                → where a time sits on a clock face, and back again
   age.ts                  → the age from a birth date, and the life stage it lands in
   framing.ts              → the crop maths behind the avatar editor
   duration.ts             → minutes in and out of "1h 30m"
