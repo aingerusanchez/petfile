@@ -58,7 +58,7 @@
     --color-nav: #0d1525;
     --color-border-default: #1e293b;
     --color-border-strong: #334155;
-    --color-accent-primary: #a5f2f3;
+    --color-accent-primary: #a78bfa;
     --color-accent-secondary: #7dd3e8;
     /* Added beyond the spec table: "base" already backs bg-base, and Tailwind's
        built-in text-base (font-size) utility would shadow a text-base color

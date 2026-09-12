@@ -17,7 +17,7 @@ export const colors = {
   nav: "#0D1525",
   borderDefault: "#1E293B",
   borderStrong: "#334155",
-  accentPrimary: "#A5F2F3",
+  accentPrimary: "#A78BFA",
   accentSecondary: "#7DD3E8",
   onAccent: "#0B1120",
   textPrimary: "#F1F5F9",
