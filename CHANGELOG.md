@@ -16,7 +16,7 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
-## [v0.8.0] — 2026-09-11
+## [v0.8.0] — 2026-09-12
 
 ### Nuevo
 
