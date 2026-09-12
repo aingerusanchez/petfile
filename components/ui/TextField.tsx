@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import {
   TextInput,
   View,
@@ -14,6 +14,16 @@ type TextFieldProps = Omit<
   "className" | "placeholderTextColor"
 > & {
   label: string;
+  /**
+   * A control anchored in the field's own bottom-right corner.
+   *
+   * **For the furniture of a textarea, not for its value.** A three-line note
+   * has empty space nobody is typing into, and a mark that belongs to the
+   * field — what formatting it understands — reads better there than stacked
+   * beside it, where its height has to be argued with the field's. The
+   * caller draws it faint enough to sit over text; see `MarkdownHelp`.
+   */
+  corner?: ReactNode;
   /** Marks the field as one that blocks a save. */
   required?: boolean;
   /**
@@ -75,6 +85,7 @@ export function TextField({
   required = false,
   suffix,
   suffixLabel,
+  corner,
   onLayout,
   error = null,
   className = "mb-5",
@@ -93,6 +104,16 @@ export function TextField({
           error ? "border-error" : "border-border-default"
         }`}
       >
+        {corner ? (
+          <View
+            // Over the field's own bottom-right, inside its border. Absolute
+            // so it takes no width from the input: a note is typed across the
+            // whole field and only ever reaches this corner on its last line.
+            style={{ position: "absolute", right: 6, bottom: 6, zIndex: 1 }}
+          >
+            {corner}
+          </View>
+        ) : null}
         <TextInput
           {...inputProps}
           // The unit is part of what the field is asking for, so it belongs in

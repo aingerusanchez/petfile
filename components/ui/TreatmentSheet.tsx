@@ -281,22 +281,15 @@ export function TreatmentSheet({
         )}
       </View>
 
-      {/* The vocabulary of a field, beside the field: a three-line textarea
-          leaves exactly enough room for it in the column alongside. */}
-      <View className="mb-5 flex-row items-end gap-3">
-        <View className="min-w-0 flex-1">
-          <TextField
-            testID="treatment-note"
-            multiline
-            label="NOTA"
-            value={note}
-            onChangeText={setNote}
-            placeholder="¿Algo que contar?"
-            className="mb-0"
-          />
-        </View>
-        <MarkdownHelp testID="treatment-note-help" />
-      </View>
+      <TextField
+        testID="treatment-note"
+        multiline
+        label="NOTA"
+        value={note}
+        onChangeText={setNote}
+        placeholder="¿Algo que contar?"
+        corner={<MarkdownHelp testID="treatment-note-help" />}
+      />
 
       <View className="flex-row gap-3">
         <View className="flex-1">

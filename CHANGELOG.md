@@ -77,6 +77,18 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   **No hay editor**: el campo es un textarea de tres líneas, sin barra de
   herramientas ni vista previa. El renderizador es el que ya tenía el
   changelog, extraído el día que una nota lo necesitó.
+- **Las dos clínicas en una tarjeta, con un selector.** Salud es larga —lo que
+  toca, el peso y su línea, el historial, las enfermedades— y dos clínicas al
+  pie eran dos bloques más que recorrer; son la misma pregunta hecha dos veces.
+  **Y "Copiar de la veterinaria"** en el hueco de urgencias, porque una clínica
+  con 24h contesta a las dos y teclear los mismos cuatro campos otra vez es la
+  tarea que acaba con la segunda ficha vacía.
+- **El marcador estaba invisible para la app.** Android 11 oculta lo que no se
+  declara en `<queries>`, el manifiesto que genera Expo solo declara `https`, y
+  `Linking.openURL("tel:…")` no podía resolver ninguna actividad: la promesa se
+  rechazaba y el toque en el teléfono de la clínica no hacía absolutamente
+  nada. Sin fallo, sin log, sin marcador. Un plugin de configuración declara el
+  esquema, y lo que no se pueda abrir ahora lo dice en vez de callarse.
 - **Las dos clínicas, siempre en pantalla.** Veterinario y Urgencias, con el
   teléfono pulsable para llamar y la dirección para abrir el mapa. Vacías
   preguntan en los términos de la casa — "la clínica de siempre, la que conoce
@@ -102,6 +114,13 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   se ordena al salir del campo, que es la corrección que la plataforma sí
   respeta. Una fecha que no existe lo dice; el modo aproximado sigue siendo un
   botón, porque un mes y un año no se teclean.
+- **La ayuda de Markdown se mete en el propio textarea**, en su esquina
+  inferior derecha y difuminada, como el icono de pantalla completa de la
+  gráfica. Estaba apilada sobre el botón de la kaka, donde se leía como un
+  segundo control del formulario y no como algo del campo — y la suma de los
+  dos iconos no cuadraba con el alto del textarea. El icono pasa de una "T" a
+  un libro: una letra es lo que parece un control de _formato_, y esto no
+  formatea nada, explica. Su sheet gana la X que le faltaba.
 - **El teléfono se agrupa como se escribe un teléfono aquí**: "944 26 00 51",
   tanto al leerlo como al salir del campo. Lo que no son nueve dígitos se deja
   intacto — una extensión, dos números en un campo o una clínica extranjera son

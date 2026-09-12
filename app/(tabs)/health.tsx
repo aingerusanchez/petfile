@@ -31,7 +31,7 @@ import {
   type PetEventRow,
 } from "../../lib/events";
 import { getMyPet, type PetRow } from "../../lib/pets";
-import { readVet, vetColumn, VET_KINDS } from "../../lib/vets";
+import { readVet } from "../../lib/vets";
 import {
   dueStatus,
   fromDateKey,
@@ -462,28 +462,26 @@ export default function Health() {
         </Group>
       ) : null}
 
-      {/* **The two clinics, always on the screen.** They are a property of
-          the animal rather than a record that accumulates, so they are not
-          behind the floating action: there are exactly two, they are known in
-          advance, and the emergency one is read by somebody who is
-          frightened. A card that has to be discovered before it can be filled
-          is a card that is empty on the night it matters. */}
-      {VET_KINDS.map((kind) => (
-        <VetCard
-          key={kind}
-          kind={kind}
-          petId={pet.id}
-          petName={pet.name}
-          vet={readVet(pet[vetColumn(kind)])}
-          onSaved={(message) => {
-            toast.show({ variant: "success", message });
-            reload();
-          }}
-          onFailed={(message) =>
-            toast.show({ variant: "error", message, persist: true })
-          }
-        />
-      ))}
+      {/* **Both clinics in one card, behind a selector.** They are a
+          property of the animal rather than a record that accumulates, so
+          they are not behind the floating action — and they are the same
+          question asked twice, so they are one card rather than two blocks
+          at the foot of a long screen. */}
+      <VetCard
+        petId={pet.id}
+        petName={pet.name}
+        vets={{
+          primary: readVet(pet.vet_primary),
+          emergency: readVet(pet.vet_emergency),
+        }}
+        onSaved={(message) => {
+          toast.show({ variant: "success", message });
+          reload();
+        }}
+        onFailed={(message) =>
+          toast.show({ variant: "error", message, persist: true })
+        }
+      />
 
       {weighing ? (
         <WeightSheet
@@ -666,22 +664,15 @@ function WeightSheet({
         />
       </View>
 
-      {/* The vocabulary of a field, beside the field: a three-line textarea
-          leaves exactly enough room for it in the column alongside. */}
-      <View className="mb-5 flex-row items-end gap-3">
-        <View className="min-w-0 flex-1">
-          <TextField
-            testID="weight-note"
-            multiline
-            label="NOTA"
-            value={note}
-            onChangeText={setNote}
-            placeholder="¿Algo que contar?"
-            className="mb-0"
-          />
-        </View>
-        <MarkdownHelp testID="weight-note-help" />
-      </View>
+      <TextField
+        testID="weight-note"
+        multiline
+        label="NOTA"
+        value={note}
+        onChangeText={setNote}
+        placeholder="¿Algo que contar?"
+        corner={<MarkdownHelp testID="weight-note-help" />}
+      />
 
       <View className="flex-row gap-3">
         <View className="flex-1">

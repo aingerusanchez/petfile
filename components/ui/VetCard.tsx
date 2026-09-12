@@ -5,6 +5,7 @@ import {
   EMPTY_VET,
   formatPhone,
   hasVet,
+  VET_KINDS,
   mapsHref,
   saveVet,
   telHref,
@@ -13,6 +14,7 @@ import {
   type VetKind,
 } from "../../lib/vets";
 import { Button } from "./Button";
+import { Chip } from "./Chip";
 import { Group } from "./Group";
 import { Sheet } from "./Sheet";
 import { Text } from "./Text";
@@ -20,16 +22,25 @@ import { TextField } from "./TextField";
 import { colors, TOUCH_TARGET } from "./tokens";
 
 /**
- * One clinic, and the two things you do with it at speed.
+ * Both clinics in one card, with a selector over them.
  *
- * **Both cards exist before anybody fills them.** They could have been added
- * from the floating action like a weight or a treatment, and that would have
- * been wrong for the same reason a dog's name is not added from a floating
- * action: a vet is a *property of the animal*, not a record that accumulates.
- * There are exactly two, they are known in advance, and the emergency one is
- * needed by somebody who is frightened — a card that has to be discovered
- * before it can be filled is a card that is empty on the night it matters.
- * Empty, it says what it is for and offers to be filled.
+ * **Two cards became one, and the reason is the screen rather than the data.**
+ * Salud is long — what is due, the weight and its line, a treatment history, a
+ * list of illnesses — and two clinics at the foot of it were two more blocks
+ * to scroll past. They are the same *kind* of answer asked twice, which is
+ * what a selector is for.
+ *
+ * **The cost, stated plainly: the emergency one is now one tap away rather
+ * than on screen.** That was the argument for two cards — it is read by
+ * somebody who is frightened — and a labelled tab is a thin thing to put
+ * between a person and a phone number. What buys it back is that both labels
+ * are always visible, so nothing has to be discovered; what would not buy it
+ * back is hiding either behind a menu.
+ *
+ * **"Copiar de la veterinaria" exists because they are so often the same
+ * clinic.** A practice with 24-hour cover answers both questions, and typing
+ * the same four fields twice is the kind of chore that ends with the second
+ * card empty.
  *
  * **The phone and the address are controls, not text.** A number that looks
  * like a paragraph and happens to dial is a guess a tutor has to make; with a
@@ -38,111 +49,165 @@ import { colors, TOUCH_TARGET } from "./tokens";
  * written as text and nothing more.
  */
 export function VetCard({
-  kind,
-  vet,
+  vets,
   petId,
   petName,
   onSaved,
   onFailed,
 }: {
-  kind: VetKind;
-  vet: Vet;
+  /** Both columns, read out of the pet's row. */
+  vets: Record<VetKind, Vet>;
   petId: string;
   /** The dog's own name: an empty card says whose clinic it is asking for. */
   petName: string;
   onSaved: (message: string) => void;
   onFailed: (message: string) => void;
 }) {
+  /**
+   * Which one is showing.
+   *
+   * It opens on the regular clinic because that is the one consulted on an
+   * ordinary Tuesday; the other is one tap away and says so on its own label.
+   */
+  const [kind, setKind] = useState<VetKind>("primary");
   const [editing, setEditing] = useState(false);
+  const [copying, setCopying] = useState(false);
+
+  const vet = vets[kind];
   const filled = hasVet(vet);
   const tel = telHref(vet.phone);
   const maps = mapsHref(vet.address);
+  // Offered only where it saves work: an emergency card with nothing in it,
+  // and a regular one with something to copy.
+  const canCopy =
+    kind === "emergency" && !filled && hasVet(vets.primary) && !copying;
 
   return (
-    <Group
-      title={vetLabel(kind).toUpperCase()}
-      testID={`vet-${kind}`}
-      className="mb-6"
-    >
-      {filled ? (
-        <View className="mb-4">
-          {vet.clinic ? (
-            <Text className="font-semibold text-text-primary">
-              {vet.clinic}
-            </Text>
-          ) : null}
-          {vet.vet ? (
-            <View className="mt-1 flex-row items-center gap-2">
-              <Stethoscope size={14} color={colors.textTertiary} />
-              <Text className="min-w-0 flex-1 text-sm text-text-tertiary">
-                {vet.vet}
-              </Text>
-            </View>
-          ) : null}
+    <Group testID="vet-card" className="mb-6">
+      {/* **The app's own exclusive selector, not a new tab bar.** Two chips
+          are what this design system already uses for "one of these", they
+          keep both labels on screen — which is the whole reason a tap between
+          a frightened person and a phone number is acceptable — and they cost
+          no component nobody has tested. */}
+      <View className="mb-5 flex-row gap-3">
+        {VET_KINDS.map((option) => (
+          <Chip
+            key={option}
+            testID={`vet-tab-${option}`}
+            label={vetLabel(option)}
+            selected={kind === option}
+            onPress={() => setKind(option)}
+          />
+        ))}
+      </View>
 
-          {tel ? (
-            <Pressable
-              testID={`vet-${kind}-call`}
-              onPress={() => Linking.openURL(tel)}
-              accessibilityRole="button"
-              accessibilityLabel={`Llamar a ${vet.clinic || vetLabel(kind)}: ${formatPhone(vet.phone)}`}
-              style={{ minHeight: TOUCH_TARGET }}
-              className="mt-2 flex-row items-center gap-2 active:opacity-70"
-            >
-              <Phone size={16} color={colors.accentSecondary} />
-              {/* Grouped where it is read: "944260051" off a contact list
+      <View testID={`vet-${kind}`}>
+        {filled ? (
+          <View className="mb-4">
+            {vet.clinic ? (
+              <Text className="font-semibold text-text-primary">
+                {vet.clinic}
+              </Text>
+            ) : null}
+            {vet.vet ? (
+              <View className="mt-1 flex-row items-center gap-2">
+                <Stethoscope size={14} color={colors.textTertiary} />
+                <Text className="min-w-0 flex-1 text-sm text-text-tertiary">
+                  {vet.vet}
+                </Text>
+              </View>
+            ) : null}
+
+            {tel ? (
+              <Pressable
+                testID={`vet-${kind}-call`}
+                onPress={() =>
+                  open(tel, "No he podido abrir el marcador", onFailed)
+                }
+                accessibilityRole="button"
+                accessibilityLabel={`Llamar a ${vet.clinic || vetLabel(kind)}: ${formatPhone(vet.phone)}`}
+                style={{ minHeight: TOUCH_TARGET }}
+                className="mt-2 flex-row items-center gap-2 active:opacity-70"
+              >
+                <Phone size={16} color={colors.accentSecondary} />
+                {/* Grouped where it is read: "944260051" off a contact list
                   and "944 26 00 51" on the fridge are the same number, and
                   only one of them can be read back over the phone. */}
-              <Text className="min-w-0 flex-1 font-semibold text-accent-secondary">
-                {formatPhone(vet.phone)}
-              </Text>
-            </Pressable>
-          ) : null}
+                <Text className="min-w-0 flex-1 font-semibold text-accent-secondary">
+                  {formatPhone(vet.phone)}
+                </Text>
+              </Pressable>
+            ) : null}
 
-          {maps ? (
-            <Pressable
-              testID={`vet-${kind}-map`}
-              onPress={() => Linking.openURL(maps)}
-              accessibilityRole="button"
-              accessibilityLabel={`Abrir ${vet.address} en el mapa`}
-              style={{ minHeight: TOUCH_TARGET }}
-              className="flex-row items-center gap-2 py-1 active:opacity-70"
-            >
-              <MapPin size={16} color={colors.accentSecondary} />
-              <Text className="min-w-0 flex-1 text-accent-secondary">
-                {vet.address}
-              </Text>
-            </Pressable>
-          ) : null}
+            {maps ? (
+              <Pressable
+                testID={`vet-${kind}-map`}
+                onPress={() =>
+                  open(maps, "No he podido abrir el mapa", onFailed)
+                }
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir ${vet.address} en el mapa`}
+                style={{ minHeight: TOUCH_TARGET }}
+                className="flex-row items-center gap-2 py-1 active:opacity-70"
+              >
+                <MapPin size={16} color={colors.accentSecondary} />
+                <Text className="min-w-0 flex-1 text-accent-secondary">
+                  {vet.address}
+                </Text>
+              </Pressable>
+            ) : null}
 
-          {vet.hours ? (
-            <View className="mt-1 flex-row items-center gap-2">
-              <Clock size={14} color={colors.textTertiary} />
-              <Text className="min-w-0 flex-1 text-sm text-text-tertiary">
-                {vet.hours}
-              </Text>
-            </View>
+            {vet.hours ? (
+              <View className="mt-1 flex-row items-center gap-2">
+                <Clock size={14} color={colors.textTertiary} />
+                <Text className="min-w-0 flex-1 text-sm text-text-tertiary">
+                  {vet.hours}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : (
+          // **An empty card says what it is for, in the household's own terms.**
+          // "Veterinario" is a category; "la que conoce a Loki" is the clinic
+          // the tutor is actually thinking of — and naming the dog is what turns
+          // a field into a question somebody can answer.
+          <Text className="mb-4 text-text-tertiary">
+            {kind === "primary"
+              ? `La clínica de siempre, la que conoce a ${petName}.`
+              : "A quién llamar o dónde ir cuando surge una urgencia a cualquier hora del día. Puede ser la misma si la clínica habitual abre 24h."}
+          </Text>
+        )}
+
+        <View className="mb-4 flex-row flex-wrap items-center gap-x-5">
+          <Button
+            testID={`vet-${kind}-edit`}
+            label={filled ? "Editar" : "Añadir"}
+            variant="link"
+            onPress={() => setEditing(true)}
+          />
+          {canCopy ? (
+            <Button
+              testID="vet-emergency-copy"
+              label="Copiar de la veterinaria"
+              variant="link"
+              onPress={async () => {
+                setCopying(true);
+                const { error } = await saveVet(
+                  petId,
+                  "emergency",
+                  vets.primary,
+                );
+                setCopying(false);
+                if (error) {
+                  onFailed(error);
+                  return false;
+                }
+                onSaved("Urgencias copiado de la veterinaria");
+                return true;
+              }}
+            />
           ) : null}
         </View>
-      ) : (
-        // **An empty card says what it is for, in the household's own terms.**
-        // "Veterinario" is a category; "la que conoce a Loki" is the clinic
-        // the tutor is actually thinking of — and naming the dog is what turns
-        // a field into a question somebody can answer.
-        <Text className="mb-4 text-text-tertiary">
-          {kind === "primary"
-            ? `La clínica de siempre, la que conoce a ${petName}.`
-            : "A quién llamar o dónde ir cuando surge una urgencia a cualquier hora del día. Puede ser la misma si la clínica habitual abre 24h."}
-        </Text>
-      )}
-
-      <View className="mb-4 items-start">
-        <Button
-          testID={`vet-${kind}-edit`}
-          label={filled ? "Editar" : "Añadir"}
-          variant="link"
-          onPress={() => setEditing(true)}
-        />
       </View>
 
       {editing ? (
@@ -273,4 +338,22 @@ function VetSheet({
       </View>
     </Sheet>
   );
+}
+
+/**
+ * Hands a link to the system, and says so when the system will not take it.
+ *
+ * **`openURL` rejects, and an unhandled rejection is silence.** Tapping a
+ * clinic's phone number did nothing at all on the device for as long as the
+ * manifest failed to declare the `tel` scheme — no crash, no log, no dialer,
+ * and no way for anybody to tell whether the tap had even landed. The
+ * declaration is the fix; this is what stops the next one of these from being
+ * invisible too.
+ */
+function open(
+  url: string,
+  whenItFails: string,
+  onFailed: (message: string) => void,
+) {
+  Linking.openURL(url).catch(() => onFailed(whenItFails));
 }

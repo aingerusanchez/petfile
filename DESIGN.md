@@ -514,7 +514,9 @@ A hairline-outlined section, and its heading is the anchor on any screen long en
 
 Two clinics, and the two things you do with one at speed.
 
-- **Both exist before anybody fills them, and neither is behind the floating action.** A vet is a property of the animal rather than a record that accumulates — closer to the dog's name than to a weighing — and there are exactly two, known in advance. The emergency one is read by somebody who is frightened: a card that has to be discovered before it can be filled is a card that is empty on the night it matters. Empty, each asks in the household's own terms rather than by category: "Veterinario" is a label, "la clínica de siempre, la que conoce a Loki" is the clinic the tutor is already thinking of — and naming the dog is what turns a field into a question somebody can answer.
+- **One card with a selector over both, and the cost stated plainly.** Salud is long, and two clinics at the foot of it were two more blocks to scroll past; they are the same kind of answer asked twice, which is what a selector is for. The cost is that the emergency one is a tap away rather than on screen — the argument that made them two cards. What buys it back is that both labels are always visible, so nothing has to be discovered; what would not buy it back is hiding either behind a menu.
+- **"Copiar de la veterinaria" is offered only where it saves work**: an empty emergency card with a filled regular one. A practice with 24-hour cover answers both questions, and typing the same four fields twice is the chore that ends with the second card empty.
+- **Neither is behind the floating action.** A vet is a property of the animal rather than a record that accumulates — closer to the dog's name than to a weighing — and there are exactly two, known in advance. Empty, each asks in the household's own terms rather than by category: "Veterinario" is a label, "la clínica de siempre, la que conoce a Loki" is the clinic the tutor is already thinking of — and naming the dog is what turns a field into a question somebody can answer.
 - **The phone and the address are controls; the rest is text.** A number that looks like a paragraph and happens to dial is a guess the tutor has to make. With a glyph and the tone this app gives its links, the row says what pressing it does. The clinic, the person and the hours are read, so they are written and nothing more.
 - **No country code is invented.** A Spanish number dials from a Spanish SIM exactly as written; prefixing +34 to one typed without it is the app guessing which country the phone is in, and being wrong once means the call fails at the moment it matters most.
 - **`jsonb`, by the schema's own rule.** Nothing is computed from a vet — it is listed, dialled and mapped — and the shape will grow: a second phone, an appointment, the chip number the clinic asked for.
@@ -547,6 +549,8 @@ The way back and the name of where you are, on a screen the tabs do not reach.
 - **The destination moves to the accessible name** — "Volver a Perfil". It is the reader who needs it; a sighted tutor pressing back on a screen they opened thirty seconds ago knows where it goes.
 
 ### Markdown
+
+- **The help mark lives in the field's own corner, faint.** It was a "T" stacked above the walk's kaka button, where it read as a second control of the sheet rather than as a property of the note — and the two glyphs together did not add up to the textarea's height, so the column beside it was visibly the wrong size. In the corner it belongs to the field, the way the weight chart's maximise mark belongs to the chart. Dimmed, because a note's last line runs under it and a mark that hides a word is worse than no mark. **`BookType`, not a letter**: a letter is what a _formatting_ control looks like, and this formats nothing — it explains.
 
 Four constructs, and no editor.
 

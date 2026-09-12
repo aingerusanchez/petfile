@@ -1434,20 +1434,17 @@ function EntrySheet({
               onChangeText={setNote}
               placeholder="¿Algo que contar?"
               maxLength={200}
+              corner={<MarkdownHelp testID="entry-note-help" />}
             />
           </View>
-          {/* **The space the three-line note opened up.** A textarea is tall
-              and the column beside it was empty above the kaka button; the
-              vocabulary of a field belongs next to the field. */}
-          <View className="mb-5 gap-2">
-            <MarkdownHelp testID="entry-note-help" />
-            {isWalk ? (
+          {isWalk ? (
+            <View className="mb-5">
               <StoolToggle
                 open={stoolsOpen}
                 onToggle={() => setStoolsOpen((was) => !was)}
               />
-            ) : null}
-          </View>
+            </View>
+          ) : null}
         </View>
 
         {isWalk ? (
