@@ -30,6 +30,7 @@ import {
   StoolToggle,
   Text,
   TextField,
+  TimePicker,
   TOUCH_TARGET,
   useCelebration,
   useToast,
@@ -1328,6 +1329,16 @@ function EntrySheet({
               <View className="flex-1">
                 <TextField
                   testID="entry-from"
+                  trailing={
+                    <TimePicker
+                      testID="entry-from-picker"
+                      label="Desde"
+                      value={from}
+                      onChange={(time) => {
+                        setFrom(time);
+                      }}
+                    />
+                  }
                   label="Desde"
                   value={from}
                   onChangeText={editFrom}
@@ -1341,6 +1352,16 @@ function EntrySheet({
               <View className="flex-1">
                 <TextField
                   testID="entry-to"
+                  trailing={
+                    <TimePicker
+                      testID="entry-to-picker"
+                      label="Hasta"
+                      value={at}
+                      onChange={(time) => {
+                        setAt(time);
+                      }}
+                    />
+                  }
                   label="Hasta"
                   value={at}
                   onChangeText={editAt}
@@ -1398,6 +1419,16 @@ function EntrySheet({
         ) : (
           <TextField
             testID="entry-time"
+            trailing={
+              <TimePicker
+                testID="entry-time-picker"
+                label="Hora"
+                value={at}
+                onChange={(time) => {
+                  setAt(time);
+                }}
+              />
+            }
             label="Hora"
             value={at}
             onChangeText={editAt}

@@ -28,6 +28,7 @@ export { Toast, type ToastOptions, type ToastVariant } from "./Toast";
 export { ToastProvider, useToast } from "./ToastProvider";
 export { SuggestField } from "./SuggestField";
 export { Text } from "./Text";
+export { TimePicker } from "./TimePicker";
 export { TREATMENT_ICONS } from "./treatmentIcons";
 export { TreatmentSheet } from "./TreatmentSheet";
 export { WeightLine } from "./WeightLine";

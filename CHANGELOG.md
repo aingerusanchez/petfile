@@ -103,6 +103,12 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   sin él es adivinar en qué país está el móvil, y equivocarse una vez es que
   la llamada falle en el momento que más importa. El que se escriba con
   prefijo lo conserva.
+- **Y las horas ganan su propio selector**, con el mismo trato: el campo sigue
+  escribiéndose —"915" son dos segundos— y el reloj al lado es la alternativa
+  para el pulgar que prefiere apuntar a una ficha de 48 dp antes que a cuatro
+  dígitos. Las horas en una tira, los minutos en cinco en cinco, y un minuto
+  fuera de esa rejilla —09:47— se conserva en vez de redondearse: abrir un
+  selector no puede editar en silencio un valor que nadie le pidió tocar.
 - **Las fechas se escriben, y el calendario queda detrás de su icono.** Todas
   pasaban por tres toques en un calendario, incluidas las que uno ya sabe — una
   fecha de nacimiento de hace cuatro años es un año de pasar meses. Ahora el

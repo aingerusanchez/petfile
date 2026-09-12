@@ -575,6 +575,14 @@ One scrolling screen, three sections, no sub-navigation: the file the app's name
 - **A trailing button brings its own bottom margin.** `Group` ends in `pb-1` because every field it was built for carries `mb-5`; a button does not, and both sections' actions sat flush against the section's own border until they were wrapped.
 - **A treatment's history and its schedule are two lists on purpose.** "Lo que toca" carries the next date, one row per schedule; "Tratamientos" carries what was actually given, most recent first, and is where a row is reopened to correct or delete it. In real use the history grows and the schedule stays three or four rows long.
 
+### Time Picker
+
+The same bargain the date field struck, for the field that needs it least and the thumb that needs it most.
+
+- **The field stays typed and the clock is the alternative.** A time is faster to type than to browse — "915" is two seconds — so typing keeps the whole width and this is a glyph beside it. It is here for the tutor who would rather not aim at a number pad, and for the one who cannot: a 48dp chip is a far easier target than four digits.
+- **Hours scroll, minutes are a grid of fives.** Twenty-four in a row is a strip you flick; sixty minutes is not a grid anybody scans, and this app logs walks in quarter-hours. The exact minute somebody needs is already one typed word away.
+- **An off-grid minute is kept, not rounded.** Opening on 09:47 marks no minute and the draft still says 47, so confirming without touching the grid gives back the time it opened with. Rounding on open would be the picker quietly editing a value nobody asked it to touch.
+
 ### Date Field & Picker
 
 A value display that opens a picker. **No text input** — the field previously demanded `AAAA-MM-DD` from a reader who writes DD/MM/AAAA, with no `keyboardType`, so Android raised the alphabetic keyboard for a digits-only task.

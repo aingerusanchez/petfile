@@ -24,6 +24,13 @@ type TextFieldProps = Omit<
    * caller draws it faint enough to sit over text; see `MarkdownHelp`.
    */
   corner?: ReactNode;
+  /**
+   * A control at the field's right edge, inline with its value.
+   *
+   * Where the date field keeps its calendar glyph: the field is typed and the
+   * picker is the alternative, not the other way round.
+   */
+  trailing?: ReactNode;
   /** Marks the field as one that blocks a save. */
   required?: boolean;
   /**
@@ -86,6 +93,7 @@ export function TextField({
   suffix,
   suffixLabel,
   corner,
+  trailing,
   onLayout,
   error = null,
   className = "mb-5",
@@ -150,6 +158,7 @@ export function TextField({
             suffix ? "pr-2" : "pr-4"
           }`}
         />
+        {trailing}
         {suffix ? (
           <Text
             // Named on the input above, so this is decoration to a screen

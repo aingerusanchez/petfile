@@ -1282,3 +1282,39 @@ test("marks the goal met, once", async ({ page }) => {
   // The goal reads in hours on both sides of the "de".
   await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");
 });
+
+test("offers the clock beside a time field, for a thumb that would rather point", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+
+  await add(page, "meal");
+
+  // **The field stays typed and the picker is the alternative.** "915" is two
+  // seconds on a number pad; this is for the thumb that would rather aim at a
+  // 48dp chip than at four digits.
+  await page.getByTestId("entry-time").fill("0915");
+  await page.getByTestId("entry-time-picker").click();
+  await expect(page.getByTestId("timepicker-preview")).toContainText("09:15");
+
+  await page.getByTestId("timepicker-hour-14").click();
+  await page.getByTestId("timepicker-minute-30").click();
+  await expect(page.getByTestId("timepicker-preview")).toContainText("14:30");
+
+  // Nothing commits until Confirmar, the contract every sheet here keeps —
+  // and the field kept the tidying that opening the picker gave it, because
+  // reaching for the picker took focus off the field.
+  await page.getByTestId("timepicker-cancel").click();
+  await expect(page.getByTestId("entry-time")).toHaveValue("09:15");
+
+  await page.getByTestId("entry-time-picker").click();
+  await page.getByTestId("timepicker-hour-14").click();
+  await page.getByTestId("timepicker-minute-30").click();
+  await page.getByTestId("timepicker-confirm").click();
+  await expect(page.getByTestId("entry-time")).toHaveValue("14:30");
+});
