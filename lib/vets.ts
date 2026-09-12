@@ -25,12 +25,34 @@ export type VetKind = "primary" | "emergency";
 export const VET_KINDS: VetKind[] = ["primary", "emergency"];
 
 const LABELS: Record<VetKind, string> = {
-  primary: "Veterinario",
+  // **"Veterinaria" is the clinic, not the person.** The card's own field asks
+  // for "la veterinaria o el veterinario" you ask for by name; this names the
+  // practice — la clínica veterinaria — which is what the tab switches between
+  // and what the household calls it.
+  primary: "Veterinaria",
   emergency: "Urgencias",
 };
 
 export function vetLabel(kind: VetKind): string {
   return LABELS[kind];
+}
+
+/**
+ * What the toast says once it is saved.
+ *
+ * Spelled out per kind rather than built as `${label} guardado`, which
+ * produced "Urgencias guardado" — the app talking about a feminine plural in
+ * the masculine singular. A template that has to agree with the gender and
+ * number of whatever is dropped into it is a template that will be wrong
+ * again the next time a label is added.
+ */
+const SAVED: Record<VetKind, string> = {
+  primary: "Veterinaria guardada",
+  emergency: "Urgencias guardadas",
+};
+
+export function vetSaved(kind: VetKind): string {
+  return SAVED[kind];
 }
 
 /** The column each one lives in. */
@@ -45,7 +67,10 @@ export type Vet = {
   vet: string;
   phone: string;
   address: string;
-  /** Free text: "24h", "L-V 9:00-20:00". Nobody computes from it. */
+  /**
+   * Free text, over as many lines as the clinic has different days, rendered
+   * as Markdown. Nobody computes from it.
+   */
   hours: string;
 };
 

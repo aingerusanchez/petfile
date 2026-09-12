@@ -17,6 +17,7 @@ export { MonthCalendar, type CalendarMark } from "./MonthCalendar";
 export { Inline, Markdown } from "./Markdown";
 export { MarkdownHelp } from "./MarkdownHelp";
 export { Screen } from "./Screen";
+export { Segmented } from "./Segmented";
 export { ScreenHeader } from "./ScreenHeader";
 export { Sheet } from "./Sheet";
 export { LogSkeleton, Skeleton, TreatmentSkeleton } from "./Skeleton";

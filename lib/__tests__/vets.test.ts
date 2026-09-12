@@ -7,6 +7,7 @@ import {
   telHref,
   vetColumn,
   vetLabel,
+  vetSaved,
   writeVet,
   type Vet,
 } from "../vets";
@@ -121,7 +122,15 @@ describe("the two cards", () => {
   it("each knows its column and its name", () => {
     expect(vetColumn("primary")).toBe("vet_primary");
     expect(vetColumn("emergency")).toBe("vet_emergency");
-    expect(vetLabel("primary")).toBe("Veterinario");
+    expect(vetLabel("primary")).toBe("Veterinaria");
     expect(vetLabel("emergency")).toBe("Urgencias");
+  });
+
+  it("agrees with itself about gender and number", () => {
+    // "Urgencias guardado" is what a `${label} guardado` template produces,
+    // and it is the app talking about a feminine plural in the masculine
+    // singular.
+    expect(vetSaved("primary")).toBe("Veterinaria guardada");
+    expect(vetSaved("emergency")).toBe("Urgencias guardadas");
   });
 });

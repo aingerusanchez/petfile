@@ -1,4 +1,11 @@
-import { Clock, MapPin, Phone, Stethoscope } from "lucide-react-native";
+import {
+  Clock,
+  MapPin,
+  Phone,
+  Siren,
+  Stethoscope,
+  User,
+} from "lucide-react-native";
 import { useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 import {
@@ -10,12 +17,15 @@ import {
   saveVet,
   telHref,
   vetLabel,
+  vetSaved,
   type Vet,
   type VetKind,
 } from "../../lib/vets";
 import { Button } from "./Button";
-import { Chip } from "./Chip";
 import { Group } from "./Group";
+import { Markdown } from "./Markdown";
+import { MarkdownHelp } from "./MarkdownHelp";
+import { Segmented } from "./Segmented";
 import { Sheet } from "./Sheet";
 import { Text } from "./Text";
 import { TextField } from "./TextField";
@@ -84,26 +94,29 @@ export function VetCard({
 
   return (
     <Group testID="vet-card" className="mb-6">
-      {/* **The app's own exclusive selector, not a new tab bar.** Two chips
-          are what this design system already uses for "one of these", they
-          keep both labels on screen — which is the whole reason a tap between
-          a frightened person and a phone number is acceptable — and they cost
-          no component nobody has tested. */}
-      <View className="mb-5 flex-row gap-3">
-        {VET_KINDS.map((option) => (
-          <Chip
-            key={option}
-            testID={`vet-tab-${option}`}
-            label={vetLabel(option)}
-            selected={kind === option}
-            onPress={() => setKind(option)}
-            // Sized to their own labels rather than stretched across the card.
-            // Full-width they read as two large buttons — the card's main
-            // event — when what they are is a pair of tabs over one body.
-            className="shrink-0 flex-row items-center justify-center rounded-xl border px-5 py-3"
-          />
-        ))}
-      </View>
+      {/* **Both labels stay on screen, which is what makes one card
+          acceptable.** A tap between a frightened person and a phone number is
+          only affordable while nothing has to be discovered first. Two bordered
+          chips said that much and said it as two large buttons; a joined track
+          with the live side inverted says it as one setting with two sides,
+          which is what it is. */}
+      <Segmented
+        label="Clínica"
+        value={kind}
+        onChange={setKind}
+        options={VET_KINDS.map((option) => ({
+          value: option,
+          label: vetLabel(option),
+          // **The stethoscope is routine care and the siren is not.** The pair
+          // has to read as one contrast rather than as two medical glyphs, and
+          // an emergency light is the one thing on a dark screen that nobody
+          // has to decode. It cost the person row its own stethoscope, which
+          // was the same glyph meaning "the vet you ask for" six lines below:
+          // a named person is a `User`.
+          icon: option === "primary" ? Stethoscope : Siren,
+          testID: `vet-tab-${option}`,
+        }))}
+      />
 
       <View testID={`vet-${kind}`}>
         {filled ? (
@@ -115,7 +128,7 @@ export function VetCard({
             ) : null}
             {vet.vet ? (
               <View className="mt-1 flex-row items-center gap-2">
-                <Stethoscope size={14} color={colors.textTertiary} />
+                <User size={14} color={colors.textTertiary} />
                 <Text className="min-w-0 flex-1 text-sm text-text-tertiary">
                   {vet.vet}
                 </Text>
@@ -162,11 +175,23 @@ export function VetCard({
             ) : null}
 
             {vet.hours ? (
-              <View className="mt-1 flex-row items-center gap-2">
-                <Clock size={14} color={colors.textTertiary} />
-                <Text className="min-w-0 flex-1 text-sm text-text-tertiary">
-                  {vet.hours}
-                </Text>
+              // **`items-start`, because a schedule is as many lines as the
+              // clinic has different days.** Centred against a four-line block
+              // the glyph floats beside Wednesday; the 2px lifts it onto the
+              // first line instead of onto the middle of the paragraph.
+              <View className="mt-1 flex-row items-start gap-2">
+                <View className="pt-[2px]">
+                  <Clock size={14} color={colors.textTertiary} />
+                </View>
+                <View className="min-w-0 flex-1">
+                  <Markdown
+                    testID={`vet-${kind}-hours-read`}
+                    text={vet.hours}
+                    className="text-sm text-text-tertiary"
+                    compact
+                    breaks
+                  />
+                </View>
               </View>
             ) : null}
           </View>
@@ -206,7 +231,7 @@ export function VetCard({
                   onFailed(error);
                   return false;
                 }
-                onSaved("Urgencias copiado de la veterinaria");
+                onSaved("Urgencias copiadas de la veterinaria");
                 return true;
               }}
             />
@@ -308,12 +333,20 @@ function VetSheet({
         onChangeText={field("address")}
         placeholder="Calle, número, código postal y ciudad"
       />
+      {/* **Multiline, because a real schedule is one line per day.** "L-V
+          10:30-14:00, 15:00-19:30, S 10:00-13:00" is a single line that has to
+          be parsed by eye every time it is read; the same thing down the page
+          is scanned. Markdown, and the same help the notes carry — a dash for
+          each day is a list, and a lone newline here is a line break rather
+          than the soft wrap a note's would be. */}
       <TextField
         testID={`vet-${kind}-hours`}
         label="HORARIO"
+        multiline
         value={draft.hours}
         onChangeText={field("hours")}
-        placeholder="24h · L-V 10:00-20:00"
+        placeholder={"L-V 10:30-14:00 y 17:00-20:00\nS 10:00-13:00"}
+        corner={<MarkdownHelp testID={`vet-${kind}-hours-help`} />}
       />
 
       <View className="flex-row gap-3">
@@ -334,7 +367,7 @@ function VetSheet({
                 onFailed(error);
                 return false;
               }
-              onSaved(`${vetLabel(kind)} guardado`);
+              onSaved(vetSaved(kind));
               return true;
             }}
           />

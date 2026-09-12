@@ -77,6 +77,34 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   **No hay editor**: el campo es un textarea de tres líneas, sin barra de
   herramientas ni vista previa. El renderizador es el que ya tenía el
   changelog, extraído el día que una nota lo necesitó.
+- **Y cada lado lleva su icono: un fonendoscopio y una sirena.** El par tiene
+  que leerse como un contraste —atención de siempre contra urgencia— y no como
+  dos iconos médicos; una luz de emergencia es lo único en una pantalla oscura
+  que no hay que descifrar. Le costó el fonendoscopio a la línea de la persona,
+  que era el mismo icono diciendo "a quién preguntáis" seis líneas más abajo:
+  una persona con nombre es un `User`. Y la pestaña se llama **Veterinaria**,
+  que es la clínica; el veterinario o la veterinaria con nombre es el campo de
+  dentro. De paso, "Urgencias guardado" pasa a "Urgencias guardadas": la app
+  estaba hablando de un femenino plural en masculino singular.
+- **El horario de la clínica se escribe en varias líneas.** "L-V 10:30-14:00,
+  15:00-19:30, S 10:00-13:00" es una línea que hay que descifrar cada vez que
+  se lee; lo mismo hacia abajo se ojea. El campo pasa a ser un textarea con
+  Markdown y su misma ayuda —un guion por día es una lista—, y el icono del
+  reloj se alinea con la primera línea en vez de quedarse flotando a la altura
+  del miércoles. **Aquí un salto de línea sí es un salto de línea**: en una
+  nota escrita en el móvil los saltos son accidentes del ancho de la pantalla y
+  se unen, que es lo que hace el propio Markdown; en un horario no hay ni uno
+  accidental.
+- **El selector de las dos clínicas invierte el lado activo.** Empezó como dos
+  fichas con borde, que mantenían las dos etiquetas en pantalla pero lo decían
+  como dos botones grandes —el acontecimiento principal de la tarjeta— cuando
+  son un ajuste con dos lados. Ahora es una pista unida en la que el lado vivo
+  se rellena de Ice Blue Glacial con el texto oscuro. **Un selector sutil no
+  existe en esta paleta**: Elevated Frost sobre Fjord Slate mide 1,16:1, el
+  mismo escalón imperceptible que obligó a las fichas a cambiar de grosor en
+  vez de de fondo, así que invertir es lo único que de verdad se lee. Y no es
+  una idea nueva: el día elegido del calendario y el número elegido del reloj
+  ya son un relleno del acento con el texto en oscuro.
 - **Las dos clínicas en una tarjeta, con un selector.** Salud es larga —lo que
   toca, el peso y su línea, el historial, las enfermedades— y dos clínicas al
   pie eran dos bloques más que recorrer; son la misma pregunta hecha dos veces.

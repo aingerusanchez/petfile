@@ -72,6 +72,17 @@ type MarkdownProps = {
    * is one tap away on the day it belongs to.
    */
   lines?: number;
+  /**
+   * Treat a single newline as a line break rather than as a soft wrap.
+   *
+   * **For a field where a newline is always deliberate.** A note typed on a
+   * phone wraps by accident, which is why Markdown — and this renderer —
+   * collapse a lone newline into a space. A clinic's opening hours are the
+   * opposite: every line is a different day, nobody breaks one by mistake, and
+   * joining them produces "L-V 10:30-14:00 S 10:00-13:00", which is a sentence
+   * about nothing. GitHub-flavoured Markdown makes the same exception.
+   */
+  breaks?: boolean;
   testID?: string;
 };
 
@@ -80,6 +91,7 @@ export function Markdown({
   className = "text-sm text-text-secondary",
   compact = false,
   lines,
+  breaks = false,
   testID,
 }: MarkdownProps) {
   // Blank lines separate blocks; a block's own newlines are soft wraps, which
@@ -137,7 +149,7 @@ export function Markdown({
             numberOfLines={lines}
             className={`${className} ${index === blocks.length - 1 ? "" : gap}`}
           >
-            <Inline text={block.replace(/\n\s*/g, " ")} />
+            <Inline text={block.replace(/\n[^\S\n]*/g, breaks ? "\n" : " ")} />
           </Text>
         );
       })}

@@ -298,6 +298,16 @@ test("keeps both clinics on the screen before anybody fills them", async ({
   // emergency one is read by somebody who is frightened.
   await expect(page.getByTestId("vet-tab-primary")).toBeVisible();
   await expect(page.getByTestId("vet-tab-emergency")).toBeVisible();
+
+  // Both sides of the track are a real control, and a joined track is where a
+  // segment is likeliest to end up shorter than the two it sits between.
+  for (const id of ["vet-tab-primary", "vet-tab-emergency"]) {
+    const box = await page.getByTestId(id).boundingBox();
+    expect(
+      box?.height,
+      `${id} is under the touch floor`,
+    ).toBeGreaterThanOrEqual(48);
+  }
   await expect(page.getByTestId("vet-primary-edit")).toContainText("Añadir");
   await expect(page.getByTestId("vet-primary-call")).toBeHidden();
 
@@ -337,6 +347,39 @@ test("dials and maps what was written down", async ({ page }) => {
   // And the other one is untouched: two clinics, two columns.
   await page.getByTestId("vet-tab-primary").click();
   await expect(page.getByTestId("vet-primary-edit")).toContainText("Añadir");
+});
+
+test("keeps a schedule on as many lines as the clinic has days", async ({
+  page,
+}) => {
+  await openHealth(page);
+
+  // **A newline here is always deliberate.** A note typed on a phone wraps by
+  // accident, so the renderer joins a lone newline into a space; a schedule is
+  // the opposite, and joining it produces one line that has to be parsed by
+  // eye every time it is read.
+  await page.getByTestId("vet-primary-edit").click();
+  await page.getByTestId("vet-primary-clinic").fill("Los Burros");
+  await page
+    .getByTestId("vet-primary-hours")
+    .fill("L-V 10:30-14:00\nS 10:00-13:00\nD cerrado");
+  await page.getByTestId("vet-primary-save").click();
+
+  const hours = page.getByTestId("vet-primary-hours-read");
+  await expect(hours).toContainText("L-V 10:30-14:00");
+  await expect(hours).toContainText("S 10:00-13:00");
+  await expect(hours).toContainText("D cerrado");
+  // Three days, one block — not three paragraphs and not one run-on line.
+  expect(await hours.innerText()).toBe(
+    "L-V 10:30-14:00\nS 10:00-13:00\nD cerrado",
+  );
+
+  // And the field gives back what was typed, newlines and all, when it is
+  // reopened to be corrected.
+  await page.getByTestId("vet-primary-edit").click();
+  await expect(page.getByTestId("vet-primary-hours")).toHaveValue(
+    "L-V 10:30-14:00\nS 10:00-13:00\nD cerrado",
+  );
 });
 
 test("copies the regular clinic into urgencias, where they are the same", async ({
