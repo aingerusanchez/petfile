@@ -41,3 +41,4 @@ export {
   PRESSED_OPACITY,
   TOUCH_TARGET,
 } from "./tokens";
+export { VetCard } from "./VetCard";

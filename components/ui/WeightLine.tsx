@@ -37,10 +37,19 @@ import { colors } from "./tokens";
 export function WeightLine({
   weights,
   height = 72,
+  endInset = 0,
 }: {
   /** Newest first, as `weightsFor` returns them. */
   weights: PetWeightRow[];
   height?: number;
+  /**
+   * Room to leave at the right of the month labels.
+   *
+   * For a caller that anchors something in the chart's bottom-right corner —
+   * the section's maximise mark sat squarely on the last month until this
+   * existed.
+   */
+  endInset?: number;
 }) {
   const [width, setWidth] = useState(0);
 
@@ -165,7 +174,14 @@ export function WeightLine({
 
       {/* The span, under the ends it belongs to. Months rather than dates: the
           line is about how long, and "mar" beside "sep" says six months
-          faster than two full dates do. */}
+          faster than two full dates do.
+
+          **The right-hand month yields to whatever is anchored in the corner.**
+          The section puts a maximise mark there, and the last month was sitting
+          underneath it — so the label stops short by exactly that much rather
+          than the mark moving somewhere it means less. `endInset` is the
+          caller's business: a line with nothing in its corner gives the month
+          the whole width back. */}
       {first && last ? (
         <View className="mt-1 flex-row">
           <View className="w-12 shrink-0" />
@@ -174,7 +190,11 @@ export function WeightLine({
               {shortMonth(first.on)}
             </Text>
             {first.on === last.on ? null : (
-              <Text testID="weight-line-to" className="text-xs text-text-muted">
+              <Text
+                testID="weight-line-to"
+                style={{ marginRight: endInset }}
+                className="text-xs text-text-muted"
+              >
                 {shortMonth(last.on)}
               </Text>
             )}

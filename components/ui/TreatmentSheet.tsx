@@ -252,19 +252,31 @@ export function TreatmentSheet({
             </Text>
           </>
         ) : (
-          <View className="flex-row flex-wrap items-baseline gap-x-2">
-            <Text testID="treatment-cadence" className="text-text-tertiary">
+          // **One row, aligned at the top, not a paragraph with a word loose
+          // at the end of it.** Baseline-aligned and wrapping, the link landed
+          // wherever the sentence happened to break — too close to read as a
+          // second column and out of line to read as part of the sentence. The
+          // sentence takes the width it needs and the control sits at the
+          // right edge, which is where every other "and here is what you can
+          // do about it" in this app sits.
+          <View className="flex-row items-start justify-between gap-4">
+            <Text
+              testID="treatment-cadence"
+              className="min-w-0 flex-1 pt-3 text-text-tertiary"
+            >
               {next
                 ? `La siguiente tocará el ${displayDate(next)}`
                 : "Sin siguiente"}
               , {treatmentCadence(kind)}.
             </Text>
-            <Button
-              testID="treatment-next-change"
-              label="Cambiar"
-              variant="link"
-              onPress={() => setChangingNext(true)}
-            />
+            <View className="shrink-0">
+              <Button
+                testID="treatment-next-change"
+                label="Editar"
+                variant="link"
+                onPress={() => setChangingNext(true)}
+              />
+            </View>
           </View>
         )}
       </View>

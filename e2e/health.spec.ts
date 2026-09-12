@@ -288,6 +288,61 @@ test("keeps every control on the 48dp floor", async ({ page }) => {
   }
 });
 
+test("keeps both clinics on the screen before anybody fills them", async ({
+  page,
+}) => {
+  await openHealth(page);
+
+  // **Not behind the floating action.** A vet is a property of the animal
+  // rather than a record that accumulates, and the emergency one is read by
+  // somebody who is frightened — a card that has to be discovered before it
+  // can be filled is a card that is empty on the night it matters.
+  await expect(page.getByTestId("vet-primary")).toContainText("VETERINARIO");
+  await expect(page.getByTestId("vet-emergency")).toContainText("URGENCIAS");
+  await expect(page.getByTestId("vet-primary-edit")).toContainText("Añadir");
+  await expect(page.getByTestId("vet-primary-call")).toBeHidden();
+});
+
+test("dials and maps what was written down", async ({ page }) => {
+  await openHealth(page);
+
+  await page.getByTestId("vet-emergency-edit").click();
+  await page.getByTestId("vet-emergency-clinic").fill("Hospital Veterinario");
+  await page.getByTestId("vet-emergency-phone").fill("944 42 40 40");
+  await page.getByTestId("vet-emergency-address").fill("Sabino Arana 18");
+  await page.getByTestId("vet-emergency-hours").fill("24h");
+  await page.getByTestId("vet-emergency-save").click();
+
+  await expect(page.getByTestId("vet-emergency")).toContainText("24h");
+  // The number and the address are controls, not text: a row that looks like
+  // a paragraph and happens to dial is a guess the tutor has to make.
+  await expect(page.getByTestId("vet-emergency-call")).toContainText(
+    "944 42 40 40",
+  );
+  await expect(page.getByTestId("vet-emergency-map")).toContainText(
+    "Sabino Arana 18",
+  );
+  await expect(page.getByTestId("vet-emergency-edit")).toContainText("Editar");
+
+  // And the other card is untouched: two clinics, two columns.
+  await expect(page.getByTestId("vet-primary-edit")).toContainText("Añadir");
+});
+
+test("will not save a clinic nobody changed", async ({ page }) => {
+  await openHealth(page);
+
+  await page.getByTestId("vet-primary-edit").click();
+  await expect(page.getByTestId("vet-primary-save")).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.getByTestId("vet-primary-phone").fill("944 26 00 51");
+  await expect(page.getByTestId("vet-primary-save")).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+});
+
 test("reads the illnesses back, and each one leads to its day", async ({
   page,
 }) => {

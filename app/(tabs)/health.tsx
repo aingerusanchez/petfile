@@ -20,6 +20,7 @@ import {
   TreatmentSkeleton,
   TreatmentSheet,
   useToast,
+  VetCard,
   WeightLine,
 } from "../../components/ui";
 import { MONTHS_ES, parseISO } from "../../lib/dates";
@@ -30,6 +31,7 @@ import {
   type PetEventRow,
 } from "../../lib/events";
 import { getMyPet, type PetRow } from "../../lib/pets";
+import { readVet, vetColumn, VET_KINDS } from "../../lib/vets";
 import {
   dueStatus,
   fromDateKey,
@@ -305,7 +307,9 @@ export default function Health() {
             accessibilityLabel={`Ver los ${weights.length} pesajes`}
             className="mb-4 active:opacity-70"
           >
-            <WeightLine weights={weights} />
+            {/* 16 for the mark and 6 either side of it: the month label
+                stops where the mark starts rather than under it. */}
+            <WeightLine weights={weights} endInset={28} />
             {/* The mark that says the line is a door. Bottom right, where a
                 chart's own furniture ends. */}
             <View
@@ -457,6 +461,28 @@ export default function Health() {
           ))}
         </Group>
       ) : null}
+
+      {/* **The two clinics, always on the screen.** They are a property of
+          the animal rather than a record that accumulates, so they are not
+          behind the floating action: there are exactly two, they are known in
+          advance, and the emergency one is read by somebody who is
+          frightened. A card that has to be discovered before it can be filled
+          is a card that is empty on the night it matters. */}
+      {VET_KINDS.map((kind) => (
+        <VetCard
+          key={kind}
+          kind={kind}
+          petId={pet.id}
+          vet={readVet(pet[vetColumn(kind)])}
+          onSaved={(message) => {
+            toast.show({ variant: "success", message });
+            reload();
+          }}
+          onFailed={(message) =>
+            toast.show({ variant: "error", message, persist: true })
+          }
+        />
+      ))}
 
       {weighing ? (
         <WeightSheet

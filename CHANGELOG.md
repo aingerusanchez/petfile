@@ -77,6 +77,18 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   **No hay editor**: el campo es un textarea de tres líneas, sin barra de
   herramientas ni vista previa. El renderizador es el que ya tenía el
   changelog, extraído el día que una nota lo necesitó.
+- **Las dos clínicas, siempre en pantalla.** Veterinario y Urgencias, con el
+  teléfono pulsable para llamar y la dirección para abrir el mapa. Vacías
+  dicen para qué son y se ofrecen a rellenarse — **no están detrás del botón
+  flotante**: un veterinario es una propiedad del animal, no un registro que
+  se acumula, son exactamente dos, y la de urgencias la lee alguien asustado.
+  Una tarjeta que hay que descubrir antes de poder rellenarla es una tarjeta
+  vacía la noche que hace falta.
+- **El teléfono no se inventa prefijo.** "944 26 00 51" marca desde una SIM
+  española tal cual está escrito; ponerle +34 a un número que alguien escribió
+  sin él es adivinar en qué país está el móvil, y equivocarse una vez es que
+  la llamada falle en el momento que más importa. El que se escriba con
+  prefijo lo conserva.
 - **El formulario de tratamiento tiene una sola fecha.** Dos campos de fecha
   idénticos, uno encima del otro, y el que se rellenaba era siempre el
   segundo: la fecha que acaba de decir el veterinario es la primera. La
@@ -102,6 +114,12 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   fue el tratamiento" a quien preguntaba "qué tuvo".
 - **El selector de fecha empieza la semana en lunes**, como el calendario del
   Diario ya hacía. La misma app enseñaba dos semanas distintas.
+- El icono de pantalla completa de la gráfica se montaba encima del último mes
+  de referencia.
+- La frase de la próxima fecha y su botón estaban ni en columna ni en línea: el
+  enlace caía donde rompiese la frase. Ahora la frase ocupa lo suyo y el
+  control se alinea a la derecha, que es donde está en el resto de la app. Y se
+  llama **Editar**.
 - **Una pantalla con scroll termina por encima del botón flotante.** El Diario
   se libraba porque el registro de un día es corto; el historial de
   tratamientos no: medido en el dispositivo, las dos últimas filas tenían la
