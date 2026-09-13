@@ -114,7 +114,7 @@ export function Markdown({
           return (
             <Text
               key={index}
-              className={`mt-2 mb-1 font-semibold text-xs text-accent-secondary uppercase ${
+              className={`mt-2 mb-1 font-semibold text-xs text-accent uppercase ${
                 index === 0 ? "mt-0" : ""
               }`}
             >

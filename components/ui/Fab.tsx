@@ -119,11 +119,7 @@ export function Fab({ position, label, actions, testID }: FabProps) {
                 style={{ minHeight: TOUCH_TARGET }}
                 className="flex-row items-center gap-3 rounded-xl border border-border-strong bg-surface pr-4 pl-4 active:opacity-70"
               >
-                <action.icon
-                  size={20}
-                  strokeWidth={2}
-                  color={colors.accentSecondary}
-                />
+                <action.icon size={20} strokeWidth={2} color={colors.accent} />
                 <Text numberOfLines={1} className="text-text-primary">
                   {action.label}
                 </Text>
@@ -146,7 +142,7 @@ export function Fab({ position, label, actions, testID }: FabProps) {
           // arbitrary pixel values, because `rounded-full` compiles to a
           // `calc()` that the native CSS compiler discards and `h-14` is 3.5
           // rem, which resolves to 49 rather than 56.
-          className="h-[56px] w-[56px] items-center justify-center rounded-[28px] bg-accent-primary active:opacity-70"
+          className="h-[56px] w-[56px] items-center justify-center rounded-[28px] bg-accent-focus active:opacity-70"
         >
           {open ? (
             <X size={24} strokeWidth={2.5} color={colors.onAccent} />

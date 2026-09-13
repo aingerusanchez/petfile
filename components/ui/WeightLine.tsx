@@ -165,7 +165,7 @@ export function WeightLine({
                 cx={shape.dots[shape.dots.length - 1].cx}
                 cy={shape.dots[shape.dots.length - 1].cy}
                 r={3.5}
-                fill={colors.accentSecondary}
+                fill={colors.accent}
               />
             </Svg>
           ) : null}

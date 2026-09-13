@@ -16,6 +16,41 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.9.0] — 2026-09-13
+
+### Cambiado
+
+- **La paleta tenía dos acentos y en realidad era uno.** Ice Blue Glacial y
+  Aqua Glaciar median **1,34:1 entre sí y 23° de tono**: un color con dos
+  nombres, y por eso "primario" y "secundario" no se leían nunca como dos
+  decisiones. **Ice Blue Glacial se retira.**
+- **Aqua Glaciar pasa a ser el único color de cada día**: enlaces, títulos de
+  sección, barra de objetivo cumplido, pestaña activa y todos los estados
+  seleccionados —un chip, un día, un segmento, un número en la esfera del
+  reloj—. Un color, un nombre: el token es `accent` a secas, porque
+  `accent-primary` y `accent-secondary` dejaban de nombrar dos cosas en cuanto
+  valían lo mismo.
+- **Y entra Aurora Boreal (#A78BFA), que se gasta en tres sitios y en ninguno
+  más**: el botón principal, el botón flotante y el cumpleaños. **La
+  exclusividad es la función entera**: no gana por ser más brillante —mide
+  menos que Aqua contra el fondo, 6,92:1 frente a 11,08:1— sino por ser lo
+  único en la pantalla que lo lleva. Un cuarto sitio valdría la mitad; un
+  décimo lo convertiría en un color de marca, que es en lo que Ice Blue Glacial
+  se había convertido sin que nadie lo decidiera.
+- **Se probaron tres repartos de la pareja en el móvil antes de elegir.** Los
+  dos descartados ponían el tono nuevo en los títulos y la barra de objetivo, o
+  en todos los estados seleccionados; en los dos dejaba de ser puntuación y
+  pasaba a ser la textura de fondo de la app. **El contraste no fue la puerta**
+  —todos los candidatos pasaban de sobra en las dos superficies—, lo fue la
+  frecuencia: cuántos días al mes lleva un color cada cosa.
+- **La tarta del calendario estrena color y casi cuesta la fecha.** Opaca,
+  Aurora Boreal deja el número del día a **2,48:1** sobre sus trazos: por
+  debajo del mínimo, y medido en el móvil contra la ficha real la casilla se
+  leía como una tarta que además tiene una fecha dentro. Al **60%** la tarta
+  queda en 3,11:1 —el doble de presente que el Steel Frost que llevaba— y el
+  número vuelve a 4,99:1. El cumpleaños se queda el color escaso; la fecha se
+  queda la casilla.
+
 ## [v0.8.0] — 2026-09-12
 
 ### Nuevo

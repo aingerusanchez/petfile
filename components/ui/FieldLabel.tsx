@@ -57,9 +57,7 @@ export function FieldLabel({
     >
       {children}
       {required ? (
-        <Text
-          style={{ color: errored ? colors.error : colors.accentSecondary }}
-        >
+        <Text style={{ color: errored ? colors.error : colors.accent }}>
           {" *"}
         </Text>
       ) : null}

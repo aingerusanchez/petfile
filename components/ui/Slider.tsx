@@ -149,7 +149,7 @@ export function Slider({
       <View className="h-1 rounded-xl bg-border-strong">
         <View
           style={{ width: THUMB / 2 + ratio * travel }}
-          className="h-1 rounded-xl bg-accent-secondary"
+          className="h-1 rounded-xl bg-accent"
         />
       </View>
       {/* Round, which is what a thumb is: the radius rule governs corners, and
@@ -163,7 +163,7 @@ export function Slider({
           borderRadius: THUMB / 2,
           pointerEvents: "none",
         }}
-        className="border border-border-strong bg-accent-primary"
+        className="border border-border-strong bg-accent"
       />
     </View>
   );

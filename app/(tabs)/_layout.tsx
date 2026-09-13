@@ -23,7 +23,7 @@ export default function TabsLayout() {
         // permanent text in the app renders in the platform's face while the
         // rest of the screen is in Outfit. One typeface is a design rule.
         tabBarLabelStyle: { fontFamily: "Outfit_500Medium" },
-        tabBarActiveTintColor: colors.accentPrimary,
+        tabBarActiveTintColor: colors.accent,
         // `textTertiary`, not `textMuted`: Slate Mist on Deep Ice measures
         // 3.83:1, which fails AA for a label this small — and a tab label is
         // the app's only permanent navigation, so it is the last text that

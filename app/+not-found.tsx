@@ -28,10 +28,7 @@ export default function NotFound() {
         Puede que el enlace esté caducado.
       </Text>
       <Link href="/" replace asChild>
-        <Text
-          accessibilityRole="link"
-          className="font-semibold text-accent-secondary"
-        >
+        <Text accessibilityRole="link" className="font-semibold text-accent">
           Volver al inicio
         </Text>
       </Link>

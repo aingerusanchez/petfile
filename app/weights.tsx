@@ -172,7 +172,7 @@ export default function Weights() {
                   r={index === points.length - 1 ? 5 : 3.5}
                   fill={
                     index === points.length - 1
-                      ? colors.accentSecondary
+                      ? colors.accent
                       : colors.textTertiary
                   }
                 />

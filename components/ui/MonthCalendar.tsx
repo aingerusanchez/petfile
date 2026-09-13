@@ -305,11 +305,21 @@ export function MonthCalendar({
                       bottom: BAR + BAR_GAP,
                       alignItems: "center",
                       justifyContent: "center",
+                      // **60%, and the number is why.** Opaque, the focus
+                      // colour puts the cake at 6.26:1 against the panel and
+                      // the day number at 2.48:1 on top of its strokes —
+                      // under the floor, and measured on the device: the cell
+                      // read as a cake that happened to have a date in it. At
+                      // 60% the cake is 3.11:1 (still twice as present as the
+                      // Steel Frost it replaces, still unmistakably the focus
+                      // hue) and the number is back to 4.99:1. The birthday
+                      // keeps the scarce colour; the date stays the date.
+                      opacity: 0.6,
                     }}
                   >
                     <Cake
                       size={CAKE}
-                      color={colors.borderStrong}
+                      color={colors.accentFocus}
                       strokeWidth={2}
                     />
                   </View>
@@ -408,9 +418,9 @@ export function MonthCalendar({
                   }}
                   className={`items-center justify-center ${
                     day.isSelected
-                      ? "bg-accent-primary"
+                      ? "bg-accent"
                       : day.isToday
-                        ? "border border-accent-primary"
+                        ? "border border-accent"
                         : ""
                   }`}
                 >
@@ -480,7 +490,7 @@ export function MonthCalendar({
                   className="items-center justify-center"
                 >
                   {met ? (
-                    <View className="h-[4px] w-[16px] rounded-xl bg-accent-secondary" />
+                    <View className="h-[4px] w-[16px] rounded-xl bg-accent" />
                   ) : null}
                 </View>
               </View>
@@ -524,7 +534,7 @@ export function MonthCalendar({
               keep. */}
           {goalMinutes === null ? null : (
             <Legend
-              className="h-[4px] w-[16px] rounded-xl bg-accent-secondary"
+              className="h-[4px] w-[16px] rounded-xl bg-accent"
               label="Objetivo conseguido"
             />
           )}
@@ -566,7 +576,7 @@ export function MonthCalendar({
           className={`min-w-[48px] shrink-0 items-center justify-center rounded-xl border px-4 ${
             atToday
               ? "border-border-default"
-              : "border-accent-primary active:opacity-70"
+              : "border-accent active:opacity-70"
           }`}
         >
           <Text

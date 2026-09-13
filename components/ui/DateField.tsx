@@ -419,9 +419,7 @@ export function DateField({
                 style={{ minHeight: TOUCH_TARGET }}
                 className="mt-2 items-center justify-center active:opacity-70"
               >
-                <Text className="font-semibold text-accent-secondary">
-                  Sin fecha
-                </Text>
+                <Text className="font-semibold text-accent">Sin fecha</Text>
               </Pressable>
             ) : null}
 
@@ -442,7 +440,7 @@ export function DateField({
                 accessibilityRole="button"
                 accessibilityLabel="Confirmar"
                 style={{ minHeight: TOUCH_TARGET }}
-                className="flex-1 items-center justify-center rounded-xl bg-accent-primary py-4 active:opacity-70"
+                className="flex-1 items-center justify-center rounded-xl bg-accent-focus py-4 active:opacity-70"
               >
                 <Text className="font-semibold text-on-accent">Confirmar</Text>
               </Pressable>

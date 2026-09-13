@@ -19,7 +19,7 @@ export function LoadingScreen({
   return (
     <Screen center testID={testID}>
       <ActivityIndicator
-        color={colors.accentPrimary}
+        color={colors.accent}
         accessibilityRole="progressbar"
         accessibilityLabel={label}
       />
