@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-11T10:05:00Z",
+  "generatedAt": "2026-09-13T19:57:43Z",
   "title": "Design System: Petfile",
   "extensions": {
     "colorMeta": {
@@ -94,23 +94,8 @@
           "#eff2f5"
         ]
       },
-      "accent-primary": {
-        "role": "primary",
-        "displayName": "Ice Blue Glacial",
-        "canonical": "#a5f2f3",
-        "tonalRamp": [
-          "#094343",
-          "#0f6f70",
-          "#159c9d",
-          "#1bc8ca",
-          "#35e2e4",
-          "#62e8ea",
-          "#a5f2f3",
-          "#e9fcfc"
-        ]
-      },
-      "accent-secondary": {
-        "role": "secondary",
+      "accent": {
+        "role": "accent",
         "displayName": "Aqua Glaciar",
         "canonical": "#7dd3e8",
         "tonalRamp": [
@@ -122,6 +107,21 @@
           "#67cce4",
           "#a8e2f0",
           "#e9f8fb"
+        ]
+      },
+      "accent-focus": {
+        "role": "focus",
+        "displayName": "Aurora Boreal",
+        "canonical": "#a78bfa",
+        "tonalRamp": [
+          "#190b41",
+          "#29136c",
+          "#3b1b98",
+          "#4b23c3",
+          "#653cdd",
+          "#8767e4",
+          "#baa8f0",
+          "#eee9fb"
         ]
       },
       "on-accent": {
@@ -330,7 +330,7 @@
       "refersTo": "button-primary",
       "description": "The one action on a screen. Full width, accent fill, and the only place the accent hue is spent.",
       "html": "<button class=\"ds-btn-primary\">¡Vamos, Loki!</button>",
-      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:12px;border:none;cursor:pointer;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:16px;font-weight:600;line-height:1.5;width:100%;padding:16px 24px;background:var(--color-accent-primary, #a5f2f3);color:var(--color-on-accent, #0b1120)}.ds-btn-primary:active{opacity:0.7}.ds-btn-primary:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:2px}.ds-btn-primary:disabled{background:var(--color-surface, #131c2e);color:var(--color-text-tertiary, #94a3b8);cursor:default}"
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:12px;border:none;cursor:pointer;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:16px;font-weight:600;line-height:1.5;width:100%;padding:16px 24px;background:var(--color-accent-focus, #a78bfa);color:var(--color-on-accent, #0b1120)}.ds-btn-primary:active{opacity:0.7}.ds-btn-primary:focus-visible{outline:2px solid var(--color-accent, #7dd3e8);outline-offset:2px}.ds-btn-primary:disabled{background:var(--color-surface, #131c2e);color:var(--color-text-tertiary, #94a3b8);cursor:default}"
     },
     {
       "name": "Secondary Button",
@@ -338,7 +338,7 @@
       "refersTo": "button-secondary",
       "description": "A real alternative action — retry, sign out. Never the primary action on a screen.",
       "html": "<button class=\"ds-btn-secondary\">Reintentar</button>",
-      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:12px;border:none;cursor:pointer;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:16px;font-weight:600;line-height:1.5;padding:12px 24px;background:transparent;color:var(--color-text-secondary, #cbd5e1);border:1px solid var(--color-border-strong, #334155)}.ds-btn-secondary:active{opacity:0.7}.ds-btn-secondary:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:2px}"
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:12px;border:none;cursor:pointer;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:16px;font-weight:600;line-height:1.5;padding:12px 24px;background:transparent;color:var(--color-text-secondary, #cbd5e1);border:1px solid var(--color-border-strong, #334155)}.ds-btn-secondary:active{opacity:0.7}.ds-btn-secondary:focus-visible{outline:2px solid var(--color-accent, #7dd3e8);outline-offset:2px}"
     },
     {
       "name": "Link Button (tertiary)",
@@ -346,7 +346,7 @@
       "refersTo": "button-link",
       "description": "A disclosure or a sideways move, carrying the second accent so it reads interactive without claiming the primary action.",
       "html": "<button class=\"ds-btn-link\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"#7dd3e8\" stroke-width=\"2.5\" stroke-linecap=\"round\"><path d=\"M5 12h14M12 5v14\"/></svg><span>Añadir salud y actividad</span></button>",
-      "css": ".ds-btn-link{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:12px;border:none;cursor:pointer;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:16px;font-weight:600;line-height:1.5;padding:12px 0;background:transparent;align-self:flex-start;color:var(--color-accent-secondary, #7dd3e8)}.ds-btn-link:active{opacity:0.7}.ds-btn-link:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:2px}"
+      "css": ".ds-btn-link{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:12px;border:none;cursor:pointer;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:16px;font-weight:600;line-height:1.5;padding:12px 0;background:transparent;align-self:flex-start;color:var(--color-accent, #7dd3e8)}.ds-btn-link:active{opacity:0.7}.ds-btn-link:focus-visible{outline:2px solid var(--color-accent, #7dd3e8);outline-offset:2px}"
     },
     {
       "name": "Text Input",
@@ -354,7 +354,7 @@
       "refersTo": "input-text",
       "description": "Labelled field, its label linked to the input. An error swaps the hairline for Error Red and reddens the label's asterisk.",
       "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-input-name\">Nombre <span class=\"ds-req\">*</span></label><input id=\"ds-input-name\" class=\"ds-input\" placeholder=\"Loki\" /></div>",
-      "css": ".ds-field{display:flex;flex-direction:column}.ds-field-label{margin-bottom:8px;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--color-text-tertiary, #94a3b8)}.ds-req{color:var(--color-accent-secondary, #7dd3e8)}.ds-input{min-height:48px;padding:12px 16px;border-radius:12px;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-default, #1e293b);font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;color:var(--color-text-primary, #f1f5f9)}.ds-input::placeholder{color:var(--color-text-tertiary, #94a3b8)}.ds-input:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:1px}.ds-input[aria-invalid='true']{border-color:var(--color-error, #ef4444)}"
+      "css": ".ds-field{display:flex;flex-direction:column}.ds-field-label{margin-bottom:8px;font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--color-text-tertiary, #94a3b8)}.ds-req{color:var(--color-accent, #7dd3e8)}.ds-input{min-height:48px;padding:12px 16px;border-radius:12px;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-default, #1e293b);font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;color:var(--color-text-primary, #f1f5f9)}.ds-input::placeholder{color:var(--color-text-tertiary, #94a3b8)}.ds-input:focus-visible{outline:2px solid var(--color-accent, #7dd3e8);outline-offset:1px}.ds-input[aria-invalid='true']{border-color:var(--color-error, #ef4444)}"
     },
     {
       "name": "Selector Chip",
@@ -362,7 +362,7 @@
       "refersTo": "chip-selector",
       "description": "One option in an exclusive row. Sizes to its content and shares the row's slack, so a long label is never squeezed.",
       "html": "<button class=\"ds-chip\" role=\"radio\" aria-checked=\"false\">Moderado</button>",
-      "css": ".ds-chip{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 16px;border-radius:12px;flex:1 0 auto;white-space:nowrap;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-default, #1e293b);font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;font-weight:500;color:var(--color-text-primary, #f1f5f9);cursor:pointer}.ds-chip:active{opacity:0.7}.ds-chip:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:2px}"
+      "css": ".ds-chip{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 16px;border-radius:12px;flex:1 0 auto;white-space:nowrap;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-default, #1e293b);font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;font-weight:500;color:var(--color-text-primary, #f1f5f9);cursor:pointer}.ds-chip:active{opacity:0.7}.ds-chip:focus-visible{outline:2px solid var(--color-accent, #7dd3e8);outline-offset:2px}"
     },
     {
       "name": "Selector Chip (Active)",
@@ -370,7 +370,7 @@
       "refersTo": "chip-selector-active",
       "description": "The selected option. The 700 weight is the load-bearing cue: the fill difference alone measures 1.16:1.",
       "html": "<button class=\"ds-chip-active\" role=\"radio\" aria-checked=\"true\">Moderado</button>",
-      "css": ".ds-chip-active{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 16px;border-radius:12px;flex:1 0 auto;white-space:nowrap;background:var(--color-elevated, #1e293b);border:1px solid var(--color-accent-primary, #a5f2f3);font-family:Outfit_700Bold, system-ui, sans-serif;font-size:16px;font-weight:700;color:var(--color-text-primary, #f1f5f9);cursor:pointer}.ds-chip-active:active{opacity:0.7}"
+      "css": ".ds-chip-active{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 16px;border-radius:12px;flex:1 0 auto;white-space:nowrap;background:var(--color-elevated, #1e293b);border:1px solid var(--color-accent, #7dd3e8);font-family:Outfit_700Bold, system-ui, sans-serif;font-size:16px;font-weight:700;color:var(--color-text-primary, #f1f5f9);cursor:pointer}.ds-chip-active:active{opacity:0.7}"
     },
     {
       "name": "Checkbox",
@@ -378,7 +378,7 @@
       "refersTo": "checkbox",
       "description": "A voluntary flag, unchecked by default. The row is exactly one touch target tall, so the box is centred by construction.",
       "html": "<div class=\"ds-check-row\"><span class=\"ds-check-box\" role=\"checkbox\" aria-checked=\"false\"></span><span class=\"ds-check-label\">Aproximado</span></div><div class=\"ds-check-row\"><span class=\"ds-check-box ds-check-box--on\" role=\"checkbox\" aria-checked=\"true\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"#0b1120\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg></span><span class=\"ds-check-label ds-check-label--on\">Es mestizo</span></div>",
-      "css": ".ds-check-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-radius:12px;cursor:pointer}.ds-check-row:active{opacity:0.7}.ds-check-box{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;flex:0 0 auto;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-strong, #334155)}.ds-check-box--on{background:var(--color-accent-primary, #a5f2f3);border-color:var(--color-accent-primary, #a5f2f3)}.ds-check-label{font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:24px;color:var(--color-text-primary, #f1f5f9)}.ds-check-label--on{font-family:Outfit_600SemiBold, system-ui, sans-serif;font-weight:600}"
+      "css": ".ds-check-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-radius:12px;cursor:pointer}.ds-check-row:active{opacity:0.7}.ds-check-box{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;flex:0 0 auto;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-strong, #334155)}.ds-check-box--on{background:var(--color-accent, #7dd3e8);border-color:var(--color-accent, #7dd3e8)}.ds-check-label{font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;font-weight:500;line-height:24px;color:var(--color-text-primary, #f1f5f9)}.ds-check-label--on{font-family:Outfit_600SemiBold, system-ui, sans-serif;font-weight:600}"
     },
     {
       "name": "Date Field",
@@ -386,7 +386,7 @@
       "refersTo": "input-text",
       "description": "A value display that opens a picker — never a text input, because the field once demanded ISO from a reader who writes DD/MM/AAAA.",
       "html": "<button class=\"ds-datefield\"><span class=\"ds-datefield-value\">DD/MM/AAAA</span><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"#94a3b8\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4M16 2v4M3 10h18\"/><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01\"/></svg></button>",
-      "css": ".ds-datefield{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;padding:12px 16px;border-radius:12px;cursor:pointer;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-default, #1e293b)}.ds-datefield-value{font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;color:var(--color-text-tertiary, #94a3b8)}.ds-datefield:active{opacity:0.7}.ds-datefield:focus-visible{outline:2px solid var(--color-accent-secondary, #7dd3e8);outline-offset:2px}"
+      "css": ".ds-datefield{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;padding:12px 16px;border-radius:12px;cursor:pointer;background:var(--color-surface, #131c2e);border:1px solid var(--color-border-default, #1e293b)}.ds-datefield-value{font-family:Outfit_500Medium, system-ui, sans-serif;font-size:16px;color:var(--color-text-tertiary, #94a3b8)}.ds-datefield:active{opacity:0.7}.ds-datefield:focus-visible{outline:2px solid var(--color-accent, #7dd3e8);outline-offset:2px}"
     },
     {
       "name": "Toast (success)",
@@ -400,7 +400,7 @@
       "kind": "nav",
       "description": "The app's only permanent navigation: three text destinations on their own near-black plane.",
       "html": "<nav class=\"ds-tabbar\"><span class=\"ds-tab ds-tab--active\">Hoy</span><span class=\"ds-tab\">Salud</span><span class=\"ds-tab\">Perfil</span></nav>",
-      "css": ".ds-tabbar{display:flex;align-items:center;justify-content:space-around;padding:8px 0;background:var(--color-nav, #0d1525);border-top:1px solid var(--color-border-default, #1e293b)}.ds-tab{font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:12px;font-weight:600;letter-spacing:0.02em;color:var(--color-text-tertiary, #94a3b8)}.ds-tab--active{color:var(--color-accent-primary, #a5f2f3)} .ds-tabbar:active { opacity: 0.7; }"
+      "css": ".ds-tabbar{display:flex;align-items:center;justify-content:space-around;padding:8px 0;background:var(--color-nav, #0d1525);border-top:1px solid var(--color-border-default, #1e293b)}.ds-tab{font-family:Outfit_600SemiBold, system-ui, sans-serif;font-size:12px;font-weight:600;letter-spacing:0.02em;color:var(--color-text-tertiary, #94a3b8)}.ds-tab--active{color:var(--color-accent, #7dd3e8)} .ds-tabbar:active { opacity: 0.7; }"
     },
     {
       "name": "Floating Action",
@@ -408,7 +408,7 @@
       "refersTo": "fab",
       "description": "Opens the day's four kinds of entry, at the corner nearest the thumb. A circle, because the radius rule governs corners and a control laid over the page has none.",
       "html": "<button class=\"ds-fab\" aria-label=\"Añadir un registro\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg></button>",
-      "css": ".ds-fab { width: 56px; height: 56px; border: none; border-radius: 9999px; background: var(--color-accent-primary, #a5f2f3); color: var(--color-on-accent, #0b1120); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; } .ds-fab:active { opacity: 0.7; }"
+      "css": ".ds-fab { width: 56px; height: 56px; border: none; border-radius: 9999px; background: var(--color-accent-focus, #a78bfa); color: var(--color-on-accent, #0b1120); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; } .ds-fab:active { opacity: 0.7; }"
     },
     {
       "name": "Avatar",
@@ -424,7 +424,7 @@
       "refersTo": "slider-track",
       "description": "One value along a range, built in-house rather than pulled in. The track is the touch target, not the thumb; the unfilled track is Steel Frost because this control sits on a Fjord Slate sheet.",
       "html": "<div class=\"ds-slider\" role=\"slider\" aria-label=\"Zoom\" aria-valuemin=\"1\" aria-valuemax=\"4\" aria-valuenow=\"1.5\"><div class=\"ds-slider-track\"><div class=\"ds-slider-fill\"></div></div><div class=\"ds-slider-thumb\"></div></div>",
-      "css": ".ds-slider { position: relative; height: 48px; display: flex; align-items: center; width: 220px; } .ds-slider-track { height: 4px; width: 100%; border-radius: 12px; background: var(--color-border-strong, #334155); } .ds-slider-fill { height: 4px; width: 40%; border-radius: 12px; background: var(--color-accent-secondary, #7dd3e8); } .ds-slider-thumb { position: absolute; left: 36%; width: 20px; height: 20px; border-radius: 9999px; background: var(--color-accent-primary, #a5f2f3); border: 1px solid var(--color-border-strong, #334155); }"
+      "css": ".ds-slider { position: relative; height: 48px; display: flex; align-items: center; width: 220px; } .ds-slider-track { height: 4px; width: 100%; border-radius: 12px; background: var(--color-border-strong, #334155); } .ds-slider-fill { height: 4px; width: 40%; border-radius: 12px; background: var(--color-accent, #7dd3e8); } .ds-slider-thumb { position: absolute; left: 36%; width: 20px; height: 20px; border-radius: 9999px; background: var(--color-accent, #7dd3e8); border: 1px solid var(--color-border-strong, #334155); }"
     },
     {
       "name": "Bottom Sheet",
@@ -440,7 +440,7 @@
       "refersTo": "calendar-day",
       "description": "One day of the month calendar, saying what happened on it: an Aqua Glaciar bar for a goal met, a Warning Amber ring top-left for medication, a filled Error Red dot top-right for an incident, and weight alone for the two everyday states. Each mark has its own corner, so a day carries both. A birthday is the cell's ground rather than a mark on it — a 22dp Steel Frost cake that fits inside today's ring behind the number, 1.65:1 against the panel, with the number drawn bright on top of it.",
       "html": "<div class=\"ds-cal-row\"><div class=\"ds-cal-day\"><span class=\"ds-cal-mark ds-cal-mark--med\"></span><span class=\"ds-cal-mark ds-cal-mark--incident\"></span><span class=\"ds-cal-chip ds-cal-chip--selected\">8</span><span class=\"ds-cal-bar\"></span></div><div class=\"ds-cal-day\"><span class=\"ds-cal-mark ds-cal-mark--incident\"></span><span class=\"ds-cal-chip\">9</span><span class=\"ds-cal-bar ds-cal-bar--empty\"></span></div><div class=\"ds-cal-day\"><span class=\"ds-cal-chip ds-cal-chip--today\">10</span><span class=\"ds-cal-bar ds-cal-bar--empty\"></span></div><div class=\"ds-cal-day\"><span class=\"ds-cal-cake-wrap\"><svg class=\"ds-cal-cake\" viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8\"/><path d=\"M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1\"/><path d=\"M2 21h20\"/><path d=\"M7 8v3M12 8v3M17 8v3\"/></svg></span><span class=\"ds-cal-chip ds-cal-chip--bday\">14</span><span class=\"ds-cal-bar ds-cal-bar--empty\"></span></div><div class=\"ds-cal-day\"><span class=\"ds-cal-chip ds-cal-chip--quiet\">11</span><span class=\"ds-cal-bar ds-cal-bar--empty\"></span></div></div>",
-      "css": ".ds-cal-row { display: flex; gap: 8px; background: var(--color-surface, #131c2e); padding: 12px; border-radius: 12px; font-family: Outfit, system-ui, sans-serif; } .ds-cal-day { position: relative; width: 44px; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; } .ds-cal-day:active { opacity: 0.7; } .ds-cal-mark { position: absolute; top: 4px; width: 6px; height: 6px; border-radius: 3px; } .ds-cal-mark--med { left: 4px; } .ds-cal-mark--incident { right: 4px; } .ds-cal-mark--incident { background: var(--color-error, #ef4444); } .ds-cal-mark--med { border: 1px solid var(--color-warning, #f59e0b); } .ds-cal-chip { min-width: 28px; min-height: 28px; padding: 0 5px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; color: var(--color-text-primary, #f8fafc); font-size: 14px; } .ds-cal-chip--selected { background: var(--color-accent-primary, #a5f2f3); color: var(--color-on-accent, #0b1120); font-weight: 700; } .ds-cal-chip--today { border: 1px solid var(--color-border-strong, #334155); } .ds-cal-chip--quiet { color: var(--color-text-muted, #64748b); } .ds-cal-cake-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 6px; display: flex; align-items: center; justify-content: center; } .ds-cal-cake { width: 22px; height: 22px; color: var(--color-border-strong, #334155); } .ds-cal-chip--bday { color: var(--color-text-primary, #f1f5f9); } .ds-cal-bar { margin-top: 4px; width: 16px; height: 4px; border-radius: 12px; background: var(--color-accent-secondary, #7dd3e8); } .ds-cal-bar--empty { background: transparent; }"
+      "css": ".ds-cal-row { display: flex; gap: 8px; background: var(--color-surface, #131c2e); padding: 12px; border-radius: 12px; font-family: Outfit, system-ui, sans-serif; } .ds-cal-day { position: relative; width: 44px; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; } .ds-cal-day:active { opacity: 0.7; } .ds-cal-mark { position: absolute; top: 4px; width: 6px; height: 6px; border-radius: 3px; } .ds-cal-mark--med { left: 4px; } .ds-cal-mark--incident { right: 4px; } .ds-cal-mark--incident { background: var(--color-error, #ef4444); } .ds-cal-mark--med { border: 1px solid var(--color-warning, #f59e0b); } .ds-cal-chip { min-width: 28px; min-height: 28px; padding: 0 5px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; color: var(--color-text-primary, #f8fafc); font-size: 14px; } .ds-cal-chip--selected { background: var(--color-accent, #7dd3e8); color: var(--color-on-accent, #0b1120); font-weight: 700; } .ds-cal-chip--today { border: 1px solid var(--color-border-strong, #334155); } .ds-cal-chip--quiet { color: var(--color-text-muted, #64748b); } .ds-cal-cake-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 6px; display: flex; align-items: center; justify-content: center; } .ds-cal-cake { width: 22px; height: 22px; color: var(--color-border-strong, #334155); } .ds-cal-chip--bday { color: var(--color-text-primary, #f1f5f9); } .ds-cal-bar { margin-top: 4px; width: 16px; height: 4px; border-radius: 12px; background: var(--color-accent, #7dd3e8); } .ds-cal-bar--empty { background: transparent; }"
     },
     {
       "name": "Danger Button (outlined)",
@@ -461,9 +461,9 @@
   ],
   "narrative": {
     "northStar": "Nordic Ice",
-    "overview": "Petfile runs dark-mode-only, deep navy fading toward black, cut through by a single ice-blue accent used sparingly. The personality is cold, precise, and minimal: no shadows, no gradients, no decoration that isn't load-bearing. Every screen so far is a plain vertical stack — a title, a short set of fields, one primary action — because the product's own principle is low-friction retrospective logging, not a showcase interface. Depth comes entirely from tone (four fixed surface steps, darkest to lightest), never from a shadow.\n\nWithin that cold restraint, interactive elements are tactile and confident rather than timid: a filled ice-blue button, a visibly elevated selected state on chips, a full-width primary action that's unmissable. The coldness is in the palette and the absence of ornament; the confidence is in how directly each control commits to its state.",
+    "overview": "Petfile runs dark-mode-only, deep navy fading toward black, cut through by one aqua accent that carries every interactive surface and one violet spent in three places only. The personality is cold, precise, and minimal: no shadows, no gradients, no decoration that isn't load-bearing. Every screen so far is a plain vertical stack — a title, a short set of fields, one primary action — because the product's own principle is low-friction retrospective logging, not a showcase interface. Depth comes entirely from tone (four fixed surface steps, darkest to lightest), never from a shadow.\n\nWithin that cold restraint, interactive elements are tactile and confident rather than timid: a filled ice-blue button, a visibly elevated selected state on chips, a full-width primary action that's unmissable. The coldness is in the palette and the absence of ornament; the confidence is in how directly each control commits to its state.",
     "keyCharacteristics": [
-      "Dark-mode-only, one accent hue (ice blue), used almost exclusively on primary actions and active states.",
+      "Dark-mode-only, two accent hues: Aqua Glaciar on everything interactive, and Aurora Boreal on the primary action, the floating action and the birthday — and nowhere else.",
       "Flat by construction — tonal layering substitutes for shadows everywhere.",
       "One typeface (Outfit) carries every role; hierarchy is built from weight and size, never a second font.",
       "One corner radius (12px) on every interactive control, no exceptions yet.",
@@ -471,13 +471,13 @@
     ],
     "rules": [
       {
-        "name": "The One Accent Rule",
-        "body": "Ice Blue Glacial is the only color that means \"act here.\" It appears on the primary button, the active tab, and a selected chip's border — nowhere else. Diluting it into a general-purpose brand color would cost it its signal.",
+        "name": "The Scarce Accent Rule",
+        "body": "Aurora Boreal appears in exactly three places: the primary action, the floating action, and the birthday. Reaching for it anywhere else is the mistake this rule exists to catch — a fourth place halves what the other three are worth, and a tenth makes it a brand colour, which is what Ice Blue Glacial had quietly become before it was retired in v0.9.0. Everything else interactive is Aqua Glaciar, including things that feel important: a selected day, an active tab, a chosen segment. Those are states, and a state is not a moment.",
         "section": "colors"
       },
       {
         "name": "The Text-On-Accent Rule",
-        "body": "Any text placed on an Ice Blue Glacial surface uses `on-accent` (#0B1120), never `text-base` — `text-base` is Tailwind's font-size utility, not a color, and silently fails to apply one.",
+        "body": "Any text placed on an accent surface — either accent uses `on-accent` (#0B1120), never `text-base` — `text-base` is Tailwind's font-size utility, not a color, and silently fails to apply one.",
         "section": "colors"
       },
       {
@@ -492,7 +492,7 @@
       },
       {
         "name": "The Frequency-Before-Hue Rule",
-        "body": "Before choosing a mark's colour, count how many days a month wear it. A hue on a rare event is punctuation; the same hue on a common one is the surface's background, and the palette has been widened for nothing. The two rare marks are alarms and get Error Red and Warning Amber; the common one is the goal, which is why it gets the quiet half of the accent family and never Success Green — eighteen green days a month is a green calendar.",
+        "body": "Before choosing a mark's colour, count how many days a month wear it. A hue on a rare event is punctuation; the same hue on a common one is the surface's background, and the palette has been widened for nothing. The two rare marks are alarms and get Error Red and Warning Amber; the common one is the goal, which is why it gets the everyday accent and never Success Green — eighteen green days a month is a green calendar.",
         "section": "colors"
       },
       {
@@ -586,7 +586,7 @@
       "**Do** pair a confirmation with the action that triggered it. \"¡Vamos, Loki!\" is answered by \"¡Loki ya está contigo!\" — a recall, the call on a walk and the dog arriving. The pair makes the feedback read as an _answer_ rather than a log line, and it draws on the product's own world instead of borrowed charm. Write the two together or they drift apart.",
       "**Do** resolve every color through a Nordic Ice token; a raw hex value in a component `className` is a defect, not a shortcut (enforced in `AGENTS.md`).",
       "**Do** scroll the _first_ error into view on submit, in visual order rather than the order the validator reported them, and only when the field is not already on screen — moving the view for a field the tutor can already see costs them their place. Defer it a frame: scrolling in the same tick as the error state scrolls the pre-error layout, and the browser's scroll anchoring then cancels it.",
-      "**Do** use `text-on-accent` for any text on an Ice Blue Glacial surface — never `text-base`, which is Tailwind's font-size utility, not a color, and silently produces no text color at all.",
+      "**Do** use `text-on-accent` for any text on either accent surface — never `text-base`, which is Tailwind's font-size utility, not a color, and silently produces no text color at all.",
       "**Do** use the single 12px radius (`rounded-xl`) on every new interactive control — inputs, buttons, chips alike.",
       "Do let every option in a settings screen show its own answer — \"15:30\" and \"3:30 p.m.\", never \"24h\" and \"12h\".",
       "Do size a container around text to its content; a pixel width is a guess about a font scale.",
@@ -600,7 +600,7 @@
       "**Don't** add drop shadows, glassmorphism, or blur — depth here is tonal, never shadow-based.",
       "**Don't** communicate success/error/selected state by color alone — pair it with a non-chromatic cue. This is not theoretical: a selected chip's Elevated Frost fill against an unselected chip's Fjord Slate fill measures **1.16:1**, so the tonal step is imperceptible and, on its own, selection rested entirely on the 1px accent border. `Chip` therefore sets its selected label to 700 weight, which reads in daylight and for a color-blind viewer while staying inside The One Family Rule. Every new stateful component owes the same: a weight, a glyph, or a genuinely visible tonal step — never the accent alone.",
       "**Don't** explain a collapsed or inactive block from the outside. Describing what sits behind \"Rellenar más datos\" charges cognitive load to every reader, including the majority who will never open it. The explanation belongs inside, once the block is open.",
-      "**Don't** introduce a second accent hue outside Ice Blue Glacial / Aqua Glaciar; the accent family is deliberately narrow so it keeps its meaning.",
+      "**Don't** introduce a third accent hue outside Aqua Glaciar / Aurora Boreal, and don't spend Aurora Boreal on a fourth surface — the family is deliberately narrow and the scarce half is deliberately scarce. See The Scarce Accent Rule.",
       "**Don't** let the voice be the accessible name. The visible label speaks like a household; **the accessible name states the action** — \"¡Vamos, Loki!\" reads as a control only next to the form it submits, so the button announces \"Registrar mascota\". Three corollaries. No emoji in an accessible name: a screen reader turns 🐶 into \"cara de perro\", so the headline and the activity hints keep their emoji on screen and out of the spoken string. A label whose visible text changes with a phase carries its name with it — a button reading \"¡Ya estáis dentro!\" that still announces \"Registrar mascota\" describes a control that is no longer there. And a warm line that reports a state has to report it: \"Por aquí no hay nada\" announces \"Página no encontrada\". Decoration that says nothing is hidden outright — the confetti is out of the accessibility tree on both platforms.",
       "**Don't** let wit cost an error its clarity. The voice may reach a failure — \"Parece que Loki no contesta a su nombre… ¡vuelve a intentarlo!\" keeps the recall metaphor the button opened — but only while the way out stays explicit and the message persists until the user acts on it. The test is not tone, it is whether the tutor knows what to do next. Two shapes that pass it: a question where a rule would do (\"¿Cómo se llama?\" for an empty field, \"¿Aún no ha nacido?\" for a future date, which treats a slip as the slip it almost always is), and taking responsibility when the fault is ours (\"Algo ha ido mal por nuestro lado\").",
       "**Don't** name an internal plan in user-facing copy. An empty state says what will appear here in the tutor's terms, not what the roadmap calls it.",
