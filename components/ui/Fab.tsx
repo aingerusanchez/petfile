@@ -146,7 +146,7 @@ export function Fab({ position, label, actions, testID }: FabProps) {
           // arbitrary pixel values, because `rounded-full` compiles to a
           // `calc()` that the native CSS compiler discards and `h-14` is 3.5
           // rem, which resolves to 49 rather than 56.
-          className="h-[56px] w-[56px] items-center justify-center rounded-[28px] bg-accent-primary active:opacity-70"
+          className="h-[56px] w-[56px] items-center justify-center rounded-[28px] bg-accent-focus active:opacity-70"
         >
           {open ? (
             <X size={24} strokeWidth={2.5} color={colors.onAccent} />

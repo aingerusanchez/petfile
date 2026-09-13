@@ -309,7 +309,7 @@ export function MonthCalendar({
                   >
                     <Cake
                       size={CAKE}
-                      color={colors.borderStrong}
+                      color={colors.accentFocus}
                       strokeWidth={2}
                     />
                   </View>

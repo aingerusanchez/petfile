@@ -169,7 +169,7 @@ export function Button({
             "border border-border-default bg-surface"
           : danger
             ? "bg-error"
-            : "bg-accent-primary"
+            : "bg-accent-focus"
         : "";
 
   // The 48dp floor is a literal in `style`, not `min-h-12`: that class is 3rem,

@@ -560,7 +560,7 @@ export default function Profile() {
                 }
                 numberOfLines={1}
                 className={`shrink text-sm ${
-                  isBirthday ? "text-accent-secondary" : "text-text-tertiary"
+                  isBirthday ? "text-accent-focus" : "text-text-tertiary"
                 }`}
               >
                 {isBirthday
@@ -584,7 +584,7 @@ export default function Profile() {
             // says "notable" without saying "tappable".
             <Text
               testID="profile-countdown"
-              className="mt-1 text-sm text-accent-secondary"
+              className="mt-1 text-sm text-accent-focus"
             >
               {countdown}
             </Text>
