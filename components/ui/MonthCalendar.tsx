@@ -305,6 +305,16 @@ export function MonthCalendar({
                       bottom: BAR + BAR_GAP,
                       alignItems: "center",
                       justifyContent: "center",
+                      // **60%, and the number is why.** Opaque, the focus
+                      // colour puts the cake at 6.26:1 against the panel and
+                      // the day number at 2.48:1 on top of its strokes —
+                      // under the floor, and measured on the device: the cell
+                      // read as a cake that happened to have a date in it. At
+                      // 60% the cake is 3.11:1 (still twice as present as the
+                      // Steel Frost it replaces, still unmistakably the focus
+                      // hue) and the number is back to 4.99:1. The birthday
+                      // keeps the scarce colour; the date stays the date.
+                      opacity: 0.6,
                     }}
                   >
                     <Cake
