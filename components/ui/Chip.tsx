@@ -60,7 +60,7 @@ export function Chip({
       style={{ minHeight: TOUCH_TARGET }}
       className={`${className} active:opacity-70 ${
         selected
-          ? "border-accent-primary bg-elevated"
+          ? "border-accent bg-elevated"
           : "border-border-default bg-surface"
       }`}
     >

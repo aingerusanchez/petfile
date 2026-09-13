@@ -588,7 +588,7 @@ export default function Home() {
               {`${formatDuration(walked, settings.durationFormat)} de ${formatDuration(goal, settings.durationFormat)} paseados`}
             </Text>
             {met ? (
-              <Text className="font-semibold text-xs text-accent-secondary">
+              <Text className="font-semibold text-xs text-accent">
                 Objetivo conseguido
               </Text>
             ) : null}
@@ -606,7 +606,7 @@ export default function Home() {
               style={{
                 width: `${Math.min(100, goal === 0 ? 0 : (walked / goal) * 100)}%`,
               }}
-              className={`h-[4px] ${met ? "bg-accent-secondary" : "bg-text-secondary"}`}
+              className={`h-[4px] ${met ? "bg-accent" : "bg-text-secondary"}`}
             />
           </View>
         </View>

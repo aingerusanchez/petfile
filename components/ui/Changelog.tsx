@@ -61,7 +61,7 @@ export function Changelog({ testID }: { testID?: string }) {
           return (
             <Text
               key={index}
-              className="mt-3 mb-1 font-semibold text-xs text-accent-secondary uppercase"
+              className="mt-3 mb-1 font-semibold text-xs text-accent uppercase"
             >
               {block.slice(4)}
             </Text>

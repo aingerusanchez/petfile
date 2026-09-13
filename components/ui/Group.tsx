@@ -62,7 +62,7 @@ export function Group({
           and the met-goal bar wear, so this spends no new colour — and the
           uppercase tracking keeps it from reading as a link. */}
       {title ? (
-        <Text className="mb-5 font-semibold text-xs tracking-[0.05em] text-accent-secondary uppercase">
+        <Text className="mb-5 font-semibold text-xs tracking-[0.05em] text-accent uppercase">
           {title}
         </Text>
       ) : null}

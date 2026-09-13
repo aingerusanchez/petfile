@@ -304,15 +304,15 @@ function Dial({
             y1={centre}
             x2={centre + knob.x}
             y2={centre + knob.y}
-            stroke={colors.accentPrimary}
+            stroke={colors.accent}
             strokeWidth={2}
           />
-          <Circle cx={centre} cy={centre} r={4} fill={colors.accentPrimary} />
+          <Circle cx={centre} cy={centre} r={4} fill={colors.accent} />
           <Circle
             cx={centre + knob.x}
             cy={centre + knob.y}
             r={onLabel ? KNOB : TIP}
-            fill={colors.accentPrimary}
+            fill={colors.accent}
           />
         </Svg>
 
@@ -387,7 +387,7 @@ function Dial({
             accessibilityRole="button"
             accessibilityLabel="Confirmar"
             style={{ minHeight: TOUCH_TARGET }}
-            className="items-center justify-center rounded-xl bg-accent-primary py-4 active:opacity-70"
+            className="items-center justify-center rounded-xl bg-accent-focus py-4 active:opacity-70"
           >
             <Text className="font-semibold text-on-accent">Confirmar</Text>
           </Pressable>
@@ -423,7 +423,7 @@ function Unit({
       style={{ minHeight: 64, minWidth: 76 }}
       className={`items-center justify-center rounded-xl border px-3 active:opacity-70 ${
         active
-          ? "border-accent-primary bg-elevated"
+          ? "border-accent bg-elevated"
           : "border-border-default bg-surface"
       }`}
     >
@@ -466,7 +466,7 @@ function Half({
       style={{ minHeight: TOUCH_TARGET, minWidth: 104 }}
       className={`items-center justify-center rounded-xl border px-4 active:opacity-70 ${
         selected
-          ? "border-accent-primary bg-elevated"
+          ? "border-accent bg-elevated"
           : "border-border-default bg-surface"
       }`}
     >

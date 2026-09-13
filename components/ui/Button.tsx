@@ -192,7 +192,7 @@ export function Button({
     : isLink
       ? danger
         ? "font-semibold text-error"
-        : "font-semibold text-accent-secondary"
+        : "font-semibold text-accent"
       : onFill
         ? "font-semibold text-on-accent"
         : isOutlined
@@ -204,7 +204,7 @@ export function Button({
     (isLink || isOutlined) && danger && !onFill
       ? colors.error
       : isLink
-        ? colors.accentSecondary
+        ? colors.accent
         : onFill
           ? colors.onAccent
           : colors.textSecondary;

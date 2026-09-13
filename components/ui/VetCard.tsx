@@ -146,11 +146,11 @@ export function VetCard({
                 style={{ minHeight: TOUCH_TARGET }}
                 className="mt-2 flex-row items-center gap-2 active:opacity-70"
               >
-                <Phone size={16} color={colors.accentSecondary} />
+                <Phone size={16} color={colors.accent} />
                 {/* Grouped where it is read: "944260051" off a contact list
                   and "944 26 00 51" on the fridge are the same number, and
                   only one of them can be read back over the phone. */}
-                <Text className="min-w-0 flex-1 font-semibold text-accent-secondary">
+                <Text className="min-w-0 flex-1 font-semibold text-accent">
                   {formatPhone(vet.phone)}
                 </Text>
               </Pressable>
@@ -167,8 +167,8 @@ export function VetCard({
                 style={{ minHeight: TOUCH_TARGET }}
                 className="flex-row items-center gap-2 py-1 active:opacity-70"
               >
-                <MapPin size={16} color={colors.accentSecondary} />
-                <Text className="min-w-0 flex-1 text-accent-secondary">
+                <MapPin size={16} color={colors.accent} />
+                <Text className="min-w-0 flex-1 text-accent">
                   {vet.address}
                 </Text>
               </Pressable>

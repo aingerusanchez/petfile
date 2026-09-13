@@ -119,11 +119,7 @@ export function Fab({ position, label, actions, testID }: FabProps) {
                 style={{ minHeight: TOUCH_TARGET }}
                 className="flex-row items-center gap-3 rounded-xl border border-border-strong bg-surface pr-4 pl-4 active:opacity-70"
               >
-                <action.icon
-                  size={20}
-                  strokeWidth={2}
-                  color={colors.accentSecondary}
-                />
+                <action.icon size={20} strokeWidth={2} color={colors.accent} />
                 <Text numberOfLines={1} className="text-text-primary">
                   {action.label}
                 </Text>

@@ -74,7 +74,7 @@ export function Segmented<T extends string>({
             aria-checked={selected}
             style={{ minHeight: TOUCH_TARGET }}
             className={`flex-1 flex-row items-center justify-center gap-2 px-3 py-3 active:opacity-70 ${
-              selected ? "bg-accent-primary" : "bg-surface"
+              selected ? "bg-accent" : "bg-surface"
             }`}
           >
             {Icon ? (

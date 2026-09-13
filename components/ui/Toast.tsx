@@ -160,9 +160,7 @@ export function Toast({
             accessibilityLabel={action.label}
             className="min-h-[48px] justify-center px-2 active:opacity-70"
           >
-            <Text className="font-semibold text-accent-secondary">
-              {action.label}
-            </Text>
+            <Text className="font-semibold text-accent">{action.label}</Text>
           </Pressable>
         ) : null}
 

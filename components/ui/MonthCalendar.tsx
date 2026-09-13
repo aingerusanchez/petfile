@@ -418,9 +418,9 @@ export function MonthCalendar({
                   }}
                   className={`items-center justify-center ${
                     day.isSelected
-                      ? "bg-accent-primary"
+                      ? "bg-accent"
                       : day.isToday
-                        ? "border border-accent-primary"
+                        ? "border border-accent"
                         : ""
                   }`}
                 >
@@ -490,7 +490,7 @@ export function MonthCalendar({
                   className="items-center justify-center"
                 >
                   {met ? (
-                    <View className="h-[4px] w-[16px] rounded-xl bg-accent-secondary" />
+                    <View className="h-[4px] w-[16px] rounded-xl bg-accent" />
                   ) : null}
                 </View>
               </View>
@@ -534,7 +534,7 @@ export function MonthCalendar({
               keep. */}
           {goalMinutes === null ? null : (
             <Legend
-              className="h-[4px] w-[16px] rounded-xl bg-accent-secondary"
+              className="h-[4px] w-[16px] rounded-xl bg-accent"
               label="Objetivo conseguido"
             />
           )}
@@ -576,7 +576,7 @@ export function MonthCalendar({
           className={`min-w-[48px] shrink-0 items-center justify-center rounded-xl border px-4 ${
             atToday
               ? "border-border-default"
-              : "border-accent-primary active:opacity-70"
+              : "border-accent active:opacity-70"
           }`}
         >
           <Text

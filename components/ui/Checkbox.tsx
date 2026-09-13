@@ -97,7 +97,7 @@ export function Checkbox({
         style={{ width: BOX, height: BOX }}
         className={`items-center justify-center rounded-md border ${
           checked
-            ? "border-accent-primary bg-accent-primary"
+            ? "border-accent bg-accent"
             : "border-border-strong bg-surface"
         }`}
       >

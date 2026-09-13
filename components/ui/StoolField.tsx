@@ -41,9 +41,7 @@ export function StoolToggle({
       accessibilityState={{ expanded: open }}
       style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
       className={`items-center justify-center rounded-xl border active:opacity-70 ${
-        open
-          ? "border-accent-primary bg-elevated"
-          : "border-border-default bg-surface"
+        open ? "border-accent bg-elevated" : "border-border-default bg-surface"
       }`}
     >
       <Text style={{ fontSize: 20, lineHeight: 26 }}>💩</Text>

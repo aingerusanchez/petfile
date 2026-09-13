@@ -58,9 +58,12 @@
     --color-nav: #0d1525;
     --color-border-default: #1e293b;
     --color-border-strong: #334155;
-    --color-accent-primary: #7dd3e8;
-    --color-accent-secondary: #7dd3e8;
-    /* Variant C only: spent on commitment and celebration, nothing else. */
+    /* Aqua Glaciar: the app's one everyday accent. Links, section headings,
+       the met-goal bar, the active tab, every selected state. */
+    --color-accent: #7dd3e8;
+    /* Aurora Boreal: spent on commitment and celebration and nothing else —
+       the primary action, the floating action, and the birthday. Its whole
+       value is that it is rare. */
     --color-accent-focus: #a78bfa;
     /* Added beyond the spec table: "base" already backs bg-base, and Tailwind's
        built-in text-base (font-size) utility would shadow a text-base color
