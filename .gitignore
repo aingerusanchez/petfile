@@ -55,3 +55,13 @@ docs/superpowers/
 .impeccable/config.local.json
 # Impeccable design-detector hook runtime cache (per-session state, not skill source)
 .claude/skills/impeccable/scripts/.impeccable/
+
+## Skills installed by `npx skills` — the lockfile travels, the payload does not.
+## `skills-lock.json` records the source and a content hash for each one, so a
+## clone reproduces exactly these versions with `npx skills add`. Vendoring the
+## folders as well would put a third party's prose under our own review burden
+## and duplicate what the hash already pins. `impeccable` is the exception and
+## is deliberately tracked: it is this project's own, edited here, not fetched.
+.agents/
+.claude/skills/*
+!.claude/skills/impeccable/
