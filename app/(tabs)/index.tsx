@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams } from "expo-router";
 import {
   CalendarDays,
@@ -16,6 +17,7 @@ import {
   colors,
   Fab,
   FAB_CLEARANCE,
+  GoalBlock,
   Group,
   LoadingScreen,
   Markdown,
@@ -52,6 +54,7 @@ import {
   dayKey,
   eventDetail,
   deleteEvent,
+  closeWalk,
   endWithinDay,
   eventsForDay,
   eventsForMonths,
@@ -60,6 +63,7 @@ import {
   MAX_WALK_MINUTES,
   minutesBetween,
   parseTimeOfDay,
+  startWalk,
   startWithinDay,
   updateEvent,
   walkedMinutes,
@@ -70,6 +74,13 @@ import {
 import { getMyPet, type PetRow } from "../../lib/pets";
 import { treatmentsFor, vaccineDays } from "../../lib/treatments";
 import { useSettings, type DurationFormat } from "../../lib/settings";
+import {
+  elapsedMinutes,
+  parseRunningWalk,
+  serialiseRunningWalk,
+  walkOutcome,
+  WALK_STORAGE_KEY,
+} from "../../lib/walk";
 import {
   describeStools,
   readStools,
@@ -197,6 +208,14 @@ function shiftDays(day: Date, by: number): Date {
 
 /** The one free-text specific each kind but the walk keeps in `details`. */
 
+/**
+ * The rows of a day that has not loaded: one array for every render.
+ *
+ * A literal `[]` in the render body is a new object each time, and the effects
+ * that read `events` would re-run on every render while the day waits.
+ */
+const NO_EVENTS: PetEventRow[] = [];
+
 /** What the sheet is open for: a new entry of a kind, or an existing one. */
 type Editing = { kind: EventKind; event: PetEventRow | null };
 
@@ -307,15 +326,31 @@ export default function Home() {
    * today's four entries for as long as the network took — a tutor checking
    * "did he walk yesterday?" got a confident yes.
    */
-  const [log, setLog] = useState<{ day: string; events: PetEventRow[] } | null>(
-    null,
-  );
+  const [log, setLog] = useState<{
+    day: string;
+    /** The `attempt` this read answered, so a stale log can be told apart. */
+    attempt: number;
+    events: PetEventRow[];
+  } | null>(null);
   /** Fatal: with no pet there is no day to show. */
   const [petError, setPetError] = useState<string | null>(null);
   /** Not fatal: the header, the goal and the actions all still work. */
   const [logError, setLogError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [attempt, setAttempt] = useState(0);
+  /** The walk this device has open, or null. Read once, then kept in step. */
+  const [runningId, setRunningId] = useState<string | null>(null);
+  const [walkBusy, setWalkBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(WALK_STORAGE_KEY).then((raw) => {
+      if (!cancelled) setRunningId(parseRunningWalk(raw));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -335,7 +370,7 @@ export default function Home() {
       // craft floor's rule is that one component's error must not block the
       // whole interface, and everything above the log comes from the pet.
       setLogError(eventError);
-      setLog({ day: dayKey(day), events: rows ?? [] });
+      setLog({ day: dayKey(day), attempt, events: rows ?? [] });
     });
 
     return () => {
@@ -393,10 +428,14 @@ export default function Home() {
       // who left the app reading Tuesday comes back to Tuesday; dragging them
       // to the new day would lose their place to fix a boundary they were not
       // standing on.
-      if (daysAgo(day, today) === 0) setDay(now);
+      //
+      // **Nor while this device has a walk open.** The tutor is holding
+      // something half-finished, and moving them off the day it is on loses
+      // the row they would tap to stop it.
+      if (daysAgo(day, today) === 0 && !runningId) setDay(now);
     });
     return () => sub.remove();
-  }, [today, day]);
+  }, [today, day, runningId]);
 
   const reload = useCallback(() => {
     setPetError(null);
@@ -439,6 +478,119 @@ export default function Home() {
     };
   }, [petId, isToday, birthdayYears, day, celebrate]);
 
+  // Hoisted for the same reason: the walk's hooks below read them, and a hook
+  // cannot sit after the early returns. Every one is safe before the pet loads.
+  const loading = log === null || log.day !== dayKey(day);
+  const events = loading ? NO_EVENTS : log.events;
+  const walked = walkedMinutes(events);
+  const goal = pet?.exercise_goal_minutes ?? null;
+  const met = goal !== null && walked >= goal;
+  /**
+   * Whether the rows on screen answer the *current* request.
+   *
+   * **A day that matches is not enough.** Starting a walk sets `runningId` and
+   * asks for a reload, and until that reload lands the rows are the ones read
+   * before the walk existed — the new row is, rightly, not among them. Judging
+   * the flag against those rows would call it stale and drop it, a second
+   * after the tutor pressed start.
+   */
+  const fresh = !loading && log.attempt === attempt;
+
+  /**
+   * The row this device thinks is running, if it is on the day in view.
+   *
+   * **Derived, never a second piece of state.** An effect keeping one state in
+   * step with another is the defect `react-hooks/set-state-in-effect` exists
+   * to report, and the walk's start is already in the row.
+   *
+   * **A row with a length is not running**, whatever the flag says: the tutor
+   * can open the live row and write one in the sheet, which closes the walk
+   * without going through the control.
+   */
+  const runningRow =
+    runningId !== null
+      ? (events.find((event) => event.id === runningId) ?? null)
+      : null;
+  const runningWalk =
+    runningRow && runningRow.duration_minutes === null ? runningRow : null;
+  const walkingSince = runningWalk ? new Date(runningWalk.occurred_at) : null;
+
+  // Three ways a flag stops meaning anything, and all three drop it without
+  // writing: the row is gone — deleted on the other phone — or it has been
+  // closed by hand, or the walk has been open past the column's ceiling, which
+  // is the forgotten stop. Only once the day's rows have actually loaded for
+  // this request, or every reload would clear it on the way past, and only on
+  // the day the walk belongs to, or paging back a week would clear a walk that
+  // is running fine.
+  useEffect(() => {
+    if (!runningId || !fresh || logError || !isToday) return;
+    const row = events.find((event) => event.id === runningId);
+    const stale =
+      !row ||
+      row.duration_minutes !== null ||
+      walkOutcome(new Date(row.occurred_at), new Date()).action === "abandon";
+    if (!stale) return;
+    AsyncStorage.removeItem(WALK_STORAGE_KEY).then(() => setRunningId(null));
+  }, [runningId, events, fresh, logError, isToday]);
+
+  const start = useCallback(async () => {
+    if (!petId || walkBusy) return;
+    setWalkBusy(true);
+    // The write comes first and the state follows it. A block that says "De
+    // paseo" over a walk the server never accepted is worse than a tap that
+    // visibly did nothing.
+    const { id, error } = await startWalk(petId);
+    setWalkBusy(false);
+    if (error || !id) {
+      toast.show({
+        variant: "error",
+        message: error ?? "No se ha podido empezar el paseo",
+        persist: true,
+      });
+      return;
+    }
+    await AsyncStorage.setItem(WALK_STORAGE_KEY, serialiseRunningWalk(id));
+    setRunningId(id);
+    setAttempt((n) => n + 1);
+  }, [petId, walkBusy, toast]);
+
+  const stop = useCallback(async () => {
+    if (!runningWalk || walkBusy) return;
+    setWalkBusy(true);
+    const outcome = walkOutcome(new Date(runningWalk.occurred_at), new Date());
+    const { error } =
+      outcome.action === "discard"
+        ? await deleteEvent(runningWalk.id)
+        : outcome.action === "close"
+          ? await closeWalk(runningWalk.id, outcome.minutes)
+          : { error: null };
+    setWalkBusy(false);
+    if (error) {
+      // The walk stays running so the tutor can press stop again.
+      toast.show({ variant: "error", message: error, persist: true });
+      return;
+    }
+    await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+    setRunningId(null);
+    setAttempt((n) => n + 1);
+
+    // The same threshold the sheet's `onSaved` crosses, with simpler
+    // arithmetic: a running walk contributes null to `walked`, so there is no
+    // old value to take out before the new one goes in. `isToday` is what
+    // stops a walk closed after midnight throwing confetti over a day nobody
+    // is looking at.
+    if (
+      outcome.action === "close" &&
+      isToday &&
+      goal !== null &&
+      goal > 0 &&
+      !met &&
+      walked + outcome.minutes >= goal
+    ) {
+      celebrate();
+    }
+  }, [runningWalk, walkBusy, toast, celebrate, isToday, goal, met, walked]);
+
   if (petError) {
     return (
       <Screen center edges={["top"]}>
@@ -458,11 +610,6 @@ export default function Home() {
   // fill, so the header a tutor just used stays under their thumb.
   if (!pet) return <LoadingScreen />;
 
-  const loading = log === null || log.day !== dayKey(day);
-  const events = loading ? [] : log.events;
-  const walked = walkedMinutes(events);
-  const goal = pet.exercise_goal_minutes;
-  const met = goal !== null && walked >= goal;
   /**
    * **The birthday takes the headline over "Hoy" or the weekday.**
    *
@@ -580,45 +727,25 @@ export default function Home() {
           day's "2h 30m de 3h paseados" over a header that already says "Ayer"
           is the same lie the log used to tell, in fewer words and larger
           type. */}
-      {goal !== null && loading ? (
+      {loading ? (
         <View testID="home-goal-skeleton" className="mb-8">
           <View className="mb-2">
             <Skeleton width="58%" height={16} />
           </View>
-          <Skeleton width="100%" height={4} />
+          {goal !== null ? <Skeleton width="100%" height={4} /> : null}
         </View>
-      ) : null}
-
-      {goal !== null && !loading ? (
-        <View testID="home-goal" className="mb-8">
-          <View className="mb-2 flex-row items-baseline justify-between">
-            <Text className="font-semibold text-text-primary">
-              {`${formatDuration(walked, settings.durationFormat)} de ${formatDuration(goal, settings.durationFormat)} paseados`}
-            </Text>
-            {met ? (
-              <Text className="font-semibold text-xs text-accent">
-                Objetivo conseguido
-              </Text>
-            ) : null}
-          </View>
-          {/* A bar, not a ring: the question is "how much of the day's target
-              is done", which is one dimension. */}
-          {/* `h-[4px]`, not `h-1`. The calendar draws this same bar in
-              miniature and sizes it in literal pixels; `h-1` is 0.25rem,
-              which native resolves at 14px/rem to 3.38dp — measured, against
-              the calendar's 4.00. Two surfaces quoting one element cannot
-              round differently. */}
-          <View className="h-[4px] overflow-hidden rounded-xl bg-surface">
-            <View
-              testID="home-goal-bar"
-              style={{
-                width: `${Math.min(100, goal === 0 ? 0 : (walked / goal) * 100)}%`,
-              }}
-              className={`h-[4px] ${met ? "bg-accent" : "bg-text-secondary"}`}
-            />
-          </View>
-        </View>
-      ) : null}
+      ) : (
+        <GoalBlock
+          testID="home-goal"
+          walkedMinutes={walked}
+          goalMinutes={goal}
+          durationFormat={settings.durationFormat}
+          walkingSince={walkingSince}
+          busy={walkBusy}
+          onStart={isToday && !runningId ? start : undefined}
+          onStop={walkingSince ? stop : undefined}
+        />
+      )}
 
       {/* The log's own waiting state, in the slots the rows will fill: see
           `LogSkeleton`. The title is the real word, because it is true before
@@ -673,6 +800,7 @@ export default function Home() {
             <Entry
               key={event.id}
               event={event}
+              running={event.id === runningWalk?.id}
               onPress={() =>
                 setEditing({ kind: event.kind as EventKind, event })
               }
@@ -756,6 +884,11 @@ export default function Home() {
             toast.show({ variant: "error", message, persist: true })
           }
           petId={pet.id}
+          timeMeans={
+            editing.event !== null && editing.event.id === runningWalk?.id
+              ? "start"
+              : "end"
+          }
         />
       ) : null}
     </Screen>
@@ -777,9 +910,12 @@ export default function Home() {
 function Entry({
   event,
   onPress,
+  running = false,
 }: {
   event: PetEventRow;
   onPress: () => void;
+  /** The walk this device has open: no length yet, and it is still going. */
+  running?: boolean;
 }) {
   const { settings } = useSettings();
   const spec = KINDS[event.kind as EventKind];
@@ -789,7 +925,11 @@ function Entry({
     new Date(event.occurred_at),
     settings.timeFormat,
   );
-  const described = spec?.describe(event, settings.durationFormat);
+  // A running walk has no length to describe, so the line says how long it has
+  // been going. Read at render, which is as fresh as the day view is.
+  const described = running
+    ? `En marcha · ${formatDuration(elapsedMinutes(new Date(event.occurred_at), new Date()), settings.durationFormat)}`
+    : spec?.describe(event, settings.durationFormat);
   const stools = readStools(event.details);
   const Icon = spec?.icon;
 
@@ -819,7 +959,9 @@ function Entry({
           between "9:15 a.m." and "12:05 p.m.", which is cheaper than a
           clipped time. */}
       <View className="shrink-0 items-start gap-1">
-        <Text className="text-text-tertiary">{time}</Text>
+        <Text className={running ? "text-accent" : "text-text-tertiary"}>
+          {time}
+        </Text>
         {Icon ? (
           // **The two rare kinds wear the colour the calendar marks them in.**
           // Nothing tied a red dot on the 9th to the row that put it there:
@@ -837,7 +979,9 @@ function Entry({
           <Icon
             size={18}
             strokeWidth={2}
-            color={spec?.tone ?? colors.textTertiary}
+            color={
+              running ? colors.accent : (spec?.tone ?? colors.textTertiary)
+            }
           />
         ) : null}
       </View>
