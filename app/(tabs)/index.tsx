@@ -10,7 +10,7 @@ import {
   UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Pressable, View } from "react-native";
 import {
   Button,
@@ -75,7 +75,6 @@ import { getMyPet, type PetRow } from "../../lib/pets";
 import { treatmentsFor, vaccineDays } from "../../lib/treatments";
 import { useSettings, type DurationFormat } from "../../lib/settings";
 import {
-  elapsedMinutes,
   parseRunningWalk,
   serialiseRunningWalk,
   walkOutcome,
@@ -341,6 +340,13 @@ export default function Home() {
   /** The walk this device has open, or null. Read once, then kept in step. */
   const [runningId, setRunningId] = useState<string | null>(null);
   const [walkBusy, setWalkBusy] = useState(false);
+  /**
+   * A tap that arrives while another is still being handled.
+   *
+   * `walkBusy` is state, so it only closes the door once a render has
+   * committed; a train of taps can land before that. A ref flips at once.
+   */
+  const walkInFlight = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -534,62 +540,93 @@ export default function Home() {
   }, [runningId, events, fresh, logError, isToday]);
 
   const start = useCallback(async () => {
-    if (!petId || walkBusy) return;
+    if (!petId || walkInFlight.current) return;
+    walkInFlight.current = true;
     setWalkBusy(true);
-    // The write comes first and the state follows it. A block that says "De
-    // paseo" over a walk the server never accepted is worse than a tap that
-    // visibly did nothing.
-    const { id, error } = await startWalk(petId);
-    setWalkBusy(false);
-    if (error || !id) {
-      toast.show({
-        variant: "error",
-        message: error ?? "No se ha podido empezar el paseo",
-        persist: true,
-      });
-      return;
+    try {
+      // The write comes first and the state follows it. A block that says "De
+      // paseo" over a walk the server never accepted is worse than a tap that
+      // visibly did nothing.
+      const { id, error } = await startWalk(petId);
+      if (error || !id) {
+        toast.show({
+          variant: "error",
+          message: error ?? "No se ha podido empezar el paseo",
+          persist: true,
+        });
+        return;
+      }
+      // **The device's note is best-effort; the row is the fact.** A storage
+      // failure here must not escape, or the row exists and the flag does not
+      // and the block offers Empezar over a live walk. The walk runs for this
+      // session either way.
+      try {
+        await AsyncStorage.setItem(WALK_STORAGE_KEY, serialiseRunningWalk(id));
+      } catch {
+        // Not worth interrupting a walk for.
+      }
+      setRunningId(id);
+      setAttempt((n) => n + 1);
+    } finally {
+      // **Last, so no committed render shows Empezar enabled over a walk that
+      // is already written.** Busy clears in the same batch that sets
+      // `runningId`, which is what `onStart` is withheld on.
+      walkInFlight.current = false;
+      setWalkBusy(false);
     }
-    await AsyncStorage.setItem(WALK_STORAGE_KEY, serialiseRunningWalk(id));
-    setRunningId(id);
-    setAttempt((n) => n + 1);
-  }, [petId, walkBusy, toast]);
+  }, [petId, toast]);
 
   const stop = useCallback(async () => {
-    if (!runningWalk || walkBusy) return;
+    if (!runningWalk || walkInFlight.current) return;
+    walkInFlight.current = true;
     setWalkBusy(true);
-    const outcome = walkOutcome(new Date(runningWalk.occurred_at), new Date());
-    const { error } =
-      outcome.action === "discard"
-        ? await deleteEvent(runningWalk.id)
-        : outcome.action === "close"
-          ? await closeWalk(runningWalk.id, outcome.minutes)
-          : { error: null };
-    setWalkBusy(false);
-    if (error) {
-      // The walk stays running so the tutor can press stop again.
-      toast.show({ variant: "error", message: error, persist: true });
-      return;
-    }
-    await AsyncStorage.removeItem(WALK_STORAGE_KEY);
-    setRunningId(null);
-    setAttempt((n) => n + 1);
+    try {
+      const outcome = walkOutcome(
+        new Date(runningWalk.occurred_at),
+        new Date(),
+      );
+      const { error } =
+        outcome.action === "discard"
+          ? await deleteEvent(runningWalk.id)
+          : outcome.action === "close"
+            ? await closeWalk(runningWalk.id, outcome.minutes)
+            : { error: null };
+      if (error) {
+        // The walk stays running so the tutor can press stop again.
+        toast.show({ variant: "error", message: error, persist: true });
+        return;
+      }
+      // Best-effort, as in `start`: if the flag outlives the walk, the row has
+      // a length (or is gone) by the next load and the staleness effect drops
+      // it.
+      try {
+        await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+      } catch {
+        // See above.
+      }
+      setRunningId(null);
+      setAttempt((n) => n + 1);
 
-    // The same threshold the sheet's `onSaved` crosses, with simpler
-    // arithmetic: a running walk contributes null to `walked`, so there is no
-    // old value to take out before the new one goes in. `isToday` is what
-    // stops a walk closed after midnight throwing confetti over a day nobody
-    // is looking at.
-    if (
-      outcome.action === "close" &&
-      isToday &&
-      goal !== null &&
-      goal > 0 &&
-      !met &&
-      walked + outcome.minutes >= goal
-    ) {
-      celebrate();
+      // The same threshold the sheet's `onSaved` crosses, with simpler
+      // arithmetic: a running walk contributes null to `walked`, so there is
+      // no old value to take out before the new one goes in. `isToday` is what
+      // stops a walk closed after midnight throwing confetti over a day nobody
+      // is looking at.
+      if (
+        outcome.action === "close" &&
+        isToday &&
+        goal !== null &&
+        goal > 0 &&
+        !met &&
+        walked + outcome.minutes >= goal
+      ) {
+        celebrate();
+      }
+    } finally {
+      walkInFlight.current = false;
+      setWalkBusy(false);
     }
-  }, [runningWalk, walkBusy, toast, celebrate, isToday, goal, met, walked]);
+  }, [runningWalk, toast, celebrate, isToday, goal, met, walked]);
 
   if (petError) {
     return (
@@ -925,10 +962,11 @@ function Entry({
     new Date(event.occurred_at),
     settings.timeFormat,
   );
-  // A running walk has no length to describe, so the line says how long it has
-  // been going. Read at render, which is as fresh as the day view is.
+  // **A running walk says "En marcha" and nothing else.** The goal block owns
+  // the clock and ticks it on its own; a second counter here would only
+  // refresh when this screen re-rendered, and the two would disagree.
   const described = running
-    ? `En marcha · ${formatDuration(elapsedMinutes(new Date(event.occurred_at), new Date()), settings.durationFormat)}`
+    ? "En marcha"
     : spec?.describe(event, settings.durationFormat);
   const stools = readStools(event.details);
   const Icon = spec?.icon;
