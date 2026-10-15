@@ -47,6 +47,13 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   campo. Y un inicio en el futuro, que ahora es lo que se guarda cuando no hay
   vuelta, recibe la misma comprobación que ya tenía la vuelta: "¿Todavía no
   habéis salido?".
+- **Borrar la duración borraba la hora de salida.** Mientras la vuelta era
+  siempre el ancla, vaciar la duración vaciaba el DESDE que se había calculado
+  a partir de ella, y eso era lo correcto. Con la vuelta vacía —un paseo en
+  marcha, uno que cruzó medianoche— el ancla es justo la otra, así que lo que
+  se borraba era el inicio real y lo que quedaba en pie era la hora derivada:
+  Guardar archivaba el paseo bajo una hora que nadie había tecleado. Ahora se
+  vacía el campo derivado y nunca el ancla.
 
 ### Cambiado
 

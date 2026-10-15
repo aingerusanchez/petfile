@@ -1337,6 +1337,49 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
 });
 
+test("never moves the start of a walk in progress with the duration", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+
+  // DESDE is the anchor here and HASTA is empty, which inverts the usual
+  // relation: the steppers move the *end*. Whatever they do, the start the
+  // app wrote down when the tutor left the house must survive it.
+  const start = await page.getByTestId("entry-from").inputValue();
+  expect(start).toMatch(/^\d{2}:\d{2}$/);
+
+  await page.getByTestId("entry-duration-plus").click();
+  await expect(page.getByTestId("entry-from")).toHaveValue(start);
+  await expect(page.getByTestId("entry-to")).not.toHaveValue("");
+
+  // **The second tap is where emptiness stopped being a good test.** HASTA
+  // now holds a time, but the app put it there — reading it as the anchor
+  // walked the start backwards a quarter of an hour per tap.
+  await page.getByTestId("entry-duration-plus").click();
+  await expect(page.getByTestId("entry-from")).toHaveValue(start);
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+
+  // **And clearing the duration undoes it rather than destroying it.** The
+  // derived HASTA goes; the start stays. Before this, DESDE was the field
+  // that went, and Guardar then filed the walk under the HASTA nobody typed.
+  await page.getByTestId("entry-duration").fill("");
+  await expect(page.getByTestId("entry-from")).toHaveValue(start);
+  await expect(page.getByTestId("entry-to")).toHaveValue("");
+
+  // Which leaves the walk exactly as it was found: still running.
+  await page.getByTestId("entry-cancel").click();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(row).toContainText("En marcha");
+});
+
 test("saves a walk that crosses midnight, and saves it again after an edit", async ({
   page,
 }) => {
@@ -1378,6 +1421,24 @@ test("saves a walk that crosses midnight, and saves it again after an edit", asy
   await expect(page.getByTestId("home-log")).toContainText(
     "Cruzó la medianoche",
   );
+
+  // **And its length can be retyped, which is the third face of the same
+  // defect.** Clearing the duration used to empty DESDE as well — it was the
+  // field the steppers always derived, back when HASTA was always the anchor
+  // — leaving both times blank and Guardar refusing on a field nobody had
+  // touched, with Cancelar the only way out. The start stays put now.
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await page.getByTestId("entry-duration").fill("");
+  await expect(page.getByTestId("entry-from")).toHaveValue("23:40");
+  await page.getByTestId("entry-duration").fill("45 min");
+  await expect(page.getByTestId("entry-from")).toHaveValue("23:40");
+  await expect(page.getByTestId("entry-to")).toHaveValue("");
+  // A duration is an edit in its own right. On this one walk it is the only
+  // thing that can change, because no HASTA this form can hold moves with it.
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await expect(page.getByTestId("home-log")).toContainText("45 min");
+  await expect(page.getByTestId("home-goal")).toContainText("45 min de 1h");
 });
 
 test("refuses a typed return time that does not parse, instead of dropping it", async ({

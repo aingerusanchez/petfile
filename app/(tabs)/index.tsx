@@ -1154,12 +1154,19 @@ function EntrySheet({
   const storedMinutes = event?.duration_minutes ?? null;
 
   /**
-   * The anchor: a walk's HASTA, and every other kind's only time.
+   * The two time fields as the sheet opens, read back from the row.
    *
-   * A stored walk keeps its start in `occurred_at`, so reopening one adds the
-   * duration back on to recover the end it was entered from.
+   * **This used to be called the anchor, and `at` used to always be it.** For
+   * every kind but the walk it still is — one time, and nothing to derive it
+   * from. A stored walk keeps its start in `occurred_at`, so reopening one
+   * adds the duration back on to recover the HASTA it was entered from; when
+   * that end lands on the next day there is no HASTA this form can hold and
+   * DESDE carries the walk on its own. A walk in progress is that same shape
+   * with no duration yet, which is what `timeMeans` is for. Which of the two
+   * is the anchor from here on is `moveDerived`'s question, not this one's.
+   *
+   * One source for the three places that need it: `at`, `from`, and `opened`.
    */
-  // One source for the three places that need it: `at`, `from`, and `opened`.
   const [initial] = useState(() => {
     const now = new Date();
     if (!occurred) return { at: formatTimeOfDay(now), from: "" };
@@ -1205,12 +1212,28 @@ function EntrySheet({
   const [opened] = useState(() => ({
     at: initial.at,
     from: initial.from,
+    // **The duration counts as a change on its own.** It used to be left out
+    // because moving it always moved a time with it, so the times spoke for
+    // it — except on the one walk where they cannot: a crossed walk's HASTA
+    // stays empty whatever the duration says, so retyping "30 min" as "45
+    // min" changed nothing the check could see and Guardar stayed dead with
+    // Cancelar the only way out. It was masked until now by the steppers
+    // wiping DESDE, which made the entry dirty by destroying it.
+    duration: storedMinutes
+      ? formatDuration(storedMinutes, durationFormat)
+      : "",
     value: (event && eventDetail(event, "what")) || "",
     note: event?.note ?? "",
     stools: readStools(event?.details).join(","),
   }));
   const [durationError, setDurationError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  /**
+   * Which time field this sheet wrote itself, rather than the tutor — the
+   * derived one. Null until it writes one, and null again the moment the
+   * tutor touches either field. See `moveDerived`.
+   */
+  const [derived, setDerived] = useState<"at" | "from" | null>(null);
 
   /**
    * **Only an edit can be unchanged.** The profile's blocks disable their save
@@ -1227,6 +1250,7 @@ function EntrySheet({
     !event ||
     at !== opened.at ||
     from !== opened.from ||
+    durationText !== opened.duration ||
     value !== opened.value ||
     note !== opened.note ||
     stools.join(",") !== opened.stools;
@@ -1266,9 +1290,13 @@ function EntrySheet({
     [day, durationFormat],
   );
 
+  // A time the tutor types is a time the tutor owns: neither field is the
+  // derived one any more, and `moveDerived` goes back to deciding from the
+  // two values. The same applies to a time picked off the clock, below.
   const editAt = useCallback(
     (text: string) => {
       setAt(text);
+      setDerived(null);
       showDuration(from, text);
     },
     [showDuration, from],
@@ -1277,6 +1305,7 @@ function EntrySheet({
   const editFrom = useCallback(
     (text: string) => {
       setFrom(text);
+      setDerived(null);
       showDuration(text, at);
     },
     [showDuration, at],
@@ -1300,8 +1329,51 @@ function EntrySheet({
   );
 
   /**
-   * The one direction that writes into a time, and it counts backwards from
-   * the end — which is the time the tutor actually knows.
+   * Writes a duration into whichever of the two times is the derived one, and
+   * `null` to clear that field. **The anchor is never touched.**
+   *
+   * HASTA is the anchor whenever the tutor put a time there: the hour they
+   * got home is the one they actually know, so the steppers count backwards
+   * from it and DESDE is what moves. With no HASTA the relation inverts — the
+   * walk is a start plus a length, which is the shape of both the walk in
+   * progress and the walk that crossed midnight — so DESDE is the anchor and
+   * HASTA is what moves.
+   *
+   * **Emptiness alone cannot tell them apart, and that is the whole reason
+   * this remembers.** One tap of +15 on a running walk fills HASTA, so by the
+   * second tap a rule reading "HASTA is the anchor if it holds something"
+   * calls the app's own derivation an anchor and moves the real start out
+   * from under it. Measured, both halves destructive:
+   *
+   * - +15 then clearing the duration to undo it wiped DESDE and left HASTA
+   *   standing, and `save` files a walk with no DESDE under its HASTA — so a
+   *   walk that began at 11:02 was stored as beginning at 11:17, a time
+   *   nobody typed, over the one fact the row existed to keep.
+   * - +15 twice walked the start backwards instead: 11:02 became 10:47.
+   *
+   * So the field this writes is remembered as derived, and the memory is
+   * dropped as soon as the tutor types into either time or picks one off the
+   * clock. Nothing the tutor has touched is ever the derived field.
+   */
+  const moveDerived = useCallback(
+    (total: number | null) => {
+      const target =
+        derived ?? (at.trim() ? "from" : from.trim() ? "at" : null);
+      if (target === null) return;
+      if (target === "from") {
+        setFrom(total === null ? "" : startOnDay(at, day, total));
+      } else {
+        setAt(total === null ? "" : endOnDay(from, day, total));
+      }
+      setDerived(total === null ? null : target);
+    },
+    [derived, at, from, day],
+  );
+
+  /**
+   * The quarter-hour steppers: they set the duration, and the duration moves
+   * the derived time — backwards from HASTA, or forwards from DESDE when
+   * HASTA is empty. See `moveDerived` for which is which.
    *
    * **A duration longer than a day is refused here, not on save.** Counting
    * back from the end would put DESDE on a previous day and render it as a
@@ -1342,7 +1414,7 @@ function EntrySheet({
     (total: number) => {
       if (total <= 0) {
         setDurationError(null);
-        setFrom("");
+        moveDerived(null);
         setDurationText("");
         return;
       }
@@ -1352,12 +1424,9 @@ function EntrySheet({
       }
       setDurationError(null);
       setDurationText(formatDuration(total, durationFormat));
-      // With no HASTA the walk is a start plus a length, so the steppers move
-      // the end instead of the start. Exactly the mirror of the other case.
-      if (at.trim()) setFrom(startOnDay(at, day, total));
-      else if (from.trim()) setAt(endOnDay(from, day, total));
+      moveDerived(total);
     },
-    [at, from, day, durationFormat],
+    [moveDerived, durationFormat],
   );
 
   /**
@@ -1370,7 +1439,7 @@ function EntrySheet({
       setDurationText(text);
       if (!text.trim()) {
         setDurationError(null);
-        setFrom("");
+        moveDerived(null);
         return;
       }
       const total = parseDuration(text);
@@ -1381,21 +1450,25 @@ function EntrySheet({
         return;
       }
       setDurationError(null);
-      // With no HASTA the walk is a start plus a length, so the steppers move
-      // the end instead of the start. Exactly the mirror of the other case.
-      if (at.trim()) setFrom(startOnDay(at, day, total));
-      else if (from.trim()) setAt(endOnDay(from, day, total));
+      moveDerived(total);
     },
-    [at, from, day],
+    [moveDerived],
   );
 
   /**
-   * Blurring discards a refused duration.
+   * Blurring discards a refused duration — when there is something to
+   * re-derive it from.
    *
-   * **With DESDE there are two times to fall back on, and without it there are
-   * not** — so the empty-start case has to tidy the field on its own rather
-   * than re-derive it, or a refused "99h" would sit there with its error
-   * cleared and be dropped in silence at save time. A valid value is kept and
+   * **With DESDE the field is a reading of the two times**, so blurring asks
+   * `showDuration` for it again and whatever was typed goes. That is a no-op
+   * in the one case DESDE is set and HASTA is not — the running walk, the
+   * crossed walk — because two times are what `showDuration` needs; there the
+   * typed value stays until `save` refuses it on the field itself, which is
+   * where a message about one field belongs.
+   *
+   * **With neither time the duration is the only fact there is**, so nothing
+   * can re-derive it and this has to tidy it by hand, or a refused "99h"
+   * would sit there with its error cleared. A valid value is kept and
    * normalised; anything else goes.
    */
   const tidyDuration = useCallback(() => {
@@ -1567,6 +1640,7 @@ function EntrySheet({
                       value={from}
                       onChange={(time) => {
                         setFrom(time);
+                        setDerived(null);
                       }}
                     />
                   }
@@ -1590,6 +1664,7 @@ function EntrySheet({
                       value={at}
                       onChange={(time) => {
                         setAt(time);
+                        setDerived(null);
                       }}
                     />
                   }
