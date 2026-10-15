@@ -1236,8 +1236,10 @@ function EntrySheet({
 
     // **HASTA is required unless DESDE can stand in for it.** A walk needs two
     // times, or one time and a length; everything else still needs the hour it
-    // happened at.
-    if (!end && !(isWalk && from.trim())) {
+    // happened at. Emptiness is the test, not parseability: only an *empty*
+    // HASTA can be stood in for, so a typed one that does not parse is refused
+    // rather than dropped in silence.
+    if (!end && (at.trim() || !(isWalk && from.trim()))) {
       setAtError("Escríbela como 09:15");
       return false;
     }
@@ -1251,6 +1253,14 @@ function EntrySheet({
 
     if (isWalk && from.trim() && !start) {
       setFromError("Escríbela como 09:15");
+      return false;
+    }
+    // With no HASTA the start is what `occurred_at` becomes, so it gets the
+    // same future check HASTA does, and on its own field: a message about one
+    // field does not belong in a toast. With both times present HASTA is
+    // later than DESDE and has already been checked above.
+    if (start && start.getTime() > Date.now() + 60_000) {
+      setFromError("¿Todavía no habéis salido?");
       return false;
     }
     setFromError(null);
