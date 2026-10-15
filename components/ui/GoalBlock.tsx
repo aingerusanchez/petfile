@@ -76,11 +76,27 @@ export function GoalBlock({
 }) {
   const [now, setNow] = useState(() => new Date());
 
+  // **The effect keys on the instant, not on the `Date`.** A parent that
+  // builds `new Date(occurred_at)` during render hands over a new object every
+  // render; depending on the object would re-run this each time, and now that
+  // it refreshes `now` it would be a render loop.
+  const since = walkingSince ? walkingSince.getTime() : null;
+
   useEffect(() => {
-    if (!walkingSince) return;
+    if (since === null) return;
+    // **Catch up the moment a walk is running**, not one tick later. `now` was
+    // read when the block mounted, so a walk that began while the tutor was on
+    // another day would read "0 min" for up to `TICK_MS` after coming back —
+    // `elapsedMinutes` clamps the gap rather than failing, so it would just
+    // lie. A zero-delay timeout rather than a `setNow` in the body, which the
+    // lint rules rightly refuse.
+    const refresh = setTimeout(() => setNow(new Date()), 0);
     const timer = setInterval(() => setNow(new Date()), TICK_MS);
-    return () => clearInterval(timer);
-  }, [walkingSince]);
+    return () => {
+      clearTimeout(refresh);
+      clearInterval(timer);
+    };
+  }, [since]);
 
   const running = walkingSince ? elapsedMinutes(walkingSince, now) : 0;
   const met = goalMinutes !== null && walkedMinutes >= goalMinutes;
