@@ -31,7 +31,10 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
 - **El paseo en marcha se puede anotar sin esperar.** Aparece en el registro
   como una fila más —"En marcha"—, así que la kaka de mitad de paseo se apunta
   donde se apunta siempre. Una pulsación y otra dentro del mismo minuto es un
-  toque por error, y lo honrado es no dejar nada: la fila se va con ella.
+  toque por error, y lo honrado es no dejar nada: la fila se va con ella —
+  **salvo que lleve algo escrito**. Si en ese minuto se ha anotado una nota o
+  una kaka, borrarla se llevaría por delante algo que alguien tecleó, así que
+  el paseo se cierra con un minuto, que es lo más corto que admite la ficha.
 
 ### Arreglado
 

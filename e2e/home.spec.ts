@@ -1380,6 +1380,74 @@ test("never moves the start of a walk in progress with the duration", async ({
   await expect(row).toContainText("En marcha");
 });
 
+test("annotates a walk in progress, then closes it with its length", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // An hour behind a "now" this test owns, rather than a fixed morning time:
+  // the sheet refuses a start in the future, so "09:30" typed onto today is a
+  // test that fails half the day. Within the first hour of the day that hour
+  // is yesterday, which this day view cannot hold.
+  const now = new Date();
+  const hourAgo = new Date(now.getTime() - 60 * 60_000);
+  test.skip(
+    hourAgo.getDate() !== now.getDate(),
+    "an hour ago is still yesterday",
+  );
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+
+  // **The live row opens as a start, not as a return.** Every other row with
+  // one time and no length means "I got back at this hour"; this one means
+  // the opposite, and the day view is the only thing that knows which.
+  await row.click();
+  // The shape is the assertion, not the digits: the minute can turn between
+  // the "now" above and the insert, and a test that fails on that is a test
+  // about the clock.
+  await expect(page.getByTestId("entry-to")).toHaveValue("");
+  await expect(page.getByTestId("entry-from")).toHaveValue(/^\d{2}:\d{2}$/);
+
+  // Backdating the start is what gives this walk an hour without the suite
+  // waiting one. It is also the mid-walk annotation the feature exists for:
+  // the kaka and the note are written while the dog is still out.
+  await page.getByTestId("entry-from").fill(clockTime(hourAgo));
+  await page.getByTestId("stool-toggle").click();
+  await page.getByTestId("stool-add-2").click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+
+  // Still running: the row has a start and no length, which is the whole
+  // shape of a walk in progress, so the device's flag still points at it.
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("1h");
+  await expect(row).toContainText("En marcha");
+
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-measure")).not.toContainText(
+    "De paseo",
+  );
+
+  // The length lands — the clause the spec's Testing section asks for, and
+  // the only one that writes a number into a real animal's activity record.
+  await expect(row).toContainText("1h");
+  await expect(page.getByTestId("home-goal-met")).toBeVisible();
+
+  // **And the note and the kaka survived it.** This is the regression test
+  // for `closeWalk` touching the duration and nothing else: a full update,
+  // with its nulls, would wipe exactly what was written mid-walk.
+  await expect(row).toContainText("Ha bebido en la fuente");
+  await expect(row).toHaveAttribute("aria-label", /una kaka: perfecta/);
+});
+
 test("saves a walk that crosses midnight, and saves it again after an edit", async ({
   page,
 }) => {

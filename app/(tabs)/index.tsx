@@ -585,9 +585,24 @@ export default function Home() {
         new Date(runningWalk.occurred_at),
         new Date(),
       );
+      // **The rule is "untouched", not "under a minute".** A start and a stop
+      // inside the same minute is a mis-tap and the honest record of a
+      // mis-tap is nothing — but the live row is in the log as soon as the
+      // reload lands, the sheet opens on it, and a note and stool chips can
+      // be written into it immediately. Deleting that row would throw away
+      // something the tutor typed, silently and with no way back. So a row
+      // anybody has written on is closed at one minute instead: the smallest
+      // length the column accepts, and honest about a walk that did happen.
+      // `details` is `jsonb`, so it arrives as `Json` and needs the same cast
+      // `eventDetail` makes.
+      const details = runningWalk.details as Record<string, unknown> | null;
+      const untouched =
+        !runningWalk.note && Object.keys(details ?? {}).length === 0;
       const { error } =
         outcome.action === "discard"
-          ? await deleteEvent(runningWalk.id)
+          ? untouched
+            ? await deleteEvent(runningWalk.id)
+            : await closeWalk(runningWalk.id, 1)
           : outcome.action === "close"
             ? await closeWalk(runningWalk.id, outcome.minutes)
             : { error: null };
