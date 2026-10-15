@@ -100,7 +100,17 @@ export function GoalBlock({
 
   const running = walkingSince ? elapsedMinutes(walkingSince, now) : 0;
   const met = goalMinutes !== null && walkedMinutes >= goalMinutes;
-  const control = walkingSince ? onStop : onStart;
+  /**
+   * **The control is a stop as soon as the caller has one, not as soon as the
+   * row has arrived.** A start writes the row and asks for a reload, and
+   * `walkingSince` comes out of that row — so between the two there is a walk
+   * running and nothing here to show for it. The caller hands `onStop` over
+   * the moment it knows, with `busy` set, and the block shows a disabled stop
+   * until the row lands rather than taking the control off the screen under
+   * the thumb that just pressed it.
+   */
+  const stopping = onStop !== undefined;
+  const control = stopping ? onStop : onStart;
 
   const recorded =
     goalMinutes === null || goalMinutes === 0
@@ -132,14 +142,12 @@ export function GoalBlock({
             onPress={control}
             disabled={busy}
             accessibilityRole="button"
-            accessibilityLabel={
-              walkingSince ? "Terminar paseo" : "Empezar paseo"
-            }
+            accessibilityLabel={stopping ? "Terminar paseo" : "Empezar paseo"}
             accessibilityState={{ disabled: busy }}
             style={{ minHeight: TOUCH_TARGET }}
             className="shrink-0 flex-row items-center gap-2 pl-3 active:opacity-70"
           >
-            {walkingSince ? (
+            {stopping ? (
               <Square size={16} strokeWidth={2.5} color={colors.accent} />
             ) : (
               <Play size={16} strokeWidth={2.5} color={colors.accent} />

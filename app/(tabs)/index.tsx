@@ -793,9 +793,25 @@ export default function Home() {
           goalMinutes={goal}
           durationFormat={settings.durationFormat}
           walkingSince={walkingSince}
-          busy={walkBusy}
+          // **The stop spans the gap between the write and the reload.**
+          // `walkingSince` is read from the row, so it is null until the day
+          // refetch answers — a gap bounded by the request timeout, not by a
+          // frame. Withholding both controls there takes the most-pressed
+          // thing on the screen away the instant it is pressed, over a
+          // measure still showing the old number, which reads as "it didn't
+          // work" — the exact impression writing before the state changes
+          // exists to avoid. For a reader it is worse: the label turning into
+          // "Terminar paseo" is the only confirmation the start landed, and
+          // removing the control drops focus and says nothing. So it renders
+          // disabled across the gap. `stop` early-returns without a row, so
+          // offering it before one arrives is safe; `isToday` is what keeps a
+          // day reached with the arrows free of it, and a walk running past
+          // midnight keeps its stop through `walkingSince`.
+          busy={walkBusy || (isToday && runningId !== null && !walkingSince)}
           onStart={isToday && !runningId ? start : undefined}
-          onStop={walkingSince ? stop : undefined}
+          onStop={
+            walkingSince || (isToday && runningId !== null) ? stop : undefined
+          }
         />
       )}
 
