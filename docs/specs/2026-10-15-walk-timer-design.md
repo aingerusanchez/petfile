@@ -69,7 +69,7 @@ Nothing floats; the floating action and its menu are untouched.
 | State          | Text                      | Bar                                | Control |
 | -------------- | ------------------------- | ---------------------------------- | ------- |
 | Idle, goal set | `34 min de 3h paseados`   | Mist, or Aqua when met             | start   |
-| Idle, no goal  | `34 min paseados hoy`     | absent                             | start   |
+| Idle, no goal  | `34 min paseados`         | absent                             | start   |
 | Walking        | `De paseo · 18 min`, Aqua | Mist, plus the in-progress segment | stop    |
 | Past day       | unchanged                 | unchanged                          | none    |
 | Loading        | unchanged skeleton        | unchanged skeleton                 | none    |
@@ -125,8 +125,17 @@ marker to make a 24-hour-old mistake read better is the worse trade.
 
 The log is ascending, so the walk in progress is the **last** row, in its own
 hour — not pinned to the top. Its time and glyph take Aqua and the detail line
-reads `En marcha · 18 min` where a duration would go. Tapping it opens the
+reads `En marcha` where a duration would go. Tapping it opens the
 entry sheet.
+
+**It carries no counter, and this corrects what this spec first said.** The
+first draft put the elapsed minutes in the row as well. `GoalBlock` owns its
+own clock and ticking it does not re-render the day view, so the block could
+read "De paseo · 1h" beside a row reading "En marcha · 0 min" — two clocks
+contradicting each other on one screen, in a feature whose entire job is
+elapsed time. Keeping them in step would cost a re-render of the whole log
+every thirty seconds for a number already on screen two centimetres away. One
+counter, and the block owns it.
 
 ### Copy
 
@@ -208,9 +217,20 @@ wrong there.
    can press stop again. Neither control is optimistic: a walk that looks
    started and was not is worse than a tap that visibly did nothing.
 7. **The app restarted mid-walk.** The flag survives in AsyncStorage; on
-   relaunch the walk is re-read by id and the elapsed minutes recomputed from
+   relaunch the walk is found among the day's rows and the elapsed minutes
+   recomputed from
    its `occurred_at`. If the row is gone — deleted on the other phone — the flag
    is dropped silently and the block returns to idle.
+
+   **It is looked up in the day's rows rather than fetched by id, and that has
+   a residue this spec first understated.** A walk that crossed midnight is not
+   among today's rows either, so an app killed mid-walk at 00:10 cannot tell
+   "deleted elsewhere" from "started yesterday", drops the flag, and leaves a
+   walk with a start and no length — the abandoned shape, reached after forty
+   minutes rather than after twenty-four hours. Accepted for v0: nothing is
+   lost and the row is editable. Fetching by id, or storing the start's day
+   beside the id, separates the two cases when it is worth doing.
+
 8. **Wrong day.** The walking state renders only when the day on screen is the
    walk's own day, never on a day reached with the arrows.
 9. **The goal celebration.** It fires only when the walk's day is the day on
