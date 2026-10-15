@@ -350,9 +350,15 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem(WALK_STORAGE_KEY).then((raw) => {
-      if (!cancelled) setRunningId(parseRunningWalk(raw));
-    });
+    AsyncStorage.getItem(WALK_STORAGE_KEY)
+      .then((raw) => {
+        if (!cancelled) setRunningId(parseRunningWalk(raw));
+      })
+      .catch(() => {
+        // A read that fails is a device with no note, which is what a phone
+        // that has never started a walk looks like: the block offers Empezar.
+        // The same best-effort bargain `start` and `stop` already make.
+      });
     return () => {
       cancelled = true;
     };
@@ -536,7 +542,17 @@ export default function Home() {
       row.duration_minutes !== null ||
       walkOutcome(new Date(row.occurred_at), new Date()).action === "abandon";
     if (!stale) return;
-    AsyncStorage.removeItem(WALK_STORAGE_KEY).then(() => setRunningId(null));
+    // **The flag drops whether or not the write does.** Hanging the state
+    // change off a resolved `removeItem` meant a rejection left `runningId`
+    // standing — and nothing re-runs this effect, because its deps do not
+    // change — so the block went on offering a stop for a walk that is gone,
+    // on a day the screen will not leave, since the `AppState` pin keys on
+    // `runningId`. The write is best-effort, as in `start` and `stop`.
+    AsyncStorage.removeItem(WALK_STORAGE_KEY)
+      .catch(() => {
+        // The row is the fact; the device's note is only a note.
+      })
+      .finally(() => setRunningId(null));
   }, [runningId, events, fresh, logError, isToday]);
 
   const start = useCallback(async () => {
@@ -554,6 +570,13 @@ export default function Home() {
           message: error ?? "No se ha podido empezar el paseo",
           persist: true,
         });
+        // **And the day is reloaded on the way out.** `withTimeout` abandons
+        // the request after twelve seconds; the insert may well have
+        // committed on the other side of it. The tutor reads the error and
+        // presses start again, and now there are two open walks — the first
+        // one invisible until something else happens to trigger a read. It is
+        // visible and deletable the moment the log says it exists.
+        setAttempt((n) => n + 1);
         return;
       }
       // **The device's note is best-effort; the row is the fact.** A storage
