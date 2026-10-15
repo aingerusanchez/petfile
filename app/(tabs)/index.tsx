@@ -52,6 +52,7 @@ import {
   dayKey,
   eventDetail,
   deleteEvent,
+  endWithinDay,
   eventsForDay,
   eventsForMonths,
   formatTimeOfDay,
@@ -59,7 +60,6 @@ import {
   MAX_WALK_MINUTES,
   minutesBetween,
   parseTimeOfDay,
-  shiftMinutes,
   startWithinDay,
   updateEvent,
   walkedMinutes,
@@ -178,6 +178,14 @@ function startOnDay(atText: string, day: Date, total: number): string {
   if (!end) return "";
   const start = startWithinDay(end, total);
   return start ? formatTimeOfDay(start) : "";
+}
+
+/** The clock time `total` minutes after `at` — or "" when that leaves the day. */
+function endOnDay(atText: string, day: Date, total: number): string {
+  const start = parseTimeOfDay(atText, day);
+  if (!start) return "";
+  const end = endWithinDay(start, total);
+  return end ? formatTimeOfDay(end) : "";
 }
 
 /** The same clock time, `by` days away. */
@@ -922,6 +930,7 @@ function EntrySheet({
   onClose,
   onSaved,
   onFailed,
+  timeMeans = "end",
 }: {
   kind: EventKind;
   /** The entry being corrected, or null when this is a new one. */
@@ -943,6 +952,16 @@ function EntrySheet({
   /** Reports the walk's minutes, so the day can tell whether it just won. */
   onSaved: (walkMinutes: number | null) => void;
   onFailed: (message: string) => void;
+  /**
+   * What a walk's lone `occurred_at` means when there is no duration.
+   *
+   * **Default `"end"`, which is what every stored row meant before the
+   * timer.** "I got back at 20:15 and did not write a length" is the fastest
+   * valid entry there is, and the sheet has always read it that way. A walk in
+   * progress has exactly the same shape and the opposite meaning, so the day
+   * view — which is the only thing that knows — says so.
+   */
+  timeMeans?: "start" | "end";
 }) {
   const spec = KINDS[kind];
   const isWalk = kind === "walk";
@@ -958,17 +977,27 @@ function EntrySheet({
    * A stored walk keeps its start in `occurred_at`, so reopening one adds the
    * duration back on to recover the end it was entered from.
    */
-  const [at, setAt] = useState(() =>
-    formatTimeOfDay(
-      occurred && storedMinutes
-        ? shiftMinutes(occurred, storedMinutes)
-        : (occurred ?? new Date()),
-    ),
-  );
+  // One source for the three places that need it: `at`, `from`, and `opened`.
+  const [initial] = useState(() => {
+    const now = new Date();
+    if (!occurred) return { at: formatTimeOfDay(now), from: "" };
+    if (storedMinutes) {
+      const end = endWithinDay(occurred, storedMinutes);
+      // A walk that crossed midnight has no HASTA this form can hold, so the
+      // duration carries it — `startWithinDay`'s rule, in the other direction.
+      return {
+        at: end ? formatTimeOfDay(end) : "",
+        from: formatTimeOfDay(occurred),
+      };
+    }
+    return timeMeans === "start"
+      ? { at: "", from: formatTimeOfDay(occurred) }
+      : { at: formatTimeOfDay(occurred), from: "" };
+  });
+
+  const [at, setAt] = useState(initial.at);
   /** A walk's start. Empty means nobody wrote it down. */
-  const [from, setFrom] = useState(() =>
-    occurred && storedMinutes ? formatTimeOfDay(occurred) : "",
-  );
+  const [from, setFrom] = useState(initial.from);
   /** What the duration field shows while it is being typed into. */
   const [durationText, setDurationText] = useState(() =>
     storedMinutes ? formatDuration(storedMinutes, durationFormat) : "",
@@ -992,12 +1021,8 @@ function EntrySheet({
    * catch. It never changes: the sheet is remounted for each entry.
    */
   const [opened] = useState(() => ({
-    at: formatTimeOfDay(
-      occurred && storedMinutes
-        ? shiftMinutes(occurred, storedMinutes)
-        : (occurred ?? new Date()),
-    ),
-    from: occurred && storedMinutes ? formatTimeOfDay(occurred) : "",
+    at: initial.at,
+    from: initial.from,
     value: (event && eventDetail(event, "what")) || "",
     note: event?.note ?? "",
     stools: readStools(event?.details).join(","),
@@ -1145,9 +1170,12 @@ function EntrySheet({
       }
       setDurationError(null);
       setDurationText(formatDuration(total, durationFormat));
-      setFrom(startOnDay(at, day, total));
+      // With no HASTA the walk is a start plus a length, so the steppers move
+      // the end instead of the start. Exactly the mirror of the other case.
+      if (at.trim()) setFrom(startOnDay(at, day, total));
+      else if (from.trim()) setAt(endOnDay(from, day, total));
     },
-    [at, day, durationFormat],
+    [at, from, day, durationFormat],
   );
 
   /**
@@ -1171,9 +1199,12 @@ function EntrySheet({
         return;
       }
       setDurationError(null);
-      setFrom(startOnDay(at, day, total));
+      // With no HASTA the walk is a start plus a length, so the steppers move
+      // the end instead of the start. Exactly the mirror of the other case.
+      if (at.trim()) setFrom(startOnDay(at, day, total));
+      else if (from.trim()) setAt(endOnDay(from, day, total));
     },
-    [at, day],
+    [at, from, day],
   );
 
   /**
@@ -1201,11 +1232,16 @@ function EntrySheet({
 
   const save = useCallback(async () => {
     const end = parseTimeOfDay(at, day);
-    if (!end) {
+    const start = isWalk && from.trim() ? parseTimeOfDay(from, day) : null;
+
+    // **HASTA is required unless DESDE can stand in for it.** A walk needs two
+    // times, or one time and a length; everything else still needs the hour it
+    // happened at.
+    if (!end && !(isWalk && from.trim())) {
       setAtError("Escríbela como 09:15");
       return false;
     }
-    if (end.getTime() > Date.now() + 60_000) {
+    if (end && end.getTime() > Date.now() + 60_000) {
       setAtError(
         isWalk ? "¿Todavía no habéis vuelto?" : "¿Todavía no ha pasado?",
       );
@@ -1213,13 +1249,27 @@ function EntrySheet({
     }
     setAtError(null);
 
-    let occurredAt = end;
+    if (isWalk && from.trim() && !start) {
+      setFromError("Escríbela como 09:15");
+      return false;
+    }
+    setFromError(null);
+
+    let occurredAt = end as Date;
     let walkMinutes: number | null = null;
 
-    // A walk known only by its end and its length. Either the tutor never
-    // wrote a start, or the one the steppers computed fell on the previous day
-    // and could not be shown as a time — see `applyMinutes`.
-    if (isWalk && !from.trim()) {
+    if (isWalk && start && end) {
+      walkMinutes = minutesBetween(start, end);
+      if (walkMinutes === null) {
+        // Still refused, and deliberately: a HASTA typed before its DESDE is a
+        // mistyped digit far more often than a walk across midnight. What the
+        // app now records is a crossing it *measured*, where it holds both
+        // instants and guesses nothing.
+        setFromError("Tiene que ser antes de la hora de vuelta");
+        return false;
+      }
+      occurredAt = start;
+    } else if (isWalk) {
       const typed = parseDuration(durationText);
       // A duration out of range is refused here rather than dropped. **This
       // is the Android path and the web target cannot reach it**: clicking a
@@ -1238,22 +1288,11 @@ function EntrySheet({
         return false;
       }
       walkMinutes = typed;
+      // A walk known only by its start: `occurred_at` is that start, and the
+      // length is the fact. This is the walk in progress, and the walk that
+      // crossed midnight, which are the same row.
+      if (start) occurredAt = start;
     }
-
-    if (isWalk && from.trim()) {
-      const start = parseTimeOfDay(from, day);
-      if (!start) {
-        setFromError("Escríbela como 09:15");
-        return false;
-      }
-      walkMinutes = minutesBetween(start, end);
-      if (walkMinutes === null) {
-        setFromError("Tiene que ser antes de la hora de vuelta");
-        return false;
-      }
-      occurredAt = start;
-    }
-    setFromError(null);
 
     const payload = {
       kind,
