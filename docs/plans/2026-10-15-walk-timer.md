@@ -846,10 +846,6 @@ export function GoalBlock({
             )}
             <Text className="font-semibold text-accent">Paseo</Text>
           </Pressable>
-        ) : met ? (
-          <Text className="shrink-0 font-semibold text-xs text-accent">
-            Objetivo conseguido
-          </Text>
         ) : null}
       </View>
 
@@ -864,6 +860,19 @@ export function GoalBlock({
           />
           {inProgress > 0 ? <Breath width={inProgress} /> : null}
         </View>
+      ) : null}
+
+      {/* **Under the bar, not beside the measure, and that moved.** It used to
+          share the row's right slot, which is now the control's — and a label
+          that sits beside the measure on a past day and under the bar on today
+          is two layouts for one sentence. One home, every day. */}
+      {met ? (
+        <Text
+          testID={testID ? `${testID}-met` : undefined}
+          className="mt-2 font-semibold text-xs text-accent"
+        >
+          Objetivo conseguido
+        </Text>
       ) : null}
     </View>
   );
@@ -1254,7 +1263,8 @@ pnpm android:usb
 Check and capture with `adb exec-out screencap -p > /tmp/walk-<state>.png`:
 
 1. The idle line at `font_scale` 1.0 **and 1.3** — `34 min de 3h paseados` beside the control. If it clips, the control moves below the bar in **both** states so the block does not jump.
-2. Both controls measured at 48dp or more.
+2. Both controls measured at 48dp or more, and "Objetivo conseguido" in its
+   new place under the bar on a day where the goal was met.
 3. The breathing segment, with "remove animations" off and on. Off it holds dim; it never traverses.
 4. A walk started, the row showing `En marcha` last in the log, tapped, a stool chip ticked, saved, then stopped — and the note still there afterwards.
 5. The block with the goal cleared on the profile, to see the no-goal state.
