@@ -63,7 +63,8 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
 - **El bloque del objetivo aparece aunque no haya objetivo.** La actividad
   diaria es un campo opcional, y quien no lo había rellenado no veía el bloque
   —ni, por tanto, habría tenido dónde empezar un paseo—. Sin objetivo se lee
-  "paseados hoy" y no hay barra; el esqueleto de carga lo respeta.
+  "30 min paseados", sin el día: el bloque también sale en días pasados y la
+  cabecera ya dice cuál es. No hay barra; el esqueleto de carga lo respeta.
 - **"Objetivo conseguido" pasa de al lado de la medida a debajo de la barra.**
   El hueco de la derecha ya es del botón, y una etiqueta que a veces está al
   lado y a veces debajo serían dos diseños para una misma frase. Ahora tiene un

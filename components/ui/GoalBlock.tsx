@@ -132,7 +132,13 @@ export function GoalBlock({
           {walkingSince
             ? `De paseo · ${formatDuration(running, durationFormat)}`
             : goalMinutes === null
-              ? `${formatDuration(walkedMinutes, durationFormat)} paseados hoy`
+              ? // **No "hoy".** The block renders on every day now, and the
+                // start is withheld on a past one — so paging back for a pet
+                // with no goal put "30 min paseados hoy" under a header
+                // reading "Ayer". That is the lie the log fixed once already
+                // with its own title; the header names the day, and one place
+                // saying it is enough.
+                `${formatDuration(walkedMinutes, durationFormat)} paseados`
               : `${formatDuration(walkedMinutes, durationFormat)} de ${formatDuration(goalMinutes, durationFormat)} paseados`}
         </Text>
 

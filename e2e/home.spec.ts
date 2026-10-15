@@ -1579,7 +1579,10 @@ test("shows the goal block for a pet with no goal, and still starts a walk", asy
   await seedSession(page);
   await page.goto("/");
 
-  await expect(page.getByTestId("home-goal")).toContainText("paseados hoy");
+  // "paseados", without the day: the block renders on past days too now, and
+  // the header is what names the day.
+  await expect(page.getByTestId("home-goal")).toContainText("paseados");
+  await expect(page.getByTestId("home-goal")).not.toContainText("hoy");
   // No goal, so no bar and nothing to have met.
   await expect(page.getByTestId("home-goal-bar")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-met")).toHaveCount(0);
