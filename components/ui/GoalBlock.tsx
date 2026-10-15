@@ -1,6 +1,6 @@
 import { Play, Square } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { AppState, Pressable, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -92,9 +92,21 @@ export function GoalBlock({
     // lint rules rightly refuse.
     const refresh = setTimeout(() => setNow(new Date()), 0);
     const timer = setInterval(() => setNow(new Date()), TICK_MS);
+    // **And again on every return to the foreground.** The shape of the
+    // feature is: press start, phone in pocket, walk, phone out, press stop —
+    // so the interval above spends the walk throttled or suspended, and the
+    // first thing the tutor sees on resume would be a stale count at the one
+    // moment the measure is looked at hardest. Nothing is at risk in the data
+    // — `stop` computes from instants — but this measure is the only feedback
+    // the feature has. The tick stays inside the block rather than being
+    // lifted to the screen: it is this component's own number.
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") setNow(new Date());
+    });
     return () => {
       clearTimeout(refresh);
       clearInterval(timer);
+      sub.remove();
     };
   }, [since]);
 
@@ -195,14 +207,29 @@ export function GoalBlock({
 /**
  * The minutes that are happening rather than recorded.
  *
- * Opacity only, and it holds at the dim end under "remove animations" — the
- * line `Skeleton` and `Celebration` both draw. A left-to-right shimmer was
- * considered and rejected: this app's only loading idiom is a pulse, and a
- * traverse would say "cargando" on a bar that is not loading anything.
+ * Opacity only, and under "remove animations" it holds — the line `Skeleton`
+ * and `Celebration` both draw. **It holds at the *bright* end, which is the
+ * opposite of what it used to do.** Mist Light at `DIM` over the bar's Fjord
+ * Slate track measures 1.94:1, and DESIGN.md records a 1.64:1 version of this
+ * very bar as having "did not read as a measure of anything"; the bright end
+ * is 6.78:1. While it breathes the dim end is a trough the eye passes
+ * through and the motion itself is what finds the segment. Pinned there it is
+ * neither legible nor moving, so the one reader who cannot use the motion to
+ * find it would be the one reader it is hidden from. The static case needs
+ * the contrast more, not less.
+ *
+ * That is also what lets `DIM` stay at 0.35 where `Skeleton` uses 0.4: this
+ * breathes for the length of a walk rather than a few hundred milliseconds,
+ * and a 2400ms cycle needs the wider travel to read as a breath at all. The
+ * deeper trough is a floor of a motion now, never a resting state.
+ *
+ * A left-to-right shimmer was considered and rejected: this app's only
+ * loading idiom is a pulse, and a traverse would say "cargando" on a bar that
+ * is not loading anything.
  */
 function Breath({ width }: { width: number }) {
   const reduceMotion = useReducedMotion();
-  const progress = useSharedValue(reduceMotion ? 0 : 1);
+  const progress = useSharedValue(1);
 
   useEffect(() => {
     if (reduceMotion) return;
