@@ -266,6 +266,21 @@ export function startWithinDay(end: Date, minutes: number): Date | null {
   return dayKey(start) === dayKey(end) ? start : null;
 }
 
+/**
+ * The end `minutes` after `start`, or null when that end is another day.
+ *
+ * The mirror of `startWithinDay`, and here for the same reason: HASTA is a
+ * time of day with no date, so an end computed on the *next* day comes back —
+ * when that text is re-parsed against the day on screen — as a clock time
+ * *before* its start. A walk from 23:40 to 00:10 has no HASTA the form can
+ * hold, and null is the honest answer. The duration carries the walk instead,
+ * which is the same answer `startWithinDay` gives in the other direction.
+ */
+export function endWithinDay(start: Date, minutes: number): Date | null {
+  const end = shiftMinutes(start, minutes);
+  return dayKey(end) === dayKey(start) ? end : null;
+}
+
 /** Minutes walked across a set of entries. Pure, so the day view can trust it. */
 export function walkedMinutes(events: PetEventRow[]): number {
   return events.reduce(
