@@ -103,6 +103,24 @@ When the goal was already met before the walk started, the bar is full and
 Aqua and there is no room for the segment; the counter in the text carries the
 walk on its own.
 
+### Which time a lone time means
+
+A walk row with `occurred_at` and no duration is **ambiguous**: before this
+feature it could only mean "the tutor logged the hour they got back and no
+length", which the entry sheet reads into HASTA and which its own comments call
+the fastest valid entry there is. After this feature a row of that exact shape
+is also what a walk in progress looks like, where the time is the **start**.
+
+Nothing in the row distinguishes them, and neither a column nor a key in
+`details` is worth buying for it. So the day view tells the sheet: it opens the
+walk it knows is running with the time meaning a start, and every other walk
+unchanged. The sheet's default stays what it is today.
+
+The residue, stated rather than hidden: a walk **abandoned** past 1440 minutes
+loses the flag, so reopening it shows its start time under HASTA. That row is
+already incomplete and has to be edited either way, and inventing a stored
+marker to make a 24-hour-old mistake read better is the worse trade.
+
 ### The live row
 
 The log is ascending, so the walk in progress is the **last** row, in its own
