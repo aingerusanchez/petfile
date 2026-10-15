@@ -10,6 +10,7 @@ export { Chip, ChipGroup } from "./Chip";
 export { DateField } from "./DateField";
 export { Fab, FAB_CLEARANCE, type FabAction } from "./Fab";
 export { FieldLabel } from "./FieldLabel";
+export { GoalBlock } from "./GoalBlock";
 export { GoogleMark } from "./GoogleMark";
 export { Group } from "./Group";
 export { LoadingScreen } from "./LoadingScreen";

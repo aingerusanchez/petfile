@@ -1,0 +1,199 @@
+import { Play, Square } from "lucide-react-native";
+import { useEffect, useState } from "react";
+import { Pressable, View } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
+import { formatDuration } from "../../lib/duration";
+import type { DurationFormat } from "../../lib/settings";
+import { elapsedMinutes } from "../../lib/walk";
+import { Text } from "./Text";
+import { colors, TOUCH_TARGET } from "./tokens";
+
+/**
+ * How often the counter catches up with the clock, in ms.
+ *
+ * Half a minute, so a displayed minute is never more than thirty seconds
+ * stale, and nothing on this screen re-renders every second for an hour.
+ */
+const TICK_MS = 30_000;
+
+/**
+ * How long one breath of the in-progress segment takes.
+ *
+ * **Slower than `Skeleton`'s 900ms, and that is the point.** A skeleton
+ * breathes for a few hundred milliseconds while something arrives; this
+ * breathes for the length of a walk. An animation that runs for an hour has to
+ * be calmer than one that runs for a second, or it stops being a signal and
+ * becomes a nag.
+ */
+const BREATH_MS = 2400;
+const DIM = 0.35;
+
+/**
+ * The day's walking, and the control that starts and stops it.
+ *
+ * **The only place on this screen that already talks about walks**, which is
+ * why it gains the control by changing state rather than by growing one.
+ * Nothing floats: the floating action keeps the corner it has.
+ *
+ * **The bar stays Mist while walking.** Aqua on this fill means "goal met" and
+ * nothing else (DESIGN.md), so the state change is carried by the text. The
+ * minutes of the walk in progress are not stored, so they are a dimmer segment
+ * at the head of the fill rather than part of it — the measure keeps measuring
+ * what is recorded, and the segment shows what is merely happening.
+ *
+ * **The block renders with no goal too.** `exercise_goal_minutes` is nullable
+ * and the activity question is optional, so gating the whole block on a goal
+ * left those tutors with nowhere for the control to live. The goal and the bar
+ * come and go; the block does not.
+ */
+export function GoalBlock({
+  walkedMinutes,
+  goalMinutes,
+  durationFormat,
+  walkingSince,
+  onStart,
+  onStop,
+  busy = false,
+  testID,
+}: {
+  walkedMinutes: number;
+  goalMinutes: number | null;
+  durationFormat: DurationFormat;
+  /** The walk in progress's start, or null when none is running. */
+  walkingSince: Date | null;
+  /** Absent on a past day, which has nothing to start. */
+  onStart?: () => void;
+  onStop?: () => void;
+  busy?: boolean;
+  testID?: string;
+}) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    if (!walkingSince) return;
+    const timer = setInterval(() => setNow(new Date()), TICK_MS);
+    return () => clearInterval(timer);
+  }, [walkingSince]);
+
+  const running = walkingSince ? elapsedMinutes(walkingSince, now) : 0;
+  const met = goalMinutes !== null && walkedMinutes >= goalMinutes;
+  const control = walkingSince ? onStop : onStart;
+
+  const recorded =
+    goalMinutes === null || goalMinutes === 0
+      ? 0
+      : Math.min(100, (walkedMinutes / goalMinutes) * 100);
+  const inProgress =
+    goalMinutes === null || goalMinutes === 0
+      ? 0
+      : Math.min(100 - recorded, (running / goalMinutes) * 100);
+
+  return (
+    <View testID={testID} className="mb-8">
+      <View className="mb-2 flex-row items-center justify-between gap-3">
+        <Text
+          testID={testID ? `${testID}-measure` : undefined}
+          numberOfLines={1}
+          className={`flex-1 font-semibold ${walkingSince ? "text-accent" : "text-text-primary"}`}
+        >
+          {walkingSince
+            ? `De paseo · ${formatDuration(running, durationFormat)}`
+            : goalMinutes === null
+              ? `${formatDuration(walkedMinutes, durationFormat)} paseados hoy`
+              : `${formatDuration(walkedMinutes, durationFormat)} de ${formatDuration(goalMinutes, durationFormat)} paseados`}
+        </Text>
+
+        {control ? (
+          <Pressable
+            testID={testID ? `${testID}-control` : undefined}
+            onPress={control}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={
+              walkingSince ? "Terminar paseo" : "Empezar paseo"
+            }
+            accessibilityState={{ disabled: busy }}
+            style={{ minHeight: TOUCH_TARGET }}
+            className="shrink-0 flex-row items-center gap-2 pl-3 active:opacity-70"
+          >
+            {walkingSince ? (
+              <Square size={16} strokeWidth={2.5} color={colors.accent} />
+            ) : (
+              <Play size={16} strokeWidth={2.5} color={colors.accent} />
+            )}
+            <Text className="font-semibold text-accent">Paseo</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      {goalMinutes !== null ? (
+        // `h-[4px]`, not `h-1`: the calendar draws this bar in miniature and
+        // sizes it in literal pixels, and 0.25rem resolves to 3.38dp on native.
+        <View className="h-[4px] flex-row overflow-hidden rounded-xl bg-surface">
+          <View
+            testID={testID ? `${testID}-bar` : undefined}
+            style={{ width: `${recorded}%` }}
+            className={`h-[4px] ${met ? "bg-accent" : "bg-text-secondary"}`}
+          />
+          {inProgress > 0 ? <Breath width={inProgress} /> : null}
+        </View>
+      ) : null}
+
+      {/* **Under the bar, not beside the measure, and that moved.** It used to
+          share the row's right slot, which is now the control's — and a label
+          that sits beside the measure on a past day and under the bar on today
+          is two layouts for one sentence. One home, every day. */}
+      {met ? (
+        <Text
+          testID={testID ? `${testID}-met` : undefined}
+          className="mt-2 font-semibold text-xs text-accent"
+        >
+          Objetivo conseguido
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * The minutes that are happening rather than recorded.
+ *
+ * Opacity only, and it holds at the dim end under "remove animations" — the
+ * line `Skeleton` and `Celebration` both draw. A left-to-right shimmer was
+ * considered and rejected: this app's only loading idiom is a pulse, and a
+ * traverse would say "cargando" on a bar that is not loading anything.
+ */
+function Breath({ width }: { width: number }) {
+  const reduceMotion = useReducedMotion();
+  const progress = useSharedValue(reduceMotion ? 0 : 1);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    progress.value = withRepeat(
+      withTiming(0, { duration: BREATH_MS, easing: Easing.inOut(Easing.quad) }),
+      -1,
+      true,
+    );
+  }, [reduceMotion, progress]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: DIM + progress.value * (1 - DIM),
+  }));
+
+  return (
+    <Animated.View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      aria-hidden
+      style={[{ width: `${width}%` }, style]}
+      className="h-[4px] bg-text-tertiary"
+    />
+  );
+}
