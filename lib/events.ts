@@ -352,6 +352,68 @@ export async function updateEvent(
   }
 }
 
+/**
+ * Opens a walk: a start, and no length yet.
+ *
+ * **Not `logEvent`, because the id has to come back.** The device remembers
+ * which walk is running, and it can only do that if the insert says which row
+ * it made. The rest of the shape is the same row `logEvent` would write.
+ *
+ * `validateEvent` is not consulted: there is nothing to validate. The start is
+ * now, which is never in the future, and there is no duration yet.
+ */
+export async function startWalk(
+  petId: string,
+): Promise<{ id: string | null; error: string | null }> {
+  const query = supabase
+    .from("pet_events")
+    .insert({
+      pet_id: petId,
+      kind: "walk",
+      occurred_at: new Date().toISOString(),
+      duration_minutes: null,
+    })
+    .select("id")
+    .single();
+
+  try {
+    const { data, error } = await withTimeout(query, "startWalk");
+    if (error) return { id: null, error: describeFailure(error, "startWalk") };
+    return { id: data?.id ?? null, error: null };
+  } catch (cause) {
+    return { id: null, error: describeFailure(cause, "startWalk") };
+  }
+}
+
+/**
+ * Closes a walk by giving it its length.
+ *
+ * **Only the duration, which is why this is not `updateEvent`.** That function
+ * sends every field the sheet can ask for, nulls included, on purpose — a
+ * tutor clearing a field means the field is empty. Closing a walk is not that:
+ * the note and the stool chips written at 09:45 are exactly what a walk in
+ * progress is for, and a full update would wipe them on the way home.
+ */
+export async function closeWalk(
+  id: string,
+  minutes: number,
+): Promise<{ error: string | null }> {
+  const query = supabase
+    .from("pet_events")
+    .update({
+      duration_minutes: minutes,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  try {
+    const { error } = await withTimeout(query, "closeWalk");
+    return { error: error ? describeFailure(error, "closeWalk") : null };
+  } catch (cause) {
+    return { error: describeFailure(cause, "closeWalk") };
+  }
+}
+
 export async function eventsForDay(
   petId: string,
   day: Date,
