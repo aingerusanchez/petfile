@@ -16,6 +16,49 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.10.0] — 2026-10-15
+
+### Nuevo
+
+- **Los paseos se pueden cronometrar.** El bloque del objetivo gana un botón:
+  al salir de casa se pulsa y el paseo queda abierto con su hora de inicio
+  real, al volver se pulsa otra vez y la fila recibe su duración. Hasta ahora
+  la única forma de no perder esa hora era crear el paseo en la calle con una
+  hora de vuelta provisional y corregirla al llegar. **No hay esquema nuevo:**
+  un paseo en marcha es una fila con inicio y sin duración, y el móvil solo
+  recuerda su identificador, de modo que el inicio sigue viviendo donde está el
+  dato.
+- **El paseo en marcha se puede anotar sin esperar.** Aparece en el registro
+  como una fila más —"En marcha"—, así que la kaka de mitad de paseo se apunta
+  donde se apunta siempre. Una pulsación y otra dentro del mismo minuto es un
+  toque por error, y lo honrado es no dejar nada: la fila se va con ella.
+
+### Arreglado
+
+- **Un paseo que cruza medianoche no se podía guardar.** La hoja exigía la
+  hora de vuelta sin condiciones y la leía contra el día en pantalla, así que
+  un paseo de 23:40 a 00:10 se rechazaba a sí mismo: bastaba abrirlo, cambiar
+  cualquier cosa y pulsar Guardar para oír que el inicio tenía que ir antes de
+  la vuelta. Ahora **un paseo necesita dos horas, o una hora y una duración**.
+- **Una hora de vuelta mal escrita se descartaba en silencio.** Al relajar la
+  regla anterior, un HASTA que no se entendía quedaba como "sin hora de vuelta"
+  y el paseo se guardaba sin el único dato que se había tecleado. Solo un HASTA
+  _vacío_ puede sustituirlo el DESDE; uno escrito y ilegible se rechaza en su
+  campo. Y un inicio en el futuro, que ahora es lo que se guarda cuando no hay
+  vuelta, recibe la misma comprobación que ya tenía la vuelta: "¿Todavía no
+  habéis salido?".
+
+### Cambiado
+
+- **El bloque del objetivo aparece aunque no haya objetivo.** La actividad
+  diaria es un campo opcional, y quien no lo había rellenado no veía el bloque
+  —ni, por tanto, habría tenido dónde empezar un paseo—. Sin objetivo se lee
+  "paseados hoy" y no hay barra; el esqueleto de carga lo respeta.
+- **"Objetivo conseguido" pasa de al lado de la medida a debajo de la barra.**
+  El hueco de la derecha ya es del botón, y una etiqueta que a veces está al
+  lado y a veces debajo serían dos diseños para una misma frase. Ahora tiene un
+  solo sitio, todos los días.
+
 ## [v0.9.0] — 2026-09-13
 
 ### Cambiado
