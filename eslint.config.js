@@ -19,6 +19,7 @@ module.exports = [
     ignores: [
       // Vendored tooling and generated native projects.
       ".claude/**",
+      ".agents/**",
       ".impeccable/**",
       "android/**",
       "ios/**",
