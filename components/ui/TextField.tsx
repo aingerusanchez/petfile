@@ -113,6 +113,24 @@ export function TextField({
 }: TextFieldProps) {
   const labelID = useId();
 
+  /**
+   * **Read-only is not disabled, and it had no way of being said.**
+   *
+   * A disabled field is one the tutor could change under other circumstances;
+   * a read-only one is a value this form computes and will never take typing.
+   * `accessibilityState` has a key for the first and none for the second, so
+   * the duration field — read-only through `editable={false}` — announced
+   * `disabled: false` and nothing else, which reads as an ordinary input that
+   * silently refuses the keyboard.
+   *
+   * The accessible name is the only channel both platforms carry, so that is
+   * where it goes. On the web react-native-web also writes a `readonly`
+   * attribute from `editable={false}` and a screen reader says it twice;
+   * saying it once in the tutor's own language is worth the repetition.
+   */
+  const readOnly = !disabled && inputProps.editable === false;
+  const name = suffix ? `${label}, ${suffixLabel ?? suffix}` : label;
+
   return (
     <View className={className} onLayout={onLayout}>
       <FieldLabel nativeID={labelID} required={required} errored={!!error}>
@@ -137,13 +155,21 @@ export function TextField({
         <TextInput
           {...inputProps}
           editable={disabled ? false : inputProps.editable}
-          accessibilityState={{ disabled }}
+          // Spread *after* `inputProps`, so it must not throw a caller's own
+          // state away: it adds `disabled` when this field is disabled and
+          // otherwise hands whatever arrived straight through. Written as
+          // `{{ disabled }}` it overwrote every other key a caller had set,
+          // and announced `disabled: false` on fields that are nothing of the
+          // kind.
+          accessibilityState={
+            disabled
+              ? { ...inputProps.accessibilityState, disabled: true }
+              : inputProps.accessibilityState
+          }
           // The unit is part of what the field is asking for, so it belongs in
           // the accessible name: a screen reader gets no benefit from a glyph
           // sitting to the right of an input.
-          accessibilityLabel={
-            suffix ? `${label}, ${suffixLabel ?? suffix}` : label
-          }
+          accessibilityLabel={readOnly ? `${name}, solo lectura` : name}
           accessibilityLabelledBy={labelID}
           placeholderTextColor={PLACEHOLDER_COLOR}
           // The 48dp floor, plus the vertical centring it needs: Android draws

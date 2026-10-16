@@ -56,6 +56,10 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   guardado de 10:00 a 10:45 al que se le movía la vuelta a las 11:00 seguía
   diciendo "45 min" mientras se guardaban 60. Con la duración ya sin teclado
   ese número equivocado se veía y no se podía corregir.
+- **Un campo de solo lectura no decía que lo fuera.** La duración se anunciaba
+  como un campo normal que se niega a recibir texto; ahora dice "solo lectura"
+  en su nombre accesible, que es el único sitio donde cabe decirlo en los dos
+  sistemas.
 - **Un paseo que cruzó la medianoche podía perder su duración.** Escribir en
   HASTA la hora de vuelta real —las 00:10 de un paseo que empezó a las 23:40—
   vaciaba el campo, y volver a dejar HASTA en blanco lo dejaba vacío: al
