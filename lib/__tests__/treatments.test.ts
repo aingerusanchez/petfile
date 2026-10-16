@@ -444,11 +444,12 @@ describe("describeTreatment", () => {
 
   it("names the year when the next one falls in another", () => {
     // The ordinary case for an annual vaccine, and the one where "14 ene"
-    // alone would read as a date already behind us.
+    // alone would read as a date already behind us. In full: "14 ene 27"
+    // beside a day of the month reads as the 27th.
     expect(
       describeTreatment(given("vaccine", "Rabia", "2026-10-15", "2027-01-14"))
         .detail,
-    ).toBe("Vacuna · próxima 14 ene 27");
+    ).toBe("Vacuna · próxima 14 ene 2027");
   });
 
   it("does not repeat the kind when there is no name to lead with", () => {

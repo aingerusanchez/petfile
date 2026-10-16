@@ -34,8 +34,9 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   app cuya promesa es que el registro es cierto. La columna de la izquierda
   lleva solo el icono del tipo —el mismo de Salud, en el ámbar del anillo que
   ese día lleva en el calendario— y la fila dice el nombre y debajo el tipo con
-  su próxima fecha: "Desparasitación (Int.) · próxima 14 ene". Si no hay
-  próxima, solo el tipo. **Es de solo lectura aquí, y un chevron lo dice:**
+  su próxima fecha: "Desparasitación (Int.) · próxima 14 ene" —con el año
+  entero cuando cae en otro, "próxima 14 ene 2027", porque dos cifras al lado
+  de un día del mes se leen como otro día—. Si no hay próxima, solo el tipo. **Es de solo lectura aquí, y un chevron lo dice:**
   tocarla lleva a Salud, abierta sobre la hoja de ese tratamiento y no sobre la
   pestaña, que es donde se corrige o se borra. El parámetro se suelta en cuanto
   se usa, así que ir y volver no la reabre.

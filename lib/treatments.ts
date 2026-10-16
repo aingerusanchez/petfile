@@ -427,7 +427,8 @@ export function treatmentsSince(
 }
 
 /**
- * "14 ene" — and "14 ene 27" when it falls in another year than `relativeTo`.
+ * "14 ene" — and "14 ene 2027" when it falls in another year than
+ * `relativeTo`.
  *
  * The short month the weight line already writes. **The year appears exactly
  * when the date is not the obvious one**, and for a due date that is the
@@ -435,6 +436,13 @@ export function treatmentsSince(
  * and "próxima 14 ene" under a day in 2026 would read as already behind us.
  * `relativeTo` is the day the treatment was given rather than today, so the
  * line says the same thing whenever it is read.
+ *
+ * **Four digits, because two read as a day.** "14 ene 27" sits beside a
+ * line whose first number is a day of the month, and the eye takes the
+ * second one for another — on the one line a tutor reads to know when the
+ * next dose is. The whole year costs two characters and is unambiguous; the
+ * other way out, `DD/MM/AAAA` from `lib/dates.ts`, drops the month word that
+ * makes the line scannable in the first place.
  */
 function shortDay(iso: string, relativeTo: string): string {
   const parts = parseISO(iso);
@@ -443,7 +451,7 @@ function shortDay(iso: string, relativeTo: string): string {
   const sameYear = parseISO(relativeTo)?.year === parts.year;
   return sameYear
     ? `${parts.day} ${month}`
-    : `${parts.day} ${month} ${String(parts.year).slice(2)}`;
+    : `${parts.day} ${month} ${parts.year}`;
 }
 
 /**
