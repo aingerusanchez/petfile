@@ -1560,6 +1560,111 @@ test("saves a stored walk with both its times, changing only its note", async ({
   await expect(page.getByTestId("home-goal")).toContainText("45 min de 1h");
 });
 
+test("re-reads the duration when a time is set on the clock face", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **The dial is a second way into the same field, and it used to skip the
+  // reading.** The clock wrote the time straight in, so only the keyboard
+  // recomputed the duration: this walk moved to 11:00 went on showing "45
+  // min" while `save` stored 60. A read-only field makes that a wrong number
+  // the tutor can see and cannot correct.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const start = new Date();
+  start.setDate(start.getDate() - 1);
+  start.setHours(10, 0, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: start, durationMinutes: 45 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await expect(page.getByTestId("entry-duration")).toHaveValue("45 min");
+
+  await page.getByTestId("entry-to-picker").click();
+  await page.getByTestId("timepicker-hour-11").click();
+  await page.getByTestId("timepicker-minute-00").click();
+  await page.getByTestId("timepicker-confirm").click();
+  await expect(page.getByTestId("entry-to")).toHaveValue("11:00");
+
+  // What the field says and what the row gets have to be the same hour's
+  // worth, which is the whole of the finding.
+  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await expect(page.getByTestId("home-log")).toContainText("10:00");
+  await expect(page.getByTestId("home-log")).toContainText("1h");
+  await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");
+
+  // And DESDE's own dial reads the same way round.
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await page.getByTestId("entry-from-picker").click();
+  await page.getByTestId("timepicker-hour-10").click();
+  await page.getByTestId("timepicker-minute-30").click();
+  await page.getByTestId("timepicker-confirm").click();
+  await expect(page.getByTestId("entry-from")).toHaveValue("10:30");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+});
+
+test("keeps a crossed walk's length while its real end is tried in HASTA", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **A HASTA before its DESDE is mid-typing, not an error.** This walk ended
+  // at 00:10 the next day, which no HASTA on this form can say — so typing
+  // that real end is the obvious thing to try, and it used to empty the
+  // duration on the way. Clearing HASTA again then left the field blank, and
+  // `save` wrote `duration_minutes = null`: half an hour of a real walk gone,
+  // with Guardar live throughout.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const start = new Date();
+  start.setDate(start.getDate() - 1);
+  start.setHours(23, 40, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: start, durationMinutes: 30 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await expect(page.getByTestId("entry-from")).toHaveValue("23:40");
+  await expect(page.getByTestId("entry-to")).toHaveValue("");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+
+  const to = page.getByTestId("entry-to");
+  await to.click();
+  // Key by key, the way the phone delivers it: every intermediate value is a
+  // pair that does not read as a length either.
+  for (const key of ["0", "0", ":", "1", "0"]) {
+    await page.keyboard.press(key);
+    await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+  }
+  await expect(to).toHaveValue("00:10");
+
+  // Backing it out again leaves the row exactly as it was stored.
+  for (let i = 0; i < 5; i++) {
+    await page.keyboard.press("Backspace");
+    await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+  }
+  await expect(to).toHaveValue("");
+
+  await page.getByTestId("entry-note").fill("Volvimos pasada la medianoche");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await expect(page.getByTestId("home-log")).toContainText("23:40");
+  await expect(page.getByTestId("home-log")).toContainText("30 min");
+  await expect(page.getByTestId("home-goal")).toContainText("30 min de 1h");
+});
+
 test("refuses a typed return time that does not parse, instead of dropping it", async ({
   page,
 }) => {

@@ -1340,12 +1340,21 @@ function EntrySheet({
       // **An *empty* DESDE next to a HASTA is the one exception, and it is
       // not mid-typing.** The duration is only ever a reading of the two
       // times now, so with one of them gone and HASTA standing alone there is
-      // nothing left to read it from — and since the field cannot be typed
-      // into, a length left behind would be one the tutor can neither see the
-      // reason for nor delete. `save` would file it under HASTA as if it were
-      // the start. The other way round — DESDE and no HASTA — keeps the
-      // duration, because that is the walk across midnight, where the length
-      // is the fact.
+      // nothing left to read it from. The case this closes is narrow and
+      // real: clear DESDE, then type a *new* HASTA, and the length left
+      // behind is one that was measured from a start no longer on the form —
+      // stale against the time it now sits next to, and unclearable, because
+      // the field cannot be typed into. The other way round — DESDE and no
+      // HASTA — keeps the duration, because that is the walk across midnight,
+      // where the length is the fact.
+      //
+      // **A HASTA before its DESDE is mid-typing too**, and the same rule
+      // covers it: `minutesBetween` says null for a pair in that order, and
+      // clearing on it would throw away a crossed walk's stored length the
+      // moment the tutor typed the real 00:10 end next to its 23:40 start.
+      // `save` refuses the pair on DESDE's own field, where it can be seen
+      // and corrected; the last good reading stays in place until two times
+      // that make sense replace it.
       const start = fromText.trim() ? parseTimeOfDay(fromText, day) : null;
       const end = parseTimeOfDay(atText, day);
       if (end && !fromText.trim()) {
@@ -1354,9 +1363,8 @@ function EntrySheet({
       }
       if (!start || !end) return;
       const total = minutesBetween(start, end);
-      setDurationText(
-        total === null ? "" : formatDuration(total, durationFormat),
-      );
+      if (total === null) return;
+      setDurationText(formatDuration(total, durationFormat));
     },
     [day, durationFormat],
   );
@@ -1544,7 +1552,15 @@ function EntrySheet({
                       testID="entry-from-picker"
                       label="Desde"
                       value={from}
-                      onChange={setFrom}
+                      // **The dial is the other way into the same field**, so
+                      // it goes through the same handler the keyboard does.
+                      // Writing the time straight in left the duration
+                      // reading whatever the previous pair came to: a stored
+                      // 10:00–10:45 walk whose HASTA was moved to 11:00 on
+                      // the clock face still said 45 min while `save` stored
+                      // 60 — and the field is read-only, so that was a wrong
+                      // number the tutor could see and not correct.
+                      onChange={editFrom}
                       disabled={running}
                     />
                   }
@@ -1567,7 +1583,9 @@ function EntrySheet({
                       testID="entry-to-picker"
                       label="Hasta"
                       value={at}
-                      onChange={setAt}
+                      // Through `editAt` for the reason DESDE's dial is — see
+                      // above.
+                      onChange={editAt}
                       disabled={running}
                     />
                   }
@@ -1610,9 +1628,12 @@ function EntrySheet({
                 testID="entry-time-picker"
                 label="Hora"
                 value={at}
-                onChange={(time) => {
-                  setAt(time);
-                }}
+                // `editAt`, not `setAt`, although a non-walk has no duration
+                // to recompute — `from` is always empty here, so the extra
+                // call writes the empty string the field already holds. One
+                // handler for both ways into the field is the rule; two is
+                // how the walk's dial drifted from its keyboard.
+                onChange={editAt}
               />
             }
             label="Hora"

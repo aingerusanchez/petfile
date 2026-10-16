@@ -47,10 +47,21 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   guardar la hoja sobre el paseo en marcha lo cuenta como escrito, y se cierra
   con un minuto en vez de desaparecer.
 - **Un DESDE vaciado dejaba una duración que no se podía quitar.** Con el campo
-  de duración ya sin teclado, vaciar el inicio y no volver a escribirlo
-  archivaba el paseo con la hora de vuelta como inicio y la duración vieja
-  detrás. Ahora la duración se va con el inicio de donde se leyó; con un DESDE
-  y sin HASTA se queda, porque ahí la duración es el dato.
+  de duración ya sin teclado, vaciar el inicio y escribir otra hora de vuelta
+  dejaba detrás una duración medida desde un inicio que ya no estaba en el
+  formulario. Ahora la duración se va con el inicio de donde se leyó; con un
+  DESDE y sin HASTA se queda, porque ahí la duración es el dato.
+- **El reloj no recalculaba la duración.** Cambiar una hora con la esfera en
+  vez de con el teclado la escribía directamente en el campo, así que un paseo
+  guardado de 10:00 a 10:45 al que se le movía la vuelta a las 11:00 seguía
+  diciendo "45 min" mientras se guardaban 60. Con la duración ya sin teclado
+  ese número equivocado se veía y no se podía corregir.
+- **Un paseo que cruzó la medianoche podía perder su duración.** Escribir en
+  HASTA la hora de vuelta real —las 00:10 de un paseo que empezó a las 23:40—
+  vaciaba el campo, y volver a dejar HASTA en blanco lo dejaba vacío: al
+  guardar, el paseo se quedaba sin los treinta minutos que sí estaban
+  grabados. Una hora de vuelta anterior a la de salida es un dígito mal
+  tecleado a medio escribir, no un error: la última lectura buena se queda.
 
 ## [v0.10.0] — 2026-10-15
 
