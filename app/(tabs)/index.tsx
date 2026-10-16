@@ -687,6 +687,18 @@ export default function Home() {
       ? `🎂 ${headline} 🎉`
       : headline;
 
+  /**
+   * Whether the sheet is open on the walk this device has running.
+   *
+   * Worked out once, because two things have to agree on it: how the sheet
+   * reads the row's lone time (`timeMeans`), and whether it lets the times be
+   * changed (`running`).
+   */
+  const editingRunning =
+    editing !== null &&
+    editing.event !== null &&
+    editing.event.id === runningWalk?.id;
+
   return (
     <Screen
       scroll
@@ -948,11 +960,8 @@ export default function Home() {
             toast.show({ variant: "error", message, persist: true })
           }
           petId={pet.id}
-          timeMeans={
-            editing.event !== null && editing.event.id === runningWalk?.id
-              ? "start"
-              : "end"
-          }
+          timeMeans={editingRunning ? "start" : "end"}
+          running={editingRunning}
         />
       ) : null}
     </Screen>
@@ -1141,6 +1150,7 @@ function EntrySheet({
   onSaved,
   onFailed,
   timeMeans = "end",
+  running = false,
 }: {
   kind: EventKind;
   /** The entry being corrected, or null when this is a new one. */
@@ -1172,6 +1182,20 @@ function EntrySheet({
    * view — which is the only thing that knows — says so.
    */
   timeMeans?: "start" | "end";
+  /**
+   * This is the walk the device has running, so its times are not editable.
+   *
+   * **A separate flag from `timeMeans`, though the day view derives both from
+   * the same test.** `timeMeans` says how to *read* a lone time and is about
+   * the row's shape; this says what may be *changed*, and the two could part
+   * ways — a walk read as "start" is not necessarily one to lock. While it
+   * holds, DESDE, HASTA and their clock faces are disabled, because the start
+   * is a measurement the timer took and not something to be corrected under a
+   * walk still in progress. The note and the stools are the reason the row is
+   * opened mid-walk, and stay as they are. The cost, accepted: pressing start
+   * five minutes late cannot be fixed until the walk is stopped.
+   */
+  running?: boolean;
 }) {
   const spec = KINDS[kind];
   const isWalk = kind === "walk";
@@ -1490,6 +1514,7 @@ function EntrySheet({
                       label="Desde"
                       value={from}
                       onChange={setFrom}
+                      disabled={running}
                     />
                   }
                   label="Desde"
@@ -1500,6 +1525,7 @@ function EntrySheet({
                   error={fromError}
                   keyboardType="number-pad"
                   maxLength={5}
+                  disabled={running}
                 />
               </View>
               <View className="flex-1">
@@ -1511,6 +1537,7 @@ function EntrySheet({
                       label="Hasta"
                       value={at}
                       onChange={setAt}
+                      disabled={running}
                     />
                   }
                   label="Hasta"
@@ -1521,6 +1548,7 @@ function EntrySheet({
                   error={atError}
                   keyboardType="number-pad"
                   maxLength={5}
+                  disabled={running}
                 />
               </View>
             </View>

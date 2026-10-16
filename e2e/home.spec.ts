@@ -1264,6 +1264,86 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
 });
 
+test("does not let a walk in progress have its times changed", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+
+  // The start is the app's own measurement of the moment the tutor left, and
+  // nothing in the sheet may move it while the walk is still going: DESDE,
+  // HASTA and the duration are all locked, and so are the clocks beside them.
+  const start = await page.getByTestId("entry-from").inputValue();
+  expect(start).toMatch(/^\d{2}:\d{2}$/);
+  await expect(page.getByTestId("entry-from")).not.toBeEditable();
+  await expect(page.getByTestId("entry-to")).not.toBeEditable();
+  await expect(page.getByTestId("entry-duration")).not.toBeEditable();
+  await expect(page.getByTestId("entry-from-picker")).toBeDisabled();
+  await expect(page.getByTestId("entry-to-picker")).toBeDisabled();
+
+  // **A disabled field whose clock still opens is no disabling at all.** The
+  // click is forced past Playwright's own refusal to press a disabled control,
+  // because the thing under test is what the app does with a press that does
+  // arrive.
+  await page.getByTestId("entry-from-picker").click({ force: true });
+  await page.getByTestId("entry-to-picker").click({ force: true });
+  await expect(page.getByTestId("timepicker")).toHaveCount(0);
+
+  // What the row is opened mid-walk for is untouched: the note and the stool.
+  await expect(page.getByTestId("entry-note")).toBeEditable();
+  await page.getByTestId("entry-note").fill("Ha olido a otro perro");
+  await page.getByTestId("stool-toggle").click();
+  await page.getByTestId("stool-add-2").click();
+  await expect(page.getByTestId("stool-token-0")).toContainText("Perfecta");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+
+  // The walk is exactly as it was found, plus what was written: still running,
+  // with the same start.
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(row).toContainText("En marcha");
+  await expect(row).toContainText("Ha olido a otro perro");
+  await row.click();
+  await expect(page.getByTestId("entry-from")).toHaveValue(start);
+  await expect(page.getByTestId("entry-to")).toHaveValue("");
+});
+
+test("lets the times of a walk that has ended be changed again", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // The lock belongs to the walk running on this device and to no other row:
+  // a stored walk, opened the same way, keeps its two times editable.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const start = new Date();
+  start.setDate(start.getDate() - 1);
+  start.setHours(10, 0, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: start, durationMinutes: 45 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+
+  await expect(page.getByTestId("entry-from")).toBeEditable();
+  await expect(page.getByTestId("entry-to")).toBeEditable();
+  await expect(page.getByTestId("entry-from-picker")).toBeEnabled();
+  await expect(page.getByTestId("entry-to-picker")).toBeEnabled();
+  // The length is a reading of the two, for a stored walk as for a new one.
+  await expect(page.getByTestId("entry-duration")).not.toBeEditable();
+});
+
 test("annotates a walk in progress, then closes it with its length", async ({
   page,
 }) => {
