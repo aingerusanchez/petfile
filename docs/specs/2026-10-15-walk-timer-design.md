@@ -100,12 +100,20 @@ text turning Aqua.
 
 The minutes of the walk in progress are **not** stored, so the Mist fill still
 measures only what is recorded, and the walk in progress is drawn as a
-distinct, dimmer segment at the head of it. That segment is the only thing that
-animates: it breathes, opacity only, the same vocabulary as `Skeleton` — **but
-slower**, because an animation that runs for an hour has to be calmer than one
-that runs for a second. Start at 2400ms against `Skeleton`'s 900 and settle it
-on the device. Under "remove animations" it holds at the dim end, the line
-`Skeleton` and `Celebration` already draw.
+distinct, dimmer segment at the head of it.
+
+**Superseded on 2026-10-16: the segment no longer animates, and a pulsing dot
+carries the state instead.** This section originally gave the segment a breath
+of its own at 2400ms, holding at its dim end under "remove animations".
+Measured on the device, that was unreachable: against a 3 h goal on a 327 dp
+bar the segment is **3.6 dp wide at two minutes** and 38 at twenty-one, so
+there is no surface for an animation in the first quarter of an hour — which
+is exactly when the tutor is checking that the walk recorded. The segment is
+now static and purely informative; a dot before the measure pulses instead,
+with a ripple spreading from it, at the same size whatever the walk's length.
+Under "remove animations" the dot holds at **full** opacity, not its dim end —
+the static case needs more contrast, not less, which is the correction the
+segment's own version needed too.
 
 A left-to-right shimmer was considered and rejected: this app's only loading
 idiom is a pulse, and a traverse would say "loading" on a bar that is not.
@@ -271,8 +279,11 @@ The medication read from Salud.
 - e2e: start, the row appears last and is tappable, stop, the duration lands.
   Derive every time from a "now" the test owns — a fixed morning time on today
   is a test that fails half the day.
-- Device: the idle line at `font_scale` 1.0 and 1.3; the breathing segment with
-  and without "remove animations"; the 48dp floor on both controls.
+- Device: the idle line at `font_scale` 1.0 and 1.3; the pulsing dot and its
+  ripple with and without "remove animations"; the 48dp floor on both controls.
+  **Done 2026-10-16**, at `font_scale` 0.9, 1.0 and 1.3: the control measures
+  48.0 dp in both states, and at 1.3 the measure takes 194 dp against the
+  control's 98, leaving 35 dp of slack.
 
 ## Open
 
