@@ -111,9 +111,14 @@ type MonthCalendarProps = {
    *
    * **The watermark is for vaccines and nothing else from Salud.** A mark
    * earns a watermark by being the exception: after the first four months a
-   * vaccine is about annual, which is the birthday's own frequency. Every
-   * other treatment reaches the grid through `marks` instead, folded into the
-   * medication ring — a ring is punctuation where a watermark is ground.
+   * vaccine is about annual, which is the birthday's own frequency.
+   *
+   * **A vaccine wears both**, because every treatment also reaches the grid
+   * through `marks`, folded into the medication ring. That is not a
+   * collision: a watermark is the day's ground — what the date *is* — and a
+   * corner mark is something somebody logged, which is the same two registers
+   * the birthday cake already layers with. The ring says "something medical
+   * happened here" with no exception to remember, and the syringe says which.
    */
   vaccines?: Map<string, "given" | "due">;
   /** The current daily target, for the bar. Null hides it entirely. */

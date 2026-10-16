@@ -467,6 +467,33 @@ test("the calendar marks nothing until the events for the window arrive", async 
   ).toBeVisible();
 });
 
+test("a vaccine day wears the watermark and the ring", async ({ page }) => {
+  const petId = await seedE2EPet();
+  // No next date, so the only cell in play is the day it was given.
+  await seedE2ETreatments(petId, [
+    { kind: "vaccine", name: "Rabia", administeredOn: iso(yesterday) },
+  ]);
+
+  await openYesterday(page);
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("home-calendar")).toBeVisible();
+
+  // Both, on purpose: the watermark is the day's ground — what the date is —
+  // and the ring is something somebody logged. The same two registers the
+  // birthday cake already layers with, so a vaccine needs no exception to
+  // keep it out of "something medical happened here".
+  await expect(page.getByTestId("calendar-mark-vaccine")).toHaveCount(1);
+  await expect(page.getByTestId("calendar-mark-medication")).toHaveCount(1);
+  await expect(
+    page
+      .getByTestId("home-calendar")
+      .getByLabel(
+        `${yesterday.getDate()}, vacuna puesta, objetivo sin conseguir, con medicación`,
+      )
+      .first(),
+  ).toBeVisible();
+});
+
 test("a day with events and no treatments reads as it always did", async ({
   page,
 }) => {

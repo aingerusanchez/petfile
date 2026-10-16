@@ -45,7 +45,10 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   médico pasó ese día—, así que se suma a esa marca en vez de estrenar otra:
   una marca, un significado. Se comprobó contra la regla de la frecuencia antes
   de aceptarlo: un antiparasitario mensual son doce días de ámbar al año, que
-  es puntuación y no fondo. La marca de vacuna no cambia. Los tratamientos solo
+  es puntuación y no fondo. La vacuna sigue con su jeringa de fondo **y lleva
+  además el anillo**, que es como el calendario ya trabaja: el fondo dice qué
+  es el día y la marca de la esquina dice qué se apuntó en él, igual que la
+  tarta de cumpleaños. Los tratamientos solo
   marcan dentro del año que el calendario lee, porque fuera de él no sabe qué
   se paseó y dibujaría ese día como "objetivo sin conseguir"; y no marcan nada
   hasta que ese año de entradas llega, por lo mismo.
