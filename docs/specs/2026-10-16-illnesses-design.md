@@ -222,6 +222,85 @@ prefers it to a migration that guesses.
   cause and a course; an illness can contain several consultations and a
   consultation can exist without an illness. Its own feature, next.
 
+## Settled after the builder check — the author's calls
+
+A fresh engineer read this document cold and asked what they would have to
+guess. These are the answers; each is the author's call, not the tutor's, and
+each is here so the plan does not re-derive it.
+
+- **The diary's row taps through**, exactly as a treatment's does: a chevron,
+  `router.push("/health?illness=<id>")`, and the `?treatment=` machinery in
+  `app/(tabs)/health.tsx` mirrored for a second parameter — applied during
+  render against a remembered value, cleared in an effect, held until the rows
+  load. "Read-only on its start date, the way a treatment is" was meant to
+  settle this and did not say so.
+- **The calendar keeps one red dot and grows a second reason for it.**
+  `CalendarMark` gains `hasIllness` beside `hasIncident`; both draw the same
+  mark. The legend reads `Incidencia o enfermedad`, and a day's spoken name
+  says which of the two it has, or both. The hue is shared because the two are
+  the same kind of alarm; the words are not, because `MonthCalendar` currently
+  announces "con incidencia" and that would be false on an illness-only day.
+- **The illness gets its own diary section, above TRATAMIENTOS** and below the
+  goal block — the cause before the consequence. Not inside TRATAMIENTOS: an
+  illness is not one, and DESIGN.md has a row wear the hue that put it on the
+  calendar, so a red row in an amber section would break that section's rule.
+- **That section copies the treatments section's states verbatim**: nothing
+  while unread, nothing when empty, and **nothing at all on a failed read** —
+  no heading, no message, no button. The reasoning transfers exactly, because
+  it is the same shape of read: the whole history, filtered by day, so a
+  failure is about the list and not about the day.
+- **The calendar needs its own window clip.** An illness outside the events
+  window would otherwise draw red on a day the grid never read — the precise
+  defect `treatmentsSince` and `marksForMonths`' null gate exist to prevent,
+  and which has unit tests. The document did not name it; the code makes it
+  unmissable.
+- **Fields:** `started_on date not null`, defaulted to today in the sheet and
+  limited to the past (`DateField`'s `reach="past"`); `title text not null`
+  with a non-blank check in `lib/`, the way `validatePetDraft` does it;
+  `description text` nullable — the vet's door is exactly where you have the
+  name and not yet the protocol.
+- **An illness can be deleted**, through a `Borrar` danger link in its sheet,
+  as `WeightSheet` and `TreatmentSheet` already have.
+- **`PRODUCT.md:82` is rewritten in the same work.** It still specifies an
+  optional end date, a symptoms field and treatments hanging off the illness —
+  three things this design removes on purpose. Leaving it would make the live
+  decision record contradict what shipped.
+- **`incidentsFor` in `lib/events.ts` becomes dead** once Salud stops listing
+  incidents; it goes, with its coverage.
+
+## A limit of the Markdown renderer, found by testing the example above
+
+The acceptance-criterion example renders correctly today — headings, bullets
+and a hanging-indent continuation all work. What `components/ui/Markdown.tsx`
+does **not** support: ordered lists, nested bullets, links, tables, or `#`.
+A protocol written `1. Flora…` renders as a paragraph with the digits visible.
+Not broken, but not a list, and `MarkdownHelp` does not mention it, so nobody
+would learn why.
+
+A vet's protocol is at least as likely to be numbered as bulleted. **Open for
+the tutor** — see below.
+
+Separately: every current caller of this renderer passes one short paragraph,
+two of them clamped to three lines. A heading renders at `text-xs` in the
+accent colour — _smaller_ than body text — so a long description is two tiny
+labels over normal prose. That may be right; AGENTS.md's rule applies and it
+has to be looked at on the device before it is called done.
+
+## Open — needs the tutor
+
+1. **Where does a tutor find an incident that is not an illness?** Salud's
+   ENFERMEDADES section exists because _"¿cuándo fue lo del oído?" is a health
+   question and walking a calendar backwards is not an answer to it._ This
+   design retires the section's contents without retiring that argument. After
+   it ships, a real accident — the fight with another dog, the sudden limp —
+   is findable only by paging the calendar for red dots.
+2. **Does anything in the UI say which of the two to record?** Anti-goal 1
+   says the boundary has to be drawn in the UI; the non-goals then rule out
+   every change to the diary that would draw it. As specified, the diary's
+   floating action offers `Incidencia` and Salud's offers `Enfermedad`, on
+   different tabs, with nothing on either screen distinguishing them.
+3. **Should the renderer learn ordered lists?** See above.
+
 ## Left to the builder
 
 - The sheet's layout, within the app's existing form idiom.
