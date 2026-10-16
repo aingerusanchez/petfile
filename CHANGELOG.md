@@ -63,6 +63,10 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   vuelve a ella —que es como se entera de lo corregido en Salud— y alimenta a
   la vez el pie del día, las marcas y las vacunas. Una sola lectura no puede
   contradecirse a sí misma. Sigue sin haber tabla nueva ni migración.
+- **Reintentar vuelve a leerlo todo**, tratamientos incluidos. Recuperada la
+  conexión, el botón de la pantalla traía la mascota, el registro y el
+  calendario y dejaba el pie del día roto con su propio botón aparte, que se
+  lee como que el reintento no funcionó.
 - **El registro del día no espera a los tratamientos para pintarse.** Son dos
   peticiones a la vez, y poner la segunda por delante dejaba un día cuyas
   entradas habían llegado en un suspiro esperando hasta doce segundos —y, peor,

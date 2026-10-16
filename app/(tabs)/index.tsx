@@ -458,12 +458,6 @@ export default function Home() {
     return () => sub.remove();
   }, [today, day, runningId]);
 
-  const reload = useCallback(() => {
-    setPetError(null);
-    setLogError(null);
-    setAttempt((n) => n + 1);
-  }, []);
-
   // Hoisted above the early returns, because the birthday effect below is a
   // hook and cannot sit after them. `birthdayOn` takes a null birth date, so
   // this is safe before the pet has loaded.
@@ -509,6 +503,27 @@ export default function Home() {
       };
     }, [readTreatments]),
   );
+
+  /**
+   * Everything the screen reads, read again.
+   *
+   * **The foot of the day comes back with the rest of it.** `attempt` drives
+   * the pet, the log and the calendar's window, while the treatments hang off
+   * focus and the pet's id — so a tutor whose connection came back and who
+   * pressed the screen's Reintentar got everything except the foot of the
+   * day, which went on showing its own error behind its own second button.
+   * That reads as the retry not having worked. The treatments keep that small
+   * Reintentar for the case where they are the only thing that failed.
+   *
+   * It is defined here rather than above because it calls `readTreatments`,
+   * which needs the pet's id; nothing between the two uses it.
+   */
+  const reload = useCallback(() => {
+    setPetError(null);
+    setLogError(null);
+    setAttempt((n) => n + 1);
+    void readTreatments(() => false);
+  }, [readTreatments]);
 
   /**
    * **The birthday gets the confetti, once a year, on the day itself.**
