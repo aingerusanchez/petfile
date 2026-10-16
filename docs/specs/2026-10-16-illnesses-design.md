@@ -286,20 +286,39 @@ accent colour — _smaller_ than body text — so a long description is two tiny
 labels over normal prose. That may be right; AGENTS.md's rule applies and it
 has to be looked at on the device before it is called done.
 
-## Open — needs the tutor
+## Answered by the tutor, 2026-10-16
 
-1. **Where does a tutor find an incident that is not an illness?** Salud's
-   ENFERMEDADES section exists because _"¿cuándo fue lo del oído?" is a health
-   question and walking a calendar backwards is not an answer to it._ This
-   design retires the section's contents without retiring that argument. After
-   it ships, a real accident — the fight with another dog, the sudden limp —
-   is findable only by paging the calendar for red dots.
-2. **Does anything in the UI say which of the two to record?** Anti-goal 1
-   says the boundary has to be drawn in the UI; the non-goals then rule out
-   every change to the diary that would draw it. As specified, the diary's
-   floating action offers `Incidencia` and Salud's offers `Enfermedad`, on
-   different tabs, with nothing on either screen distinguishing them.
-3. **Should the renderer learn ordered lists?** See above.
+1. **An incident is found by the calendar's red dot and by the day it sits
+   in.** The tutor accepts that consciously: paging the grid for a red mark
+   and then reading the day is the answer until there is a better one. The
+   better one is **text search** — _"pelea con…"_, _"golpe contra…"_ — which
+   PRODUCT.md deferred once already (2026-09-10: finding an entry by its words
+   is a separate tool, a full-screen result list and not a calendar). This
+   design does not re-open it; it adds a second reason to build it.
+
+   **So the regression is accepted, not overlooked**, and the CHANGELOG says
+   so in those terms rather than quietly.
+
+2. **Nothing in the UI distinguishes the two, by decision.** _"De momento no
+   se diferencia, sólo son puntos que llaman la atención en el calendario o
+   sus respectivas pestañas."_ Anti-goal 1 is relaxed accordingly: a tutor who
+   files one as the other has filed it where they thought of it, and the red
+   dot finds it either way. **Nothing in the diary changes.**
+
+3. **The renderer learns ordered lists.** See below.
+
+## Ordered lists in the Markdown renderer
+
+`components/ui/Markdown.tsx` splits on blank lines and knows three block
+shapes: a `## `/`### ` heading, a `- ` list, and a paragraph. An ordered list
+is the symmetric fourth — a block whose first line matches `\d+\. `, split on
+`\n(?=\d+\. )`, rendering its own numbers rather than the typed ones so a
+mis-numbered list still reads in order.
+
+It is small, and it belongs with this feature because a vet's protocol is as
+likely to be numbered as bulleted. `MarkdownHelp` gains the line. **Nested
+lists, links and tables stay out** — nothing here has wanted them, and each is
+a parser rather than a branch.
 
 ## Left to the builder
 
