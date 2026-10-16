@@ -44,6 +44,15 @@ encodes. The resulting invariant:
 | yes   | no    | —        | start         | `null`             |
 | no    | no    | —        | refused       | —                  |
 
+**Two of these rows became unreachable from the UI in round 2**
+(`docs/plans/2026-10-16-walk-timer-round-2.md`, 2026-10-16). The duration field
+is now read-only, so nothing can type one: the rows that say "typed" are
+reachable only for lengths already stored, and the shape PRODUCT.md calls "we
+got home at nine and were out about forty-five minutes" can no longer be
+entered. `save` still honours all six — the table describes what the column
+accepts, and leaving it intact is what keeps the change reversible — but a
+builder reading this should not go looking for the control that fills them.
+
 The last row with a start and no length **is** the walk in progress. There is no
 special case, no flag in `details`, and no new screen: tapping the live row
 opens the entry sheet that already exists, with its stool chips, which is what
@@ -199,8 +208,15 @@ wrong there.
    and `23:40` in DESDE, both re-parsed against the screen's day, so
    `minutesBetween` returns null and Guardar refuses an untouched entry. Answer:
    the mirror of `startWithinDay` — when start plus duration lands on another
-   day, HASTA is empty and the duration is the fact. Both steppers
-   (`applyMinutes`, `editDuration`) gain the same mirror.
+   day, HASTA is empty and the duration is the fact.
+
+   **Superseded in part on 2026-10-16:** this answer originally said "both
+   steppers (`applyMinutes`, `editDuration`) gain the same mirror". Round 2
+   deleted both, along with everything else that let a duration write into a
+   time — that machinery is where this branch's two critical defects came
+   from. The mirror itself survives where it matters, in `endWithinDay` and in
+   what the sheet shows on opening a crossed walk.
+
 3. **A typed crossing is still refused.** The app records a crossing it
    measured, because it holds both instants and guesses nothing. It still
    refuses a HASTA typed before its DESDE, which remains a mistyped digit far
