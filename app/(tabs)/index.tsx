@@ -312,7 +312,8 @@ export default function Home() {
    *
    * Null until the first answer, and the section stays absent until then:
    * nothing is drawn for a read that has not come back, and the log below
-   * does not wait for it.
+   * does not wait for it. A failed read draws nothing either, and keeps the
+   * rows it had for the calendar: see `readTreatments`.
    */
   const [treatments, setTreatments] = useState<{
     rows: PetTreatmentRow[];
@@ -484,8 +485,9 @@ export default function Home() {
    *
    * The result is set from the promise, never in the effect body, so none of
    * this is the cascading render `react-hooks/set-state-in-effect` reports.
-   * A failed read is kept with its message and the rows it had: see where the
-   * section says it could not look.
+   * A failed read draws no section and says nothing about it: the section is
+   * absent, not an error line, and the reasons are written where it is drawn.
+   * The rows it had stay, because the calendar still marks from them.
    */
   const readTreatments = useCallback(
     async (isCancelled: () => boolean) => {
@@ -493,8 +495,9 @@ export default function Home() {
       const { treatments: rows, error } = await treatmentsFor(petId);
       if (isCancelled()) return;
       setTreatments((held) => ({
-        // A read that failed keeps what it had rather than blanking the day:
-        // a stale dose beats a day that claims nothing was given.
+        // A read that failed keeps the rows it had rather than blanking the
+        // calendar: a stale mark beats a grid that claims nothing was given.
+        // The day's section does not draw while `error` is set.
         rows: error && held ? held.rows : rows,
         error,
       }));
@@ -516,12 +519,11 @@ export default function Home() {
    *
    * **The treatments come back with the rest of it.** `attempt` drives the
    * pet, the log and the calendar's window, while the treatments hang off
-   * focus and the pet's id — so a tutor whose connection came back and who
-   * pressed the screen's Reintentar got everything except the treatments
-   * section, which went on showing its own error behind its own second
-   * button.
-   * That reads as the retry not having worked. The treatments keep that small
-   * Reintentar for the case where they are the only thing that failed.
+   * focus and the pet's id. A failed treatments read draws nothing, so the
+   * screen's Reintentar is the one button that can bring them back without
+   * leaving the tab, and it has to re-read them too. Otherwise a tutor whose
+   * connection came back would see the log recover and the day's treatments
+   * stay missing.
    *
    * It is defined here rather than above because it calls `readTreatments`,
    * which needs the pet's id; nothing between the two uses it.
@@ -949,11 +951,27 @@ export default function Home() {
           drawn while the treatments are still unread, and nothing on a day
           that has none: absent, not empty — an empty section would announce
           a heading over a blank. They are one read held for every day, so
-          this is only ever a wait on the first visit. A failed read says so
-          here, with its own Reintentar, and the log below neither waits for
-          it nor knows about it. The rows are read-only and lead out of the
-          screen (the chevron says so): see `TreatmentEntry`. */}
-      {dayTreatments.length > 0 || treatments?.error ? (
+          this is only ever a wait on the first visit. The log below neither
+          waits for it nor knows about it. The rows are read-only and lead out
+          of the screen (the chevron says so): see `TreatmentEntry`.
+
+          **A failed read draws nothing here: no heading, no line, no button.**
+          The read is the pet's whole history and the day only filters it, so
+          a failure is about the list, not about this day. A message in this
+          section would read as "for this day", and it would follow the tutor
+          across every day they paged to — including the ~96% that have
+          nothing here at all. The log already says what matters: a treatments
+          read fails when the connection is gone, and then the events read
+          failed too, so the log shows its own error with its own Reintentar
+          directly below, and that Reintentar re-reads these as well. Nothing
+          needs a button of its own for recovery either: the read runs on tab
+          focus, so leaving for Salud and coming back retries it.
+
+          The residual is accepted, not hidden. Events landing while the
+          treatments read fails — a server hiccup rather than an outage — on
+          one of the roughly sixteen days a year that have a treatment, show
+          nothing and say nothing until the next focus. */}
+      {dayTreatments.length > 0 && !treatments?.error ? (
         <Group testID="home-treatments" title="Tratamientos">
           {dayTreatments.map((row) => (
             <TreatmentEntry
@@ -962,26 +980,6 @@ export default function Home() {
               onPress={() => router.push(`/health?treatment=${row.id}`)}
             />
           ))}
-
-          {treatments?.error ? (
-            // What is missing is said, so the section is not silently shorter
-            // than it should be — and it may well be the only thing in it.
-            <View className="mb-5 flex-row items-center justify-between gap-3">
-              <Text
-                testID="home-treatments-error"
-                accessibilityLiveRegion="polite"
-                className="min-w-0 flex-1 text-xs text-error"
-              >
-                No he podido leer los tratamientos de este día.
-              </Text>
-              <Button
-                testID="home-treatments-retry"
-                label="Reintentar"
-                variant="link"
-                onPress={() => void readTreatments(() => false)}
-              />
-            </View>
-          ) : null}
         </Group>
       ) : null}
 

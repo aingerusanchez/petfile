@@ -442,7 +442,7 @@ test("a day with nothing in the diary says so at once; the section joins when it
   );
 });
 
-test("a failed treatments read says so in its own section, and the log is unaffected", async ({
+test("a failed treatments read draws no section, and the log is unaffected", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -451,6 +451,16 @@ test("a failed treatments read says so in its own section, and the log is unaffe
   await seedE2EEvents(petId, [
     { kind: "walk", occurredAt: daysFromNow(-1, 9), durationMinutes: 30 },
   ]);
+  // A treatment on the day, so the section would be drawn if the read had
+  // worked: its absence below is the failure's doing and nothing else's.
+  await seedE2ETreatments(petId, [
+    {
+      kind: "deworming",
+      name: "Milbemax 125mg",
+      administeredOn: iso(yesterday),
+    },
+  ]);
+  // Refused rather than aborted: a 500 is an answer, so the read fails at once.
   await page.route("**/rest/v1/pet_treatments*", async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     await route.fulfill({
@@ -459,20 +469,27 @@ test("a failed treatments read says so in its own section, and the log is unaffe
       body: JSON.stringify({ message: "e2e: the treatments cannot be read" }),
     });
   });
+  // An absent section is also what a read still in flight looks like, so the
+  // assertions wait for the refusal to come back and for the app a beat to
+  // take it in. A section drawn on failure would still be there after that.
+  const refused = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      response.url().includes("/rest/v1/pet_treatments") &&
+      response.status() === 500,
+  );
 
   await openYesterday(page);
+  await refused;
+  await page.waitForTimeout(600);
 
-  const section = page.getByTestId("home-treatments");
-  await expect(section).toContainText(
-    "No he podido leer los tratamientos de este día.",
-  );
-  await expect(section.getByTestId("home-treatments-retry")).toBeVisible();
-  // The log is the log: its rows, no error of its own, and no retry.
+  // Nothing of the section: no heading, no line, no retry.
+  await expect(page.getByTestId("home-treatments")).toHaveCount(0);
+  await expect(page.getByTestId("home-treatments-retry")).toHaveCount(0);
+  await expect(page.getByText("Milbemax 125mg")).toHaveCount(0);
+  // The log is the log: its rows, no error of its own.
   await expect(page.getByTestId("home-log")).toContainText("Paseo");
   await expect(page.getByTestId("home-log-error")).toHaveCount(0);
-  await expect(
-    page.getByTestId("home-log").getByTestId("home-treatments-error"),
-  ).toHaveCount(0);
 });
 
 test("a failed log says so straight away, treatments or no treatments", async ({

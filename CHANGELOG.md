@@ -35,8 +35,9 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   día (el objetivo) y su corriente (el registro), y no pegado detrás de ella.
   El registro se lee hacia delante y todo lo que lleva tiene hora; una fila sin
   hora dentro de él siempre fue una invitada. La sección solo existe en un día
-  que tiene tratamientos —ausente, no vacía—, y si no se pudieron leer lo dice
-  ella misma, con su Reintentar, sin tocar el registro.
+  que tiene tratamientos —ausente, no vacía—, y si no se pudieron leer no sale
+  nada: el registro sigue como siempre, y su propio Reintentar vuelve a leerlo
+  todo.
 - **No tienen hora, y no se inventa una.** `administered_on` es un día, no un
   instante: nadie apuntó a qué hora fue, y ponerla delante sería mentir en una
   app cuya promesa es que el registro es cierto. La columna de la izquierda
@@ -74,9 +75,8 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   la vez la sección del día, las marcas y las vacunas. Una sola lectura no puede
   contradecirse a sí misma. Sigue sin haber tabla nueva ni migración.
 - **Reintentar vuelve a leerlo todo**, tratamientos incluidos. Recuperada la
-  conexión, el botón de la pantalla traía la mascota, el registro y el
-  calendario y dejaba la sección de tratamientos rota con su propio botón
-  aparte, que se lee como que el reintento no funcionó.
+  conexión, el botón de la pantalla trae de nuevo la mascota, el registro, el
+  calendario y los tratamientos, sin dejar ninguno atrás.
 - **El registro del día no espera a los tratamientos para pintarse.** Son dos
   peticiones a la vez, y poner la segunda por delante dejaba un día cuyas
   entradas habían llegado en un suspiro esperando hasta doce segundos —y, peor,
