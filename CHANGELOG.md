@@ -16,6 +16,145 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.11.0] — 2026-10-16
+
+### Cambiado
+
+- **La duración de un paseo ya no se teclea, y los botones -15 / +15 se
+  van.** La duración podía escribir en una hora, y de ese acoplamiento salieron
+  los dos defectos graves del cronómetro: uno destruía el inicio real de un
+  paseo en marcha y el otro lo iba retrasando a cada pulsación. En tres semanas
+  de uso real nadie tocó los botones; el camino rápido resultó ser teclear las
+  dos horas. El campo **sigue ahí y se lee solo**: se calcula a partir de DESDE
+  y HASTA, con el aspecto de un valor y no de un control apagado. Un paseo que
+  ya estaba guardado con una duración y una sola hora —el que cruzó la
+  medianoche— se abre y se guarda igual que antes.
+- **Un paseo en marcha no deja cambiar sus horas.** Con la hoja abierta sobre
+  el paseo que este móvil tiene en curso, DESDE, HASTA y la duración quedan
+  bloqueados —y se ven bloqueados los tres, que la duración se quedara con el
+  tono normal hacía que el único campo que nunca se teclea pareciera el más
+  editable—, y los relojes de al lado también: un campo bloqueado cuyo reloj
+  se abre es peor que no bloquearlo. La nota y la kaka siguen libres, que es
+  para lo que se toca la fila a mitad de paseo. El precio, aceptado: si se
+  pulsó Empezar cinco minutos tarde, no se corrige hasta parar el paseo.
+- **"En marcha" lleva el acento**, como la hora y el icono que tiene al lado.
+  Las palabras no cambian.
+- **El botón del paseo se lee como un botón.** Con la letra al 130 % era texto
+  en Aqua junto a texto en blanco, y nada decía que se pudiera pulsar. Ahora es
+  una píldora: **con borde cuando no hay paseo, rellena mientras lo hay**, la
+  misma regla que ya aplican el día seleccionado, la pestaña activa y el tramo
+  elegido de un selector —lo elegido es lo relleno—. El borde está siempre, de
+  modo que al rellenarse no cambia de tamaño. **El triángulo y el cuadrado son
+  macizos**: el cuadrado hueco se leía como una casilla de verificación sobre
+  fondo oscuro, y un control de reproducción se reconoce por la forma llena. En
+  la píldora rellena el cuadrado es del color del fondo, como un agujero
+  hecho en ella.
+- **Un punto que late sustituye a la barra que respiraba.** Contra un objetivo
+  de 3 h en una barra de 327 dp, el tramo del paseo en marcha mide 3,6 dp a los
+  dos minutos y 38 a los veintiuno: ahí no cabe una animación, y justo en los
+  primeros minutos es cuando más se quiere saber si el paseo se ha anotado.
+  Un punto Aqua de 8 dp delante de "De paseo" mide lo mismo dure lo que dure el
+  paseo. El tramo de la barra se queda, quieto, porque dice cuánto se está
+  acumulando. Con "quitar animaciones" el punto se queda a opacidad completa:
+  el caso estático tiene que verse más, no menos. Para un lector de pantalla es
+  decoración, porque "De paseo" ya lo dice. **Late sin apagarse y suelta una
+  onda**: fotografiado en el móvil, el punto se pillaba en lo más bajo del
+  latido y se leía gris, porque con el 30 % de opacidad el Aqua mide 2,04:1
+  contra el fondo; ahora baja solo hasta el 55 % (4,09:1). Del punto sale un
+  anillo que se abre y se desvanece, en el mismo ciclo, y no mueve nada: crece
+  por transformación dentro de un hueco fijo de 8 dp. Con "quitar animaciones"
+  no hay anillo y el punto queda a opacidad completa.
+
+### Arreglado
+
+- **Parar un paseo justo después de anotarlo podía borrarlo.** Al parar dentro
+  del primer minuto, la app decide si el paseo es un toque por error mirando la
+  fila tal como llegó la última vez, y entre guardar la nota y recargar el día
+  —casi siempre menos de un segundo— esa fila aún no tenía la nota. Ahora
+  guardar la hoja sobre el paseo en marcha lo cuenta como escrito, y se cierra
+  con un minuto en vez de desaparecer.
+- **Un DESDE vaciado dejaba una duración que no se podía quitar.** Con el campo
+  de duración ya sin teclado, vaciar el inicio y escribir otra hora de vuelta
+  dejaba detrás una duración medida desde un inicio que ya no estaba en el
+  formulario. Ahora la duración se va con el inicio de donde se leyó; con un
+  DESDE y sin HASTA se queda, porque ahí la duración es el dato.
+- **El reloj no recalculaba la duración.** Cambiar una hora con la esfera en
+  vez de con el teclado la escribía directamente en el campo, así que un paseo
+  guardado de 10:00 a 10:45 al que se le movía la vuelta a las 11:00 seguía
+  diciendo "45 min" mientras se guardaban 60. Con la duración ya sin teclado
+  ese número equivocado se veía y no se podía corregir.
+- **Un campo de solo lectura no decía que lo fuera.** La duración se anunciaba
+  como un campo normal que se niega a recibir texto; ahora dice "solo lectura"
+  en su nombre accesible, que es el único sitio donde cabe decirlo en los dos
+  sistemas.
+- **Un paseo que cruzó la medianoche podía perder su duración.** Escribir en
+  HASTA la hora de vuelta real —las 00:10 de un paseo que empezó a las 23:40—
+  vaciaba el campo, y volver a dejar HASTA en blanco lo dejaba vacío: al
+  guardar, el paseo se quedaba sin los treinta minutos que sí estaban
+  grabados. Una hora de vuelta anterior a la de salida es un dígito mal
+  tecleado a medio escribir, no un error: la última lectura buena se queda.
+- **Empezar un paseo no daba señal de estar trabajando.** El botón ya no
+  desaparecía durante la escritura, pero se quedaba quieto y apagado: con una
+  sola raya de wifi en el portal son varios segundos de un botón que parece
+  muerto, y un control presente pero inerte es lo que hace que alguien lo pulse
+  otra vez, que es justo cómo se empieza dos veces el mismo paseo. Ahora el
+  icono se cambia por un indicador de actividad mientras dura la escritura, en
+  su misma caja, y la etiqueta sigue siendo "Paseo": el bloque no se mueve.
+
+## [v0.10.0] — 2026-10-15
+
+### Nuevo
+
+- **Los paseos se pueden cronometrar.** El bloque del objetivo gana un botón:
+  al salir de casa se pulsa y el paseo queda abierto con su hora de inicio
+  real, al volver se pulsa otra vez y la fila recibe su duración. Hasta ahora
+  la única forma de no perder esa hora era crear el paseo en la calle con una
+  hora de vuelta provisional y corregirla al llegar. **No hay esquema nuevo:**
+  un paseo en marcha es una fila con inicio y sin duración, y el móvil solo
+  recuerda su identificador, de modo que el inicio sigue viviendo donde está el
+  dato.
+- **El paseo en marcha se puede anotar sin esperar.** Aparece en el registro
+  como una fila más —"En marcha"—, así que la kaka de mitad de paseo se apunta
+  donde se apunta siempre. Una pulsación y otra dentro del mismo minuto es un
+  toque por error, y lo honrado es no dejar nada: la fila se va con ella —
+  **salvo que lleve algo escrito**. Si en ese minuto se ha anotado una nota o
+  una kaka, borrarla se llevaría por delante algo que alguien tecleó, así que
+  el paseo se cierra con un minuto, que es lo más corto que admite la ficha.
+
+### Arreglado
+
+- **Un paseo que cruza medianoche no se podía guardar.** La hoja exigía la
+  hora de vuelta sin condiciones y la leía contra el día en pantalla, así que
+  un paseo de 23:40 a 00:10 se rechazaba a sí mismo: bastaba abrirlo, cambiar
+  cualquier cosa y pulsar Guardar para oír que el inicio tenía que ir antes de
+  la vuelta. Ahora **un paseo necesita dos horas, o una hora y una duración**.
+- **Una hora de vuelta mal escrita se descartaba en silencio.** Al relajar la
+  regla anterior, un HASTA que no se entendía quedaba como "sin hora de vuelta"
+  y el paseo se guardaba sin el único dato que se había tecleado. Solo un HASTA
+  _vacío_ puede sustituirlo el DESDE; uno escrito y ilegible se rechaza en su
+  campo. Y un inicio en el futuro, que ahora es lo que se guarda cuando no hay
+  vuelta, recibe la misma comprobación que ya tenía la vuelta: "¿Todavía no
+  habéis salido?".
+- **Borrar la duración borraba la hora de salida.** Mientras la vuelta era
+  siempre el ancla, vaciar la duración vaciaba el DESDE que se había calculado
+  a partir de ella, y eso era lo correcto. Con la vuelta vacía —un paseo en
+  marcha, uno que cruzó medianoche— el ancla es justo la otra, así que lo que
+  se borraba era el inicio real y lo que quedaba en pie era la hora derivada:
+  Guardar archivaba el paseo bajo una hora que nadie había tecleado. Ahora se
+  vacía el campo derivado y nunca el ancla.
+
+### Cambiado
+
+- **El bloque del objetivo aparece aunque no haya objetivo.** La actividad
+  diaria es un campo opcional, y quien no lo había rellenado no veía el bloque
+  —ni, por tanto, habría tenido dónde empezar un paseo—. Sin objetivo se lee
+  "30 min paseados", sin el día: el bloque también sale en días pasados y la
+  cabecera ya dice cuál es. No hay barra; el esqueleto de carga lo respeta.
+- **"Objetivo conseguido" pasa de al lado de la medida a debajo de la barra.**
+  El hueco de la derecha ya es del botón, y una etiqueta que a veces está al
+  lado y a veces debajo serían dos diseños para una misma frase. Ahora tiene un
+  solo sitio, todos los días.
+
 ## [v0.9.0] — 2026-09-13
 
 ### Cambiado

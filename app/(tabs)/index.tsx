@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams } from "expo-router";
 import {
   CalendarDays,
@@ -9,13 +10,14 @@ import {
   UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Pressable, View } from "react-native";
 import {
   Button,
   colors,
   Fab,
   FAB_CLEARANCE,
+  GoalBlock,
   Group,
   LoadingScreen,
   Markdown,
@@ -52,6 +54,8 @@ import {
   dayKey,
   eventDetail,
   deleteEvent,
+  closeWalk,
+  endWithinDay,
   eventsForDay,
   eventsForMonths,
   formatTimeOfDay,
@@ -59,8 +63,7 @@ import {
   MAX_WALK_MINUTES,
   minutesBetween,
   parseTimeOfDay,
-  shiftMinutes,
-  startWithinDay,
+  startWalk,
   updateEvent,
   walkedMinutes,
   type DaySummary,
@@ -70,6 +73,12 @@ import {
 import { getMyPet, type PetRow } from "../../lib/pets";
 import { treatmentsFor, vaccineDays } from "../../lib/treatments";
 import { useSettings, type DurationFormat } from "../../lib/settings";
+import {
+  parseRunningWalk,
+  serialiseRunningWalk,
+  walkOutcome,
+  WALK_STORAGE_KEY,
+} from "../../lib/walk";
 import {
   describeStools,
   readStools,
@@ -153,9 +162,6 @@ const KINDS: Record<
 
 const ORDER: EventKind[] = ["walk", "meal", "medication", "incident"];
 
-/** How much a tap on -15 or +15 moves a walk's duration. */
-const STEP_MINUTES = 15;
-
 /**
  * How far back the calendar's marks reach, in whole months.
  *
@@ -165,21 +171,6 @@ const STEP_MINUTES = 15;
  */
 const MARKED_MONTHS = 12;
 
-/**
- * The clock time `total` minutes before `at` — or "" when that leaves the day.
- *
- * DESDE holds a time of day with no date, so a start on the previous day comes
- * back as that same clock time on the day on screen, which is *after* the end.
- * Rather than write a time that means the wrong thing, the field goes empty
- * and the duration carries the walk on its own. See `applyMinutes`.
- */
-function startOnDay(atText: string, day: Date, total: number): string {
-  const end = parseTimeOfDay(atText, day);
-  if (!end) return "";
-  const start = startWithinDay(end, total);
-  return start ? formatTimeOfDay(start) : "";
-}
-
 /** The same clock time, `by` days away. */
 function shiftDays(day: Date, by: number): Date {
   const next = new Date(day);
@@ -188,6 +179,14 @@ function shiftDays(day: Date, by: number): Date {
 }
 
 /** The one free-text specific each kind but the walk keeps in `details`. */
+
+/**
+ * The rows of a day that has not loaded: one array for every render.
+ *
+ * A literal `[]` in the render body is a new object each time, and the effects
+ * that read `events` would re-run on every render while the day waits.
+ */
+const NO_EVENTS: PetEventRow[] = [];
 
 /** What the sheet is open for: a new entry of a kind, or an existing one. */
 type Editing = { kind: EventKind; event: PetEventRow | null };
@@ -299,15 +298,59 @@ export default function Home() {
    * today's four entries for as long as the network took — a tutor checking
    * "did he walk yesterday?" got a confident yes.
    */
-  const [log, setLog] = useState<{ day: string; events: PetEventRow[] } | null>(
-    null,
-  );
+  const [log, setLog] = useState<{
+    day: string;
+    /** The `attempt` this read answered, so a stale log can be told apart. */
+    attempt: number;
+    events: PetEventRow[];
+  } | null>(null);
   /** Fatal: with no pet there is no day to show. */
   const [petError, setPetError] = useState<string | null>(null);
   /** Not fatal: the header, the goal and the actions all still work. */
   const [logError, setLogError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [attempt, setAttempt] = useState(0);
+  /** The walk this device has open, or null. Read once, then kept in step. */
+  const [runningId, setRunningId] = useState<string | null>(null);
+  /**
+   * The walk the sheet has written to since it was last fetched, by id.
+   *
+   * **`stop` reads the fetched row, and the fetched row lags a sheet save.**
+   * Between the sheet saving a mid-walk note and the reload landing — well
+   * under a second, but not zero — `runningWalk.note` is still empty, so a
+   * stop inside the minute would read the walk as untouched and delete a row
+   * that already holds something the tutor wrote. Saving the sheet on the
+   * running row records its id here, and `stop` treats that as touched
+   * alongside the row's own fields. Keyed by id rather than a boolean so a
+   * new walk starts clean without anything having to reset it, and it is
+   * conservative on purpose: a note written and then erased still closes the
+   * walk at a minute instead of deleting it.
+   */
+  const [writtenToId, setWrittenToId] = useState<string | null>(null);
+  const [walkBusy, setWalkBusy] = useState(false);
+  /**
+   * A tap that arrives while another is still being handled.
+   *
+   * `walkBusy` is state, so it only closes the door once a render has
+   * committed; a train of taps can land before that. A ref flips at once.
+   */
+  const walkInFlight = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(WALK_STORAGE_KEY)
+      .then((raw) => {
+        if (!cancelled) setRunningId(parseRunningWalk(raw));
+      })
+      .catch(() => {
+        // A read that fails is a device with no note, which is what a phone
+        // that has never started a walk looks like: the block offers Empezar.
+        // The same best-effort bargain `start` and `stop` already make.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -327,7 +370,7 @@ export default function Home() {
       // craft floor's rule is that one component's error must not block the
       // whole interface, and everything above the log comes from the pet.
       setLogError(eventError);
-      setLog({ day: dayKey(day), events: rows ?? [] });
+      setLog({ day: dayKey(day), attempt, events: rows ?? [] });
     });
 
     return () => {
@@ -385,10 +428,14 @@ export default function Home() {
       // who left the app reading Tuesday comes back to Tuesday; dragging them
       // to the new day would lose their place to fix a boundary they were not
       // standing on.
-      if (daysAgo(day, today) === 0) setDay(now);
+      //
+      // **Nor while this device has a walk open.** The tutor is holding
+      // something half-finished, and moving them off the day it is on loses
+      // the row they would tap to stop it.
+      if (daysAgo(day, today) === 0 && !runningId) setDay(now);
     });
     return () => sub.remove();
-  }, [today, day]);
+  }, [today, day, runningId]);
 
   const reload = useCallback(() => {
     setPetError(null);
@@ -431,6 +478,186 @@ export default function Home() {
     };
   }, [petId, isToday, birthdayYears, day, celebrate]);
 
+  // Hoisted for the same reason: the walk's hooks below read them, and a hook
+  // cannot sit after the early returns. Every one is safe before the pet loads.
+  const loading = log === null || log.day !== dayKey(day);
+  const events = loading ? NO_EVENTS : log.events;
+  const walked = walkedMinutes(events);
+  const goal = pet?.exercise_goal_minutes ?? null;
+  const met = goal !== null && walked >= goal;
+  /**
+   * Whether the rows on screen answer the *current* request.
+   *
+   * **A day that matches is not enough.** Starting a walk sets `runningId` and
+   * asks for a reload, and until that reload lands the rows are the ones read
+   * before the walk existed — the new row is, rightly, not among them. Judging
+   * the flag against those rows would call it stale and drop it, a second
+   * after the tutor pressed start.
+   */
+  const fresh = !loading && log.attempt === attempt;
+
+  /**
+   * The row this device thinks is running, if it is on the day in view.
+   *
+   * **Derived, never a second piece of state.** An effect keeping one state in
+   * step with another is the defect `react-hooks/set-state-in-effect` exists
+   * to report, and the walk's start is already in the row.
+   *
+   * **A row with a length is not running**, whatever the flag says: the tutor
+   * can open the live row and write one in the sheet, which closes the walk
+   * without going through the control.
+   */
+  const runningRow =
+    runningId !== null
+      ? (events.find((event) => event.id === runningId) ?? null)
+      : null;
+  const runningWalk =
+    runningRow && runningRow.duration_minutes === null ? runningRow : null;
+  const walkingSince = runningWalk ? new Date(runningWalk.occurred_at) : null;
+
+  // Three ways a flag stops meaning anything, and all three drop it without
+  // writing: the row is gone — deleted on the other phone — or it has been
+  // closed by hand, or the walk has been open past the column's ceiling, which
+  // is the forgotten stop. Only once the day's rows have actually loaded for
+  // this request, or every reload would clear it on the way past, and only on
+  // the day the walk belongs to, or paging back a week would clear a walk that
+  // is running fine.
+  useEffect(() => {
+    if (!runningId || !fresh || logError || !isToday) return;
+    const row = events.find((event) => event.id === runningId);
+    const stale =
+      !row ||
+      row.duration_minutes !== null ||
+      walkOutcome(new Date(row.occurred_at), new Date()).action === "abandon";
+    if (!stale) return;
+    // **The flag drops whether or not the write does.** Hanging the state
+    // change off a resolved `removeItem` meant a rejection left `runningId`
+    // standing — and nothing re-runs this effect, because its deps do not
+    // change — so the block went on offering a stop for a walk that is gone,
+    // on a day the screen will not leave, since the `AppState` pin keys on
+    // `runningId`. The write is best-effort, as in `start` and `stop`.
+    AsyncStorage.removeItem(WALK_STORAGE_KEY)
+      .catch(() => {
+        // The row is the fact; the device's note is only a note.
+      })
+      .finally(() => setRunningId(null));
+  }, [runningId, events, fresh, logError, isToday]);
+
+  const start = useCallback(async () => {
+    if (!petId || walkInFlight.current) return;
+    walkInFlight.current = true;
+    setWalkBusy(true);
+    try {
+      // The write comes first and the state follows it. A block that says "De
+      // paseo" over a walk the server never accepted is worse than a tap that
+      // visibly did nothing.
+      const { id, error } = await startWalk(petId);
+      if (error || !id) {
+        toast.show({
+          variant: "error",
+          message: error ?? "No se ha podido empezar el paseo",
+          persist: true,
+        });
+        // **And the day is reloaded on the way out.** `withTimeout` abandons
+        // the request after twelve seconds; the insert may well have
+        // committed on the other side of it. The tutor reads the error and
+        // presses start again, and now there are two open walks — the first
+        // one invisible until something else happens to trigger a read. It is
+        // visible and deletable the moment the log says it exists.
+        setAttempt((n) => n + 1);
+        return;
+      }
+      // **The device's note is best-effort; the row is the fact.** A storage
+      // failure here must not escape, or the row exists and the flag does not
+      // and the block offers Empezar over a live walk. The walk runs for this
+      // session either way.
+      try {
+        await AsyncStorage.setItem(WALK_STORAGE_KEY, serialiseRunningWalk(id));
+      } catch {
+        // Not worth interrupting a walk for.
+      }
+      setRunningId(id);
+      setAttempt((n) => n + 1);
+    } finally {
+      // **Last, so no committed render shows Empezar enabled over a walk that
+      // is already written.** Busy clears in the same batch that sets
+      // `runningId`, which is what `onStart` is withheld on.
+      walkInFlight.current = false;
+      setWalkBusy(false);
+    }
+  }, [petId, toast]);
+
+  const stop = useCallback(async () => {
+    if (!runningWalk || walkInFlight.current) return;
+    walkInFlight.current = true;
+    setWalkBusy(true);
+    try {
+      const outcome = walkOutcome(
+        new Date(runningWalk.occurred_at),
+        new Date(),
+      );
+      // **The rule is "untouched", not "under a minute".** A start and a stop
+      // inside the same minute is a mis-tap and the honest record of a
+      // mis-tap is nothing — but the live row is in the log as soon as the
+      // reload lands, the sheet opens on it, and a note and stool chips can
+      // be written into it immediately. Deleting that row would throw away
+      // something the tutor typed, silently and with no way back. So a row
+      // anybody has written on is closed at one minute instead: the smallest
+      // length the column accepts, and honest about a walk that did happen.
+      // The fetched row can be a save behind, so `writtenToId` stands in for
+      // whatever the sheet has written that the row does not show yet.
+      // `details` is `jsonb`, so it arrives as `Json` and needs the same cast
+      // `eventDetail` makes.
+      const details = runningWalk.details as Record<string, unknown> | null;
+      const untouched =
+        !runningWalk.note &&
+        Object.keys(details ?? {}).length === 0 &&
+        writtenToId !== runningWalk.id;
+      const { error } =
+        outcome.action === "discard"
+          ? untouched
+            ? await deleteEvent(runningWalk.id)
+            : await closeWalk(runningWalk.id, 1)
+          : outcome.action === "close"
+            ? await closeWalk(runningWalk.id, outcome.minutes)
+            : { error: null };
+      if (error) {
+        // The walk stays running so the tutor can press stop again.
+        toast.show({ variant: "error", message: error, persist: true });
+        return;
+      }
+      // Best-effort, as in `start`: if the flag outlives the walk, the row has
+      // a length (or is gone) by the next load and the staleness effect drops
+      // it.
+      try {
+        await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+      } catch {
+        // See above.
+      }
+      setRunningId(null);
+      setAttempt((n) => n + 1);
+
+      // The same threshold the sheet's `onSaved` crosses, with simpler
+      // arithmetic: a running walk contributes null to `walked`, so there is
+      // no old value to take out before the new one goes in. `isToday` is what
+      // stops a walk closed after midnight throwing confetti over a day nobody
+      // is looking at.
+      if (
+        outcome.action === "close" &&
+        isToday &&
+        goal !== null &&
+        goal > 0 &&
+        !met &&
+        walked + outcome.minutes >= goal
+      ) {
+        celebrate();
+      }
+    } finally {
+      walkInFlight.current = false;
+      setWalkBusy(false);
+    }
+  }, [runningWalk, writtenToId, toast, celebrate, isToday, goal, met, walked]);
+
   if (petError) {
     return (
       <Screen center edges={["top"]}>
@@ -450,11 +677,6 @@ export default function Home() {
   // fill, so the header a tutor just used stays under their thumb.
   if (!pet) return <LoadingScreen />;
 
-  const loading = log === null || log.day !== dayKey(day);
-  const events = loading ? [] : log.events;
-  const walked = walkedMinutes(events);
-  const goal = pet.exercise_goal_minutes;
-  const met = goal !== null && walked >= goal;
   /**
    * **The birthday takes the headline over "Hoy" or the weekday.**
    *
@@ -483,6 +705,19 @@ export default function Home() {
     birthdayYears !== null && birthdayYears > 0
       ? `🎂 ${headline} 🎉`
       : headline;
+
+  /**
+   * Whether the sheet is open on the walk this device has running.
+   *
+   * Worked out once, because three things have to agree on it: how the sheet
+   * reads the row's lone time (`timeMeans`), whether it lets the times be
+   * changed (`running`), and whether a save counts as a write to the walk
+   * `stop` is about to judge (`writtenToId`).
+   */
+  const editingRunning =
+    editing !== null &&
+    editing.event !== null &&
+    editing.event.id === runningWalk?.id;
 
   return (
     <Screen
@@ -572,45 +807,41 @@ export default function Home() {
           day's "2h 30m de 3h paseados" over a header that already says "Ayer"
           is the same lie the log used to tell, in fewer words and larger
           type. */}
-      {goal !== null && loading ? (
+      {loading ? (
         <View testID="home-goal-skeleton" className="mb-8">
           <View className="mb-2">
             <Skeleton width="58%" height={16} />
           </View>
-          <Skeleton width="100%" height={4} />
+          {goal !== null ? <Skeleton width="100%" height={4} /> : null}
         </View>
-      ) : null}
-
-      {goal !== null && !loading ? (
-        <View testID="home-goal" className="mb-8">
-          <View className="mb-2 flex-row items-baseline justify-between">
-            <Text className="font-semibold text-text-primary">
-              {`${formatDuration(walked, settings.durationFormat)} de ${formatDuration(goal, settings.durationFormat)} paseados`}
-            </Text>
-            {met ? (
-              <Text className="font-semibold text-xs text-accent">
-                Objetivo conseguido
-              </Text>
-            ) : null}
-          </View>
-          {/* A bar, not a ring: the question is "how much of the day's target
-              is done", which is one dimension. */}
-          {/* `h-[4px]`, not `h-1`. The calendar draws this same bar in
-              miniature and sizes it in literal pixels; `h-1` is 0.25rem,
-              which native resolves at 14px/rem to 3.38dp — measured, against
-              the calendar's 4.00. Two surfaces quoting one element cannot
-              round differently. */}
-          <View className="h-[4px] overflow-hidden rounded-xl bg-surface">
-            <View
-              testID="home-goal-bar"
-              style={{
-                width: `${Math.min(100, goal === 0 ? 0 : (walked / goal) * 100)}%`,
-              }}
-              className={`h-[4px] ${met ? "bg-accent" : "bg-text-secondary"}`}
-            />
-          </View>
-        </View>
-      ) : null}
+      ) : (
+        <GoalBlock
+          testID="home-goal"
+          walkedMinutes={walked}
+          goalMinutes={goal}
+          durationFormat={settings.durationFormat}
+          walkingSince={walkingSince}
+          // **The stop spans the gap between the write and the reload.**
+          // `walkingSince` is read from the row, so it is null until the day
+          // refetch answers — a gap bounded by the request timeout, not by a
+          // frame. Withholding both controls there takes the most-pressed
+          // thing on the screen away the instant it is pressed, over a
+          // measure still showing the old number, which reads as "it didn't
+          // work" — the exact impression writing before the state changes
+          // exists to avoid. For a reader it is worse: the label turning into
+          // "Terminar paseo" is the only confirmation the start landed, and
+          // removing the control drops focus and says nothing. So it renders
+          // disabled across the gap. `stop` early-returns without a row, so
+          // offering it before one arrives is safe; `isToday` is what keeps a
+          // day reached with the arrows free of it, and a walk running past
+          // midnight keeps its stop through `walkingSince`.
+          busy={walkBusy || (isToday && runningId !== null && !walkingSince)}
+          onStart={isToday && !runningId ? start : undefined}
+          onStop={
+            walkingSince || (isToday && runningId !== null) ? stop : undefined
+          }
+        />
+      )}
 
       {/* The log's own waiting state, in the slots the rows will fill: see
           `LogSkeleton`. The title is the real word, because it is true before
@@ -665,6 +896,7 @@ export default function Home() {
             <Entry
               key={event.id}
               event={event}
+              running={event.id === runningWalk?.id}
               onPress={() =>
                 setEditing({ kind: event.kind as EventKind, event })
               }
@@ -740,6 +972,11 @@ export default function Home() {
                 (walkMinutes ?? 0) >=
                 goal;
 
+            // A save on the running walk is a write the fetched row does not
+            // show yet: see `writtenToId`.
+            if (editingRunning && editing.event) {
+              setWrittenToId(editing.event.id);
+            }
             setEditing(null);
             setAttempt((n) => n + 1);
             if (crossed) celebrate();
@@ -748,6 +985,8 @@ export default function Home() {
             toast.show({ variant: "error", message, persist: true })
           }
           petId={pet.id}
+          timeMeans={editingRunning ? "start" : "end"}
+          running={editingRunning}
         />
       ) : null}
     </Screen>
@@ -769,9 +1008,12 @@ export default function Home() {
 function Entry({
   event,
   onPress,
+  running = false,
 }: {
   event: PetEventRow;
   onPress: () => void;
+  /** The walk this device has open: no length yet, and it is still going. */
+  running?: boolean;
 }) {
   const { settings } = useSettings();
   const spec = KINDS[event.kind as EventKind];
@@ -781,7 +1023,12 @@ function Entry({
     new Date(event.occurred_at),
     settings.timeFormat,
   );
-  const described = spec?.describe(event, settings.durationFormat);
+  // **A running walk says "En marcha" and nothing else.** The goal block owns
+  // the clock and ticks it on its own; a second counter here would only
+  // refresh when this screen re-rendered, and the two would disagree.
+  const described = running
+    ? "En marcha"
+    : spec?.describe(event, settings.durationFormat);
   const stools = readStools(event.details);
   const Icon = spec?.icon;
 
@@ -811,7 +1058,9 @@ function Entry({
           between "9:15 a.m." and "12:05 p.m.", which is cheaper than a
           clipped time. */}
       <View className="shrink-0 items-start gap-1">
-        <Text className="text-text-tertiary">{time}</Text>
+        <Text className={running ? "text-accent" : "text-text-tertiary"}>
+          {time}
+        </Text>
         {Icon ? (
           // **The two rare kinds wear the colour the calendar marks them in.**
           // Nothing tied a red dot on the 9th to the row that put it there:
@@ -829,7 +1078,9 @@ function Entry({
           <Icon
             size={18}
             strokeWidth={2}
-            color={spec?.tone ?? colors.textTertiary}
+            color={
+              running ? colors.accent : (spec?.tone ?? colors.textTertiary)
+            }
           />
         ) : null}
       </View>
@@ -838,7 +1089,13 @@ function Entry({
           {spec?.label ?? event.kind}
         </Text>
         {described ? (
-          <Text className="text-text-secondary">{described}</Text>
+          // **A running walk's state takes the accent**, like the time and the
+          // glyph beside it: all three say the same thing, and one of them
+          // reading in the column's ordinary tone made it look like the row's
+          // content rather than its status.
+          <Text className={running ? "text-accent" : "text-text-secondary"}>
+            {described}
+          </Text>
         ) : null}
         {event.note ? (
           // **The note renders its Markdown.** A tutor writing "**Cojea** de
@@ -897,12 +1154,13 @@ function Entry({
  * asking the tutor to correct the one field it had filled in. So HASTA opens on
  * the current time and DESDE opens empty.
  *
- * **DESDE and HASTA are the facts; DURACIÓN is derived.** Editing either time
- * recomputes the duration. The duration stays editable, and **it works
- * backwards from HASTA**: typing it, or tapping -15 / +15, moves DESDE. That
- * is the mirror of the earlier rule and follows from the same premise — the
- * field the tutor is sure of must never shift under them, and now that is the
- * end.
+ * **DESDE and HASTA are the facts; DURACIÓN is a reading of them.** Editing
+ * either time recomputes the duration, and the duration is never typed: it
+ * used to write back into a time — typed, or by a -15 / +15 pair of buttons —
+ * and that coupling is where a running walk's real start was overwritten
+ * twice, so the field only shows. It is still saved, and a row that has a
+ * length and no second time (a walk across midnight, a stored one with only a
+ * HASTA) carries it through `save` untouched.
  *
  * Nothing else is proposed. A prefilled thirty minutes would be a fabricated
  * walk one careless tap away, and **a walk with only an end time is a valid
@@ -922,6 +1180,8 @@ function EntrySheet({
   onClose,
   onSaved,
   onFailed,
+  timeMeans = "end",
+  running = false,
 }: {
   kind: EventKind;
   /** The entry being corrected, or null when this is a new one. */
@@ -943,6 +1203,30 @@ function EntrySheet({
   /** Reports the walk's minutes, so the day can tell whether it just won. */
   onSaved: (walkMinutes: number | null) => void;
   onFailed: (message: string) => void;
+  /**
+   * What a walk's lone `occurred_at` means when there is no duration.
+   *
+   * **Default `"end"`, which is what every stored row meant before the
+   * timer.** "I got back at 20:15 and did not write a length" is the fastest
+   * valid entry there is, and the sheet has always read it that way. A walk in
+   * progress has exactly the same shape and the opposite meaning, so the day
+   * view — which is the only thing that knows — says so.
+   */
+  timeMeans?: "start" | "end";
+  /**
+   * This is the walk the device has running, so its times are not editable.
+   *
+   * **A separate flag from `timeMeans`, though the day view derives both from
+   * the same test.** `timeMeans` says how to *read* a lone time and is about
+   * the row's shape; this says what may be *changed*, and the two could part
+   * ways — a walk read as "start" is not necessarily one to lock. While it
+   * holds, DESDE, HASTA and their clock faces are disabled, because the start
+   * is a measurement the timer took and not something to be corrected under a
+   * walk still in progress. The note and the stools are the reason the row is
+   * opened mid-walk, and stay as they are. The cost, accepted: pressing start
+   * five minutes late cannot be fixed until the walk is stopped.
+   */
+  running?: boolean;
 }) {
   const spec = KINDS[kind];
   const isWalk = kind === "walk";
@@ -953,22 +1237,38 @@ function EntrySheet({
   const storedMinutes = event?.duration_minutes ?? null;
 
   /**
-   * The anchor: a walk's HASTA, and every other kind's only time.
+   * The two time fields as the sheet opens, read back from the row.
    *
-   * A stored walk keeps its start in `occurred_at`, so reopening one adds the
-   * duration back on to recover the end it was entered from.
+   * **This used to be called the anchor, and `at` used to always be it.** For
+   * every kind but the walk it still is — one time, and nothing to derive it
+   * from. A stored walk keeps its start in `occurred_at`, so reopening one
+   * adds the duration back on to recover the HASTA it was entered from; when
+   * that end lands on the next day there is no HASTA this form can hold and
+   * DESDE carries the walk on its own. A walk in progress is that same shape
+   * with no duration yet, which is what `timeMeans` is for.
+   *
+   * One source for the three places that need it: `at`, `from`, and `opened`.
    */
-  const [at, setAt] = useState(() =>
-    formatTimeOfDay(
-      occurred && storedMinutes
-        ? shiftMinutes(occurred, storedMinutes)
-        : (occurred ?? new Date()),
-    ),
-  );
+  const [initial] = useState(() => {
+    const now = new Date();
+    if (!occurred) return { at: formatTimeOfDay(now), from: "" };
+    if (storedMinutes) {
+      const end = endWithinDay(occurred, storedMinutes);
+      // A walk that crossed midnight has no HASTA this form can hold, so the
+      // duration carries it — `startWithinDay`'s rule, in the other direction.
+      return {
+        at: end ? formatTimeOfDay(end) : "",
+        from: formatTimeOfDay(occurred),
+      };
+    }
+    return timeMeans === "start"
+      ? { at: "", from: formatTimeOfDay(occurred) }
+      : { at: formatTimeOfDay(occurred), from: "" };
+  });
+
+  const [at, setAt] = useState(initial.at);
   /** A walk's start. Empty means nobody wrote it down. */
-  const [from, setFrom] = useState(() =>
-    occurred && storedMinutes ? formatTimeOfDay(occurred) : "",
-  );
+  const [from, setFrom] = useState(initial.from);
   /** What the duration field shows while it is being typed into. */
   const [durationText, setDurationText] = useState(() =>
     storedMinutes ? formatDuration(storedMinutes, durationFormat) : "",
@@ -992,19 +1292,20 @@ function EntrySheet({
    * catch. It never changes: the sheet is remounted for each entry.
    */
   const [opened] = useState(() => ({
-    at: formatTimeOfDay(
-      occurred && storedMinutes
-        ? shiftMinutes(occurred, storedMinutes)
-        : (occurred ?? new Date()),
-    ),
-    from: occurred && storedMinutes ? formatTimeOfDay(occurred) : "",
+    at: initial.at,
+    from: initial.from,
+    // The duration is compared too, although it only ever follows the two
+    // times: it is part of what `save` writes, and a crossed walk's HASTA is
+    // empty, so there the duration is the one fact the times do not carry.
+    duration: storedMinutes
+      ? formatDuration(storedMinutes, durationFormat)
+      : "",
     value: (event && eventDetail(event, "what")) || "",
     note: event?.note ?? "",
     stools: readStools(event?.details).join(","),
   }));
   const [durationError, setDurationError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-
   /**
    * **Only an edit can be unchanged.** The profile's blocks disable their save
    * until something differs from the row, and correcting an entry is the same
@@ -1020,41 +1321,50 @@ function EntrySheet({
     !event ||
     at !== opened.at ||
     from !== opened.from ||
+    durationText !== opened.duration ||
     value !== opened.value ||
     note !== opened.note ||
     stools.join(",") !== opened.stools;
 
-  const parsedAt = parseTimeOfDay(at, day);
-  const parsedFrom = from.trim() ? parseTimeOfDay(from, day) : null;
-  // With no DESDE the duration is the fact rather than a derivation of it, so
-  // the steppers count from the field instead of from the two times.
-  const minutes =
-    parsedFrom && parsedAt
-      ? (minutesBetween(parsedFrom, parsedAt) ?? 0)
-      : (parseDuration(durationText) ?? 0);
-
-  /** Recomputes the display of the derived field. Never writes into a time. */
+  /** Recomputes the duration shown from the two times. Never writes into one. */
   const showDuration = useCallback(
     (fromText: string, atText: string) => {
-      // **A DESDE that does not parse is not a reason to throw the duration
-      // away** — the same rule the duration field already applies to itself:
-      // not a time *yet* is mid-typing, not an error. It is also the only
-      // rule that survives a real keyboard. Deleting "10:48" on Android fires
-      // one change per key, so the field passes through "10:" and "1" on its
-      // way to empty, and clearing on each of those wiped a duration that the
+      // **A time that does not parse is not a reason to throw the duration
+      // away**: not a time *yet* is mid-typing, not an error. It is also the
+      // only rule that survives a real keyboard. Deleting "10:48" on Android
+      // fires one change per key, so the field passes through "10:" and "1" on
+      // its way to empty, and clearing on each of those wiped a duration the
       // final empty string was then careful to preserve. The web hid it
       // completely: `fill("")` is a single event.
       //
-      // With nothing in DESDE the duration is the fact rather than a reading
-      // of two times, which is what lets a walk be an end plus a length —
-      // see `applyMinutes`.
+      // **An *empty* DESDE next to a HASTA is the one exception, and it is
+      // not mid-typing.** The duration is only ever a reading of the two
+      // times now, so with one of them gone and HASTA standing alone there is
+      // nothing left to read it from. The case this closes is narrow and
+      // real: clear DESDE, then type a *new* HASTA, and the length left
+      // behind is one that was measured from a start no longer on the form —
+      // stale against the time it now sits next to, and unclearable, because
+      // the field cannot be typed into. The other way round — DESDE and no
+      // HASTA — keeps the duration, because that is the walk across midnight,
+      // where the length is the fact.
+      //
+      // **A HASTA before its DESDE is mid-typing too**, and the same rule
+      // covers it: `minutesBetween` says null for a pair in that order, and
+      // clearing on it would throw away a crossed walk's stored length the
+      // moment the tutor typed the real 00:10 end next to its 23:40 start.
+      // `save` refuses the pair on DESDE's own field, where it can be seen
+      // and corrected; the last good reading stays in place until two times
+      // that make sense replace it.
       const start = fromText.trim() ? parseTimeOfDay(fromText, day) : null;
       const end = parseTimeOfDay(atText, day);
+      if (end && !fromText.trim()) {
+        setDurationText("");
+        return;
+      }
       if (!start || !end) return;
       const total = minutesBetween(start, end);
-      setDurationText(
-        total === null ? "" : formatDuration(total, durationFormat),
-      );
+      if (total === null) return;
+      setDurationText(formatDuration(total, durationFormat));
     },
     [day, durationFormat],
   );
@@ -1092,120 +1402,20 @@ function EntrySheet({
     [day],
   );
 
-  /**
-   * The one direction that writes into a time, and it counts backwards from
-   * the end — which is the time the tutor actually knows.
-   *
-   * **A duration longer than a day is refused here, not on save.** Counting
-   * back from the end would put DESDE on a previous day and render it as a
-   * plausible time of day, so the entry would look ordinary and be nonsense;
-   * `logEvent` would then reject it into a toast, which is the wrong place for
-   * a message about one field. Nothing moves and the field says why.
-   *
-   * ---
-   *
-   * **A start that reaches back past midnight is not written into DESDE.**
-   *
-   * `from` is a time of day with no date: `formatTimeOfDay` keeps only HH:MM,
-   * and `parseTimeOfDay(from, day)` puts it back on the day on screen. So a
-   * start computed on the *previous* day came back as that clock time today —
-   * after the end rather than before it. Stepping +15 three times on a walk
-   * ending at 00:20 gave "45 min" with DESDE at 23:35, and then blurring
-   * emptied the duration while Guardar blamed DESDE for a value the tutor had
-   * never typed.
-   *
-   * The answer is not to make DESDE hold a date. It is that **a walk is
-   * allowed to be an end plus a length**: the tutor knows they got home at
-   * 00:20 and were out about forty-five minutes, which is a complete fact, and
-   * `pet_events.duration_minutes` is a real column rather than something
-   * derived from the two times. So when the start falls outside the day, the
-   * duration stays and DESDE goes empty — the field is optional and says so —
-   * and `save` takes the length from the duration field instead.
-   *
-   * It also serves the case PRODUCT.md wanted anyway: "unos cuarenta minutos"
-   * is a real memory of a walk, and now it can be logged without inventing a
-   * start time to go with it.
-   *
-   * What is still refused is a start the tutor **typed** after its end. That
-   * is a different decision, recorded in DESIGN.md: a mistyped digit is
-   * likelier than a walk across midnight, and guessing would file the entry
-   * under a day nobody chose.
-   */
-  const applyMinutes = useCallback(
-    (total: number) => {
-      if (total <= 0) {
-        setDurationError(null);
-        setFrom("");
-        setDurationText("");
-        return;
-      }
-      if (total > MAX_WALK_MINUTES) {
-        setDurationError("Como mucho 24 horas");
-        return;
-      }
-      setDurationError(null);
-      setDurationText(formatDuration(total, durationFormat));
-      setFrom(startOnDay(at, day, total));
-    },
-    [at, day, durationFormat],
-  );
-
-  /**
-   * Typing is left alone until it parses, and tidied on blur: reformatting on
-   * every keystroke would fight the typist, which is what a controlled field
-   * that normalises too eagerly always does.
-   */
-  const editDuration = useCallback(
-    (text: string) => {
-      setDurationText(text);
-      if (!text.trim()) {
-        setDurationError(null);
-        setFrom("");
-        return;
-      }
-      const total = parseDuration(text);
-      // Not a duration *yet* — mid-typing — is not an error to report.
-      if (total === null || total <= 0) return;
-      if (total > MAX_WALK_MINUTES) {
-        setDurationError("Como mucho 24 horas");
-        return;
-      }
-      setDurationError(null);
-      setFrom(startOnDay(at, day, total));
-    },
-    [at, day],
-  );
-
-  /**
-   * Blurring discards a refused duration.
-   *
-   * **With DESDE there are two times to fall back on, and without it there are
-   * not** — so the empty-start case has to tidy the field on its own rather
-   * than re-derive it, or a refused "99h" would sit there with its error
-   * cleared and be dropped in silence at save time. A valid value is kept and
-   * normalised; anything else goes.
-   */
-  const tidyDuration = useCallback(() => {
-    setDurationError(null);
-    if (from.trim()) {
-      showDuration(from, at);
-      return;
-    }
-    const total = parseDuration(durationText);
-    setDurationText(
-      total !== null && total > 0 && total <= MAX_WALK_MINUTES
-        ? formatDuration(total, durationFormat)
-        : "",
-    );
-  }, [showDuration, from, at, durationText, durationFormat]);
-
   const save = useCallback(async () => {
     const end = parseTimeOfDay(at, day);
-    if (!end) {
+    const start = isWalk && from.trim() ? parseTimeOfDay(from, day) : null;
+
+    // **HASTA is required unless DESDE can stand in for it.** A walk needs two
+    // times, or one time and a length; everything else still needs the hour it
+    // happened at. Emptiness is the test, not parseability: only an *empty*
+    // HASTA can be stood in for, so a typed one that does not parse is refused
+    // rather than dropped in silence.
+    if (!end && (at.trim() || !(isWalk && from.trim()))) {
       setAtError("Escríbela como 09:15");
       return false;
     }
-    if (end.getTime() > Date.now() + 60_000) {
+    if (end && end.getTime() > Date.now() + 60_000) {
       setAtError(
         isWalk ? "¿Todavía no habéis vuelto?" : "¿Todavía no ha pasado?",
       );
@@ -1213,22 +1423,41 @@ function EntrySheet({
     }
     setAtError(null);
 
-    let occurredAt = end;
+    if (isWalk && from.trim() && !start) {
+      setFromError("Escríbela como 09:15");
+      return false;
+    }
+    // With no HASTA the start is what `occurred_at` becomes, so it gets the
+    // same future check HASTA does, and on its own field: a message about one
+    // field does not belong in a toast. With both times present HASTA is
+    // later than DESDE and has already been checked above.
+    if (start && start.getTime() > Date.now() + 60_000) {
+      setFromError("¿Todavía no habéis salido?");
+      return false;
+    }
+    setFromError(null);
+
+    let occurredAt = end as Date;
     let walkMinutes: number | null = null;
 
-    // A walk known only by its end and its length. Either the tutor never
-    // wrote a start, or the one the steppers computed fell on the previous day
-    // and could not be shown as a time — see `applyMinutes`.
-    if (isWalk && !from.trim()) {
+    if (isWalk && start && end) {
+      walkMinutes = minutesBetween(start, end);
+      if (walkMinutes === null) {
+        // Still refused, and deliberately: a HASTA typed before its DESDE is a
+        // mistyped digit far more often than a walk across midnight. What the
+        // app now records is a crossing it *measured*, where it holds both
+        // instants and guesses nothing.
+        setFromError("Tiene que ser antes de la hora de vuelta");
+        return false;
+      }
+      occurredAt = start;
+    } else if (isWalk) {
       const typed = parseDuration(durationText);
-      // A duration out of range is refused here rather than dropped. **This
-      // is the Android path and the web target cannot reach it**: clicking a
-      // button there blurs the input first, so `tidyDuration` has already
-      // thrown the value away by the time this runs, which is why there is no
-      // e2e test for it. Tapping a Pressable on Android does not blur, so the
-      // refused value arrives here — and saving the walk while quietly
-      // discarding the only number the tutor typed is the worst of the three
-      // options.
+      // A duration out of range is refused here rather than dropped. The
+      // field is no longer typed into, so what arrives is the stored length
+      // or a reading of two times — valid by construction — and these checks
+      // are the guard that keeps `save` from depending on that: filing a walk
+      // under a length nobody could have meant is worse than refusing it.
       if (durationText.trim() && (typed === null || typed <= 0)) {
         setDurationError("Escríbela como 45 min o 1h 30m");
         return false;
@@ -1238,22 +1467,11 @@ function EntrySheet({
         return false;
       }
       walkMinutes = typed;
+      // A walk known only by its start: `occurred_at` is that start, and the
+      // length is the fact. This is the walk in progress, and the walk that
+      // crossed midnight, which are the same row.
+      if (start) occurredAt = start;
     }
-
-    if (isWalk && from.trim()) {
-      const start = parseTimeOfDay(from, day);
-      if (!start) {
-        setFromError("Escríbela como 09:15");
-        return false;
-      }
-      walkMinutes = minutesBetween(start, end);
-      if (walkMinutes === null) {
-        setFromError("Tiene que ser antes de la hora de vuelta");
-        return false;
-      }
-      occurredAt = start;
-    }
-    setFromError(null);
 
     const payload = {
       kind,
@@ -1334,9 +1552,16 @@ function EntrySheet({
                       testID="entry-from-picker"
                       label="Desde"
                       value={from}
-                      onChange={(time) => {
-                        setFrom(time);
-                      }}
+                      // **The dial is the other way into the same field**, so
+                      // it goes through the same handler the keyboard does.
+                      // Writing the time straight in left the duration
+                      // reading whatever the previous pair came to: a stored
+                      // 10:00–10:45 walk whose HASTA was moved to 11:00 on
+                      // the clock face still said 45 min while `save` stored
+                      // 60 — and the field is read-only, so that was a wrong
+                      // number the tutor could see and not correct.
+                      onChange={editFrom}
+                      disabled={running}
                     />
                   }
                   label="Desde"
@@ -1347,6 +1572,7 @@ function EntrySheet({
                   error={fromError}
                   keyboardType="number-pad"
                   maxLength={5}
+                  disabled={running}
                 />
               </View>
               <View className="flex-1">
@@ -1357,9 +1583,10 @@ function EntrySheet({
                       testID="entry-to-picker"
                       label="Hasta"
                       value={at}
-                      onChange={(time) => {
-                        setAt(time);
-                      }}
+                      // Through `editAt` for the reason DESDE's dial is — see
+                      // above.
+                      onChange={editAt}
+                      disabled={running}
                     />
                   }
                   label="Hasta"
@@ -1370,50 +1597,34 @@ function EntrySheet({
                   error={atError}
                   keyboardType="number-pad"
                   maxLength={5}
+                  disabled={running}
                 />
               </View>
             </View>
 
-            {/* The steppers sit hard right, nearest the thumb, and the field
-                  takes only the width its value needs. They used to sit beside
-                  it and the unit landed underneath them. */}
-            <View className="mb-5 flex-row items-end justify-between">
-              <View style={{ width: 140 }}>
-                <TextField
-                  testID="entry-duration"
-                  label="Duración"
-                  value={durationText}
-                  onChangeText={editDuration}
-                  onBlur={tidyDuration}
-                  placeholder="30 min"
-                  // A number pad, even though the field shows "1h 30m":
-                  // bare minutes always parse, so nothing here needs a
-                  // letter, and raising the alphabetic keyboard for a
-                  // digits-first task is the defect AGENTS.md names. The
-                  // readable form is what the field gives back, not what it
-                  // demands.
-                  error={durationError}
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  className=""
-                />
-              </View>
-              <View className="flex-row gap-3">
-                <Step
-                  testID="entry-duration-minus"
-                  label={`-${STEP_MINUTES}`}
-                  accessibilityLabel={`Quitar ${STEP_MINUTES} minutos`}
-                  disabled={minutes <= STEP_MINUTES}
-                  onPress={() => applyMinutes(minutes - STEP_MINUTES)}
-                />
-                <Step
-                  testID="entry-duration-plus"
-                  label={`+${STEP_MINUTES}`}
-                  accessibilityLabel={`Añadir ${STEP_MINUTES} minutos`}
-                  disabled={minutes + STEP_MINUTES > MAX_WALK_MINUTES}
-                  onPress={() => applyMinutes(minutes + STEP_MINUTES)}
-                />
-              </View>
+            {/* **A reading, not a field.** The two times above are what the
+                tutor types and this is what they come to, so it is not
+                editable and says nothing to type. On a finished walk it
+                stays in the primary tone on purpose: a value drawn like a
+                disabled control invites the tutor to fight it.
+
+                **On a walk in progress it joins the lock.** DESDE and HASTA
+                go tertiary there, and the one field that is *always* locked
+                reading as the most editable of the three said the opposite
+                of what is true. Locked is a property of the moment, so the
+                three take it together. It takes only the width its value
+                needs. */}
+            <View className="mb-5" style={{ width: 140 }}>
+              <TextField
+                testID="entry-duration"
+                label="Duración"
+                value={durationText}
+                editable={false}
+                disabled={running}
+                placeholder="—"
+                error={durationError}
+                className=""
+              />
             </View>
           </>
         ) : (
@@ -1424,9 +1635,12 @@ function EntrySheet({
                 testID="entry-time-picker"
                 label="Hora"
                 value={at}
-                onChange={(time) => {
-                  setAt(time);
-                }}
+                // `editAt`, not `setAt`, although a non-walk has no duration
+                // to recompute — `from` is always empty here, so the extra
+                // call writes the empty string the field already holds. One
+                // handler for both ways into the field is the rule; two is
+                // how the walk's dial drifted from its keyboard.
+                onChange={editAt}
               />
             }
             label="Hora"
@@ -1585,45 +1799,6 @@ function DayStep({
         strokeWidth={2.5}
         color={disabled ? colors.textMuted : colors.textSecondary}
       />
-    </Pressable>
-  );
-}
-
-/** A fixed increment for the field beside it. Text, not an icon: it is a number. */
-function Step({
-  testID,
-  label,
-  accessibilityLabel,
-  disabled = false,
-  onPress,
-}: {
-  testID: string;
-  label: string;
-  accessibilityLabel: string;
-  disabled?: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      testID={testID}
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled }}
-      aria-disabled={disabled}
-      style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
-      className="items-center justify-center rounded-xl border border-border-strong pr-3 pl-3 active:opacity-70"
-    >
-      {/* `text-tertiary` when disabled, not `text-muted`: the same choice the
-          disabled button made, and 6.64:1 rather than 3.58:1 on this fill. */}
-      <Text
-        className={
-          disabled ? "text-text-tertiary" : "font-semibold text-text-secondary"
-        }
-      >
-        {label}
-      </Text>
     </Pressable>
   );
 }

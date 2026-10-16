@@ -82,12 +82,21 @@ export function TimePicker({
   onChange,
   label,
   testID,
+  disabled = false,
 }: {
   value: string;
   onChange: (time: string) => void;
   /** The field this belongs to, for the accessible name. */
   label: string;
   testID?: string;
+  /**
+   * The field beside it cannot be changed, so neither can this.
+   *
+   * **The glyph has to go inert with the field.** A disabled field whose
+   * picker still opens is a way round the disabling, and worse than none: the
+   * field reads as locked while the clock edits it anyway.
+   */
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -96,12 +105,18 @@ export function TimePicker({
       <Pressable
         testID={testID}
         onPress={() => setOpen(true)}
+        disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={`${label}. Elegir la hora`}
+        accessibilityState={{ disabled }}
+        aria-disabled={disabled}
         style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
         className="items-center justify-center active:opacity-70"
       >
-        <Clock size={18} color={colors.textTertiary} />
+        <Clock
+          size={18}
+          color={disabled ? colors.textMuted : colors.textTertiary}
+        />
       </Pressable>
 
       {/* Mounted only while open, so every visit starts from the field's

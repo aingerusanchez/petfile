@@ -1,6 +1,7 @@
 import {
   dayBounds,
   dayKey,
+  endWithinDay,
   formatTimeOfDay,
   parseTimeOfDay,
   MAX_WALK_MINUTES,
@@ -353,5 +354,33 @@ describe("startWithinDay", () => {
 
   it("refuses a whole day counted back, which is another date", () => {
     expect(startWithinDay(at("2026-09-11T10:00:00"), 24 * 60)).toBeNull();
+  });
+});
+
+describe("endWithinDay", () => {
+  const at = (iso: string) => new Date(iso);
+
+  it("returns the end when it falls on the start's day", () => {
+    const end = endWithinDay(at("2026-09-11T10:00:00"), 45);
+    expect(end?.getHours()).toBe(10);
+    expect(end?.getMinutes()).toBe(45);
+  });
+
+  it("returns null when the end lands on the next day", () => {
+    expect(endWithinDay(at("2026-09-11T23:40:00"), 45)).toBeNull();
+  });
+
+  it("keeps an end that lands exactly on 23:59", () => {
+    const end = endWithinDay(at("2026-09-11T23:14:00"), 45);
+    expect(end?.getHours()).toBe(23);
+    expect(end?.getMinutes()).toBe(59);
+  });
+
+  it("returns null at exactly midnight, which belongs to the next day", () => {
+    expect(endWithinDay(at("2026-09-11T23:15:00"), 45)).toBeNull();
+  });
+
+  it("returns null for a full day, which always crosses", () => {
+    expect(endWithinDay(at("2026-09-11T10:00:00"), 24 * 60)).toBeNull();
   });
 });

@@ -34,6 +34,17 @@ type TextFieldProps = Omit<
   /** Marks the field as one that blocks a save. */
   required?: boolean;
   /**
+   * The field cannot be typed into right now, and says so.
+   *
+   * **Drawn in the tertiary tone, not faded.** A value that has gone to
+   * `text-muted` stops being legible against this fill — tertiary keeps it at
+   * 6.64:1 and still reads as "not for you to change". It is for a field that
+   * would be editable under other circumstances; a field that is only ever a
+   * reading takes `editable={false}` and keeps the ordinary tone, so it does
+   * not look like something to fight.
+   */
+  disabled?: boolean;
+  /**
    * The unit the field is measured in — "min.", "kg", "€" — shown inside the
    * field at its right edge.
    *
@@ -90,6 +101,7 @@ const MULTILINE_HEIGHT = 88;
 export function TextField({
   label,
   required = false,
+  disabled = false,
   suffix,
   suffixLabel,
   corner,
@@ -100,6 +112,24 @@ export function TextField({
   ...inputProps
 }: TextFieldProps) {
   const labelID = useId();
+
+  /**
+   * **Read-only is not disabled, and it had no way of being said.**
+   *
+   * A disabled field is one the tutor could change under other circumstances;
+   * a read-only one is a value this form computes and will never take typing.
+   * `accessibilityState` has a key for the first and none for the second, so
+   * the duration field — read-only through `editable={false}` — announced
+   * `disabled: false` and nothing else, which reads as an ordinary input that
+   * silently refuses the keyboard.
+   *
+   * The accessible name is the only channel both platforms carry, so that is
+   * where it goes. On the web react-native-web also writes a `readonly`
+   * attribute from `editable={false}` and a screen reader says it twice;
+   * saying it once in the tutor's own language is worth the repetition.
+   */
+  const readOnly = !disabled && inputProps.editable === false;
+  const name = suffix ? `${label}, ${suffixLabel ?? suffix}` : label;
 
   return (
     <View className={className} onLayout={onLayout}>
@@ -124,12 +154,22 @@ export function TextField({
         ) : null}
         <TextInput
           {...inputProps}
+          editable={disabled ? false : inputProps.editable}
+          // Spread *after* `inputProps`, so it must not throw a caller's own
+          // state away: it adds `disabled` when this field is disabled and
+          // otherwise hands whatever arrived straight through. Written as
+          // `{{ disabled }}` it overwrote every other key a caller had set,
+          // and announced `disabled: false` on fields that are nothing of the
+          // kind.
+          accessibilityState={
+            disabled
+              ? { ...inputProps.accessibilityState, disabled: true }
+              : inputProps.accessibilityState
+          }
           // The unit is part of what the field is asking for, so it belongs in
           // the accessible name: a screen reader gets no benefit from a glyph
           // sitting to the right of an input.
-          accessibilityLabel={
-            suffix ? `${label}, ${suffixLabel ?? suffix}` : label
-          }
+          accessibilityLabel={readOnly ? `${name}, solo lectura` : name}
           accessibilityLabelledBy={labelID}
           placeholderTextColor={PLACEHOLDER_COLOR}
           // The 48dp floor, plus the vertical centring it needs: Android draws
@@ -154,9 +194,9 @@ export function TextField({
           }}
           // `pl-4 pr-*` and not `px-4`: Android drops `padding-inline` on a
           // TextInput, which measured 4.9dp against the 16 the browser showed.
-          className={`flex-1 py-3 pl-4 font-sans text-text-primary ${
-            suffix ? "pr-2" : "pr-4"
-          }`}
+          className={`flex-1 py-3 pl-4 font-sans ${
+            disabled ? "text-text-tertiary" : "text-text-primary"
+          } ${suffix ? "pr-2" : "pr-4"}`}
         />
         {trailing}
         {suffix ? (

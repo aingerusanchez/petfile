@@ -55,9 +55,9 @@ test.beforeEach(async () => {
  *
  * Many fill real clock times — 08:30, 09:15, 10:45 — and the sheet refuses an
  * entry in the future, correctly. Run at 00:20 and ten of them fail with
- * "¿Todavía no habéis vuelto?", which says nothing about the code. The
- * quarter-hour steppers have the mirror problem: counting 45 minutes back
- * from 00:20 lands on yesterday, which the sheet also refuses, correctly.
+ * "¿Todavía no habéis vuelto?", which says nothing about the code. A walk
+ * typed as two times that reach back from now has the mirror problem: 45
+ * minutes before 00:20 is yesterday, which the sheet also refuses, correctly.
  *
  * Playwright's clock is not the way out. `setFixedTime` stops Reanimated
  * dead — the button's status animation reads progress from `Date.now()` and
@@ -67,8 +67,9 @@ test.beforeEach(async () => {
  * measured here.
  *
  * The fix is to derive every time in this file from a "now" the test owns,
- * and to give the steppers a fixture whose day has time behind it. Until
- * then: this file is green from roughly 09:00 to midnight and red before it.
+ * and to press ‹ wherever a fixed hour is needed. A spec that has to be on
+ * today and needs time behind it skips itself in the hour after midnight
+ * instead of failing.
  */
 
 test.afterAll(async () => {
@@ -141,8 +142,10 @@ test("logs a walk from its two ends and counts it toward the goal", async ({
   await page.getByTestId("entry-from").fill("09:15");
   await page.getByTestId("entry-to").fill("09:45");
 
-  // The duration is derived, which is the whole point of asking for the ends.
+  // The duration is derived, which is the whole point of asking for the ends,
+  // and so it is shown rather than typed.
   await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+  await expect(page.getByTestId("entry-duration")).not.toBeEditable();
 
   await page.getByTestId("entry-note").fill("Tranquilo, sin tirones");
   await page.getByTestId("entry-save").click();
@@ -157,7 +160,7 @@ test("logs a walk from its two ends and counts it toward the goal", async ({
   await expect(page.getByTestId("home-goal")).toContainText("30 min de 1h");
 });
 
-test("counts back from the end when the duration is what changed", async ({
+test("re-derives the duration when either time is corrected", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -171,87 +174,25 @@ test("counts back from the end when the duration is what changed", async ({
   await expect(page.getByTestId("home-title")).toContainText("Ayer");
 
   await add(page, "walk");
+  await page.getByTestId("entry-from").fill("10:00");
   await page.getByTestId("entry-to").fill("10:45");
-  await page.getByTestId("entry-duration").fill("45");
-
-  // The end is the time the tutor actually knows, so it never shifts: the
-  // duration counts backwards from it.
-  await expect(page.getByTestId("entry-from")).toHaveValue("10:00");
-  await expect(page.getByTestId("entry-to")).toHaveValue("10:45");
-
-  // And correcting either time re-derives the duration from the two of them.
-  await page.getByTestId("entry-to").fill("11:00");
-  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
-  await expect(page.getByTestId("entry-from")).toHaveValue("10:00");
-});
-
-test("counts a walk up in quarters of an hour", async ({ page }) => {
-  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
-
-  await seedSession(page);
-  await page.goto("/");
-
-  // On yesterday, where a fixed morning time has already happened whatever
-  // hour the suite runs at. See "reads the day forwards" for the whole story.
-  await page.getByTestId("home-prev-day").click();
-  await expect(page.getByTestId("home-title")).toContainText("Ayer");
-
-  await add(page, "walk");
-  await page.getByTestId("entry-to").fill("09:45");
-
-  // Nothing to take away from yet.
-  await expect(page.getByTestId("entry-duration-minus")).toHaveAttribute(
-    "aria-disabled",
-    "true",
-  );
-
-  await page.getByTestId("entry-duration-plus").click();
-  await page.getByTestId("entry-duration-plus").click();
-  await page.getByTestId("entry-duration-plus").click();
-
   await expect(page.getByTestId("entry-duration")).toHaveValue("45 min");
-  // The steppers count backwards from the end, exactly as typing a duration
-  // does — the end is what the tutor is sure of.
-  await expect(page.getByTestId("entry-from")).toHaveValue("09:00");
-  await expect(page.getByTestId("entry-to")).toHaveValue("09:45");
 
-  // And once past the hour the field says so, which is the point of the
-  // readable form.
-  await page.getByTestId("entry-duration-plus").click();
-  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
-  await page.getByTestId("entry-duration-plus").click();
+  // Correcting either time re-reads the duration from the two of them, in the
+  // readable form once it passes the hour.
+  await page.getByTestId("entry-to").fill("11:15");
   await expect(page.getByTestId("entry-duration")).toHaveValue("1h 15m");
-
-  await page.getByTestId("entry-duration-minus").click();
+  await page.getByTestId("entry-from").fill("10:15");
   await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
-  await expect(page.getByTestId("entry-from")).toHaveValue("08:45");
+
+  // And nothing the duration does reaches back into a time: the field is not
+  // typed into, so the two times the tutor wrote are the only way in.
+  await expect(page.getByTestId("entry-from")).toHaveValue("10:15");
+  await expect(page.getByTestId("entry-to")).toHaveValue("11:15");
 
   await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-log")).toContainText("10:15");
   await expect(page.getByTestId("home-log")).toContainText("1h");
-});
-
-test("takes a duration written in hours", async ({ page }) => {
-  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
-
-  await seedSession(page);
-  await page.goto("/");
-
-  // On yesterday, where a fixed morning time has already happened whatever
-  // hour the suite runs at. See "reads the day forwards" for the whole story.
-  await page.getByTestId("home-prev-day").click();
-  await expect(page.getByTestId("home-title")).toContainText("Ayer");
-
-  await add(page, "walk");
-  await page.getByTestId("entry-to").fill("11:30");
-  await page.getByTestId("entry-duration").fill("1h 30m");
-  await expect(page.getByTestId("entry-from")).toHaveValue("10:00");
-
-  // Bare minutes still work, because that is what the field meant before.
-  await page.getByTestId("entry-duration").fill("90");
-  await expect(page.getByTestId("entry-from")).toHaveValue("10:00");
-  // Tidied on blur rather than on every keystroke, which would fight typing.
-  await page.getByTestId("entry-note").click();
-  await expect(page.getByTestId("entry-duration")).toHaveValue("1h 30m");
 });
 
 test("reopens an entry to correct it", async ({ page }) => {
@@ -344,34 +285,6 @@ test("takes a time typed without the colon a number pad has not got", async ({
   await expect(page.getByTestId("home-log")).toContainText("09:00");
 });
 
-test("refuses a duration longer than a day, at the field", async ({ page }) => {
-  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
-
-  await seedSession(page);
-  await page.goto("/");
-
-  // On yesterday, where a fixed morning time has already happened whatever
-  // hour the suite runs at. See "reads the day forwards" for the whole story.
-  await page.getByTestId("home-prev-day").click();
-  await expect(page.getByTestId("home-title")).toContainText("Ayer");
-
-  await add(page, "walk");
-  await page.getByTestId("entry-to").fill("10:00");
-  await page.getByTestId("entry-duration").fill("99h");
-
-  // Counting back from the end would put DESDE on a previous day and render it
-  // as an ordinary time, so nothing moves and the field says why.
-  await expect(page.getByTestId("entry-duration-error")).toHaveText(
-    "Como mucho 24 horas",
-  );
-  await expect(page.getByTestId("entry-from")).toBeEmpty();
-
-  // Blurring discards it: the times are the truth.
-  await page.getByTestId("entry-note").click();
-  await expect(page.getByTestId("entry-duration")).toBeEmpty();
-  await expect(page.getByTestId("entry-duration-error")).toBeHidden();
-});
-
 test("refuses an end that comes before its start", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
@@ -424,7 +337,6 @@ test("records several stools on one walk, the second in one tap", async ({
   await page.goto("/");
 
   await add(page, "walk");
-  await page.getByTestId("entry-duration-plus").click();
 
   // Nothing is offered until it is asked for: the walk costs no extra space
   // and no extra decision unless somebody reaches for it.
@@ -501,7 +413,6 @@ test("undoes a mis-tap with one press on the chip", async ({ page }) => {
   await page.goto("/");
 
   await add(page, "walk");
-  await page.getByTestId("entry-duration-plus").click();
   await page.getByTestId("stool-toggle").click();
   await page.getByTestId("stool-add-2").click();
   await page.getByTestId("stool-add-2").click();
@@ -530,7 +441,6 @@ test("reopens a walk with its stools, and can save without them", async ({
   await page.goto("/");
 
   await add(page, "walk");
-  await page.getByTestId("entry-duration-plus").click();
   await page.getByTestId("stool-toggle").click();
   await page.getByTestId("stool-add-5").click();
   await page.getByTestId("entry-save").click();
@@ -564,7 +474,6 @@ test("will not re-save an entry nobody changed", async ({ page }) => {
     "aria-disabled",
     "true",
   );
-  await page.getByTestId("entry-duration-plus").click();
   await page.getByTestId("entry-save").click();
 
   // Reopening it is the profile's situation: pressing save with nothing
@@ -848,22 +757,28 @@ test("throws confetti for the walk that reaches the goal, and only that one", as
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
+  // Each walk below ends at a "now" this test owns and begins that many
+  // minutes before it, so the first is 45 minutes long and has to be today.
+  const now = new Date();
+  test.skip(
+    new Date(now.getTime() - 45 * 60_000).getDate() !== now.getDate(),
+    "45 minutes ago is still yesterday",
+  );
+
   await seedSession(page);
   await page.goto("/");
   await expect(page.getByTestId("celebration")).toBeHidden();
 
   // 45 of the 60-minute goal: close, and not there.
   await add(page, "walk");
-  await page.getByTestId("entry-duration-plus").click();
-  await page.getByTestId("entry-duration-plus").click();
-  await page.getByTestId("entry-duration-plus").click();
+  await typeWalk(page, now, 45);
   await page.getByTestId("entry-save").click();
   await expect(page.getByTestId("home-goal")).toContainText("45 min");
   await expect(page.getByTestId("celebration")).toBeHidden();
 
   // The walk that crosses it.
   await add(page, "walk");
-  await page.getByTestId("entry-duration-plus").click();
+  await typeWalk(page, now, 15);
   await page.getByTestId("entry-save").click();
   await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
   await expect(page.getByTestId("celebration")).toBeVisible();
@@ -881,7 +796,7 @@ test("throws confetti for the walk that reaches the goal, and only that one", as
 
   // A second walk on a day already won does not celebrate again.
   await add(page, "walk");
-  await page.getByTestId("entry-duration-plus").click();
+  await typeWalk(page, now, 15);
   await page.getByTestId("entry-save").click();
   await expect(page.getByTestId("home-goal")).toContainText("1h 15m");
   await expect(page.getByTestId("celebration")).toBeHidden();
@@ -897,9 +812,9 @@ test("does not celebrate a goal reached on a day that has passed", async ({
 
   await page.getByTestId("home-prev-day").click();
   await add(page, "walk");
-  for (let i = 0; i < 4; i++) {
-    await page.getByTestId("entry-duration-plus").click();
-  }
+  // An hour on yesterday, where any time of day has already happened.
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("10:00");
   await page.getByTestId("entry-save").click();
 
   // Yesterday's goal is met, and filling in a day that has gone is
@@ -1161,59 +1076,43 @@ test("counts down the fortnight before the birthday, and no longer", async ({
   await expect(page.getByTestId("profile-countdown")).toBeHidden();
 });
 
-test("logs a walk known only by its end and its length", async ({ page }) => {
+test("forgets the length with the start it was read from", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   await seedSession(page);
   await page.goto("/");
 
-  // Typing a duration back-fills the start, which is the ordinary case.
-  await add(page, "walk");
-  await page.getByTestId("entry-duration").fill("45 min");
+  // Yesterday, so both times are in the past whatever hour the suite runs at.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
 
-  // Clearing it leaves an end and a length, which is a complete fact — and
-  // the one the sheet used to throw away. It is also what the steppers
-  // produce just after midnight, when counting back lands on yesterday and
-  // no time of day can say so.
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:15");
+  await page.getByTestId("entry-to").fill("09:45");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+
   // **Backspaced, not `fill("")`.** A real keyboard fires one change per key,
-  // so the field passes through "10:" and "1" on the way to empty — and each
-  // of those used to wipe the duration, which the single event a `fill` sends
-  // never reproduced. Found on the device.
+  // so the field passes through "09:1" and "0" on the way to empty. Only the
+  // empty field is a cleared start; the ones before it are mid-typing.
   const from = page.getByTestId("entry-from");
   await from.click();
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 4; i++) {
     await page.keyboard.press("Backspace");
   }
+  await expect(from).not.toHaveValue("");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+  await page.keyboard.press("Backspace");
   await expect(from).toHaveValue("");
-  await page.getByTestId("entry-note").click();
-  await expect(page.getByTestId("entry-duration")).toHaveValue("45 min");
 
+  // With no start the length has nothing left to be read from, and the field
+  // cannot be typed into to take it out by hand — so it goes with the start.
+  // What is left is an end, which is a valid entry on its own, and Guardar
+  // must not file the old length under it.
+  await expect(page.getByTestId("entry-duration")).toHaveValue("");
   await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("home-log")).toContainText("45 min");
-  await expect(page.getByTestId("home-goal")).toContainText("45 min de 1h");
-});
-
-test("keeps stepping a walk that reaches back past midnight", async ({
-  page,
-}) => {
-  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
-
-  await seedSession(page);
-  await page.goto("/");
-
-  // Whatever the hour, four taps of +15 is an hour of walk. Before the fix
-  // this emptied its own duration field the moment the computed start crossed
-  // into the previous day, and blamed DESDE on save.
-  await add(page, "walk");
-  for (let i = 0; i < 4; i++) {
-    await page.getByTestId("entry-duration-plus").click();
-  }
-  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
-  await page.getByTestId("entry-note").click();
-  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
-
-  await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");
+  await expect(page.getByTestId("home-log")).toContainText("09:45");
+  await expect(page.getByTestId("home-log")).not.toContainText("30 min");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
 });
 
 test("keeps every control on the 48dp floor here too", async ({ page }) => {
@@ -1245,8 +1144,6 @@ test("keeps every control on the 48dp floor here too", async ({ page }) => {
     "entry-from",
     "entry-to",
     "entry-duration",
-    "entry-duration-minus",
-    "entry-duration-plus",
     "entry-note",
     "entry-cancel",
     "entry-save",
@@ -1256,24 +1153,22 @@ test("keeps every control on the 48dp floor here too", async ({ page }) => {
 test("marks the goal met, once", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
+  // **Derived from a "now" the test owns.** It filled "10:00", which is in
+  // the future for anybody running the suite before ten in the morning — and
+  // the sheet refuses a walk that has not happened yet, correctly. The walk
+  // is an hour long and has to be today, so within the first hour of the day
+  // there is nothing for it to be.
+  const now = new Date();
+  test.skip(
+    new Date(now.getTime() - 60 * 60_000).getDate() !== now.getDate(),
+    "an hour ago is still yesterday",
+  );
+
   await seedSession(page);
   await page.goto("/");
 
-  // **Derived from a "now" the test owns.** It filled "10:00", which is in
-  // the future for anybody running the suite before ten in the morning — and
-  // the sheet refuses a walk that has not happened yet, correctly, so the
-  // walk saved with no duration and the assertion blamed the goal. A walk is
-  // an end plus a length, so an hour that runs back past midnight is fine:
-  // the start is simply not stored.
-  const now = new Date();
-  const endsAt = new Date(now.getTime() - 5 * 60000);
-  const hhmm = `${String(endsAt.getHours()).padStart(2, "0")}:${String(
-    endsAt.getMinutes(),
-  ).padStart(2, "0")}`;
-
   await add(page, "walk");
-  await page.getByTestId("entry-to").fill(hhmm);
-  await page.getByTestId("entry-duration").fill("1h");
+  await typeWalk(page, now, 60);
   await page.getByTestId("entry-save").click();
 
   await expect(page.getByTestId("home-goal")).toContainText(
@@ -1281,6 +1176,636 @@ test("marks the goal met, once", async ({ page }) => {
   );
   // The goal reads in hours on both sides of the "de".
   await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");
+
+  // **Under the bar, not beside the measure.** The measure row's right slot
+  // is the walk control's now, so the label has one home on every day. Both
+  // halves are pinned: it is no longer inside the measure, and it sits below
+  // the bar rather than above it.
+  await expect(page.getByTestId("home-goal-measure")).not.toContainText(
+    "Objetivo",
+  );
+  const bar = await page.getByTestId("home-goal-bar").boundingBox();
+  const met = await page.getByTestId("home-goal-met").boundingBox();
+  expect(bar, "the bar should be visible").not.toBeNull();
+  expect(met, "the label should be visible").not.toBeNull();
+  expect(met!.y).toBeGreaterThanOrEqual(bar!.y + bar!.height);
+});
+
+/** "HH:MM" for a moment, in the browser's own clock — which is this one. */
+function clockTime(moment: Date): string {
+  return `${String(moment.getHours()).padStart(2, "0")}:${String(
+    moment.getMinutes(),
+  ).padStart(2, "0")}`;
+}
+
+/**
+ * Fills DESDE and HASTA for a walk that ended at `end` and lasted `minutes`.
+ *
+ * Both times are computed from the one instant, so the duration the sheet
+ * reads back is exactly `minutes` whichever second the minute turns on. The
+ * caller owns keeping the start on the same day.
+ */
+async function typeWalk(page: Page, end: Date, minutes: number) {
+  await page.getByTestId("entry-to").fill(clockTime(end));
+  await page
+    .getByTestId("entry-from")
+    .fill(clockTime(new Date(end.getTime() - minutes * 60_000)));
+}
+
+/**
+ * Leaves a walk running on this device, begun at `startedAt`.
+ *
+ * The live walk's start cannot be edited, so a spec that needs one with time
+ * behind it has to be handed it: the row is seeded and the device's own note
+ * of which walk is running — the key and shape `lib/walk.ts` writes — is
+ * planted before the page loads.
+ */
+async function seedRunningWalk(page: Page, petId: string, startedAt: Date) {
+  const [id] = await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: startedAt },
+  ]);
+  await page.addInitScript(
+    ([key, value]) => window.localStorage.setItem(key, value),
+    ["petfile.walk.v1", JSON.stringify({ id })] as const,
+  );
+}
+
+test("starts a walk and stops it from the goal block", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+  // Nothing is running, so nothing pulses.
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+
+  const entries = page.locator('[data-testid^="home-entry-"]');
+  await expect(entries).toHaveCount(0);
+
+  await page.getByTestId("home-goal-control").click();
+
+  // The measure says so, and the walk is a row in the log like any other —
+  // which is what lets the stool in the middle of it be written down. The dot
+  // beside it is the same fact in a form that does not depend on how wide the
+  // bar's segment is in the walk's first minutes.
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await expect(entries).toHaveCount(1);
+  await expect(entries.first()).toContainText("En marcha");
+
+  // The walk survives a reload: the device kept the row's id, and the start
+  // is read back from the row.
+  await page.reload();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(entries.first()).toContainText("En marcha");
+
+  // Stopping inside the first minute is a mis-tap, so the row goes with it
+  // instead of recording a walk of nothing.
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-measure")).not.toContainText(
+    "De paseo",
+  );
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(entries).toHaveCount(0);
+  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
+});
+
+test("shows the control working while the start is being written", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+
+  // **Park the insert, so the busy state is a state and not a flicker.** Only
+  // the POST waits; the reload that follows it is a GET and goes through.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/rest/v1/pet_events*", async (route) => {
+    if (route.request().method() === "POST") await held;
+    await route.continue();
+  });
+
+  await page.getByTestId("home-goal-control").click();
+
+  // The control stays where it was, says it is working, and cannot be pressed
+  // again: a control that is present but inert is how a walk gets started
+  // twice. The label is the same word throughout.
+  const control = page.getByTestId("home-goal-control");
+  await expect(page.getByTestId("home-goal-spinner")).toBeVisible();
+  await expect(control).toBeDisabled();
+  await expect(control).toContainText("Paseo");
+  await expect(control).toHaveAttribute("aria-label", "Empezar paseo");
+  // Nothing is running until the write lands.
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+
+  release();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await expect(control).toBeEnabled();
+  await expect(control).toHaveAttribute("aria-label", "Terminar paseo");
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+test("does not let a walk in progress have its times changed", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+
+  // The start is the app's own measurement of the moment the tutor left, and
+  // nothing in the sheet may move it while the walk is still going: DESDE,
+  // HASTA and the duration are all locked, and so are the clocks beside them.
+  const start = await page.getByTestId("entry-from").inputValue();
+  expect(start).toMatch(/^\d{2}:\d{2}$/);
+  await expect(page.getByTestId("entry-from")).not.toBeEditable();
+  await expect(page.getByTestId("entry-to")).not.toBeEditable();
+  await expect(page.getByTestId("entry-duration")).not.toBeEditable();
+  await expect(page.getByTestId("entry-from-picker")).toBeDisabled();
+  await expect(page.getByTestId("entry-to-picker")).toBeDisabled();
+
+  // **A disabled field whose clock still opens is no disabling at all.** The
+  // click is forced past Playwright's own refusal to press a disabled control,
+  // because the thing under test is what the app does with a press that does
+  // arrive.
+  await page.getByTestId("entry-from-picker").click({ force: true });
+  await page.getByTestId("entry-to-picker").click({ force: true });
+  await expect(page.getByTestId("timepicker")).toHaveCount(0);
+
+  // What the row is opened mid-walk for is untouched: the note and the stool.
+  await expect(page.getByTestId("entry-note")).toBeEditable();
+  await page.getByTestId("entry-note").fill("Ha olido a otro perro");
+  await page.getByTestId("stool-toggle").click();
+  await page.getByTestId("stool-add-2").click();
+  await expect(page.getByTestId("stool-token-0")).toContainText("Perfecta");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+
+  // The walk is exactly as it was found, plus what was written: still running,
+  // with the same start.
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(row).toContainText("En marcha");
+  await expect(row).toContainText("Ha olido a otro perro");
+  await row.click();
+  await expect(page.getByTestId("entry-from")).toHaveValue(start);
+  await expect(page.getByTestId("entry-to")).toHaveValue("");
+});
+
+test("lets the times of a walk that has ended be changed again", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // The lock belongs to the walk running on this device and to no other row:
+  // a stored walk, opened the same way, keeps its two times editable.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const start = new Date();
+  start.setDate(start.getDate() - 1);
+  start.setHours(10, 0, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: start, durationMinutes: 45 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+
+  await expect(page.getByTestId("entry-from")).toBeEditable();
+  await expect(page.getByTestId("entry-to")).toBeEditable();
+  await expect(page.getByTestId("entry-from-picker")).toBeEnabled();
+  await expect(page.getByTestId("entry-to-picker")).toBeEnabled();
+  // The length is a reading of the two, for a stored walk as for a new one.
+  await expect(page.getByTestId("entry-duration")).not.toBeEditable();
+});
+
+test("annotates a walk in progress, then closes it with its length", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // A walk that began an hour behind a "now" this test owns, rather than a
+  // fixed morning time: the sheet refuses a start in the future, and the live
+  // walk's own start can no longer be backdated from the sheet, so the row is
+  // seeded already an hour old. Within the first hour of the day that hour is
+  // yesterday, which this day view cannot hold.
+  const now = new Date();
+  const hourAgo = new Date(now.getTime() - 60 * 60_000);
+  test.skip(
+    hourAgo.getDate() !== now.getDate(),
+    "an hour ago is still yesterday",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedRunningWalk(page, petId, hourAgo);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  // A walk that is already an hour old shows the dot too, and a bar segment
+  // wide enough to see: the two say different things, how long and how much.
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+
+  // **The live row opens as a start, not as a return.** Every other row with
+  // one time and no length means "I got back at this hour"; this one means
+  // the opposite, and the day view is the only thing that knows which.
+  await row.click();
+  // The shape is the assertion for HASTA, not the digits; the start is the
+  // hour the walk was seeded at.
+  await expect(page.getByTestId("entry-to")).toHaveValue("");
+  await expect(page.getByTestId("entry-from")).toHaveValue(clockTime(hourAgo));
+
+  // The mid-walk annotation the feature exists for: the kaka and the note are
+  // written while the dog is still out.
+  await page.getByTestId("stool-toggle").click();
+  await page.getByTestId("stool-add-2").click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+
+  // Still running: the row has a start and no length, which is the whole
+  // shape of a walk in progress, so the device's flag still points at it.
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("1h");
+  await expect(row).toContainText("En marcha");
+
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-measure")).not.toContainText(
+    "De paseo",
+  );
+
+  // The length lands — the clause the spec's Testing section asks for, and
+  // the only one that writes a number into a real animal's activity record.
+  await expect(row).toContainText("1h");
+  await expect(page.getByTestId("home-goal-met")).toBeVisible();
+
+  // **And the note and the kaka survived it.** This is the regression test
+  // for `closeWalk` touching the duration and nothing else: a full update,
+  // with its nulls, would wipe exactly what was written mid-walk.
+  await expect(row).toContainText("Ha bebido en la fuente");
+  await expect(row).toHaveAttribute("aria-label", /una kaka: perfecta/);
+});
+
+test("keeps a walk that was written on a moment ago, even stopped before the day reloads", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+
+  // **Hold the day's reload back, so the window is wide enough to stop in.**
+  // Normally the log lands in well under a second and the row `stop` reads
+  // already has the note; here the read is parked for a few seconds, which is
+  // the same state a slow connection produces. Writes go through untouched —
+  // only the day's list is delayed.
+  await page.route("**/rest/v1/pet_events?*", async (route) => {
+    if (route.request().method() === "GET") {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+    }
+    await route.continue();
+  });
+
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+
+  // Stopped inside the first minute, before the row on screen can know about
+  // the note. An untouched walk this young is deleted as a mis-tap; this one
+  // was written on, so it is closed at the one minute the column accepts.
+  await page.getByTestId("home-goal-control").click();
+  await page.unroute("**/rest/v1/pet_events?*");
+
+  await expect(page.getByTestId("home-goal-measure")).not.toContainText(
+    "De paseo",
+  );
+  const entries = page.locator('[data-testid^="home-entry-"]');
+  await expect(entries).toHaveCount(1);
+  await expect(entries.first()).toContainText("1 min");
+  await expect(entries.first()).toContainText("Ha bebido en la fuente");
+});
+
+test("saves a stored walk that crossed midnight, and saves it again after an edit", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **The sheet cannot make this walk any more — the duration is not typed —
+  // so it is stored.** Yesterday at 23:40 for half an hour, which ends at 00:10
+  // *today*: exactly the walk no HASTA can say. Rows like this exist already,
+  // and they have to keep opening and saving.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const start = new Date();
+  start.setDate(start.getDate() - 1);
+  start.setHours(23, 40, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: start, durationMinutes: 30 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+  await expect(page.getByTestId("home-log")).toContainText("23:40");
+  await expect(page.getByTestId("home-log")).toContainText("30 min");
+
+  // Open it and edit anything else. The sheet recovers DESDE and leaves HASTA
+  // empty, since a walk that crossed midnight has no HASTA this form can hold
+  // — and it used to refuse to save that, whatever had been changed. (Guardar
+  // stays disabled on a reopened entry nobody touched, so the note is the
+  // smallest real edit.)
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await expect(page.getByTestId("entry-from")).toHaveValue("23:40");
+  await expect(page.getByTestId("entry-to")).toHaveValue("");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+  await page.getByTestId("entry-note").fill("Cruzó la medianoche");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await expect(page.getByTestId("home-log")).toContainText("23:40");
+  await expect(page.getByTestId("home-log")).toContainText("30 min");
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Cruzó la medianoche",
+  );
+
+  // **And its start can be retyped without losing its length.** Clearing DESDE
+  // to type another used to wipe the duration — on a real keyboard, which
+  // passes through "23:4" and "2" on the way to empty. HASTA is empty here, so
+  // there are not two times to read a duration from and the length is the
+  // fact: it has to stand through the whole of it, backspaced one key at a
+  // time as a phone does.
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  const from = page.getByTestId("entry-from");
+  await from.click();
+  for (let i = 0; i < 5; i++) {
+    await page.keyboard.press("Backspace");
+    await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+  }
+  await expect(from).toHaveValue("");
+  await from.fill("23:30");
+  await expect(page.getByTestId("entry-to")).toHaveValue("");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await expect(page.getByTestId("home-log")).toContainText("23:30");
+  await expect(page.getByTestId("home-log")).toContainText("30 min");
+  await expect(page.getByTestId("home-goal")).toContainText("30 min de 1h");
+});
+
+test("saves a stored walk with both its times, changing only its note", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const start = new Date();
+  start.setDate(start.getDate() - 1);
+  start.setHours(10, 0, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: start, durationMinutes: 45 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+
+  // The sheet gives back the two times the row was entered from, and the
+  // length it reads from them is the length that was stored.
+  await expect(page.getByTestId("entry-from")).toHaveValue("10:00");
+  await expect(page.getByTestId("entry-to")).toHaveValue("10:45");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("45 min");
+
+  await page.getByTestId("entry-note").fill("Con el perro del vecino");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+
+  await expect(page.getByTestId("home-log")).toContainText("10:00");
+  await expect(page.getByTestId("home-log")).toContainText("45 min");
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Con el perro del vecino",
+  );
+  await expect(page.getByTestId("home-goal")).toContainText("45 min de 1h");
+});
+
+test("re-reads the duration when a time is set on the clock face", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **The dial is a second way into the same field, and it used to skip the
+  // reading.** The clock wrote the time straight in, so only the keyboard
+  // recomputed the duration: this walk moved to 11:00 went on showing "45
+  // min" while `save` stored 60. A read-only field makes that a wrong number
+  // the tutor can see and cannot correct.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const start = new Date();
+  start.setDate(start.getDate() - 1);
+  start.setHours(10, 0, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: start, durationMinutes: 45 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await expect(page.getByTestId("entry-duration")).toHaveValue("45 min");
+
+  await page.getByTestId("entry-to-picker").click();
+  await page.getByTestId("timepicker-hour-11").click();
+  await page.getByTestId("timepicker-minute-00").click();
+  await page.getByTestId("timepicker-confirm").click();
+  await expect(page.getByTestId("entry-to")).toHaveValue("11:00");
+
+  // What the field says and what the row gets have to be the same hour's
+  // worth, which is the whole of the finding.
+  await expect(page.getByTestId("entry-duration")).toHaveValue("1h");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await expect(page.getByTestId("home-log")).toContainText("10:00");
+  await expect(page.getByTestId("home-log")).toContainText("1h");
+  await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");
+
+  // And DESDE's own dial reads the same way round.
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await page.getByTestId("entry-from-picker").click();
+  await page.getByTestId("timepicker-hour-10").click();
+  await page.getByTestId("timepicker-minute-30").click();
+  await page.getByTestId("timepicker-confirm").click();
+  await expect(page.getByTestId("entry-from")).toHaveValue("10:30");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+});
+
+test("keeps a crossed walk's length while its real end is tried in HASTA", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **A HASTA before its DESDE is mid-typing, not an error.** This walk ended
+  // at 00:10 the next day, which no HASTA on this form can say — so typing
+  // that real end is the obvious thing to try, and it used to empty the
+  // duration on the way. Clearing HASTA again then left the field blank, and
+  // `save` wrote `duration_minutes = null`: half an hour of a real walk gone,
+  // with Guardar live throughout.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const start = new Date();
+  start.setDate(start.getDate() - 1);
+  start.setHours(23, 40, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: start, durationMinutes: 30 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await expect(page.getByTestId("entry-from")).toHaveValue("23:40");
+  await expect(page.getByTestId("entry-to")).toHaveValue("");
+  await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+
+  const to = page.getByTestId("entry-to");
+  await to.click();
+  // Key by key, the way the phone delivers it: every intermediate value is a
+  // pair that does not read as a length either.
+  for (const key of ["0", "0", ":", "1", "0"]) {
+    await page.keyboard.press(key);
+    await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+  }
+  await expect(to).toHaveValue("00:10");
+
+  // Backing it out again leaves the row exactly as it was stored.
+  for (let i = 0; i < 5; i++) {
+    await page.keyboard.press("Backspace");
+    await expect(page.getByTestId("entry-duration")).toHaveValue("30 min");
+  }
+  await expect(to).toHaveValue("");
+
+  await page.getByTestId("entry-note").fill("Volvimos pasada la medianoche");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await expect(page.getByTestId("home-log")).toContainText("23:40");
+  await expect(page.getByTestId("home-log")).toContainText("30 min");
+  await expect(page.getByTestId("home-goal")).toContainText("30 min de 1h");
+});
+
+test("refuses a typed return time that does not parse, instead of dropping it", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // Yesterday, so the start is a valid, past time and the only thing wrong is
+  // the HASTA.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:15");
+  await page.getByTestId("entry-to").fill("99:99");
+  await page.getByTestId("entry-save").click();
+
+  // Only an *empty* HASTA can be stood in for by DESDE. A typed one is a
+  // value somebody meant, and saving the walk without it would lose it.
+  await expect(page.getByTestId("entry-to-error")).toHaveText(
+    "Escríbela como 09:15",
+  );
+  await expect(page.getByTestId("entry-title")).toBeVisible();
+  await expect(page.getByTestId("home-log")).toBeHidden();
+});
+
+test("refuses a start in the future when there is no return time", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // A start ten minutes ahead of a "now" this test owns. Within ten minutes of
+  // midnight that clock time wraps to the early hours, which today has already
+  // had, so there would be nothing to refuse.
+  const now = new Date();
+  const soon = new Date(now.getTime() + 10 * 60_000);
+  test.skip(
+    soon.getDate() !== now.getDate(),
+    "ten minutes ahead is already tomorrow",
+  );
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await add(page, "walk");
+  await page.getByTestId("entry-to").fill("");
+  await page.getByTestId("entry-from").fill(clockTime(soon));
+  await page.getByTestId("entry-save").click();
+
+  // With HASTA empty the start is what gets stored, so it gets HASTA's check,
+  // on its own field.
+  await expect(page.getByTestId("entry-from-error")).toHaveText(
+    "¿Todavía no habéis salido?",
+  );
+  await expect(page.getByTestId("entry-title")).toBeVisible();
+});
+
+test("shows the goal block for a pet with no goal, and still starts a walk", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // The activity question is optional, so this is an ordinary pet.
+  await resetE2EPets();
+  await seedE2EPet();
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // "paseados", without the day: the block renders on past days too now, and
+  // the header is what names the day.
+  await expect(page.getByTestId("home-goal")).toContainText("paseados");
+  await expect(page.getByTestId("home-goal")).not.toContainText("hoy");
+  // No goal, so no bar and nothing to have met.
+  await expect(page.getByTestId("home-goal-bar")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveCount(0);
+
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(
+    page.locator('[data-testid^="home-entry-"]').first(),
+  ).toContainText("En marcha");
+
+  // Stopped inside a minute, so nothing is left behind in the log.
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-measure")).not.toContainText(
+    "De paseo",
+  );
 });
 
 test("offers the clock beside a time field, for a thumb that would rather point", async ({
