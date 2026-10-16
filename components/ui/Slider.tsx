@@ -40,6 +40,12 @@ type SliderProps = {
  * alongside the zoom buttons rather than instead of them: `role="adjustable"`
  * with increment and decrement actions means TalkBack's volume-style gesture
  * moves it, and the buttons remain for anyone who wants a discrete step.
+ *
+ * **Something else depends on this shape.** The goal bar in `GoalBlock.tsx`
+ * marks the junction between recorded and in-progress minutes with a 2dp
+ * line rather than a knob, precisely so it is not read as this control. If
+ * the thumb here stops being a round 20dp fill at the end of an aqua track,
+ * read that comment before deciding the bar is now free to use one.
  */
 export function Slider({
   value,

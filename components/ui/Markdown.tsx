@@ -57,6 +57,10 @@ export function Inline({ text }: { text: string }) {
   );
 }
 
+/** Roughly a digit's advance at `text-sm`, and the dot that follows it. */
+const DIGIT_WIDTH = 8;
+const DOT_WIDTH = 4;
+
 type MarkdownProps = {
   text: string;
   /** The tone of an ordinary paragraph. Headings and bold step up from it. */
@@ -122,7 +126,11 @@ export function Markdown({
         if (block.kind === "bullets" || block.kind === "numbers") {
           // The marker column is as wide as the widest number, right-aligned,
           // so a list that reaches 10 does not push its later items sideways.
-          const width = String(block.items.length).length * 8 + 4;
+          // A digit measures about `DIGIT_WIDTH` at `text-sm`; `DOT_WIDTH` is
+          // the dot after it. Both are estimates rather than measurements —
+          // too wide only costs a little air, too narrow wraps the item.
+          const width =
+            String(block.items.length).length * DIGIT_WIDTH + DOT_WIDTH;
           return (
             <View key={index} className={gap}>
               {block.items.map((item, line) => (

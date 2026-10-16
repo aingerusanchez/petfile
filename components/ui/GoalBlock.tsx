@@ -363,6 +363,12 @@ export function GoalBlock({
             // the walk is, and a line has nothing to announce. Positioned from
             // the same percentage the recorded fill is drawn at, so the two
             // cannot disagree.
+            //
+            // **At zero recorded it hangs 1 dp off the left edge**, because
+            // the centring offset is unclamped. Deliberate: a mark that
+            // shuffled inward at the ends would stop meaning "the junction is
+            // here". The right edge never arises — `recorded` reaches 100
+            // only when the goal is met, and then the tick is not drawn.
             <View
               testID={testID ? `${testID}-tick` : undefined}
               accessibilityElementsHidden
