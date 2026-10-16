@@ -44,7 +44,11 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   una píldora: **con borde cuando no hay paseo, rellena mientras lo hay**, la
   misma regla que ya aplican el día seleccionado, la pestaña activa y el tramo
   elegido de un selector —lo elegido es lo relleno—. El borde está siempre, de
-  modo que al rellenarse no cambia de tamaño.
+  modo que al rellenarse no cambia de tamaño. **El triángulo y el cuadrado son
+  macizos**: el cuadrado hueco se leía como una casilla de verificación sobre
+  fondo oscuro, y un control de reproducción se reconoce por la forma llena. En
+  la píldora rellena el cuadrado es del color del fondo, como un agujero
+  hecho en ella.
 - **Un punto que late sustituye a la barra que respiraba.** Contra un objetivo
   de 3 h en una barra de 327 dp, el tramo del paseo en marcha mide 3,6 dp a los
   dos minutos y 38 a los veintiuno: ahí no cabe una animación, y justo en los
@@ -53,7 +57,13 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   paseo. El tramo de la barra se queda, quieto, porque dice cuánto se está
   acumulando. Con "quitar animaciones" el punto se queda a opacidad completa:
   el caso estático tiene que verse más, no menos. Para un lector de pantalla es
-  decoración, porque "De paseo" ya lo dice.
+  decoración, porque "De paseo" ya lo dice. **Late sin apagarse y suelta una
+  onda**: fotografiado en el móvil, el punto se pillaba en lo más bajo del
+  latido y se leía gris, porque con el 30 % de opacidad el Aqua mide 2,04:1
+  contra el fondo; ahora baja solo hasta el 55 % (4,09:1). Del punto sale un
+  anillo que se abre y se desvanece, en el mismo ciclo, y no mueve nada: crece
+  por transformación dentro de un hueco fijo de 8 dp. Con "quitar animaciones"
+  no hay anillo y el punto queda a opacidad completa.
 
 ### Arreglado
 

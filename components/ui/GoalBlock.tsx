@@ -24,15 +24,36 @@ import { colors, TOUCH_TARGET } from "./tokens";
 const TICK_MS = 30_000;
 
 /**
- * How long one pulse of the dot takes, and how far its opacity travels.
+ * One heartbeat of the dot: how long it takes, how far the dot dims, and how
+ * far the ripple travels.
  *
  * **Slower than `Skeleton`'s 900ms, and that is the point.** A skeleton pulses
  * for a few hundred milliseconds while something arrives; this pulses for the
  * length of a walk. An animation that runs for an hour has to be calmer than
  * one that runs for a second, or it stops being a signal and becomes a nag.
+ * `PULSE_MS` is the whole cycle — the dot dims and comes back, and the ripple
+ * leaves and fades once — which is the 1400 ms down and 1400 ms up it already
+ * was, so the calm the tutor approved is unchanged.
+ *
+ * **The trough is 0.55, and it was 0.3.** Photographed on the device the dot
+ * was caught at its trough and read grey rather than Aqua. Aqua Glaciar at
+ * 0.3 composites over the Polar Night ground to a colour that measures 2.04:1
+ * against it (1.98:1 on the device photograph); at 0.55 it measures 4.09:1,
+ * and 11.08:1 at the peak. A pulse that spends half its cycle near 2:1 is a
+ * flicker, not a pulse — the same defect this round removed from the
+ * in-progress segment, where a 1.64:1 element "did not read as a measure of
+ * anything". **Do not lower it again**: the dot is the only thing that says
+ * the walk is recording.
+ *
+ * **The ripple is 20 dp across at its largest** (the 8 dp dot at 2.5x), which
+ * is 6 dp beyond the dot on each side — inside the 8 dp gap to the measure, so
+ * even at its brightest it never reaches the text. It starts at `RIPPLE_ALPHA`
+ * and is gone by the end of the cycle.
  */
-const PULSE_MS = 1400;
-const DOT_DIM = 0.3;
+const PULSE_MS = 2800;
+const DOT_DIM = 0.55;
+const RIPPLE_SCALE = 2.5;
+const RIPPLE_ALPHA = 0.6;
 
 /**
  * The day's walking, and the control that starts and stops it.
@@ -134,6 +155,12 @@ export function GoalBlock({
   // outlined when idle and filled when running; `true` is variant A, filled in
   // both states.
   const filled = stopping;
+  // **Both transport glyphs are solid, and `fill` takes the same token as the
+  // stroke** so the two cannot drift apart. Idle, the triangle is solid Aqua;
+  // running, the square is solid `onAccent` — the pill's own ground — so it
+  // reads as a hole punched in the fill rather than a shape drawn on it. The
+  // outlined square it replaced read as a checkbox on a dark ground, and a
+  // transport control is a solid shape by convention.
   const glyph = filled ? colors.onAccent : colors.accent;
 
   const recorded =
@@ -217,9 +244,9 @@ export function GoalBlock({
                 />
               </View>
             ) : stopping ? (
-              <Square size={16} strokeWidth={2.5} color={glyph} />
+              <Square size={16} strokeWidth={2.5} color={glyph} fill={glyph} />
             ) : (
-              <Play size={16} strokeWidth={2.5} color={glyph} />
+              <Play size={16} strokeWidth={2.5} color={glyph} fill={glyph} />
             )}
             <Text
               className={`font-semibold ${filled ? "text-on-accent" : "text-accent"}`}
@@ -271,14 +298,30 @@ export function GoalBlock({
 }
 
 /**
- * The mark that a walk is still running: an Aqua dot, pulsing in opacity.
+ * The mark that a walk is still running: an Aqua dot that dims and returns,
+ * and a ring that spreads from it like a ripple on water.
+ *
+ * **One `phase`, two animations.** The dot's opacity and the ring's scale and
+ * opacity are all read off the same shared value, so they are one heartbeat
+ * rather than two timers drifting against each other: the dot is at its
+ * brightest as the ring leaves, dims as it travels, and is back at full when
+ * the ring has gone. Transform and opacity only — nothing here triggers
+ * layout.
+ *
+ * **The ring cannot move the row.** The dot lives in a fixed 8x8 wrapper and
+ * the ring is absolutely positioned inside it at the same 8x8, so the wrapper
+ * is the only thing the measure's row ever lays out; the ring grows by
+ * `transform`, which is paint rather than layout. That matters because at
+ * `font_scale` 1.3 the measure already sits 35 dp from the control, and a slot
+ * that grew with the ring would spend it.
  *
  * **Aqua Glaciar only.** The dot is the measure's own colour while walking, so
  * it spends nothing new; Aurora Boreal stays on the three places it already is.
  *
- * **Under "remove animations" it holds at full opacity,** the static case
- * being the one that has to be more visible, not less — the line `Skeleton` and
- * `Celebration` draw. `progress` starts at 1, which is full opacity, and is
+ * **Under "remove animations" the dot holds at full opacity and the ripple is
+ * not rendered at all** — the static case being the one that has to be more
+ * visible, not less (the line `Skeleton` and `Celebration` draw), and the ring
+ * being pure decoration. `phase` starts at 0, which is the dot's peak, and is
  * simply never animated.
  *
  * Decoration to a reader: the measure beside it says `De paseo`, so a second
@@ -286,29 +329,55 @@ export function GoalBlock({
  */
 function PulseDot({ testID }: { testID?: string }) {
   const reduceMotion = useReducedMotion();
-  const progress = useSharedValue(1);
+  const phase = useSharedValue(0);
 
   useEffect(() => {
     if (reduceMotion) return;
-    progress.value = withRepeat(
-      withTiming(0, { duration: PULSE_MS, easing: Easing.inOut(Easing.quad) }),
+    phase.value = withRepeat(
+      withTiming(1, { duration: PULSE_MS, easing: Easing.linear }),
       -1,
-      true,
+      false,
     );
-  }, [reduceMotion, progress]);
+  }, [reduceMotion, phase]);
 
-  const style = useAnimatedStyle(() => ({
-    opacity: DOT_DIM + progress.value * (1 - DOT_DIM),
+  // Cosine of the phase: peak at 0 and at 1, trough at the middle, so the
+  // restart of the repeat is seamless and the dim is eased at both ends.
+  const dotStyle = useAnimatedStyle(() => ({
+    opacity:
+      DOT_DIM +
+      (1 - DOT_DIM) * (0.5 + 0.5 * Math.cos(phase.value * 2 * Math.PI)),
   }));
 
+  // Eased out, so the ring leaves quickly and slows as it fades, like water.
+  // It is at zero opacity when the repeat restarts, so the jump back to scale
+  // 1 is never seen.
+  const ringStyle = useAnimatedStyle(() => {
+    const t = 1 - (1 - phase.value) * (1 - phase.value);
+    return {
+      opacity: RIPPLE_ALPHA * (1 - t),
+      transform: [{ scale: 1 + (RIPPLE_SCALE - 1) * t }],
+    };
+  });
+
   return (
-    <Animated.View
+    <View
       testID={testID}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       aria-hidden
-      style={style}
-      className="h-[8px] w-[8px] rounded-[4px] bg-accent"
-    />
+      className="h-[8px] w-[8px]"
+    >
+      {reduceMotion ? null : (
+        <Animated.View
+          testID={testID ? `${testID}-ripple` : undefined}
+          style={ringStyle}
+          className="absolute h-[8px] w-[8px] rounded-[4px] border border-accent"
+        />
+      )}
+      <Animated.View
+        style={dotStyle}
+        className="h-[8px] w-[8px] rounded-[4px] bg-accent"
+      />
+    </View>
   );
 }
