@@ -16,6 +16,49 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.14.0] — 2026-10-17
+
+### Nuevo
+
+- **Una nota dice cuánto lleva escrito, y tiene un tope de 500 caracteres.**
+  Hasta ahora ninguna decía nada: la de la hoja del día paraba en 200 sin
+  avisar y las otras tres no paraban nunca, así que se podía pegar la carta
+  entera de una clínica y la app la guardaba sin que nadie viera lo lejos que
+  estaba de lo que ahí se escribe. La nota más larga que hay apuntada ronda los
+  200 caracteres, así que 500 sobra para lo que se escribe y es un techo de
+  verdad para lo que no. Un contador que nunca se puede alcanzar es decoración;
+  este sí.
+- **El contador sale debajo del campo, a la derecha, y solo cuando ya queda poco.**
+  `412/500`, desde el 80% del límite. Fuera del campo porque esa esquina por
+  dentro ya la ocupa la ayuda del formato, y dos cosas en una esquina son una
+  de más. Tarde y no siempre, porque un `0/500` debajo de cada nota de la app
+  sería ruido permanente para la nota de cada cien que se acerca al tope; a 400
+  quedan cien caracteres, un par de frases para terminar lo que se estaba
+  diciendo. En gris hasta que el campo se llena y en ámbar desde entonces.
+- **Al llegar al límite el campo deja de aceptar, no avisa y sigue aceptando.**
+  Un límite que avisa es una sugerencia. Un texto pegado que no cabe se corta
+  en el sitio donde se pegó, no al final de la nota, así que lo que ya había
+  escrito nunca es lo que se pierde.
+- **Lo llevan los cuatro campos de texto libre de varias líneas que son
+  notas:** la nota de la hoja del día (paseo, comida, medicación, enfermedad),
+  la del peso, la del tratamiento y el horario de la clínica. La dirección es de
+  varias líneas pero no es una nota, y no lo lleva.
+
+### Cambiado
+
+- **La nota de la hoja del día admitía 200 caracteres y ahora admite 500.**
+  Aquel tope se puso con la hoja, sin contador, y caía justo donde terminan las
+  notas más largas que hay apuntadas: la pared estaba donde se llega al escribir
+  un párrafo de verdad, y nadie veía que estaba ahí.
+- **Una nota escrita antes del límite se abre entera y se guarda como estaba.**
+  No se toca nada de lo que hay en la base de datos. Una nota de 650 caracteres
+  se muestra con `650/500` en ámbar, se puede acortar o corregir, no se puede
+  alargar, y al guardar vuelve entera. Pasarle `maxLength` al campo no basta
+  para prometer eso: en un campo controlado la plataforma puede recortar la nota
+  al escribirla en la vista mientras el estado conserva el texto completo, y lo
+  que se guardase ya no sería lo que se vio. Por eso el tope de la plataforma
+  solo se aplica mientras el texto cabe, y pasado eso lo hace la app.
+
 ## [v0.13.0] — 2026-10-17
 
 ### Nuevo

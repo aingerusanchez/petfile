@@ -38,6 +38,7 @@ import {
   useCelebration,
   useToast,
 } from "../../components/ui";
+import { NOTE_LIMIT } from "../../lib/limit";
 import {
   birthdayMilestone,
   markCelebrated,
@@ -1911,7 +1912,7 @@ function EntrySheet({
               value={note}
               onChangeText={setNote}
               placeholder="¿Algo que contar?"
-              maxLength={200}
+              limit={NOTE_LIMIT}
               corner={<MarkdownHelp testID="entry-note-help" />}
             />
           </View>
