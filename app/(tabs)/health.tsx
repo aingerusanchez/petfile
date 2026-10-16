@@ -98,8 +98,8 @@ export default function Health() {
    * The treatment another screen asked to see.
    *
    * **`?treatment=` exists so the diary can point at one.** A treatment
-   * recorded here shows at the foot of its day there, and tapping it has to
-   * land on *that* treatment's sheet — not on this tab, which would be a list
+   * recorded here shows in its day's TRATAMIENTOS section there, and tapping
+   * it has to land on *that* treatment's sheet — not on this tab, which would be a list
    * to hunt through for the thing just tapped. It is the diary's `?day=` run
    * the other way.
    *

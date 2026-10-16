@@ -9,7 +9,11 @@ import {
 } from "./auth";
 
 /**
- * What Salud records, read back on the day it happened.
+ * What Salud records, read back on the day it happened — in a TRATAMIENTOS
+ * section between the day's goal block and its log. A treatment is context for
+ * reading the day, not an entry in it, so these specs pin the arrangement: the
+ * section is above the log, absent on a day without treatments, and the log
+ * under it is the log it always was.
  *
  * **Every clock time here is derived from a "now" this file owns, and the
  * fixed hours sit on yesterday** — a treatment has no hour, but the timed
@@ -56,7 +60,7 @@ async function openYesterday(page: Page) {
   await expect(page.getByTestId("home-title")).toContainText("Ayer");
 }
 
-test("a treatment recorded in Salud shows at the foot of its day, and only that day", async ({
+test("a treatment recorded in Salud shows in the section of its day, and only that day", async ({
   page,
 }) => {
   await seedE2EPet();
@@ -78,17 +82,19 @@ test("a treatment recorded in Salud shows at the foot of its day, and only that 
 
   await page.getByRole("tab", { name: /Diario/ }).click();
 
-  const foot = page.getByTestId("home-treatments");
-  await expect(foot).toContainText("Milbemax 125mg");
+  const section = page.getByTestId("home-treatments");
+  await expect(section).toContainText("Milbemax 125mg");
   // The kind and the next date, from the three-month proposal the form made.
-  await expect(foot).toContainText("Desparasitación (Int.) · próxima");
+  await expect(section).toContainText("Desparasitación (Int.)");
+  await expect(section).toContainText("Próxima");
   // No hour: nobody wrote one down, and a clock here would be invented.
-  await expect(foot).not.toContainText(/\d{1,2}:\d{2}/);
-  // The day is not empty any more, and says so by not claiming it.
-  await expect(page.getByTestId("home-empty")).toBeHidden();
-  await expect(page.getByTestId("home-log")).toBeVisible();
+  await expect(section).not.toContainText(/\d{1,2}:\d{2}/);
+  // The log is the log: nothing was written in the diary, and it says so. The
+  // treatment is visibly another section, above it.
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+  await expect(page.getByTestId("home-log")).toHaveCount(0);
 
-  // Another day has nothing at its foot — and is still empty.
+  // Another day has no section at all — and is empty in the same way.
   await page.getByTestId("home-prev-day").click();
   await expect(page.getByTestId("home-title")).toContainText("Ayer");
   await expect(page.getByTestId("home-treatments")).toHaveCount(0);
@@ -97,7 +103,7 @@ test("a treatment recorded in Salud shows at the foot of its day, and only that 
   );
 });
 
-test("a day with timed entries puts the treatment after them, under a hairline", async ({
+test("the section sits between the goal block and the log, not inside it", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -120,27 +126,34 @@ test("a day with timed entries puts the treatment after them, under a hairline",
 
   await openYesterday(page);
 
-  const lastEntry = page.getByTestId(`home-entry-${ids[2]}`);
-  const foot = page.getByTestId("home-treatments");
-  await expect(lastEntry).toBeVisible();
-  await expect(foot).toContainText("Milbemax 125mg");
+  const goal = page.getByTestId("home-goal");
+  const section = page.getByTestId("home-treatments");
+  const log = page.getByTestId("home-log");
+  await expect(page.getByTestId(`home-entry-${ids[2]}`)).toBeVisible();
+  await expect(section).toContainText("Milbemax 125mg");
 
-  const entryBox = await lastEntry.boundingBox();
-  const footBox = await foot.boundingBox();
-  expect(footBox?.y ?? 0).toBeGreaterThan(
-    (entryBox?.y ?? 0) + (entryBox?.height ?? 0),
-  );
+  const goalBox = await goal.boundingBox();
+  const sectionBox = await section.boundingBox();
+  const logBox = await log.boundingBox();
+  const bottom = (box: typeof goalBox) => (box?.y ?? 0) + (box?.height ?? 0);
+  // Measure, then its context, then the stream — in that order.
+  expect(sectionBox?.y ?? 0).toBeGreaterThanOrEqual(bottom(goalBox));
+  expect(logBox?.y ?? 0).toBeGreaterThanOrEqual(bottom(sectionBox));
 
-  // Separated from them by a hairline: only because there is something above
-  // it to separate from.
-  await expect(foot).toHaveCSS("border-top-width", "1px");
+  // A sibling of the log rather than a row in it: the log holds the three
+  // timed entries and no treatment, and the section is its own outlined group
+  // with no hairline of its own to separate anything from anything.
+  await expect(log).not.toContainText("Milbemax");
+  await expect(log.getByTestId(/^home-entry-/)).toHaveCount(3);
+  await expect(section.getByTestId(/^home-entry-/)).toHaveCount(0);
+  await expect(section.getByTestId(/^home-treatment-[0-9a-f]/)).toHaveCount(1);
+  await expect(page.getByTestId("home-empty")).toHaveCount(0);
 });
 
-test("a day with a treatment and nothing else is not empty, and has no hairline", async ({
+test("a day with a treatment and no events shows the log's own empty state under the section", async ({
   page,
 }) => {
   const petId = await seedE2EPet();
-  // No next date: a one-off says only its kind.
   await seedE2ETreatments(petId, [
     {
       kind: "deworming",
@@ -151,13 +164,96 @@ test("a day with a treatment and nothing else is not empty, and has no hairline"
 
   await openYesterday(page);
 
-  await expect(page.getByTestId("home-empty")).toBeHidden();
-  await expect(page.getByTestId("home-log")).toContainText("Milbemax 125mg");
-  const foot = page.getByTestId("home-treatments");
-  await expect(foot).toContainText("Desparasitación (Int.)");
-  await expect(foot).not.toContainText("próxima");
-  // Nothing above it, so nothing to separate it from.
-  await expect(foot).toHaveCSS("border-top-width", "0px");
+  const section = page.getByTestId("home-treatments");
+  const empty = page.getByTestId("home-empty");
+  await expect(section).toContainText("Milbemax 125mg");
+  // True: nothing was logged in the diary that day. The treatment is a
+  // different section, visibly above it.
+  await expect(empty).toContainText("Ese día no se apuntó nada");
+  await expect(page.getByTestId("home-log")).toHaveCount(0);
+  const sectionBox = await section.boundingBox();
+  const emptyBox = await empty.boundingBox();
+  expect(emptyBox?.y ?? 0).toBeGreaterThanOrEqual(
+    (sectionBox?.y ?? 0) + (sectionBox?.height ?? 0),
+  );
+});
+
+test("a treatment reads as three lines: the name, the kind, the next date", async ({
+  page,
+}) => {
+  const petId = await seedE2EPet();
+  await seedE2ETreatments(petId, [
+    {
+      kind: "deworming",
+      name: "Milbemax 125mg",
+      administeredOn: iso(yesterday),
+      // More than a year on, so it is another year whatever today is — the
+      // case that used to leave "2027" alone on a second line.
+      nextDueOn: iso(daysFromNow(400)),
+    },
+  ]);
+
+  await openYesterday(page);
+
+  const row = page.getByTestId(/^home-treatment-[0-9a-f]/);
+  const name = row.getByText("Milbemax 125mg", { exact: true });
+  const kind = row.getByText("Desparasitación (Int.)", { exact: true });
+  const next = row.getByText(/^Próxima \d{1,2} [a-zñ]{3,4} \d{4}$/);
+  await expect(name).toBeVisible();
+  await expect(kind).toBeVisible();
+  await expect(next).toBeVisible();
+
+  const [nameBox, kindBox, nextBox] = await Promise.all([
+    name.boundingBox(),
+    kind.boundingBox(),
+    next.boundingBox(),
+  ]);
+  // Each on its own line, in that order, and each a single line tall: the
+  // date is not wrapped over two.
+  const lineHeight = nameBox?.height ?? 0;
+  expect(kindBox?.y ?? 0).toBeGreaterThanOrEqual(
+    (nameBox?.y ?? 0) + lineHeight - 1,
+  );
+  expect(nextBox?.y ?? 0).toBeGreaterThanOrEqual(
+    (kindBox?.y ?? 0) + (kindBox?.height ?? 0) - 1,
+  );
+  expect(nextBox?.height ?? 0).toBeLessThan((lineHeight || 1) * 1.5);
+  expect(kindBox?.height ?? 0).toBeLessThan((lineHeight || 1) * 1.5);
+});
+
+test("a treatment with no name leads with its kind, and one with no next date has two lines", async ({
+  page,
+}) => {
+  const petId = await seedE2EPet();
+  await seedE2ETreatments(petId, [
+    {
+      kind: "vaccine",
+      administeredOn: iso(yesterday),
+      nextDueOn: iso(daysFromNow(300)),
+    },
+  ]);
+  await seedE2ETreatments(petId, [
+    {
+      kind: "deworming",
+      name: "Milbemax 125mg",
+      administeredOn: iso(yesterday),
+    },
+  ]);
+
+  await openYesterday(page);
+
+  const rows = page.getByTestId(/^home-treatment-[0-9a-f]/);
+  await expect(rows).toHaveCount(2);
+  // No name: the kind is the title and is not said twice, so the date follows
+  // it directly.
+  const unnamed = rows.nth(0);
+  await expect(unnamed.getByText("Vacuna", { exact: true })).toHaveCount(1);
+  await expect(unnamed).toContainText(/Próxima \d{1,2} [a-zñ]{3,4} \d{4}/);
+  // No next date: the name and the kind, and nothing after them.
+  const oneOff = rows.nth(1);
+  await expect(oneOff).toContainText("Milbemax 125mg");
+  await expect(oneOff).toContainText("Desparasitación (Int.)");
+  await expect(oneOff).not.toContainText("Próxima");
 });
 
 test("two treatments on one day are two rows, in the order they were written", async ({
@@ -303,7 +399,7 @@ test("the log paints as soon as the events land, treatments or no treatments", a
   await expect(page.getByTestId("home-log")).toBeVisible();
   await expect(page.getByTestId("home-log-skeleton")).toBeHidden();
   await expect(page.getByTestId("home-log")).toContainText("Paseo");
-  // The foot is not there yet, and nothing claims it is.
+  // The section is not there yet, and nothing claims it is.
   await expect(page.getByTestId("home-treatments")).toHaveCount(0);
 
   release();
@@ -312,7 +408,7 @@ test("the log paints as soon as the events land, treatments or no treatments", a
   );
 });
 
-test("a day with nothing on it waits for the treatments before saying so", async ({
+test("a day with nothing in the diary says so at once; the section joins when its read lands", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -327,49 +423,56 @@ test("a day with nothing on it waits for the treatments before saying so", async
   ]);
 
   const release = await parkTreatments(page);
+  await openYesterday(page);
 
-  await page.goto("/");
-  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
-
-  // **Stand after the events have landed, not before.** Asserting the
-  // skeleton straight after navigating can pass during the ordinary `loading`
-  // phase, when nothing has answered yet — and `home-empty` is absent then
-  // for the same reason, so the spec would hold under the very regression it
-  // guards (the empty state drawn before the treatments reply). So wait for
-  // yesterday's `pet_events` GET to respond, which is the answer that used to
-  // be enough to say "vacío", and let two frames render it.
-  const from = new Date(
-    yesterday.getFullYear(),
-    yesterday.getMonth(),
-    yesterday.getDate(),
-  ).toISOString();
-  const eventsAnswered = page.waitForResponse(
-    (response) =>
-      response.request().method() === "GET" &&
-      response.url().includes("/rest/v1/pet_events") &&
-      decodeURIComponent(response.url()).includes(from),
+  // The empty state no longer knows about treatments: nothing was logged in
+  // the diary, which is true whether or not the other read has come back.
+  await expect(page.getByTestId("home-empty")).toContainText(
+    "Ese día no se apuntó nada",
   );
-  await page.getByTestId("home-prev-day").click();
-  await expect(page.getByTestId("home-title")).toContainText("Ayer");
-  await eventsAnswered;
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-      ),
-  );
-
-  // The one branch that has to wait: "Ese día no se apuntó nada" over a day
-  // the vet visited is the lie this feature removes. Absent first, and
-  // checked at once: this is the assertion that fails under the regression.
-  await expect(page.getByTestId("home-empty")).toHaveCount(0);
-  await expect(page.getByTestId("home-log-skeleton")).toBeVisible();
+  await expect(page.getByTestId("home-treatments")).toHaveCount(0);
 
   release();
+  // The section appears above it, and the empty state stays what it was.
   await expect(page.getByTestId("home-treatments")).toContainText(
     "Milbemax 125mg",
   );
-  await expect(page.getByTestId("home-empty")).toHaveCount(0);
+  await expect(page.getByTestId("home-empty")).toContainText(
+    "Ese día no se apuntó nada",
+  );
+});
+
+test("a failed treatments read says so in its own section, and the log is unaffected", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: daysFromNow(-1, 9), durationMinutes: 30 },
+  ]);
+  await page.route("**/rest/v1/pet_treatments*", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "e2e: the treatments cannot be read" }),
+    });
+  });
+
+  await openYesterday(page);
+
+  const section = page.getByTestId("home-treatments");
+  await expect(section).toContainText(
+    "No he podido leer los tratamientos de este día.",
+  );
+  await expect(section.getByTestId("home-treatments-retry")).toBeVisible();
+  // The log is the log: its rows, no error of its own, and no retry.
+  await expect(page.getByTestId("home-log")).toContainText("Paseo");
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await expect(
+    page.getByTestId("home-log").getByTestId("home-treatments-error"),
+  ).toHaveCount(0);
 });
 
 test("a failed log says so straight away, treatments or no treatments", async ({

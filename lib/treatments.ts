@@ -433,7 +433,7 @@ export function treatmentsSince(
  * The short month the weight line already writes. **The year appears exactly
  * when the date is not the obvious one**, and for a due date that is the
  * ordinary case: an annual vaccine given in January is next due in January,
- * and "próxima 14 ene" under a day in 2026 would read as already behind us.
+ * and "Próxima 14 ene" under a day in 2026 would read as already behind us.
  * `relativeTo` is the day the treatment was given rather than today, so the
  * line says the same thing whenever it is read.
  *
@@ -455,30 +455,33 @@ function shortDay(iso: string, relativeTo: string): string {
 }
 
 /**
- * The two lines a treatment is read in, where it is listed without its sheet.
+ * The three lines a treatment is read in, where it is listed without its
+ * sheet: the title, the kind, and the next date — each for a line of its own.
  *
  * **The name leads, because it is what the tutor typed and recognises** —
  * "Milbemax 125mg", off the box in the cupboard — and the kind's label is the
- * category it belongs to, with the next date when there is one. A treatment
- * with no name (it is optional, and often unremembered) leads with the label
- * instead, and then has only the date to add: saying the kind twice would be
- * furniture. A treatment with no `next_due_on` says only its kind — a one-off
- * is done, not pending.
+ * category it belongs to. A treatment with no name (it is optional, and often
+ * unremembered) leads with the label instead and has no `kind` line: saying
+ * it twice would be furniture. A treatment with no `next_due_on` has no `next`
+ * line — a one-off is done, not pending.
+ *
+ * **Separate fields rather than one joined string, because the break between
+ * them is the point.** Joined with " · " the line wrapped wherever the phone's
+ * width fell, and left a year alone on its own line.
  */
 export function describeTreatment(row: PetTreatmentRow): {
   title: string;
-  detail: string | null;
+  kind: string | null;
+  next: string | null;
 } {
   const label = treatmentLabel(row.kind as TreatmentKind);
   const next = row.next_due_on
-    ? `próxima ${shortDay(row.next_due_on, row.administered_on)}`
+    ? `Próxima ${shortDay(row.next_due_on, row.administered_on)}`
     : null;
   const name = row.name?.trim();
 
-  if (name) {
-    return { title: name, detail: next ? `${label} · ${next}` : label };
-  }
-  return { title: label, detail: next };
+  if (name) return { title: name, kind: label, next };
+  return { title: label, kind: null, next };
 }
 
 export function validateTreatment(

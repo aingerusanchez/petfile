@@ -300,7 +300,8 @@ export default function Home() {
    */
   const [markedEvents, setMarkedEvents] = useState<PetEventRow[] | null>(null);
   /**
-   * Every treatment the pet has had, for the day's foot and the calendar.
+   * Every treatment the pet has had, for the day's TRATAMIENTOS section and
+   * the calendar.
    *
    * **The whole history, once, not one request per day.** There are a handful
    * a year and `treatmentsFor` is already the request Salud makes; asking for
@@ -309,8 +310,9 @@ export default function Home() {
    * the calendar's marks and its vaccine watermarks — one read feeding all
    * three, which is also why they cannot disagree.
    *
-   * Null until the first answer, so a day does not briefly claim to be empty
-   * while the treatments are still on their way.
+   * Null until the first answer, and the section stays absent until then:
+   * nothing is drawn for a read that has not come back, and the log below
+   * does not wait for it.
    */
   const [treatments, setTreatments] = useState<{
     rows: PetTreatmentRow[];
@@ -483,7 +485,7 @@ export default function Home() {
    * The result is set from the promise, never in the effect body, so none of
    * this is the cascading render `react-hooks/set-state-in-effect` reports.
    * A failed read is kept with its message and the rows it had: see where the
-   * day says it could not look.
+   * section says it could not look.
    */
   const readTreatments = useCallback(
     async (isCancelled: () => boolean) => {
@@ -512,11 +514,12 @@ export default function Home() {
   /**
    * Everything the screen reads, read again.
    *
-   * **The foot of the day comes back with the rest of it.** `attempt` drives
-   * the pet, the log and the calendar's window, while the treatments hang off
+   * **The treatments come back with the rest of it.** `attempt` drives the
+   * pet, the log and the calendar's window, while the treatments hang off
    * focus and the pet's id — so a tutor whose connection came back and who
-   * pressed the screen's Reintentar got everything except the foot of the
-   * day, which went on showing its own error behind its own second button.
+   * pressed the screen's Reintentar got everything except the treatments
+   * section, which went on showing its own error behind its own second
+   * button.
    * That reads as the retry not having worked. The treatments keep that small
    * Reintentar for the case where they are the only thing that failed.
    *
@@ -808,17 +811,6 @@ export default function Home() {
     editing.event !== null &&
     editing.event.id === runningWalk?.id;
 
-  /**
-   * The log's waiting state, which two branches reach for: the day's rows on
-   * their way, and a day with no rows whose treatments have not answered yet.
-   * One element so the two cannot drift apart.
-   */
-  const logSkeleton = (
-    <Group testID="home-log-skeleton" title="Registro">
-      <LogSkeleton />
-    </Group>
-  );
-
   return (
     <Screen
       scroll
@@ -943,22 +935,71 @@ export default function Home() {
         />
       )}
 
-      {/* **The log waits for the events and for nothing else.** The
-          treatments are a second request on their own schedule, bounded by
-          the same twelve-second timeout as everything else, and putting them
-          in front of the first paint meant a day whose entries landed in
-          300ms could sit in its skeleton for twelve seconds — and, worse, an
-          events failure would wait behind them instead of offering its
-          Reintentar. The vaccines ride along, and their failure does not: the
-          rows paint as they arrive and the foot of the day appears underneath
-          when it can. The one branch that does wait is the empty state,
-          below.
+      {/* **TRATAMIENTOS: context for reading the day, not an entry in it.**
+          A day with less activity than usual only connects to the vaccine that
+          left the dog drowsy if both are on screen at once — so this sits
+          between the day's measure (the goal block above) and the day's
+          stream (the log below), where it is read before the entries it
+          explains, rather than appended after them where it is read last, if
+          at all. The log reads forwards and everything in it has an hour; an
+          hourless row inside it was always a guest, and it is the reason the
+          section is a sibling and not a foot.
+
+          **A section of its own, so it owns its own states.** Nothing is
+          drawn while the treatments are still unread, and nothing on a day
+          that has none: absent, not empty — an empty section would announce
+          a heading over a blank. They are one read held for every day, so
+          this is only ever a wait on the first visit. A failed read says so
+          here, with its own Reintentar, and the log below neither waits for
+          it nor knows about it. The rows are read-only and lead out of the
+          screen (the chevron says so): see `TreatmentEntry`. */}
+      {dayTreatments.length > 0 || treatments?.error ? (
+        <Group testID="home-treatments" title="Tratamientos">
+          {dayTreatments.map((row) => (
+            <TreatmentEntry
+              key={row.id}
+              row={row}
+              onPress={() => router.push(`/health?treatment=${row.id}`)}
+            />
+          ))}
+
+          {treatments?.error ? (
+            // What is missing is said, so the section is not silently shorter
+            // than it should be — and it may well be the only thing in it.
+            <View className="mb-5 flex-row items-center justify-between gap-3">
+              <Text
+                testID="home-treatments-error"
+                accessibilityLiveRegion="polite"
+                className="min-w-0 flex-1 text-xs text-error"
+              >
+                No he podido leer los tratamientos de este día.
+              </Text>
+              <Button
+                testID="home-treatments-retry"
+                label="Reintentar"
+                variant="link"
+                onPress={() => void readTreatments(() => false)}
+              />
+            </View>
+          ) : null}
+        </Group>
+      ) : null}
+
+      {/* **The log waits for the events and for nothing else.** The treatments
+          are a second request on their own schedule, bounded by the same
+          twelve-second timeout as everything else, and putting them in front
+          of the first paint meant a day whose entries landed in 300ms could
+          sit in its skeleton for twelve seconds — and, worse, an events
+          failure would wait behind them instead of offering its Reintentar.
+          The rows paint as they arrive.
 
           The waiting state fills the slots the rows will fill: see
           `LogSkeleton`. The title is the real word, because it is true before
           the rows land. */}
       {loading ? (
-        logSkeleton
+        <Group testID="home-log-skeleton" title="Registro">
+          <LogSkeleton />
+        </Group>
       ) : logError ? (
         <Group testID="home-log-error">
           <Text accessibilityLiveRegion="polite" className="mb-5 text-error">
@@ -972,54 +1013,28 @@ export default function Home() {
             />
           </View>
         </Group>
-      ) : events.length === 0 && dayTreatments.length === 0 ? (
-        treatments === null ? (
-          // **The empty state is the one thing that has to wait.** "Ese día
-          // no se apuntó nada" over a day the vet visited is exactly the lie
-          // this feature removes, and until the treatments answer the screen
-          // does not know whether the day is empty. Everything else renders
-          // from the events alone; this branch holds the skeleton a moment
-          // longer rather than saying something it may have to take back.
-          logSkeleton
-        ) : treatments.error ? (
-          // **Not the empty state.** A day whose treatments could not be read
-          // may well have one, and "Ese día no se apuntó nada" over a day the
-          // vet visited is the lie this feature was written to stop telling.
-          <Group testID="home-treatments-error">
-            <Text accessibilityLiveRegion="polite" className="mb-5 text-error">
-              No he podido leer los tratamientos de este día.
-            </Text>
-            <View className="mb-5">
-              <Button
-                testID="home-treatments-retry"
-                label="Reintentar"
-                onPress={() => void readTreatments(() => false)}
-              />
-            </View>
-          </Group>
-        ) : (
-          <Group testID="home-empty">
-            {/* A past day is not still going, so it cannot say "todavía" — and
+      ) : events.length === 0 ? (
+        <Group testID="home-empty">
+          {/* A past day is not still going, so it cannot say "todavía" — and
               on a birthday the emptiest moment of the day is the one worth
               saying something warm in. */}
-            <Text className="mb-2 font-semibold text-text-primary">
-              {birthdayYears !== null && birthdayYears > 0
-                ? `${pet.name} cumple ${birthdayYears} ${birthdayYears === 1 ? "año" : "años"}`
-                : isToday
-                  ? "Todavía no hay nada registrado"
-                  : "Ese día no se apuntó nada"}
-            </Text>
-            <Text className="mb-5 text-balance text-text-tertiary">
-              {birthdayYears !== null && birthdayYears > 0
-                ? isToday
-                  ? "Nada registrado aún. ¿Un paseo por la playa 🏖️ o montaña ⛰️ para celebrarlo?"
-                  : "No hay registros de este día."
-                : isToday
-                  ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y lo recordaré.`
-                  : "Aún puedes registrar actividades para este día."}
-            </Text>
-          </Group>
-        )
+          <Text className="mb-2 font-semibold text-text-primary">
+            {birthdayYears !== null && birthdayYears > 0
+              ? `${pet.name} cumple ${birthdayYears} ${birthdayYears === 1 ? "año" : "años"}`
+              : isToday
+                ? "Todavía no hay nada registrado"
+                : "Ese día no se apuntó nada"}
+          </Text>
+          <Text className="mb-5 text-balance text-text-tertiary">
+            {birthdayYears !== null && birthdayYears > 0
+              ? isToday
+                ? "Nada registrado aún. ¿Un paseo por la playa 🏖️ o montaña ⛰️ para celebrarlo?"
+                : "No hay registros de este día."
+              : isToday
+                ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y lo recordaré.`
+                : "Aún puedes registrar actividades para este día."}
+          </Text>
+        </Group>
       ) : (
         <Group
           testID="home-log"
@@ -1037,56 +1052,6 @@ export default function Home() {
               }
             />
           ))}
-
-          {/* **The foot of the day: what Salud recorded, read-only.** A
-              treatment is written in Salud because the app computes a due date
-              from it, but it is also something that happened today, and a
-              tutor home from the vet had to type it a second time here — two
-              rows for one fact, one of which would go stale the moment the
-              dose was corrected in the other. This is a read of the first, so
-              there is nothing to go stale.
-
-              **Under a hairline, after the timed entries.** It has no hour to
-              sort by and these are not the same kind of row: the timed
-              entries open their own sheet here, these lead out of the
-              screen — which is what the chevron says. The hairline is only
-              drawn when there is something above it to separate from. */}
-          {dayTreatments.length > 0 ? (
-            <View
-              testID="home-treatments"
-              className={
-                events.length > 0 ? "border-t border-border-default pt-5" : ""
-              }
-            >
-              {dayTreatments.map((row) => (
-                <TreatmentEntry
-                  key={row.id}
-                  row={row}
-                  onPress={() => router.push(`/health?treatment=${row.id}`)}
-                />
-              ))}
-            </View>
-          ) : null}
-
-          {treatments?.error ? (
-            // The events above are fine and stay; what is missing is said, so
-            // the foot of the day is not silently shorter than it should be.
-            <View className="mb-5 flex-row items-center justify-between gap-3">
-              <Text
-                testID="home-treatments-error"
-                accessibilityLiveRegion="polite"
-                className="min-w-0 flex-1 text-xs text-error"
-              >
-                No he podido leer los tratamientos de este día.
-              </Text>
-              <Button
-                testID="home-treatments-retry"
-                label="Reintentar"
-                variant="link"
-                onPress={() => void readTreatments(() => false)}
-              />
-            </View>
-          ) : null}
         </Group>
       )}
 
@@ -1187,7 +1152,17 @@ export default function Home() {
 }
 
 /**
- * A treatment on the day's log: read here, written in Salud.
+ * A treatment in the day's TRATAMIENTOS section: read here, written in Salud.
+ *
+ * **Three lines, each its own: the name, the kind, the next date.** One line
+ * of "Desparasitación (Int.) · próxima 12 ene 2027" wrapped on the phone and
+ * left "2027" alone on a second line — the one number the tutor reads the row
+ * for. The kind stays, because more treatment types are coming and dropping
+ * information to fix a wrap is the wrong trade; and `text-wrap: balance` is no
+ * way out, since the native CSS compiler discards it (it works in the browser
+ * and does nothing on the device). A deliberate break is the only fix that
+ * holds on both, and it is the same on every row, so a column of them reads as
+ * a column.
  *
  * **No hour, so the left column is the kind's glyph alone.** `administered_on`
  * is a date and nobody wrote a time down; a clock reading here would be
@@ -1213,7 +1188,7 @@ function TreatmentEntry({
   row: PetTreatmentRow;
   onPress: () => void;
 }) {
-  const { title, detail } = describeTreatment(row);
+  const { title, kind, next } = describeTreatment(row);
   const Glyph = TREATMENT_ICONS[row.kind as TreatmentKind];
 
   return (
@@ -1221,7 +1196,7 @@ function TreatmentEntry({
       testID={`home-treatment-${row.id}`}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={[title, detail].filter(Boolean).join(", ")}
+      accessibilityLabel={[title, kind, next].filter(Boolean).join(", ")}
       accessibilityHint="Ábrelo en Salud para corregirlo o borrarlo"
       style={{ minHeight: TOUCH_TARGET }}
       className="mb-5 flex-row items-start gap-3 active:opacity-70"
@@ -1238,7 +1213,8 @@ function TreatmentEntry({
       </View>
       <View className="min-w-0 flex-1">
         <Text className="font-semibold text-text-primary">{title}</Text>
-        {detail ? <Text className="text-text-secondary">{detail}</Text> : null}
+        {kind ? <Text className="text-text-secondary">{kind}</Text> : null}
+        {next ? <Text className="text-text-secondary">{next}</Text> : null}
       </View>
       <View
         className="shrink-0 self-center"

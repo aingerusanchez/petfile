@@ -425,21 +425,26 @@ describe("treatmentsSince", () => {
 });
 
 describe("describeTreatment", () => {
-  it("leads with the name and follows with the kind and the next date", () => {
+  it("gives the name, the kind and the next date a line each", () => {
     expect(
       describeTreatment(
         given("deworming", "Milbemax 125mg", "2026-10-15", "2026-10-30"),
       ),
     ).toEqual({
       title: "Milbemax 125mg",
-      detail: "Desparasitación (Int.) · próxima 30 oct",
+      kind: "Desparasitación (Int.)",
+      next: "Próxima 30 oct",
     });
   });
 
-  it("says only the kind when nothing is scheduled after it", () => {
+  it("has no third line when nothing is scheduled after it", () => {
     expect(
       describeTreatment(given("deworming", "Milbemax", "2026-10-15", null)),
-    ).toEqual({ title: "Milbemax", detail: "Desparasitación (Int.)" });
+    ).toEqual({
+      title: "Milbemax",
+      kind: "Desparasitación (Int.)",
+      next: null,
+    });
   });
 
   it("names the year when the next one falls in another", () => {
@@ -448,16 +453,16 @@ describe("describeTreatment", () => {
     // beside a day of the month reads as the 27th.
     expect(
       describeTreatment(given("vaccine", "Rabia", "2026-10-15", "2027-01-14"))
-        .detail,
-    ).toBe("Vacuna · próxima 14 ene 2027");
+        .next,
+    ).toBe("Próxima 14 ene 2027");
   });
 
   it("does not repeat the kind when there is no name to lead with", () => {
     expect(
       describeTreatment(given("vaccine", null, "2026-10-15", "2026-11-01")),
-    ).toEqual({ title: "Vacuna", detail: "próxima 1 nov" });
+    ).toEqual({ title: "Vacuna", kind: null, next: "Próxima 1 nov" });
     expect(
       describeTreatment(given("vaccine", "  ", "2026-10-15", null)),
-    ).toEqual({ title: "Vacuna", detail: null });
+    ).toEqual({ title: "Vacuna", kind: null, next: null });
   });
 });

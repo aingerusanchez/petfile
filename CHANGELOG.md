@@ -25,21 +25,33 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   "Milbemax 125mg" en Salud, y ni el diario ni el calendario sabían nada: el
   mismo hecho se tecleaba otra vez como Medicación, y dos filas para un dato
   quedaban a un descuido de contradecirse en cuanto alguien corrigiera la dosis
-  en una sola. Ahora el pie del registro de ese día lista los tratamientos
-  puestos en él, **debajo de las entradas con hora y separados por una línea
-  fina**. Es una lectura de la misma fila, así que no hay segunda copia que
-  pueda quedarse vieja: corregir la dosis en Salud la corrige en el diario.
+  en una sola. Ahora cada día tiene una sección **TRATAMIENTOS** con los que se
+  pusieron en él. Es una lectura de la misma fila, así que no hay segunda copia
+  que pueda quedarse vieja: corregir la dosis en Salud la corrige en el diario.
+- **Está encima del registro, no dentro de él, y por eso.** Un día con menos
+  actividad de la habitual solo se entiende junto a la vacuna que dejó al
+  perro adormilado si las dos cosas se ven a la vez. **Un tratamiento no es una
+  entrada del día: es contexto para leerlo**, así que va entre la medida del
+  día (el objetivo) y su corriente (el registro), y no pegado detrás de ella.
+  El registro se lee hacia delante y todo lo que lleva tiene hora; una fila sin
+  hora dentro de él siempre fue una invitada. La sección solo existe en un día
+  que tiene tratamientos —ausente, no vacía—, y si no se pudieron leer lo dice
+  ella misma, con su Reintentar, sin tocar el registro.
 - **No tienen hora, y no se inventa una.** `administered_on` es un día, no un
   instante: nadie apuntó a qué hora fue, y ponerla delante sería mentir en una
   app cuya promesa es que el registro es cierto. La columna de la izquierda
   lleva solo el icono del tipo —el mismo de Salud, en el ámbar del anillo que
-  ese día lleva en el calendario— y la fila dice el nombre y debajo el tipo con
-  su próxima fecha: "Desparasitación (Int.) · próxima 14 ene" —con el año
-  entero cuando cae en otro, "próxima 14 ene 2027", porque dos cifras al lado
-  de un día del mes se leen como otro día—. Si no hay próxima, solo el tipo. **Es de solo lectura aquí, y un chevron lo dice:**
-  tocarla lleva a Salud, abierta sobre la hoja de ese tratamiento y no sobre la
-  pestaña, que es donde se corrige o se borra. El parámetro se suelta en cuanto
-  se usa, así que ir y volver no la reabre.
+  ese día lleva en el calendario— y la fila **ocupa tres líneas: el nombre, el
+  tipo y la próxima fecha**, cada una en la suya ("Milbemax 125mg" /
+  "Desparasitación (Int.)" / "Próxima 12 ene 2027"). En una sola línea se partía
+  donde caía el ancho del móvil y dejaba "2027" solo en la segunda, y quitar el
+  tipo para arreglarlo era perder información que va a hacer falta cuando haya
+  más clases de tratamiento. El año va entero cuando cae en otro, porque dos
+  cifras al lado de un día del mes se leen como otro día. Sin nombre, el tipo
+  hace de título; sin próxima, no hay tercera línea. **Es de solo lectura aquí,
+  y un chevron lo dice:** tocarla lleva a Salud, abierta sobre la hoja de ese
+  tratamiento y no sobre la pestaña, que es donde se corrige o se borra. El
+  parámetro se suelta en cuanto se usa, así que ir y volver no la reabre.
 - **El calendario marca el día de un tratamiento con el anillo de medicación.**
   Para una casilla un tratamiento es el mismo hecho que una Medicación —algo
   médico pasó ese día—, así que se suma a esa marca en vez de estrenar otra:
@@ -55,29 +67,24 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
 ### Cambiado
 
-- **Un día cuyo único registro es un tratamiento ya no dice que no pasó nada.**
-  La pantalla decidía que el día estaba vacío mirando solo las entradas con
-  hora, así que el día del Milbemax mostraba el tratamiento y a la vez
-  afirmaba "Ese día no se apuntó nada". Ahora el día está vacío cuando no hay ni
-  entradas ni tratamientos. Y si los tratamientos no se han podido leer, no se
-  dice "vacío" tampoco: se dice que no se han podido leer, con Reintentar.
 - **Los tratamientos se leen una vez, no al abrir el calendario.** Hasta ahora
   la lista solo se pedía al abrirlo, para pintar las vacunas; el diario la
   necesita siempre, así que se lee al entrar en la pestaña y cada vez que se
   vuelve a ella —que es como se entera de lo corregido en Salud— y alimenta a
-  la vez el pie del día, las marcas y las vacunas. Una sola lectura no puede
+  la vez la sección del día, las marcas y las vacunas. Una sola lectura no puede
   contradecirse a sí misma. Sigue sin haber tabla nueva ni migración.
 - **Reintentar vuelve a leerlo todo**, tratamientos incluidos. Recuperada la
   conexión, el botón de la pantalla traía la mascota, el registro y el
-  calendario y dejaba el pie del día roto con su propio botón aparte, que se
-  lee como que el reintento no funcionó.
+  calendario y dejaba la sección de tratamientos rota con su propio botón
+  aparte, que se lee como que el reintento no funcionó.
 - **El registro del día no espera a los tratamientos para pintarse.** Son dos
   peticiones a la vez, y poner la segunda por delante dejaba un día cuyas
   entradas habían llegado en un suspiro esperando hasta doce segundos —y, peor,
   escondía detrás de esa espera el aviso de que el registro no se había podido
-  leer, con su Reintentar—. Las entradas salen en cuanto llegan y el pie del
-  día aparece debajo cuando puede. Lo único que espera es decir que el día está
-  vacío, porque eso sí depende de la respuesta que falta.
+  leer, con su Reintentar—. Las entradas salen en cuanto llegan, la sección de
+  tratamientos aparece cuando puede, y un día sin entradas dice "Ese día no se
+  apuntó nada" como siempre: es cierto, no se apuntó nada en el diario, y el
+  tratamiento se ve encima como lo que es, otra cosa.
 
 ## [v0.11.0] — 2026-10-16
 
