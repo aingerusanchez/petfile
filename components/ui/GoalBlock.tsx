@@ -56,6 +56,18 @@ const RIPPLE_SCALE = 2.5;
 const RIPPLE_ALPHA = 0.6;
 
 /**
+ * The mark at the junction of the bar, in dp: how wide, how tall, and how far
+ * it stands above the track.
+ *
+ * **2 dp by 12 dp, centred on the junction**, so it stands 4 dp proud of the
+ * 4 dp track above and below. `TICK_RISE` is that overhang; the track's own
+ * height is spelled `h-[4px]` in the class list, for the reason given there.
+ */
+const TICK_WIDTH = 2;
+const TICK_HEIGHT = 12;
+const TICK_RISE = 4;
+
+/**
  * The transport glyph's box, in dp: the size of the Play and Square icons, and
  * of the box the spinner stands in for them in while the write is in flight.
  *
@@ -85,6 +97,35 @@ const GLYPH_SIZE = 16;
  * look hardest. A dot is the same size whatever the walk's length, so the
  * pulse moved there — before the measure, the way a session that is still
  * working is marked. The segment stays because it shows how much is accruing.
+ *
+ * **A tick marks where the recorded minutes end, and the segment alone could
+ * not.** Mist (`text-secondary`) and the segment's tone (`text-tertiary`)
+ * measure **1.71:1 against each other**, and on a real walk the tutor could not
+ * see where one stopped and the other began — DESIGN.md already records a
+ * 1.64:1 element as one that "did not read as a measure of anything". **A
+ * different colour is ruled out, by measurement rather than taste:** this bar
+ * speaks two tones only (Mist while it is read, Aqua as the conclusion),
+ * Aurora Boreal is reserved to three places, and every other tonal step in
+ * the palette lands in the same 1.16–1.71:1 band that already failed here and
+ * forced the chips to carry a weight change instead of a fill. **Nor can any
+ * treatment of the segment do it:** against a 3 h goal on a 327 dp bar it is
+ * 3.6 dp wide at two minutes, and colour, height or texture cannot be seen in
+ * 3.6 dp. A mark at the junction is visible whatever the segment's width.
+ *
+ * **A tick and not a round thumb, which was proposed first and rejected.**
+ * `Slider` draws the app's real slider as a thin track, an Aqua fill and a
+ * round 20 dp thumb at the end of that fill. A circle at the end of a fill on
+ * a thin track is the shape language for "drag me", and this bar does not
+ * drag. A 2 dp line is not a handle: on a track it reads as a point of
+ * reference, which is what it is. Do not round it off.
+ *
+ * **The tick does not animate.** The dot before the measure already pulses to
+ * say the walk is live; the tick answers a different question — how much of
+ * this is already recorded — and a pulse on it would say "live" twice. One
+ * thing moving, one thing still. It draws only while a walk runs and only
+ * where there is a bar, and **not once the goal is met**: the bar is then full
+ * and Aqua and there is no segment, so a mark at its right end would separate
+ * the recorded minutes from nothing and read as a cap on the bar.
  *
  * **The block renders with no goal too.** `exercise_goal_minutes` is nullable
  * and the activity question is optional, so gating the whole block on a goal
@@ -290,24 +331,51 @@ export function GoalBlock({
       </View>
 
       {goalMinutes !== null ? (
-        // `h-[4px]`, not `h-1`: the calendar draws this bar in miniature and
-        // sizes it in literal pixels, and 0.25rem resolves to 3.38dp on native.
-        <View className="h-[4px] flex-row overflow-hidden rounded-xl bg-surface">
-          <View
-            testID={testID ? `${testID}-bar` : undefined}
-            style={{ width: `${recorded}%` }}
-            className={`h-[4px] ${met ? "bg-accent" : "bg-text-secondary"}`}
-          />
-          {inProgress > 0 ? (
-            // Static, and hidden from a reader: the measure already says
-            // "De paseo". See the block's comment for why the pulse moved to
-            // the dot.
+        // The wrapper is the bar's own 4 dp and nothing else: the track keeps
+        // its `overflow-hidden`, which would clip the tick, so the tick is the
+        // wrapper's child and the track's sibling. It is absolutely placed, so
+        // it cannot move the bar or the block.
+        <View className="relative h-[4px]">
+          {/* `h-[4px]`, not `h-1`: the calendar draws this bar in miniature
+              and sizes it in literal pixels, and 0.25rem resolves to 3.38dp
+              on native. */}
+          <View className="h-[4px] flex-row overflow-hidden rounded-xl bg-surface">
             <View
+              testID={testID ? `${testID}-bar` : undefined}
+              style={{ width: `${recorded}%` }}
+              className={`h-[4px] ${met ? "bg-accent" : "bg-text-secondary"}`}
+            />
+            {inProgress > 0 ? (
+              // Static, and hidden from a reader: the measure already says
+              // "De paseo". See the block's comment for why the pulse moved to
+              // the dot.
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                aria-hidden
+                style={{ width: `${inProgress}%` }}
+                className="h-[4px] bg-text-tertiary"
+              />
+            ) : null}
+          </View>
+          {walkingSince && !met ? (
+            // Hidden from a reader the way the dot is: the measure says what
+            // the walk is, and a line has nothing to announce. Positioned from
+            // the same percentage the recorded fill is drawn at, so the two
+            // cannot disagree.
+            <View
+              testID={testID ? `${testID}-tick` : undefined}
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
               aria-hidden
-              style={{ width: `${inProgress}%` }}
-              className="h-[4px] bg-text-tertiary"
+              style={{
+                left: `${recorded}%`,
+                marginLeft: -TICK_WIDTH / 2,
+                top: -TICK_RISE,
+                width: TICK_WIDTH,
+                height: TICK_HEIGHT,
+              }}
+              className="absolute rounded-[1px] bg-text-primary"
             />
           ) : null}
         </View>

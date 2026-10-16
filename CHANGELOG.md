@@ -16,6 +16,40 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.14.1] — 2026-10-17
+
+### Arreglado
+
+- **La barra del objetivo no se veía dónde acababa lo ya apuntado.** Mientras un
+  paseo está en marcha la barra son dos tramos pegados: los minutos guardados en
+  gris claro y los del paseo en curso en un gris algo más oscuro, y entre los
+  dos hay **1,71:1**. En un paseo de verdad no se distinguía dónde terminaba uno
+  y empezaba el otro, que es el mismo fallo que ya costó una barra: un trazo de
+  1,64:1 "no se leía como una medida de nada". Contra un objetivo de 3 h el tramo
+  del paseo mide 3,6 dp a los dos minutos, así que ningún retoque del tramo
+  —color, altura, textura— se puede ver en 3,6 dp.
+- **Ahora hay una marca en la unión: un trazo vertical blanco de 2 dp de ancho y
+  12 de alto, centrado donde acaban los minutos guardados** y asomando 4 dp por
+  encima y por debajo de la barra. Se ve igual con el tramo de 3,6 dp que con
+  el de 38. Solo sale mientras hay un paseo en marcha y solo si el animal tiene
+  objetivo, o sea, solo cuando hay una barra con dos tramos que separar.
+- **No es un color nuevo, y no se pudo.** Esta barra habla en dos tonos —gris
+  mientras se lee, Aqua como conclusión—, el violeta está reservado a tres
+  sitios y cualquier otro escalón de la paleta cae en la misma franja de
+  1,16 a 1,71:1 que ya falló aquí y obligó a las fichas a distinguirse por el
+  peso y no por el relleno.
+- **No es un círculo, aunque fue lo primero que se propuso.** El deslizador de
+  la app es una pista fina, un relleno Aqua y un círculo de 20 dp al final del
+  relleno, que es la forma de "arrástrame", y esta barra no se arrastra. Un
+  trazo de 2 dp no es un asa: sobre una pista se lee como un punto de
+  referencia, que es lo que es.
+- **No se mueve.** El punto antes de la medida ya late para decir que el paseo
+  sigue; la marca responde a otra pregunta —cuánto de esto está ya guardado— y
+  si latiera dijera "en vivo" dos veces. Una cosa se mueve y la otra se queda.
+- **Con el objetivo ya cumplido antes de empezar no sale.** La barra está llena
+  y en Aqua y no hay tramo en curso, así que una marca en su extremo derecho
+  separaría lo guardado de nada y se leería como el tope de la barra.
+
 ## [v0.14.0] — 2026-10-17
 
 ### Nuevo
