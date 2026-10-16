@@ -16,6 +16,42 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.11.0] — 2026-10-16
+
+### Cambiado
+
+- **La duración de un paseo ya no se teclea, y los botones -15 / +15 se
+  van.** La duración podía escribir en una hora, y de ese acoplamiento salieron
+  los dos defectos graves del cronómetro: uno destruía el inicio real de un
+  paseo en marcha y el otro lo iba retrasando a cada pulsación. En tres semanas
+  de uso real nadie tocó los botones; el camino rápido resultó ser teclear las
+  dos horas. El campo **sigue ahí y se lee solo**: se calcula a partir de DESDE
+  y HASTA, con el aspecto de un valor y no de un control apagado. Un paseo que
+  ya estaba guardado con una duración y una sola hora —el que cruzó la
+  medianoche— se abre y se guarda igual que antes.
+- **Un paseo en marcha no deja cambiar sus horas.** Con la hoja abierta sobre
+  el paseo que este móvil tiene en curso, DESDE, HASTA y la duración quedan
+  bloqueados, y los relojes de al lado también: un campo bloqueado cuyo reloj
+  se abre es peor que no bloquearlo. La nota y la kaka siguen libres, que es
+  para lo que se toca la fila a mitad de paseo. El precio, aceptado: si se
+  pulsó Empezar cinco minutos tarde, no se corrige hasta parar el paseo.
+- **"En marcha" lleva el acento**, como la hora y el icono que tiene al lado.
+  Las palabras no cambian.
+
+### Arreglado
+
+- **Parar un paseo justo después de anotarlo podía borrarlo.** Al parar dentro
+  del primer minuto, la app decide si el paseo es un toque por error mirando la
+  fila tal como llegó la última vez, y entre guardar la nota y recargar el día
+  —casi siempre menos de un segundo— esa fila aún no tenía la nota. Ahora
+  guardar la hoja sobre el paseo en marcha lo cuenta como escrito, y se cierra
+  con un minuto en vez de desaparecer.
+- **Un DESDE vaciado dejaba una duración que no se podía quitar.** Con el campo
+  de duración ya sin teclado, vaciar el inicio y no volver a escribirlo
+  archivaba el paseo con la hora de vuelta como inicio y la duración vieja
+  detrás. Ahora la duración se va con el inicio de donde se leyó; con un DESDE
+  y sin HASTA se queda, porque ahí la duración es el dato.
+
 ## [v0.10.0] — 2026-10-15
 
 ### Nuevo
