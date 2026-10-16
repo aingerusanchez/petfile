@@ -1604,9 +1604,15 @@ function EntrySheet({
 
             {/* **A reading, not a field.** The two times above are what the
                 tutor types and this is what they come to, so it is not
-                editable and says nothing to type. It stays in the primary
-                tone on purpose: a value drawn like a disabled control invites
-                the tutor to fight it. It takes only the width its value
+                editable and says nothing to type. On a finished walk it
+                stays in the primary tone on purpose: a value drawn like a
+                disabled control invites the tutor to fight it.
+
+                **On a walk in progress it joins the lock.** DESDE and HASTA
+                go tertiary there, and the one field that is *always* locked
+                reading as the most editable of the three said the opposite
+                of what is true. Locked is a property of the moment, so the
+                three take it together. It takes only the width its value
                 needs. */}
             <View className="mb-5" style={{ width: 140 }}>
               <TextField
@@ -1614,6 +1620,7 @@ function EntrySheet({
                 label="Duración"
                 value={durationText}
                 editable={false}
+                disabled={running}
                 placeholder="—"
                 error={durationError}
                 className=""

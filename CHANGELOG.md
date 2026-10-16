@@ -31,7 +31,9 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   medianoche— se abre y se guarda igual que antes.
 - **Un paseo en marcha no deja cambiar sus horas.** Con la hoja abierta sobre
   el paseo que este móvil tiene en curso, DESDE, HASTA y la duración quedan
-  bloqueados, y los relojes de al lado también: un campo bloqueado cuyo reloj
+  bloqueados —y se ven bloqueados los tres, que la duración se quedara con el
+  tono normal hacía que el único campo que nunca se teclea pareciera el más
+  editable—, y los relojes de al lado también: un campo bloqueado cuyo reloj
   se abre es peor que no bloquearlo. La nota y la kaka siguen libres, que es
   para lo que se toca la fila a mitad de paseo. El precio, aceptado: si se
   pulsó Empezar cinco minutos tarde, no se corrige hasta parar el paseo.
