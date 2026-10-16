@@ -16,7 +16,58 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
-## [v0.14.1] — 2026-10-17
+## [v0.13.0] — 2026-10-17
+
+### Nuevo
+
+- **Una nota puede llevar una lista numerada.** El renderizador de notas
+  conocía tres formas —un título, una lista con guiones y un párrafo— y un
+  `1. Primero` se pintaba como una frase corrida: los números se leían en medio
+  de la línea y nada separaba un paso del siguiente. La pauta de un veterinario
+  es tan probable que venga numerada como con guiones, y la enfermedad que
+  viene después va a guardar esa pauta en un campo de Markdown, así que la
+  cuarta forma entra ahora, simétrica a la de guiones. En el texto sirve lo
+  mismo que ya servía: una línea en blanco separa bloques y una línea que
+  continúa el paso anterior se pega a él.
+- **Los números que se ven son los de la posición, no los que se tecleó.** Una
+  lista escrita 1, 1, 1 —que es lo que Markdown permite y lo que se teclea con
+  prisa en el móvil— o 1, 3, 4 después de borrar un paso se lee 1, 2, 3. Se
+  decidió así a propósito: dibujar el número tecleado dejaría en pantalla una
+  pauta que dice "1. 3. 4." a quien le está dando la medicina al perro, y
+  nadie lo notaría hasta ese momento. Quien lo vea y piense que es un olvido
+  tiene aquí la razón.
+- **La ayuda del formato enseña la lista numerada**, con el mismo ejemplo y su
+  resultado lado a lado que ya tienen los demás.
+- **Una lista empieza con uno o dos dígitos, y un año sigue siendo un año.**
+  Sin ese tope, un párrafo que empieza por `2026. Un año raro` se leía como una
+  lista de un solo elemento — y como el número se dibuja por posición, el 2026
+  desaparecía de la pantalla y en su sitio quedaba un `1.`. Noventa y nueve
+  pasos son más de los que ha tenido ninguna pauta; un número de cuatro cifras
+  seguido de un punto es una fecha mucho más a menudo que una lista.
+
+- **Una nota dice cuánto lleva escrito, y tiene un tope de 500 caracteres.**
+  Hasta ahora ninguna decía nada: la de la hoja del día paraba en 200 sin
+  avisar y las otras tres no paraban nunca, así que se podía pegar la carta
+  entera de una clínica y la app la guardaba sin que nadie viera lo lejos que
+  estaba de lo que ahí se escribe. La nota más larga que hay apuntada ronda los
+  200 caracteres, así que 500 sobra para lo que se escribe y es un techo de
+  verdad para lo que no. Un contador que nunca se puede alcanzar es decoración;
+  este sí.
+- **El contador sale debajo del campo, a la derecha, y solo cuando ya queda poco.**
+  `412/500`, desde el 80% del límite. Fuera del campo porque esa esquina por
+  dentro ya la ocupa la ayuda del formato, y dos cosas en una esquina son una
+  de más. Tarde y no siempre, porque un `0/500` debajo de cada nota de la app
+  sería ruido permanente para la nota de cada cien que se acerca al tope; a 400
+  quedan cien caracteres, un par de frases para terminar lo que se estaba
+  diciendo. En gris hasta que el campo se llena y en ámbar desde entonces.
+- **Al llegar al límite el campo deja de aceptar, no avisa y sigue aceptando.**
+  Un límite que avisa es una sugerencia. Un texto pegado que no cabe se corta
+  en el sitio donde se pegó, no al final de la nota, así que lo que ya había
+  escrito nunca es lo que se pierde.
+- **Lo llevan los cuatro campos de texto libre de varias líneas que son
+  notas:** la nota de la hoja del día (paseo, comida, medicación, enfermedad),
+  la del peso, la del tratamiento y el horario de la clínica. La dirección es de
+  varias líneas pero no es una nota, y no lo lleva.
 
 ### Arreglado
 
@@ -50,34 +101,6 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   y en Aqua y no hay tramo en curso, así que una marca en su extremo derecho
   separaría lo guardado de nada y se leería como el tope de la barra.
 
-## [v0.14.0] — 2026-10-17
-
-### Nuevo
-
-- **Una nota dice cuánto lleva escrito, y tiene un tope de 500 caracteres.**
-  Hasta ahora ninguna decía nada: la de la hoja del día paraba en 200 sin
-  avisar y las otras tres no paraban nunca, así que se podía pegar la carta
-  entera de una clínica y la app la guardaba sin que nadie viera lo lejos que
-  estaba de lo que ahí se escribe. La nota más larga que hay apuntada ronda los
-  200 caracteres, así que 500 sobra para lo que se escribe y es un techo de
-  verdad para lo que no. Un contador que nunca se puede alcanzar es decoración;
-  este sí.
-- **El contador sale debajo del campo, a la derecha, y solo cuando ya queda poco.**
-  `412/500`, desde el 80% del límite. Fuera del campo porque esa esquina por
-  dentro ya la ocupa la ayuda del formato, y dos cosas en una esquina son una
-  de más. Tarde y no siempre, porque un `0/500` debajo de cada nota de la app
-  sería ruido permanente para la nota de cada cien que se acerca al tope; a 400
-  quedan cien caracteres, un par de frases para terminar lo que se estaba
-  diciendo. En gris hasta que el campo se llena y en ámbar desde entonces.
-- **Al llegar al límite el campo deja de aceptar, no avisa y sigue aceptando.**
-  Un límite que avisa es una sugerencia. Un texto pegado que no cabe se corta
-  en el sitio donde se pegó, no al final de la nota, así que lo que ya había
-  escrito nunca es lo que se pierde.
-- **Lo llevan los cuatro campos de texto libre de varias líneas que son
-  notas:** la nota de la hoja del día (paseo, comida, medicación, enfermedad),
-  la del peso, la del tratamiento y el horario de la clínica. La dirección es de
-  varias líneas pero no es una nota, y no lo lleva.
-
 ### Cambiado
 
 - **La nota de la hoja del día admitía 200 caracteres y ahora admite 500.**
@@ -92,29 +115,6 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   al escribirla en la vista mientras el estado conserva el texto completo, y lo
   que se guardase ya no sería lo que se vio. Por eso el tope de la plataforma
   solo se aplica mientras el texto cabe, y pasado eso lo hace la app.
-
-## [v0.13.0] — 2026-10-17
-
-### Nuevo
-
-- **Una nota puede llevar una lista numerada.** El renderizador de notas
-  conocía tres formas —un título, una lista con guiones y un párrafo— y un
-  `1. Primero` se pintaba como una frase corrida: los números se leían en medio
-  de la línea y nada separaba un paso del siguiente. La pauta de un veterinario
-  es tan probable que venga numerada como con guiones, y la enfermedad que
-  viene después va a guardar esa pauta en un campo de Markdown, así que la
-  cuarta forma entra ahora, simétrica a la de guiones. En el texto sirve lo
-  mismo que ya servía: una línea en blanco separa bloques y una línea que
-  continúa el paso anterior se pega a él.
-- **Los números que se ven son los de la posición, no los que se tecleó.** Una
-  lista escrita 1, 1, 1 —que es lo que Markdown permite y lo que se teclea con
-  prisa en el móvil— o 1, 3, 4 después de borrar un paso se lee 1, 2, 3. Se
-  decidió así a propósito: dibujar el número tecleado dejaría en pantalla una
-  pauta que dice "1. 3. 4." a quien le está dando la medicina al perro, y
-  nadie lo notaría hasta ese momento. Quien lo vea y piense que es un olvido
-  tiene aquí la razón.
-- **La ayuda del formato enseña la lista numerada**, con el mismo ejemplo y su
-  resultado lado a lado que ya tienen los demás.
 
 ### Lo que sigue fuera
 
