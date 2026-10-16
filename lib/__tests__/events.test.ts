@@ -8,6 +8,7 @@ import {
   minutesBetween,
   monthBounds,
   marksForMonths,
+  marksWindowRows,
   monthsBackStart,
   shiftMinutes,
   startWithinDay,
@@ -417,6 +418,31 @@ describe("marksForMonths", () => {
       hasIncident: false,
       hasMedication: true,
     });
+  });
+});
+
+describe("marksWindowRows", () => {
+  const row = { id: "a" } as PetEventRow;
+
+  it("is the rows when the read worked", () => {
+    expect(marksWindowRows({ events: [row], error: null })).toEqual([row]);
+    // An empty window that was read is an answer: nothing was logged.
+    expect(marksWindowRows({ events: [], error: null })).toEqual([]);
+  });
+
+  it("is null when the read failed, so nothing is marked at all", () => {
+    // `eventsForMonths` resolves with [] on failure. Stored as it came, that
+    // empty list would have `marksForMonths` fold the treatments in.
+    const failed = marksWindowRows({ events: [], error: "sin conexión" });
+    expect(failed).toBeNull();
+    expect(
+      marksForMonths(
+        failed,
+        [{ administered_on: "2026-09-12" } as PetTreatmentRow],
+        new Date(2026, 9, 16),
+        12,
+      ).size,
+    ).toBe(0);
   });
 });
 

@@ -78,10 +78,6 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   leer, con su Reintentar—. Las entradas salen en cuanto llegan y el pie del
   día aparece debajo cuando puede. Lo único que espera es decir que el día está
   vacío, porque eso sí depende de la respuesta que falta.
-- **Reintentar vuelve a leerlo todo**, tratamientos incluidos. Recuperada la
-  conexión, el botón de la pantalla traía la mascota, el registro y el
-  calendario y dejaba el pie del día roto con su propio botón aparte, que se
-  lee como que el reintento no funcionó.
 
 ## [v0.11.0] — 2026-10-16
 

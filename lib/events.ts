@@ -207,6 +207,30 @@ export function summariseMonth(
 }
 
 /**
+ * The rows the grid may be drawn from, out of one answer from
+ * `eventsForMonths` — or null when that answer was a failure.
+ *
+ * **A failed read is "not read", not "none".** `eventsForMonths` resolves
+ * with `events: []` and an `error` rather than rejecting, and storing that
+ * empty array would make `marksForMonths` fold the treatments in over a
+ * window nobody looked at: every treatment day drawn as "objetivo sin
+ * conseguir, con medicación", beneath the very line saying the marks could not
+ * be read. The same falsehood `marksForMonths` refuses for the opening frame,
+ * arriving through the error path instead. A grid that cannot say what was
+ * walked marks nothing and says so.
+ *
+ * Only a read that failed gets this. A reopen keeps the previous window's rows
+ * until the new answer lands, which is harmless — they were read — and it is
+ * the caller's job not to clear them.
+ */
+export function marksWindowRows(read: {
+  events: PetEventRow[];
+  error: string | null;
+}): PetEventRow[] | null {
+  return read.error ? null : read.events;
+}
+
+/**
  * Everything the calendar's grid is drawn from: a window of events, and the
  * treatments that fall inside the same window.
  *

@@ -62,6 +62,7 @@ import {
   formatTimeOfDay,
   logEvent,
   marksForMonths,
+  marksWindowRows,
   MAX_WALK_MINUTES,
   minutesBetween,
   parseTimeOfDay,
@@ -295,7 +296,7 @@ export default function Home() {
    * than tidiness: the treatments are usually already in hand when the
    * calendar opens, and an empty array here would have the grid draw every
    * treatment day as "logged, short of the goal" before it had read a single
-   * walk.
+   * walk. **A failed read leaves it null too** — see `marksWindowRows`.
    */
   const [markedEvents, setMarkedEvents] = useState<PetEventRow[] | null>(null);
   /**
@@ -427,10 +428,14 @@ export default function Home() {
     // The reset lands with the result rather than before the request: a
     // synchronous setState in an effect body is the cascading render
     // `react-hooks/set-state-in-effect` exists to stop.
-    eventsForMonths(pet.id, today, MARKED_MONTHS).then(({ events, error }) => {
+    eventsForMonths(pet.id, today, MARKED_MONTHS).then((read) => {
       if (cancelled) return;
-      setMarkedEvents(events);
-      setMarksError(error);
+      // A failed read leaves this null, not an empty list: the grid then
+      // marks nothing and says it could not look, instead of drawing every
+      // treatment day over a window nobody read. A reopen is untouched — the
+      // previous rows stay until this answer replaces them.
+      setMarkedEvents(marksWindowRows(read));
+      setMarksError(read.error);
     });
     return () => {
       cancelled = true;

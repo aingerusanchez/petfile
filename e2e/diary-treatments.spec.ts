@@ -327,12 +327,43 @@ test("a day with nothing on it waits for the treatments before saying so", async
   ]);
 
   const release = await parkTreatments(page);
-  await openYesterday(page);
+
+  await page.goto("/");
+  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
+
+  // **Stand after the events have landed, not before.** Asserting the
+  // skeleton straight after navigating can pass during the ordinary `loading`
+  // phase, when nothing has answered yet — and `home-empty` is absent then
+  // for the same reason, so the spec would hold under the very regression it
+  // guards (the empty state drawn before the treatments reply). So wait for
+  // yesterday's `pet_events` GET to respond, which is the answer that used to
+  // be enough to say "vacío", and let two frames render it.
+  const from = new Date(
+    yesterday.getFullYear(),
+    yesterday.getMonth(),
+    yesterday.getDate(),
+  ).toISOString();
+  const eventsAnswered = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      response.url().includes("/rest/v1/pet_events") &&
+      decodeURIComponent(response.url()).includes(from),
+  );
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toContainText("Ayer");
+  await eventsAnswered;
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
 
   // The one branch that has to wait: "Ese día no se apuntó nada" over a day
-  // the vet visited is the lie this feature removes.
-  await expect(page.getByTestId("home-log-skeleton")).toBeVisible();
+  // the vet visited is the lie this feature removes. Absent first, and
+  // checked at once: this is the assertion that fails under the regression.
   await expect(page.getByTestId("home-empty")).toHaveCount(0);
+  await expect(page.getByTestId("home-log-skeleton")).toBeVisible();
 
   release();
   await expect(page.getByTestId("home-treatments")).toContainText(
@@ -463,6 +494,50 @@ test("the calendar marks nothing until the events for the window arrive", async 
     page
       .getByTestId("home-calendar")
       .getByLabel(`${yesterday.getDate()}, objetivo conseguido, con medicación`)
+      .first(),
+  ).toBeVisible();
+});
+
+test("a calendar whose window could not be read marks nothing, and says so", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2ETreatments(petId, [
+    {
+      kind: "deworming",
+      name: "Milbemax 125mg",
+      administeredOn: iso(yesterday),
+    },
+  ]);
+
+  await openYesterday(page);
+  await expect(page.getByTestId("home-treatments")).toBeVisible();
+
+  // Only the calendar's read fails: the day was read before this route
+  // existed. A 500 is an answer, so it fails at once.
+  await page.route("**/rest/v1/pet_events*", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "e2e: the window cannot be read" }),
+    });
+  });
+
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("home-calendar")).toBeVisible();
+  await expect(page.getByTestId("calendar-marks-error")).toBeVisible();
+
+  // The treatments are in hand, and the grid has not read a single walk, so
+  // drawing the ring would also say "objetivo sin conseguir" about a window
+  // nobody looked at — beneath the line saying it could not look.
+  await expect(page.getByTestId("calendar-mark-medication")).toHaveCount(0);
+  await expect(
+    page
+      .getByTestId("home-calendar")
+      .getByLabel(`${yesterday.getDate()}, sin registros`)
       .first(),
   ).toBeVisible();
 });
