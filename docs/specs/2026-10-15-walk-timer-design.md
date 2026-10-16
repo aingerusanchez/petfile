@@ -49,7 +49,9 @@ encodes. The resulting invariant:
 is now read-only, so nothing can type one: the rows that say "typed" are
 reachable only for lengths already stored, and the shape PRODUCT.md calls "we
 got home at nine and were out about forty-five minutes" can no longer be
-entered. `save` still honours all six — the table describes what the column
+entered — weighed and accepted by the tutor on 2026-10-16, on the grounds that
+working the departure time out from the length is one subtraction, against a
+class of defect that twice rewrote a real walk's start. `save` still honours all six — the table describes what the column
 accepts, and leaving it intact is what keeps the change reversible — but a
 builder reading this should not go looking for the control that fills them.
 
