@@ -39,6 +39,21 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   pulsó Empezar cinco minutos tarde, no se corrige hasta parar el paseo.
 - **"En marcha" lleva el acento**, como la hora y el icono que tiene al lado.
   Las palabras no cambian.
+- **El botón del paseo se lee como un botón.** Con la letra al 130 % era texto
+  en Aqua junto a texto en blanco, y nada decía que se pudiera pulsar. Ahora es
+  una píldora: **con borde cuando no hay paseo, rellena mientras lo hay**, la
+  misma regla que ya aplican el día seleccionado, la pestaña activa y el tramo
+  elegido de un selector —lo elegido es lo relleno—. El borde está siempre, de
+  modo que al rellenarse no cambia de tamaño.
+- **Un punto que late sustituye a la barra que respiraba.** Contra un objetivo
+  de 3 h en una barra de 327 dp, el tramo del paseo en marcha mide 3,6 dp a los
+  dos minutos y 38 a los veintiuno: ahí no cabe una animación, y justo en los
+  primeros minutos es cuando más se quiere saber si el paseo se ha anotado.
+  Un punto Aqua de 8 dp delante de "De paseo" mide lo mismo dure lo que dure el
+  paseo. El tramo de la barra se queda, quieto, porque dice cuánto se está
+  acumulando. Con "quitar animaciones" el punto se queda a opacidad completa:
+  el caso estático tiene que verse más, no menos. Para un lector de pantalla es
+  decoración, porque "De paseo" ya lo dice.
 
 ### Arreglado
 
@@ -68,6 +83,13 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   guardar, el paseo se quedaba sin los treinta minutos que sí estaban
   grabados. Una hora de vuelta anterior a la de salida es un dígito mal
   tecleado a medio escribir, no un error: la última lectura buena se queda.
+- **Empezar un paseo no daba señal de estar trabajando.** El botón ya no
+  desaparecía durante la escritura, pero se quedaba quieto y apagado: con una
+  sola raya de wifi en el portal son varios segundos de un botón que parece
+  muerto, y un control presente pero inerte es lo que hace que alguien lo pulse
+  otra vez, que es justo cómo se empieza dos veces el mismo paseo. Ahora el
+  icono se cambia por un indicador de actividad mientras dura la escritura, en
+  su misma caja, y la etiqueta sigue siendo "Paseo": el bloque no se mueve.
 
 ## [v0.10.0] — 2026-10-15
 

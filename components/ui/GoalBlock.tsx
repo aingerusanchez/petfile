@@ -1,6 +1,6 @@
 import { Play, Square } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { AppState, Pressable, View } from "react-native";
+import { ActivityIndicator, AppState, Pressable, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -24,16 +24,15 @@ import { colors, TOUCH_TARGET } from "./tokens";
 const TICK_MS = 30_000;
 
 /**
- * How long one breath of the in-progress segment takes.
+ * How long one pulse of the dot takes, and how far its opacity travels.
  *
- * **Slower than `Skeleton`'s 900ms, and that is the point.** A skeleton
- * breathes for a few hundred milliseconds while something arrives; this
- * breathes for the length of a walk. An animation that runs for an hour has to
- * be calmer than one that runs for a second, or it stops being a signal and
- * becomes a nag.
+ * **Slower than `Skeleton`'s 900ms, and that is the point.** A skeleton pulses
+ * for a few hundred milliseconds while something arrives; this pulses for the
+ * length of a walk. An animation that runs for an hour has to be calmer than
+ * one that runs for a second, or it stops being a signal and becomes a nag.
  */
-const BREATH_MS = 2400;
-const DIM = 0.35;
+const PULSE_MS = 1400;
+const DOT_DIM = 0.3;
 
 /**
  * The day's walking, and the control that starts and stops it.
@@ -47,6 +46,14 @@ const DIM = 0.35;
  * minutes of the walk in progress are not stored, so they are a dimmer segment
  * at the head of the fill rather than part of it — the measure keeps measuring
  * what is recorded, and the segment shows what is merely happening.
+ *
+ * **The segment is static, and a dot says "still going".** It used to breathe,
+ * and measured against a 3 h goal on a 327 dp bar it is 3.6 dp wide at two
+ * minutes and 38 at twenty-one: there is no animation to be had in 3.6 dp, so
+ * the tutor could not see the walk was recording in the very minutes they
+ * look hardest. A dot is the same size whatever the walk's length, so the
+ * pulse moved there — before the measure, the way a session that is still
+ * working is marked. The segment stays because it shows how much is accruing.
  *
  * **The block renders with no goal too.** `exercise_goal_minutes` is nullable
  * and the activity question is optional, so gating the whole block on a goal
@@ -123,6 +130,11 @@ export function GoalBlock({
    */
   const stopping = onStop !== undefined;
   const control = stopping ? onStop : onStart;
+  // **The one line that decides the control's look.** `stopping` is variant C,
+  // outlined when idle and filled when running; `true` is variant A, filled in
+  // both states.
+  const filled = stopping;
+  const glyph = filled ? colors.onAccent : colors.accent;
 
   const recorded =
     goalMinutes === null || goalMinutes === 0
@@ -136,23 +148,30 @@ export function GoalBlock({
   return (
     <View testID={testID} className="mb-8">
       <View className="mb-2 flex-row items-center justify-between gap-3">
-        <Text
-          testID={testID ? `${testID}-measure` : undefined}
-          numberOfLines={1}
-          className={`flex-1 font-semibold ${walkingSince ? "text-accent" : "text-text-primary"}`}
-        >
-          {walkingSince
-            ? `De paseo · ${formatDuration(running, durationFormat)}`
-            : goalMinutes === null
-              ? // **No "hoy".** The block renders on every day now, and the
-                // start is withheld on a past one — so paging back for a pet
-                // with no goal put "30 min paseados hoy" under a header
-                // reading "Ayer". That is the lie the log fixed once already
-                // with its own title; the header names the day, and one place
-                // saying it is enough.
-                `${formatDuration(walkedMinutes, durationFormat)} paseados`
-              : `${formatDuration(walkedMinutes, durationFormat)} de ${formatDuration(goalMinutes, durationFormat)} paseados`}
-        </Text>
+        {/* The dot sits inside the measure's own flexible slot, so it costs the
+            text eight dp and a gap rather than pushing the control. */}
+        <View className="flex-1 flex-row items-center gap-2">
+          {walkingSince ? (
+            <PulseDot testID={testID ? `${testID}-dot` : undefined} />
+          ) : null}
+          <Text
+            testID={testID ? `${testID}-measure` : undefined}
+            numberOfLines={1}
+            className={`shrink font-semibold ${walkingSince ? "text-accent" : "text-text-primary"}`}
+          >
+            {walkingSince
+              ? `De paseo · ${formatDuration(running, durationFormat)}`
+              : goalMinutes === null
+                ? // **No "hoy".** The block renders on every day now, and the
+                  // start is withheld on a past one — so paging back for a pet
+                  // with no goal put "30 min paseados hoy" under a header
+                  // reading "Ayer". That is the lie the log fixed once already
+                  // with its own title; the header names the day, and one place
+                  // saying it is enough.
+                  `${formatDuration(walkedMinutes, durationFormat)} paseados`
+                : `${formatDuration(walkedMinutes, durationFormat)} de ${formatDuration(goalMinutes, durationFormat)} paseados`}
+          </Text>
+        </View>
 
         {control ? (
           <Pressable
@@ -161,16 +180,52 @@ export function GoalBlock({
             disabled={busy}
             accessibilityRole="button"
             accessibilityLabel={stopping ? "Terminar paseo" : "Empezar paseo"}
-            accessibilityState={{ disabled: busy }}
+            accessibilityState={{ disabled: busy, busy }}
             style={{ minHeight: TOUCH_TARGET }}
-            className="shrink-0 flex-row items-center gap-2 pl-3 active:opacity-70"
+            // **Outlined when idle, filled when running: the chosen one is the
+            // filled one.** The selected calendar day, the active tab and the
+            // chosen segment of `Segmented` already say it, and a walk in
+            // progress is an active state where an idle control is an offer.
+            // The border is there in both states, so the control never changes
+            // size when it fills. **`px-3` is a device measurement, not a
+            // taste:** at `font_scale` 1.3 the bare control already ended on
+            // the right margin, and `px-4` overflowed by about 20 dp and
+            // ellipsized the measure beside it. The radius is a literal for the
+            // reason the floating action's is: `rounded-full` is a `calc()`.
+            className={`shrink-0 flex-row items-center gap-2 rounded-[24px] border border-accent px-3 active:opacity-70 ${filled ? "bg-accent" : ""}`}
           >
-            {stopping ? (
-              <Square size={16} strokeWidth={2.5} color={colors.accent} />
+            {busy ? (
+              // **A spinner in the glyph's own 16 dp box, so the block does not
+              // shift** and the label stays "Paseo". The write can take
+              // seconds on a phone clinging to one bar of wifi in the
+              // doorway, and a control that is present but inert is what
+              // makes someone press it again. `ActivityIndicator`'s small size
+              // is 20 dp, hence the scale. Decoration to a reader: the
+              // button's own state says `busy`.
+              <View
+                testID={testID ? `${testID}-spinner` : undefined}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                aria-hidden
+                style={{ width: 16, height: 16 }}
+                className="items-center justify-center"
+              >
+                <ActivityIndicator
+                  size="small"
+                  color={glyph}
+                  style={{ transform: [{ scale: 0.8 }] }}
+                />
+              </View>
+            ) : stopping ? (
+              <Square size={16} strokeWidth={2.5} color={glyph} />
             ) : (
-              <Play size={16} strokeWidth={2.5} color={colors.accent} />
+              <Play size={16} strokeWidth={2.5} color={glyph} />
             )}
-            <Text className="font-semibold text-accent">Paseo</Text>
+            <Text
+              className={`font-semibold ${filled ? "text-on-accent" : "text-accent"}`}
+            >
+              Paseo
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -184,7 +239,18 @@ export function GoalBlock({
             style={{ width: `${recorded}%` }}
             className={`h-[4px] ${met ? "bg-accent" : "bg-text-secondary"}`}
           />
-          {inProgress > 0 ? <Breath width={inProgress} /> : null}
+          {inProgress > 0 ? (
+            // Static, and hidden from a reader: the measure already says
+            // "De paseo". See the block's comment for why the pulse moved to
+            // the dot.
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              aria-hidden
+              style={{ width: `${inProgress}%` }}
+              className="h-[4px] bg-text-tertiary"
+            />
+          ) : null}
         </View>
       ) : null}
 
@@ -205,52 +271,44 @@ export function GoalBlock({
 }
 
 /**
- * The minutes that are happening rather than recorded.
+ * The mark that a walk is still running: an Aqua dot, pulsing in opacity.
  *
- * Opacity only, and under "remove animations" it holds — the line `Skeleton`
- * and `Celebration` both draw. **It holds at the *bright* end, which is the
- * opposite of what it used to do.** Mist Light at `DIM` over the bar's Fjord
- * Slate track measures 1.94:1, and DESIGN.md records a 1.64:1 version of this
- * very bar as having "did not read as a measure of anything"; the bright end
- * is 6.78:1. While it breathes the dim end is a trough the eye passes
- * through and the motion itself is what finds the segment. Pinned there it is
- * neither legible nor moving, so the one reader who cannot use the motion to
- * find it would be the one reader it is hidden from. The static case needs
- * the contrast more, not less.
+ * **Aqua Glaciar only.** The dot is the measure's own colour while walking, so
+ * it spends nothing new; Aurora Boreal stays on the three places it already is.
  *
- * That is also what lets `DIM` stay at 0.35 where `Skeleton` uses 0.4: this
- * breathes for the length of a walk rather than a few hundred milliseconds,
- * and a 2400ms cycle needs the wider travel to read as a breath at all. The
- * deeper trough is a floor of a motion now, never a resting state.
+ * **Under "remove animations" it holds at full opacity,** the static case
+ * being the one that has to be more visible, not less — the line `Skeleton` and
+ * `Celebration` draw. `progress` starts at 1, which is full opacity, and is
+ * simply never animated.
  *
- * A left-to-right shimmer was considered and rejected: this app's only
- * loading idiom is a pulse, and a traverse would say "cargando" on a bar that
- * is not loading anything.
+ * Decoration to a reader: the measure beside it says `De paseo`, so a second
+ * announcement would be the same fact twice.
  */
-function Breath({ width }: { width: number }) {
+function PulseDot({ testID }: { testID?: string }) {
   const reduceMotion = useReducedMotion();
   const progress = useSharedValue(1);
 
   useEffect(() => {
     if (reduceMotion) return;
     progress.value = withRepeat(
-      withTiming(0, { duration: BREATH_MS, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0, { duration: PULSE_MS, easing: Easing.inOut(Easing.quad) }),
       -1,
       true,
     );
   }, [reduceMotion, progress]);
 
   const style = useAnimatedStyle(() => ({
-    opacity: DIM + progress.value * (1 - DIM),
+    opacity: DOT_DIM + progress.value * (1 - DOT_DIM),
   }));
 
   return (
     <Animated.View
+      testID={testID}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       aria-hidden
-      style={[{ width: `${width}%` }, style]}
-      className="h-[4px] bg-text-tertiary"
+      style={style}
+      className="h-[8px] w-[8px] rounded-[4px] bg-accent"
     />
   );
 }

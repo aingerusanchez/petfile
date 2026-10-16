@@ -1236,6 +1236,8 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
   await expect(page.getByTestId("home-goal-control")).toBeVisible();
+  // Nothing is running, so nothing pulses.
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
 
   const entries = page.locator('[data-testid^="home-entry-"]');
   await expect(entries).toHaveCount(0);
@@ -1243,8 +1245,11 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   await page.getByTestId("home-goal-control").click();
 
   // The measure says so, and the walk is a row in the log like any other —
-  // which is what lets the stool in the middle of it be written down.
+  // which is what lets the stool in the middle of it be written down. The dot
+  // beside it is the same fact in a form that does not depend on how wide the
+  // bar's segment is in the walk's first minutes.
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
   await expect(entries).toHaveCount(1);
   await expect(entries.first()).toContainText("En marcha");
 
@@ -1260,8 +1265,52 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   await expect(page.getByTestId("home-goal-measure")).not.toContainText(
     "De paseo",
   );
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
   await expect(entries).toHaveCount(0);
   await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
+});
+
+test("shows the control working while the start is being written", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+
+  // **Park the insert, so the busy state is a state and not a flicker.** Only
+  // the POST waits; the reload that follows it is a GET and goes through.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/rest/v1/pet_events*", async (route) => {
+    if (route.request().method() === "POST") await held;
+    await route.continue();
+  });
+
+  await page.getByTestId("home-goal-control").click();
+
+  // The control stays where it was, says it is working, and cannot be pressed
+  // again: a control that is present but inert is how a walk gets started
+  // twice. The label is the same word throughout.
+  const control = page.getByTestId("home-goal-control");
+  await expect(page.getByTestId("home-goal-spinner")).toBeVisible();
+  await expect(control).toBeDisabled();
+  await expect(control).toContainText("Paseo");
+  await expect(control).toHaveAttribute("aria-label", "Empezar paseo");
+  // Nothing is running until the write lands.
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+
+  release();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await expect(control).toBeEnabled();
+  await expect(control).toHaveAttribute("aria-label", "Terminar paseo");
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await page.unroute("**/rest/v1/pet_events*");
 });
 
 test("does not let a walk in progress have its times changed", async ({
@@ -1368,6 +1417,9 @@ test("annotates a walk in progress, then closes it with its length", async ({
   await seedSession(page);
   await page.goto("/");
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  // A walk that is already an hour old shows the dot too, and a bar segment
+  // wide enough to see: the two say different things, how long and how much.
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
 
   const row = page.locator('[data-testid^="home-entry-"]').first();
   await expect(row).toContainText("En marcha");
