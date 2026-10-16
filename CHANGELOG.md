@@ -46,7 +46,8 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   de aceptarlo: un antiparasitario mensual son doce días de ámbar al año, que
   es puntuación y no fondo. La marca de vacuna no cambia. Los tratamientos solo
   marcan dentro del año que el calendario lee, porque fuera de él no sabe qué
-  se paseó y dibujaría ese día como "objetivo sin conseguir".
+  se paseó y dibujaría ese día como "objetivo sin conseguir"; y no marcan nada
+  hasta que ese año de entradas llega, por lo mismo.
 
 ### Cambiado
 
@@ -62,6 +63,17 @@ adelante cada entrada corresponde a lo que se construyó bajo ese número.
   vuelve a ella —que es como se entera de lo corregido en Salud— y alimenta a
   la vez el pie del día, las marcas y las vacunas. Una sola lectura no puede
   contradecirse a sí misma. Sigue sin haber tabla nueva ni migración.
+- **El registro del día no espera a los tratamientos para pintarse.** Son dos
+  peticiones a la vez, y poner la segunda por delante dejaba un día cuyas
+  entradas habían llegado en un suspiro esperando hasta doce segundos —y, peor,
+  escondía detrás de esa espera el aviso de que el registro no se había podido
+  leer, con su Reintentar—. Las entradas salen en cuanto llegan y el pie del
+  día aparece debajo cuando puede. Lo único que espera es decir que el día está
+  vacío, porque eso sí depende de la respuesta que falta.
+- **Reintentar vuelve a leerlo todo**, tratamientos incluidos. Recuperada la
+  conexión, el botón de la pantalla traía la mascota, el registro y el
+  calendario y dejaba el pie del día roto con su propio botón aparte, que se
+  lee como que el reintento no funcionó.
 
 ## [v0.11.0] — 2026-10-16
 

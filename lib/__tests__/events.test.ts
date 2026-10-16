@@ -7,6 +7,7 @@ import {
   MAX_WALK_MINUTES,
   minutesBetween,
   monthBounds,
+  marksForMonths,
   monthsBackStart,
   shiftMinutes,
   startWithinDay,
@@ -16,6 +17,7 @@ import {
   type NewEvent,
   type PetEventRow,
 } from "../events";
+import type { PetTreatmentRow } from "../treatments";
 
 const walk = (minutes: number | null): PetEventRow => ({
   id: "e",
@@ -361,6 +363,59 @@ describe("summariseMonth", () => {
     it("is unchanged when there are none, which is every existing caller", () => {
       const events = [at(3, 9, { duration_minutes: 40 })];
       expect(summariseMonth(events, [])).toEqual(summariseMonth(events));
+    });
+  });
+});
+
+describe("marksForMonths", () => {
+  const at = (day: number, hour: number, over: Partial<PetEventRow> = {}) =>
+    ({
+      ...walk(null),
+      id: `${day}-${hour}-${over.kind ?? "walk"}`,
+      occurred_at: new Date(2026, 8, day, hour).toISOString(),
+      ...over,
+    }) as PetEventRow;
+  const treated = (administered_on: string) =>
+    ({ administered_on }) as PetTreatmentRow;
+  // Twelve months back from 16 October 2026: the window opens 1 October 2025.
+  const today = new Date(2026, 9, 16);
+
+  it("marks nothing at all while the window has not answered", () => {
+    // Null is "not read yet", and the treatments are usually in hand first.
+    // An empty map draws a clean grid; folding the treatments in here would
+    // draw their days as "objetivo sin conseguir" before a single walk had
+    // been read.
+    expect(marksForMonths(null, [treated("2026-09-12")], today, 12).size).toBe(
+      0,
+    );
+  });
+
+  it("drops a treatment older than the window the events came from", () => {
+    const days = marksForMonths(
+      [],
+      [treated("2025-09-30"), treated("2025-10-01")],
+      today,
+      12,
+    );
+    // The edge is in: 1 October 2025 is the first day the events were read
+    // from, so the grid can say what was walked on it. The day before it
+    // cannot be marked without claiming something nobody looked at.
+    expect(days.has("2025-09-30")).toBe(false);
+    expect(days.get("2025-10-01")?.hasMedication).toBe(true);
+  });
+
+  it("folds the events and the treatments inside the window into one day", () => {
+    const days = marksForMonths(
+      [at(12, 9, { duration_minutes: 40 })],
+      [treated("2026-09-12")],
+      today,
+      12,
+    );
+    expect(days.get("2026-09-12")).toEqual({
+      day: "2026-09-12",
+      walkedMinutes: 40,
+      hasIncident: false,
+      hasMedication: true,
     });
   });
 });

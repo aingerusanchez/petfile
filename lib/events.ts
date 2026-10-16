@@ -1,7 +1,7 @@
 import type { Database } from "./database.types";
 import { describeFailure, withTimeout } from "./failures";
 import { supabase } from "./supabase";
-import type { PetTreatmentRow } from "./treatments";
+import { treatmentsSince, type PetTreatmentRow } from "./treatments";
 
 /**
  * The day's log: walks, meals, medication and incidents.
@@ -204,6 +204,38 @@ export function summariseMonth(
   }
 
   return days;
+}
+
+/**
+ * Everything the calendar's grid is drawn from: a window of events, and the
+ * treatments that fall inside the same window.
+ *
+ * **The clipping is a policy, and a policy belongs where it can be tested.**
+ * `summariseMonth` and `treatmentsSince` are each correct on their own, and
+ * composing them in a screen's JSX meant the rule they add up to — *a mark
+ * stops where the events stop* — was asserted nowhere: dropping the
+ * `treatmentsSince` call left every test green and drew days the grid had
+ * never read as "logged, and short of the goal".
+ *
+ * **A null `events` is "not read yet", which is not the same as "none".** The
+ * window is fetched when the calendar opens, so for one frame the screen has
+ * the treatments and not the events, and folding them in then would draw a
+ * treatment day as goal-unmet before anything knew what was walked — the same
+ * false claim `treatmentsSince` exists to prevent, arriving through the time
+ * axis instead of the date axis. No marks at all is the honest frame: a day
+ * with nothing logged is how the grid already draws what it has not got.
+ */
+export function marksForMonths(
+  events: PetEventRow[] | null,
+  treatments: PetTreatmentRow[],
+  day: Date,
+  months: number,
+): Map<string, DaySummary> {
+  if (!events) return new Map();
+  return summariseMonth(
+    events,
+    treatmentsSince(treatments, monthsBackStart(day, months)),
+  );
 }
 
 /**

@@ -61,12 +61,11 @@ import {
   eventsForMonths,
   formatTimeOfDay,
   logEvent,
+  marksForMonths,
   MAX_WALK_MINUTES,
   minutesBetween,
-  monthsBackStart,
   parseTimeOfDay,
   startWalk,
-  summariseMonth,
   updateEvent,
   walkedMinutes,
   type EventKind,
@@ -77,7 +76,6 @@ import {
   describeTreatment,
   treatmentsFor,
   treatmentsOn,
-  treatmentsSince,
   vaccineDays,
   type PetTreatmentRow,
   type TreatmentKind,
@@ -291,9 +289,15 @@ export default function Home() {
    * it is opened.
    *
    * **Rows, not a summary** — the summary also folds in the treatments, which
-   * arrive on their own schedule. See `summariseMonth`.
+   * arrive on their own schedule. See `marksForMonths`.
+   *
+   * **Null until the window has answered**, and that is load-bearing rather
+   * than tidiness: the treatments are usually already in hand when the
+   * calendar opens, and an empty array here would have the grid draw every
+   * treatment day as "logged, short of the goal" before it had read a single
+   * walk.
    */
-  const [markedEvents, setMarkedEvents] = useState<PetEventRow[]>(NO_EVENTS);
+  const [markedEvents, setMarkedEvents] = useState<PetEventRow[] | null>(null);
   /**
    * Every treatment the pet has had, for the day's foot and the calendar.
    *
@@ -784,6 +788,17 @@ export default function Home() {
     editing.event !== null &&
     editing.event.id === runningWalk?.id;
 
+  /**
+   * The log's waiting state, which two branches reach for: the day's rows on
+   * their way, and a day with no rows whose treatments have not answered yet.
+   * One element so the two cannot drift apart.
+   */
+  const logSkeleton = (
+    <Group testID="home-log-skeleton" title="Registro">
+      <LogSkeleton />
+    </Group>
+  );
+
   return (
     <Screen
       scroll
@@ -908,13 +923,22 @@ export default function Home() {
         />
       )}
 
-      {/* The log's own waiting state, in the slots the rows will fill: see
+      {/* **The log waits for the events and for nothing else.** The
+          treatments are a second request on their own schedule, bounded by
+          the same twelve-second timeout as everything else, and putting them
+          in front of the first paint meant a day whose entries landed in
+          300ms could sit in its skeleton for twelve seconds — and, worse, an
+          events failure would wait behind them instead of offering its
+          Reintentar. The vaccines ride along, and their failure does not: the
+          rows paint as they arrive and the foot of the day appears underneath
+          when it can. The one branch that does wait is the empty state,
+          below.
+
+          The waiting state fills the slots the rows will fill: see
           `LogSkeleton`. The title is the real word, because it is true before
           the rows land. */}
-      {loading || treatments === null ? (
-        <Group testID="home-log-skeleton" title="Registro">
-          <LogSkeleton />
-        </Group>
+      {loading ? (
+        logSkeleton
       ) : logError ? (
         <Group testID="home-log-error">
           <Text accessibilityLiveRegion="polite" className="mb-5 text-error">
@@ -929,7 +953,15 @@ export default function Home() {
           </View>
         </Group>
       ) : events.length === 0 && dayTreatments.length === 0 ? (
-        treatments.error ? (
+        treatments === null ? (
+          // **The empty state is the one thing that has to wait.** "Ese día
+          // no se apuntó nada" over a day the vet visited is exactly the lie
+          // this feature removes, and until the treatments answer the screen
+          // does not know whether the day is empty. Everything else renders
+          // from the events alone; this branch holds the skeleton a moment
+          // longer rather than saying something it may have to take back.
+          logSkeleton
+        ) : treatments.error ? (
           // **Not the empty state.** A day whose treatments could not be read
           // may well have one, and "Ese día no se apuntó nada" over a day the
           // vet visited is the lie this feature was written to stop telling.
@@ -1016,7 +1048,7 @@ export default function Home() {
             </View>
           ) : null}
 
-          {treatments.error ? (
+          {treatments?.error ? (
             // The events above are fine and stay; what is missing is said, so
             // the foot of the day is not silently shorter than it should be.
             <View className="mb-5 flex-row items-center justify-between gap-3">
@@ -1050,15 +1082,14 @@ export default function Home() {
           scrimTestID="home-calendar-scrim"
         >
           <MonthCalendar
-            marks={summariseMonth(
+            // The window's events and the treatments inside it, and nothing
+            // at all until the window has answered: `marksForMonths` owns
+            // both halves of that rule and is tested on them.
+            marks={marksForMonths(
               markedEvents,
-              // Inside the window the events were read from, or a treatment
-              // older than it would draw a day the calendar never looked at
-              // as "logged, and short of the goal".
-              treatmentsSince(
-                treatments?.rows ?? [],
-                monthsBackStart(today, MARKED_MONTHS),
-              ),
+              treatments?.rows ?? [],
+              today,
+              MARKED_MONTHS,
             )}
             vaccines={vaccineDays(treatments?.rows ?? [])}
             goalMinutes={goal}
