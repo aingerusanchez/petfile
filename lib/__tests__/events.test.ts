@@ -7,6 +7,7 @@ import {
   MAX_WALK_MINUTES,
   minutesBetween,
   monthBounds,
+  monthsBackStart,
   shiftMinutes,
   startWithinDay,
   summariseMonth,
@@ -311,6 +312,65 @@ describe("summariseMonth", () => {
 
   it("has nothing to say about an empty month", () => {
     expect(summariseMonth([]).size).toBe(0);
+  });
+
+  describe("with treatments", () => {
+    const treated = (administered_on: string) => ({ administered_on });
+
+    it("folds a treatment into the medication mark, and nothing else", () => {
+      const days = summariseMonth([], [treated("2026-09-12")]);
+      // The same mark a Medicación entry draws: one mark, one meaning. No
+      // new field, so the calendar needs no new element and the legend no
+      // new word.
+      expect(days.get("2026-09-12")).toEqual({
+        day: "2026-09-12",
+        walkedMinutes: 0,
+        hasIncident: false,
+        hasMedication: true,
+      });
+    });
+
+    it("makes the day present, so a lone treatment is not 'sin registros'", () => {
+      const days = summariseMonth([], [treated("2026-09-12")]);
+      expect(days.has("2026-09-12")).toBe(true);
+      expect(days.has("2026-09-13")).toBe(false);
+    });
+
+    it("keeps what the day's events carried", () => {
+      const days = summariseMonth(
+        [at(12, 9, { duration_minutes: 40 }), at(12, 20, { kind: "incident" })],
+        [treated("2026-09-12")],
+      );
+      expect(days.get("2026-09-12")).toEqual({
+        day: "2026-09-12",
+        walkedMinutes: 40,
+        hasIncident: true,
+        hasMedication: true,
+      });
+    });
+
+    it("does not count a day twice for two treatments, or for both sources", () => {
+      const days = summariseMonth(
+        [at(12, 9, { kind: "medication" })],
+        [treated("2026-09-12"), treated("2026-09-12")],
+      );
+      expect(days.size).toBe(1);
+      expect(days.get("2026-09-12")?.hasMedication).toBe(true);
+    });
+
+    it("is unchanged when there are none, which is every existing caller", () => {
+      const events = [at(3, 9, { duration_minutes: 40 })];
+      expect(summariseMonth(events, [])).toEqual(summariseMonth(events));
+    });
+  });
+});
+
+describe("monthsBackStart", () => {
+  it("is the first day of the first month the window reaches", () => {
+    // Twelve months back from any day of October 2026 starts on 1 October
+    // 2025 — the same edge `monthsBackBounds` reads events from.
+    expect(monthsBackStart(new Date(2026, 9, 16), 12)).toBe("2025-10-01");
+    expect(monthsBackStart(new Date(2026, 0, 31), 1)).toBe("2025-12-01");
   });
 });
 

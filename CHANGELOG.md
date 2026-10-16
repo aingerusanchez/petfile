@@ -16,6 +16,53 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.12.0] — 2026-10-16
+
+### Nuevo
+
+- **Un tratamiento apuntado en Salud sale en el diario del día en que se
+  puso.** Se volvía del veterinario con la pastilla, se apuntaban el peso y el
+  "Milbemax 125mg" en Salud, y ni el diario ni el calendario sabían nada: el
+  mismo hecho se tecleaba otra vez como Medicación, y dos filas para un dato
+  quedaban a un descuido de contradecirse en cuanto alguien corrigiera la dosis
+  en una sola. Ahora el pie del registro de ese día lista los tratamientos
+  puestos en él, **debajo de las entradas con hora y separados por una línea
+  fina**. Es una lectura de la misma fila, así que no hay segunda copia que
+  pueda quedarse vieja: corregir la dosis en Salud la corrige en el diario.
+- **No tienen hora, y no se inventa una.** `administered_on` es un día, no un
+  instante: nadie apuntó a qué hora fue, y ponerla delante sería mentir en una
+  app cuya promesa es que el registro es cierto. La columna de la izquierda
+  lleva solo el icono del tipo —el mismo de Salud, en el ámbar del anillo que
+  ese día lleva en el calendario— y la fila dice el nombre y debajo el tipo con
+  su próxima fecha: "Desparasitación (Int.) · próxima 14 ene". Si no hay
+  próxima, solo el tipo. **Es de solo lectura aquí, y un chevron lo dice:**
+  tocarla lleva a Salud, abierta sobre la hoja de ese tratamiento y no sobre la
+  pestaña, que es donde se corrige o se borra. El parámetro se suelta en cuanto
+  se usa, así que ir y volver no la reabre.
+- **El calendario marca el día de un tratamiento con el anillo de medicación.**
+  Para una casilla un tratamiento es el mismo hecho que una Medicación —algo
+  médico pasó ese día—, así que se suma a esa marca en vez de estrenar otra:
+  una marca, un significado. Se comprobó contra la regla de la frecuencia antes
+  de aceptarlo: un antiparasitario mensual son doce días de ámbar al año, que
+  es puntuación y no fondo. La marca de vacuna no cambia. Los tratamientos solo
+  marcan dentro del año que el calendario lee, porque fuera de él no sabe qué
+  se paseó y dibujaría ese día como "objetivo sin conseguir".
+
+### Cambiado
+
+- **Un día cuyo único registro es un tratamiento ya no dice que no pasó nada.**
+  La pantalla decidía que el día estaba vacío mirando solo las entradas con
+  hora, así que el día del Milbemax mostraba el tratamiento y a la vez
+  afirmaba "Ese día no se apuntó nada". Ahora el día está vacío cuando no hay ni
+  entradas ni tratamientos. Y si los tratamientos no se han podido leer, no se
+  dice "vacío" tampoco: se dice que no se han podido leer, con Reintentar.
+- **Los tratamientos se leen una vez, no al abrir el calendario.** Hasta ahora
+  la lista solo se pedía al abrirlo, para pintar las vacunas; el diario la
+  necesita siempre, así que se lee al entrar en la pestaña y cada vez que se
+  vuelve a ella —que es como se entera de lo corregido en Salud— y alimenta a
+  la vez el pie del día, las marcas y las vacunas. Una sola lectura no puede
+  contradecirse a sí misma. Sigue sin haber tabla nueva ni migración.
+
 ## [v0.11.0] — 2026-10-16
 
 ### Cambiado

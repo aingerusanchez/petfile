@@ -1,6 +1,7 @@
 import type { Database } from "./database.types";
 import { describeFailure, withTimeout } from "./failures";
 import { supabase } from "./supabase";
+import type { PetTreatmentRow } from "./treatments";
 
 /**
  * The day's log: walks, meals, medication and incidents.
@@ -115,6 +116,16 @@ export function monthsBackBounds(
   return { from: from.toISOString(), to: monthBounds(day).to };
 }
 
+/**
+ * The first day `monthsBackBounds` reaches, as `YYYY-MM-DD`.
+ *
+ * For whatever is read from somewhere else but has to be drawn on the same
+ * grid: it must stop where the events do. See `treatmentsSince`.
+ */
+export function monthsBackStart(day: Date, months: number): string {
+  return dayKey(new Date(monthsBackBounds(day, months).from));
+}
+
 /** The local calendar day an instant falls on, as `YYYY-MM-DD`. */
 export function dayKey(at: Date): string {
   return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
@@ -143,20 +154,43 @@ export type DaySummary = {
  * A day with no entries is **absent from the map**, not present with zeroes:
  * "nothing was logged" and "logged, and he did not walk enough" are different
  * things on the calendar, and a zero would collapse them.
+ *
+ * **A treatment is medication for the grid's purposes.** It lives in Salud
+ * because the app computes a due date from it, but to a cell it is the same
+ * fact a Medicación entry is — something medical happened on this day — so it
+ * folds into `hasMedication` rather than earning a mark of its own: one mark,
+ * one meaning. It is also what makes the day *present*, so a day whose only
+ * record is a treatment is not drawn as "sin registros" while the log lists it.
+ * Checked against The Frequency-Before-Hue Rule before agreeing it: a monthly
+ * antiparasitic is twelve amber days a year, which is punctuation, not
+ * background. The vaccine watermark is a separate thing and stays as it is.
+ *
+ * Only the day is read from a treatment: `administered_on` is a `date`, so
+ * there is no instant to convert and no timezone to land on the wrong cell.
  */
-export function summariseMonth(events: PetEventRow[]): Map<string, DaySummary> {
+export function summariseMonth(
+  events: PetEventRow[],
+  treatments: Pick<PetTreatmentRow, "administered_on">[] = [],
+): Map<string, DaySummary> {
   const days = new Map<string, DaySummary>();
+  const summaryFor = (key: string): DaySummary =>
+    days.get(key) ??
+    ({
+      day: key,
+      walkedMinutes: 0,
+      hasIncident: false,
+      hasMedication: false,
+    } satisfies DaySummary);
+
+  for (const treatment of treatments) {
+    const summary = summaryFor(treatment.administered_on);
+    summary.hasMedication = true;
+    days.set(treatment.administered_on, summary);
+  }
 
   for (const event of events) {
     const key = dayKey(new Date(event.occurred_at));
-    const summary =
-      days.get(key) ??
-      ({
-        day: key,
-        walkedMinutes: 0,
-        hasIncident: false,
-        hasMedication: false,
-      } satisfies DaySummary);
+    const summary = summaryFor(key);
 
     if (event.kind === "walk") {
       summary.walkedMinutes += event.duration_minutes ?? 0;
@@ -443,18 +477,24 @@ export async function eventsForDay(
 }
 
 /**
- * Every entry in a month, for the calendar's marks.
+ * Every entry in a window of months, for the calendar's marks.
  *
  * One request for the whole window rather than one per month, let alone one
  * per day: thirty round trips to draw one calendar is the kind of thing that
  * works on a desk and not in a vet's waiting room — and a per-month fetch
  * cannot know when to run again, which is what `monthsBackBounds` explains.
+ *
+ * **The rows, not the summary.** The summary is `summariseMonth`'s job and it
+ * also needs the treatments, which come from another table and arrive on
+ * their own schedule: summarising here would mean fetching again whenever
+ * they landed, and the calendar would flicker through a month it had already
+ * drawn.
  */
 export async function eventsForMonths(
   petId: string,
   month: Date,
   monthsBack: number,
-): Promise<{ days: Map<string, DaySummary>; error: string | null }> {
+): Promise<{ events: PetEventRow[]; error: string | null }> {
   const { from, to } = monthsBackBounds(month, monthsBack);
 
   const query = supabase
@@ -468,13 +508,13 @@ export async function eventsForMonths(
     const { data, error } = await withTimeout(query, "eventsForMonths");
     if (error)
       return {
-        days: new Map(),
+        events: [],
         error: describeFailure(error, "eventsForMonths"),
       };
-    return { days: summariseMonth(data ?? []), error: null };
+    return { events: data ?? [], error: null };
   } catch (cause) {
     return {
-      days: new Map(),
+      events: [],
       error: describeFailure(cause, "eventsForMonths"),
     };
   }

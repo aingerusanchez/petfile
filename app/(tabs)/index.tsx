@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import {
   CalendarDays,
   ChevronLeft,
@@ -34,6 +34,7 @@ import {
   TextField,
   TimePicker,
   TOUCH_TARGET,
+  TREATMENT_ICONS,
   useCelebration,
   useToast,
 } from "../../components/ui";
@@ -62,16 +63,25 @@ import {
   logEvent,
   MAX_WALK_MINUTES,
   minutesBetween,
+  monthsBackStart,
   parseTimeOfDay,
   startWalk,
+  summariseMonth,
   updateEvent,
   walkedMinutes,
-  type DaySummary,
   type EventKind,
   type PetEventRow,
 } from "../../lib/events";
 import { getMyPet, type PetRow } from "../../lib/pets";
-import { treatmentsFor, vaccineDays } from "../../lib/treatments";
+import {
+  describeTreatment,
+  treatmentsFor,
+  treatmentsOn,
+  treatmentsSince,
+  vaccineDays,
+  type PetTreatmentRow,
+  type TreatmentKind,
+} from "../../lib/treatments";
 import { useSettings, type DurationFormat } from "../../lib/settings";
 import {
   parseRunningWalk,
@@ -226,6 +236,7 @@ function dayFromParam(value: string | string[] | undefined): Date | null {
 }
 
 export default function Home() {
+  const router = useRouter();
   const toast = useToast();
   const { celebrate } = useCelebration();
   const { settings } = useSettings();
@@ -275,17 +286,31 @@ export default function Home() {
     if (asked) setDay(asked);
   }
   const [picking, setPicking] = useState(false);
-  /** One month of marks for the calendar, fetched only once it is opened. */
-  const [marks, setMarks] = useState<Map<string, DaySummary>>(new Map());
   /**
-   * The days a vaccine touches, read with the marks.
+   * The year of entries the calendar draws its marks from, fetched only once
+   * it is opened.
    *
-   * The whole history in one go, because there are a handful a year and the
-   * due dates live in the future — a window would have to guess which one.
+   * **Rows, not a summary** — the summary also folds in the treatments, which
+   * arrive on their own schedule. See `summariseMonth`.
    */
-  const [vaccines, setVaccines] = useState<Map<string, "given" | "due">>(
-    new Map(),
-  );
+  const [markedEvents, setMarkedEvents] = useState<PetEventRow[]>(NO_EVENTS);
+  /**
+   * Every treatment the pet has had, for the day's foot and the calendar.
+   *
+   * **The whole history, once, not one request per day.** There are a handful
+   * a year and `treatmentsFor` is already the request Salud makes; asking for
+   * a day at a time would be a round trip on every tap of ‹ for rows that
+   * almost never exist. The day's treatments are filtered from it, and so are
+   * the calendar's marks and its vaccine watermarks — one read feeding all
+   * three, which is also why they cannot disagree.
+   *
+   * Null until the first answer, so a day does not briefly claim to be empty
+   * while the treatments are still on their way.
+   */
+  const [treatments, setTreatments] = useState<{
+    rows: PetTreatmentRow[];
+    error: string | null;
+  } | null>(null);
   const [marksError, setMarksError] = useState<string | null>(null);
   const [pet, setPet] = useState<PetRow | null>(null);
   /**
@@ -398,18 +423,10 @@ export default function Home() {
     // The reset lands with the result rather than before the request: a
     // synchronous setState in an effect body is the cascading render
     // `react-hooks/set-state-in-effect` exists to stop.
-    eventsForMonths(pet.id, today, MARKED_MONTHS).then(({ days, error }) => {
+    eventsForMonths(pet.id, today, MARKED_MONTHS).then(({ events, error }) => {
       if (cancelled) return;
-      setMarks(days);
+      setMarkedEvents(events);
       setMarksError(error);
-    });
-    // **The vaccines ride along, and their failure does not.** A month whose
-    // entries could not be read is a lie the calendar has to admit to; a
-    // missing syringe is a mark that did not appear, and the tab two along
-    // still has every one of them.
-    treatmentsFor(pet.id).then(({ treatments }) => {
-      if (cancelled) return;
-      setVaccines(vaccineDays(treatments));
     });
     return () => {
       cancelled = true;
@@ -451,6 +468,45 @@ export default function Home() {
   const petId = pet?.id ?? null;
 
   /**
+   * The treatments, read again every time the diary comes back into focus.
+   *
+   * **On focus rather than once, because they are written two tabs away.** The
+   * diary is a tab, so it is already mounted when somebody records a
+   * treatment in Salud, and a read at mount would keep showing the dose as it
+   * was — which is the exact defect this feature exists to remove: correct
+   * the Milbemax in Salud and the diary would still say the old thing. Salud
+   * reads on its own mount for the same reason it never needed this.
+   *
+   * The result is set from the promise, never in the effect body, so none of
+   * this is the cascading render `react-hooks/set-state-in-effect` reports.
+   * A failed read is kept with its message and the rows it had: see where the
+   * day says it could not look.
+   */
+  const readTreatments = useCallback(
+    async (isCancelled: () => boolean) => {
+      if (!petId) return;
+      const { treatments: rows, error } = await treatmentsFor(petId);
+      if (isCancelled()) return;
+      setTreatments((held) => ({
+        // A read that failed keeps what it had rather than blanking the day:
+        // a stale dose beats a day that claims nothing was given.
+        rows: error && held ? held.rows : rows,
+        error,
+      }));
+    },
+    [petId],
+  );
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void readTreatments(() => cancelled);
+      return () => {
+        cancelled = true;
+      };
+    }, [readTreatments]),
+  );
+
+  /**
    * **The birthday gets the confetti, once a year, on the day itself.**
    *
    * The same rule the goal's confetti follows: it fires on a threshold being
@@ -482,6 +538,15 @@ export default function Home() {
   // cannot sit after the early returns. Every one is safe before the pet loads.
   const loading = log === null || log.day !== dayKey(day);
   const events = loading ? NO_EVENTS : log.events;
+  /**
+   * What Salud recorded on this day, which the diary only reads.
+   *
+   * **`administered_on` is a date, so these have no hour and go after the
+   * timed entries.** Inventing a time for them would put the pill at a moment
+   * nobody wrote down, and sorting them among the walks would claim an order
+   * that was never known.
+   */
+  const dayTreatments = treatments ? treatmentsOn(treatments.rows, day) : [];
   const walked = walkedMinutes(events);
   const goal = pet?.exercise_goal_minutes ?? null;
   const met = goal !== null && walked >= goal;
@@ -846,7 +911,7 @@ export default function Home() {
       {/* The log's own waiting state, in the slots the rows will fill: see
           `LogSkeleton`. The title is the real word, because it is true before
           the rows land. */}
-      {loading ? (
+      {loading || treatments === null ? (
         <Group testID="home-log-skeleton" title="Registro">
           <LogSkeleton />
         </Group>
@@ -863,28 +928,46 @@ export default function Home() {
             />
           </View>
         </Group>
-      ) : events.length === 0 ? (
-        <Group testID="home-empty">
-          {/* A past day is not still going, so it cannot say "todavía" — and
+      ) : events.length === 0 && dayTreatments.length === 0 ? (
+        treatments.error ? (
+          // **Not the empty state.** A day whose treatments could not be read
+          // may well have one, and "Ese día no se apuntó nada" over a day the
+          // vet visited is the lie this feature was written to stop telling.
+          <Group testID="home-treatments-error">
+            <Text accessibilityLiveRegion="polite" className="mb-5 text-error">
+              No he podido leer los tratamientos de este día.
+            </Text>
+            <View className="mb-5">
+              <Button
+                testID="home-treatments-retry"
+                label="Reintentar"
+                onPress={() => void readTreatments(() => false)}
+              />
+            </View>
+          </Group>
+        ) : (
+          <Group testID="home-empty">
+            {/* A past day is not still going, so it cannot say "todavía" — and
               on a birthday the emptiest moment of the day is the one worth
               saying something warm in. */}
-          <Text className="mb-2 font-semibold text-text-primary">
-            {birthdayYears !== null && birthdayYears > 0
-              ? `${pet.name} cumple ${birthdayYears} ${birthdayYears === 1 ? "año" : "años"}`
-              : isToday
-                ? "Todavía no hay nada registrado"
-                : "Ese día no se apuntó nada"}
-          </Text>
-          <Text className="mb-5 text-balance text-text-tertiary">
-            {birthdayYears !== null && birthdayYears > 0
-              ? isToday
-                ? "Nada registrado aún. ¿Un paseo por la playa 🏖️ o montaña ⛰️ para celebrarlo?"
-                : "No hay registros de este día."
-              : isToday
-                ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y lo recordaré.`
-                : "Aún puedes registrar actividades para este día."}
-          </Text>
-        </Group>
+            <Text className="mb-2 font-semibold text-text-primary">
+              {birthdayYears !== null && birthdayYears > 0
+                ? `${pet.name} cumple ${birthdayYears} ${birthdayYears === 1 ? "año" : "años"}`
+                : isToday
+                  ? "Todavía no hay nada registrado"
+                  : "Ese día no se apuntó nada"}
+            </Text>
+            <Text className="mb-5 text-balance text-text-tertiary">
+              {birthdayYears !== null && birthdayYears > 0
+                ? isToday
+                  ? "Nada registrado aún. ¿Un paseo por la playa 🏖️ o montaña ⛰️ para celebrarlo?"
+                  : "No hay registros de este día."
+                : isToday
+                  ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y lo recordaré.`
+                  : "Aún puedes registrar actividades para este día."}
+            </Text>
+          </Group>
+        )
       ) : (
         <Group
           testID="home-log"
@@ -902,6 +985,56 @@ export default function Home() {
               }
             />
           ))}
+
+          {/* **The foot of the day: what Salud recorded, read-only.** A
+              treatment is written in Salud because the app computes a due date
+              from it, but it is also something that happened today, and a
+              tutor home from the vet had to type it a second time here — two
+              rows for one fact, one of which would go stale the moment the
+              dose was corrected in the other. This is a read of the first, so
+              there is nothing to go stale.
+
+              **Under a hairline, after the timed entries.** It has no hour to
+              sort by and these are not the same kind of row: the timed
+              entries open their own sheet here, these lead out of the
+              screen — which is what the chevron says. The hairline is only
+              drawn when there is something above it to separate from. */}
+          {dayTreatments.length > 0 ? (
+            <View
+              testID="home-treatments"
+              className={
+                events.length > 0 ? "border-t border-border-default pt-5" : ""
+              }
+            >
+              {dayTreatments.map((row) => (
+                <TreatmentEntry
+                  key={row.id}
+                  row={row}
+                  onPress={() => router.push(`/health?treatment=${row.id}`)}
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {treatments.error ? (
+            // The events above are fine and stay; what is missing is said, so
+            // the foot of the day is not silently shorter than it should be.
+            <View className="mb-5 flex-row items-center justify-between gap-3">
+              <Text
+                testID="home-treatments-error"
+                accessibilityLiveRegion="polite"
+                className="min-w-0 flex-1 text-xs text-error"
+              >
+                No he podido leer los tratamientos de este día.
+              </Text>
+              <Button
+                testID="home-treatments-retry"
+                label="Reintentar"
+                variant="link"
+                onPress={() => void readTreatments(() => false)}
+              />
+            </View>
+          ) : null}
         </Group>
       )}
 
@@ -917,8 +1050,17 @@ export default function Home() {
           scrimTestID="home-calendar-scrim"
         >
           <MonthCalendar
-            marks={marks}
-            vaccines={vaccines}
+            marks={summariseMonth(
+              markedEvents,
+              // Inside the window the events were read from, or a treatment
+              // older than it would draw a day the calendar never looked at
+              // as "logged, and short of the goal".
+              treatmentsSince(
+                treatments?.rows ?? [],
+                monthsBackStart(today, MARKED_MONTHS),
+              ),
+            )}
+            vaccines={vaccineDays(treatments?.rows ?? [])}
             goalMinutes={goal}
             value={day}
             maxDate={today}
@@ -990,6 +1132,72 @@ export default function Home() {
         />
       ) : null}
     </Screen>
+  );
+}
+
+/**
+ * A treatment on the day's log: read here, written in Salud.
+ *
+ * **No hour, so the left column is the kind's glyph alone.** `administered_on`
+ * is a date and nobody wrote a time down; a clock reading here would be
+ * invented, which is a lie in a product whose promise is that the record is
+ * true. The glyph is the kind's own from Salud's history, so the row reads as
+ * the same thing in both places.
+ *
+ * **The glyph wears amber, the colour of the ring this day carries on the
+ * calendar.** The calendar folds treatments into its medication mark, and the
+ * log's rule since v0.8 is that a calendar hue is worn by the row that put it
+ * there. It is not the scarce accent — that is spent on three things this
+ * does not touch — and no meaning rests on the colour: the row names its kind.
+ *
+ * **A chevron, because tapping it leaves.** The timed rows open a sheet over
+ * the diary; this one opens Salud on the treatment's own sheet, and it is the
+ * only place a correction can be made, so the row says it is a door rather
+ * than a form.
+ */
+function TreatmentEntry({
+  row,
+  onPress,
+}: {
+  row: PetTreatmentRow;
+  onPress: () => void;
+}) {
+  const { title, detail } = describeTreatment(row);
+  const Glyph = TREATMENT_ICONS[row.kind as TreatmentKind];
+
+  return (
+    <Pressable
+      testID={`home-treatment-${row.id}`}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={[title, detail].filter(Boolean).join(", ")}
+      accessibilityHint="Ábrelo en Salud para corregirlo o borrarlo"
+      style={{ minHeight: TOUCH_TARGET }}
+      className="mb-5 flex-row items-start gap-3 active:opacity-70"
+    >
+      <View
+        className="shrink-0 pt-0.5"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        aria-hidden
+      >
+        {Glyph ? (
+          <Glyph size={18} strokeWidth={2} color={colors.warning} />
+        ) : null}
+      </View>
+      <View className="min-w-0 flex-1">
+        <Text className="font-semibold text-text-primary">{title}</Text>
+        {detail ? <Text className="text-text-secondary">{detail}</Text> : null}
+      </View>
+      <View
+        className="shrink-0 self-center"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        aria-hidden
+      >
+        <ChevronRight size={18} color={colors.textMuted} />
+      </View>
+    </Pressable>
   );
 }
 

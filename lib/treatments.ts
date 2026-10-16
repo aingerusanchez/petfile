@@ -1,5 +1,5 @@
 import type { Database } from "./database.types";
-import { parseISO, toISO } from "./dates";
+import { MONTHS_ES_SHORT, parseISO, toISO } from "./dates";
 import { describeFailure, withTimeout } from "./failures";
 import { supabase } from "./supabase";
 
@@ -381,6 +381,96 @@ export function vaccineDays(
   }
 
   return days;
+}
+
+/**
+ * The treatments given on one local day, in the order they were written down.
+ *
+ * **Matched on the day's key, not on a range.** `administered_on` is a `date`,
+ * not an instant: nobody recorded an hour, so there is no timezone to be wrong
+ * about and a string comparison against the local day's key is exact. The key
+ * goes through `dateKey` — local getters — for the reason `fromDateKey` gives.
+ *
+ * **Ordered by when each row was created, ties by id.** Two treatments on one
+ * day have nothing to sort them by except the order they were typed, and the
+ * diary reads forwards. Without a tiebreak the order is whatever the server
+ * returned — `treatmentsFor` sorts by day alone — and two rows would swap
+ * places between visits.
+ */
+export function treatmentsOn(
+  rows: PetTreatmentRow[],
+  day: Date,
+): PetTreatmentRow[] {
+  const key = dateKey(day);
+  return rows
+    .filter((row) => row.administered_on === key)
+    .sort(
+      (a, b) =>
+        a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
+    );
+}
+
+/**
+ * The treatments from a day onward, `since` being an ISO `YYYY-MM-DD`.
+ *
+ * **The calendar reads events through a window, and a mark has to stay inside
+ * it.** Past the window's edge the grid cannot know what was walked, so a day
+ * that a treatment pulled into the map would be drawn as "logged, and fell
+ * short of the goal" — a claim about walks the calendar never looked at. ISO
+ * days compare correctly as strings.
+ */
+export function treatmentsSince(
+  rows: PetTreatmentRow[],
+  since: string,
+): PetTreatmentRow[] {
+  return rows.filter((row) => row.administered_on >= since);
+}
+
+/**
+ * "14 ene" — and "14 ene 27" when it falls in another year than `relativeTo`.
+ *
+ * The short month the weight line already writes. **The year appears exactly
+ * when the date is not the obvious one**, and for a due date that is the
+ * ordinary case: an annual vaccine given in January is next due in January,
+ * and "próxima 14 ene" under a day in 2026 would read as already behind us.
+ * `relativeTo` is the day the treatment was given rather than today, so the
+ * line says the same thing whenever it is read.
+ */
+function shortDay(iso: string, relativeTo: string): string {
+  const parts = parseISO(iso);
+  if (!parts) return iso;
+  const month = MONTHS_ES_SHORT[parts.month - 1].toLowerCase();
+  const sameYear = parseISO(relativeTo)?.year === parts.year;
+  return sameYear
+    ? `${parts.day} ${month}`
+    : `${parts.day} ${month} ${String(parts.year).slice(2)}`;
+}
+
+/**
+ * The two lines a treatment is read in, where it is listed without its sheet.
+ *
+ * **The name leads, because it is what the tutor typed and recognises** —
+ * "Milbemax 125mg", off the box in the cupboard — and the kind's label is the
+ * category it belongs to, with the next date when there is one. A treatment
+ * with no name (it is optional, and often unremembered) leads with the label
+ * instead, and then has only the date to add: saying the kind twice would be
+ * furniture. A treatment with no `next_due_on` says only its kind — a one-off
+ * is done, not pending.
+ */
+export function describeTreatment(row: PetTreatmentRow): {
+  title: string;
+  detail: string | null;
+} {
+  const label = treatmentLabel(row.kind as TreatmentKind);
+  const next = row.next_due_on
+    ? `próxima ${shortDay(row.next_due_on, row.administered_on)}`
+    : null;
+  const name = row.name?.trim();
+
+  if (name) {
+    return { title: name, detail: next ? `${label} · ${next}` : label };
+  }
+  return { title: label, detail: next };
 }
 
 export function validateTreatment(
