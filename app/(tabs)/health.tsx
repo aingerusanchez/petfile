@@ -23,6 +23,7 @@ import {
   VetCard,
   WeightLine,
 } from "../../components/ui";
+import { NOTE_LIMIT } from "../../lib/limit";
 import { MONTHS_ES, parseISO } from "../../lib/dates";
 import {
   dayKey,
@@ -714,6 +715,7 @@ function WeightSheet({
         value={note}
         onChangeText={setNote}
         placeholder="¿Algo que contar?"
+        limit={NOTE_LIMIT}
         corner={<MarkdownHelp testID="weight-note-help" />}
       />
 

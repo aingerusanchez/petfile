@@ -6,6 +6,7 @@ import {
   type TextInputProps,
 } from "react-native";
 import { FieldLabel } from "./FieldLabel";
+import { atLimit, clampToLimit, showsCounter } from "../../lib/limit";
 import { PLACEHOLDER_COLOR, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
 
@@ -31,6 +32,23 @@ type TextFieldProps = Omit<
    * picker is the alternative, not the other way round.
    */
   trailing?: ReactNode;
+  /**
+   * The most characters the field takes, counted under it (`72/500`).
+   *
+   * **Outside the field, bottom-right.** The inside of that corner already
+   * holds the Markdown help, and two things in one corner is one too many.
+   * The counter appears once most of the limit is used, and a field at its
+   * limit stops growing rather than warning — see `lib/limit.ts` for why, and
+   * for what happens to a value that is already longer.
+   *
+   * **Set it instead of `maxLength`, not as well**: this prop is what supplies
+   * the platform cap, and only while the value fits under it.
+   *
+   * It needs a controlled field driven by `onChangeText`: the clamp wraps that
+   * handler and the count reads `value`, so an uncontrolled field would count
+   * an empty string forever and an `onChange` caller would bypass the clamp.
+   */
+  limit?: number;
   /** Marks the field as one that blocks a save. */
   required?: boolean;
   /**
@@ -105,6 +123,7 @@ export function TextField({
   suffix,
   suffixLabel,
   corner,
+  limit,
   trailing,
   onLayout,
   error = null,
@@ -112,6 +131,10 @@ export function TextField({
   ...inputProps
 }: TextFieldProps) {
   const labelID = useId();
+
+  // `value` is a controlled input's, and `limit` is only meaningful on one.
+  const current = inputProps.value ?? "";
+  const { onChangeText } = inputProps;
 
   /**
    * **Read-only is not disabled, and it had no way of being said.**
@@ -155,6 +178,22 @@ export function TextField({
         <TextInput
           {...inputProps}
           editable={disabled ? false : inputProps.editable}
+          // **The platform's cap only while the value fits under it.** Handed a
+          // note longer than the limit it may cut it as it is displayed (see
+          // `clampToLimit`), so an over-length note drops the cap and the
+          // handler below does the binding instead.
+          maxLength={
+            limit === undefined
+              ? inputProps.maxLength
+              : current.length <= limit
+                ? limit
+                : undefined
+          }
+          onChangeText={
+            limit === undefined || !onChangeText
+              ? onChangeText
+              : (next) => onChangeText(clampToLimit(current, next, limit))
+          }
           // Spread *after* `inputProps`, so it must not throw a caller's own
           // state away: it adds `disabled` when this field is disabled and
           // otherwise hands whatever arrived straight through. Written as
@@ -211,6 +250,28 @@ export function TextField({
           </Text>
         ) : null}
       </View>
+      {limit !== undefined && showsCounter(current.length, limit) ? (
+        <Text
+          testID={inputProps.testID ? `${inputProps.testID}-count` : undefined}
+          // Read as a sentence, not as a fraction. Announced only when the
+          // field fills: a live region on every keystroke past 400 would talk
+          // over the person typing.
+          accessibilityLabel={`${current.length} de ${limit} caracteres`}
+          accessibilityLiveRegion={
+            atLimit(current.length, limit) ? "polite" : "none"
+          }
+          // `text-xs`, the size the error below it takes. A count is
+          // decorative and an error blocks the save; drawing the count a step
+          // larger put them the wrong way round.
+          className={`mt-1 self-end text-xs ${
+            atLimit(current.length, limit)
+              ? "text-warning"
+              : "text-text-tertiary"
+          }`}
+        >
+          {current.length}/{limit}
+        </Text>
+      ) : null}
       {error ? (
         <Text
           testID={inputProps.testID ? `${inputProps.testID}-error` : undefined}

@@ -16,6 +16,111 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.13.0] — 2026-10-17
+
+### Nuevo
+
+- **Una nota puede llevar una lista numerada.** El renderizador de notas
+  conocía tres formas —un título, una lista con guiones y un párrafo— y un
+  `1. Primero` se pintaba como una frase corrida: los números se leían en medio
+  de la línea y nada separaba un paso del siguiente. La pauta de un veterinario
+  es tan probable que venga numerada como con guiones, y la enfermedad que
+  viene después va a guardar esa pauta en un campo de Markdown, así que la
+  cuarta forma entra ahora, simétrica a la de guiones. En el texto sirve lo
+  mismo que ya servía: una línea en blanco separa bloques y una línea que
+  continúa el paso anterior se pega a él.
+- **Los números que se ven son los de la posición, no los que se tecleó.** Una
+  lista escrita 1, 1, 1 —que es lo que Markdown permite y lo que se teclea con
+  prisa en el móvil— o 1, 3, 4 después de borrar un paso se lee 1, 2, 3. Se
+  decidió así a propósito: dibujar el número tecleado dejaría en pantalla una
+  pauta que dice "1. 3. 4." a quien le está dando la medicina al perro, y
+  nadie lo notaría hasta ese momento. Quien lo vea y piense que es un olvido
+  tiene aquí la razón.
+- **La ayuda del formato enseña la lista numerada**, con el mismo ejemplo y su
+  resultado lado a lado que ya tienen los demás.
+- **Una lista empieza con uno o dos dígitos, y un año sigue siendo un año.**
+  Sin ese tope, un párrafo que empieza por `2026. Un año raro` se leía como una
+  lista de un solo elemento — y como el número se dibuja por posición, el 2026
+  desaparecía de la pantalla y en su sitio quedaba un `1.`. Noventa y nueve
+  pasos son más de los que ha tenido ninguna pauta; un número de cuatro cifras
+  seguido de un punto es una fecha mucho más a menudo que una lista.
+
+- **Una nota dice cuánto lleva escrito, y tiene un tope de 500 caracteres.**
+  Hasta ahora ninguna decía nada: la de la hoja del día paraba en 200 sin
+  avisar y las otras tres no paraban nunca, así que se podía pegar la carta
+  entera de una clínica y la app la guardaba sin que nadie viera lo lejos que
+  estaba de lo que ahí se escribe. La nota más larga que hay apuntada ronda los
+  200 caracteres, así que 500 sobra para lo que se escribe y es un techo de
+  verdad para lo que no. Un contador que nunca se puede alcanzar es decoración;
+  este sí.
+- **El contador sale debajo del campo, a la derecha, y solo cuando ya queda poco.**
+  `412/500`, desde el 80% del límite. Fuera del campo porque esa esquina por
+  dentro ya la ocupa la ayuda del formato, y dos cosas en una esquina son una
+  de más. Tarde y no siempre, porque un `0/500` debajo de cada nota de la app
+  sería ruido permanente para la nota de cada cien que se acerca al tope; a 400
+  quedan cien caracteres, un par de frases para terminar lo que se estaba
+  diciendo. En gris hasta que el campo se llena y en ámbar desde entonces.
+- **Al llegar al límite el campo deja de aceptar, no avisa y sigue aceptando.**
+  Un límite que avisa es una sugerencia. Un texto pegado que no cabe se corta
+  en el sitio donde se pegó, no al final de la nota, así que lo que ya había
+  escrito nunca es lo que se pierde.
+- **Lo llevan los cuatro campos de texto libre de varias líneas que son
+  notas:** la nota de la hoja del día (paseo, comida, medicación, enfermedad),
+  la del peso, la del tratamiento y el horario de la clínica. La dirección es de
+  varias líneas pero no es una nota, y no lo lleva.
+
+### Arreglado
+
+- **La barra del objetivo no se veía dónde acababa lo ya apuntado.** Mientras un
+  paseo está en marcha la barra son dos tramos pegados: los minutos guardados en
+  gris claro y los del paseo en curso en un gris algo más oscuro, y entre los
+  dos hay **1,71:1**. En un paseo de verdad no se distinguía dónde terminaba uno
+  y empezaba el otro, que es el mismo fallo que ya costó una barra: un trazo de
+  1,64:1 "no se leía como una medida de nada". Contra un objetivo de 3 h el tramo
+  del paseo mide 3,6 dp a los dos minutos, así que ningún retoque del tramo
+  —color, altura, textura— se puede ver en 3,6 dp.
+- **Ahora hay una marca en la unión: un trazo vertical blanco de 2 dp de ancho y
+  12 de alto, centrado donde acaban los minutos guardados** y asomando 4 dp por
+  encima y por debajo de la barra. Se ve igual con el tramo de 3,6 dp que con
+  el de 38. Solo sale mientras hay un paseo en marcha y solo si el animal tiene
+  objetivo, o sea, solo cuando hay una barra con dos tramos que separar.
+- **No es un color nuevo, y no se pudo.** Esta barra habla en dos tonos —gris
+  mientras se lee, Aqua como conclusión—, el violeta está reservado a tres
+  sitios y cualquier otro escalón de la paleta cae en la misma franja de
+  1,16 a 1,71:1 que ya falló aquí y obligó a las fichas a distinguirse por el
+  peso y no por el relleno.
+- **No es un círculo, aunque fue lo primero que se propuso.** El deslizador de
+  la app es una pista fina, un relleno Aqua y un círculo de 20 dp al final del
+  relleno, que es la forma de "arrástrame", y esta barra no se arrastra. Un
+  trazo de 2 dp no es un asa: sobre una pista se lee como un punto de
+  referencia, que es lo que es.
+- **No se mueve.** El punto antes de la medida ya late para decir que el paseo
+  sigue; la marca responde a otra pregunta —cuánto de esto está ya guardado— y
+  si latiera dijera "en vivo" dos veces. Una cosa se mueve y la otra se queda.
+- **Con el objetivo ya cumplido antes de empezar no sale.** La barra está llena
+  y en Aqua y no hay tramo en curso, así que una marca en su extremo derecho
+  separaría lo guardado de nada y se leería como el tope de la barra.
+
+### Cambiado
+
+- **La nota de la hoja del día admitía 200 caracteres y ahora admite 500.**
+  Aquel tope se puso con la hoja, sin contador, y caía justo donde terminan las
+  notas más largas que hay apuntadas: la pared estaba donde se llega al escribir
+  un párrafo de verdad, y nadie veía que estaba ahí.
+- **Una nota escrita antes del límite se abre entera y se guarda como estaba.**
+  No se toca nada de lo que hay en la base de datos. Una nota de 650 caracteres
+  se muestra con `650/500` en ámbar, se puede acortar o corregir, no se puede
+  alargar, y al guardar vuelve entera. Pasarle `maxLength` al campo no basta
+  para prometer eso: en un campo controlado la plataforma puede recortar la nota
+  al escribirla en la vista mientras el estado conserva el texto completo, y lo
+  que se guardase ya no sería lo que se vio. Por eso el tope de la plataforma
+  solo se aplica mientras el texto cabe, y pasado eso lo hace la app.
+
+### Lo que sigue fuera
+
+Las listas anidadas, los enlaces y las tablas. Cada uno es un analizador y no
+una rama más, y nada en esta app ha pedido todavía ninguno.
+
 ## [v0.12.0] — 2026-10-16
 
 ### Nuevo

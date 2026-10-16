@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
+import { NOTE_LIMIT } from "../../lib/limit";
 import { MONTHS_ES, parseISO } from "../../lib/dates";
 import {
   canonicalVaccine,
@@ -288,6 +289,7 @@ export function TreatmentSheet({
         value={note}
         onChangeText={setNote}
         placeholder="¿Algo que contar?"
+        limit={NOTE_LIMIT}
         corner={<MarkdownHelp testID="treatment-note-help" />}
       />
 

@@ -1,13 +1,14 @@
 import { Fragment } from "react";
 import { View } from "react-native";
+import { parseBlocks } from "../../lib/markdown";
 import { Text } from "./Text";
 
 /**
  * Just enough Markdown for text a household writes, and no more.
  *
- * **A parser would be the wrong shape of answer.** Four constructs cover
- * everything these two callers need — a `###` heading, a `- ` bullet, a
- * paragraph, and `**bold**` or `` `code` `` inline. A dependency for that would
+ * **A parser would be the wrong shape of answer.** Five constructs cover
+ * everything these callers need — a `###` heading, a `- ` bullet, a `1. `
+ * numbered item, a paragraph, and `**bold**` or `` `code` `` inline. A dependency for that would
  * ship a general-purpose renderer to display a vet's note.
  *
  * **It started as the changelog's private renderer**, which is why the
@@ -16,8 +17,8 @@ import { Text } from "./Text";
  * symptoms, a blank line between two thoughts.
  *
  * The rule it imposes in exchange: **if it does not render here, it does not
- * belong in the text.** Tables, links and code fences are not part of the
- * vocabulary, which is a fine constraint on a field whose job is to say what
+ * belong in the text.** Nested lists, tables, links and code fences are not
+ * part of the vocabulary, which is a fine constraint on a field whose job is to say what
  * the vet said.
  *
  * **Nothing here is an editor.** The note is typed into a plain multiline
@@ -55,6 +56,10 @@ export function Inline({ text }: { text: string }) {
     </>
   );
 }
+
+/** Roughly a digit's advance at `text-sm`, and the dot that follows it. */
+const DIGIT_WIDTH = 8;
+const DOT_WIDTH = 4;
 
 type MarkdownProps = {
   text: string;
@@ -94,12 +99,7 @@ export function Markdown({
   breaks = false,
   testID,
 }: MarkdownProps) {
-  // Blank lines separate blocks; a block's own newlines are soft wraps, which
-  // is how somebody types into a phone and how Markdown reads it.
-  const blocks = text
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean);
+  const blocks = parseBlocks(text);
 
   if (blocks.length === 0) return null;
 
@@ -110,7 +110,7 @@ export function Markdown({
   return (
     <View testID={testID}>
       {blocks.map((block, index) => {
-        if (block.startsWith("### ") || block.startsWith("## ")) {
+        if (block.kind === "heading") {
           return (
             <Text
               key={index}
@@ -118,24 +118,38 @@ export function Markdown({
                 index === 0 ? "mt-0" : ""
               }`}
             >
-              {block.replace(/^#{2,3} /, "")}
+              {block.text}
             </Text>
           );
         }
 
-        if (block.startsWith("- ")) {
+        if (block.kind === "bullets" || block.kind === "numbers") {
+          // The marker column is as wide as the widest number, right-aligned,
+          // so a list that reaches 10 does not push its later items sideways.
+          // A digit measures about `DIGIT_WIDTH` at `text-sm`; `DOT_WIDTH` is
+          // the dot after it. Both are estimates rather than measurements —
+          // too wide only costs a little air, too narrow wraps the item.
+          const width =
+            String(block.items.length).length * DIGIT_WIDTH + DOT_WIDTH;
           return (
             <View key={index} className={gap}>
-              {block.split(/\n(?=- )/).map((item, line) => (
+              {block.items.map((item, line) => (
                 <View key={line} className="flex-row gap-2">
-                  <Text className={className}>·</Text>
+                  {block.kind === "numbers" ? (
+                    <Text
+                      className={className}
+                      style={{ minWidth: width, textAlign: "right" }}
+                    >
+                      {line + 1}.
+                    </Text>
+                  ) : (
+                    <Text className={className}>·</Text>
+                  )}
                   <Text
                     numberOfLines={lines}
                     className={`min-w-0 flex-1 ${className}`}
                   >
-                    <Inline
-                      text={item.replace(/^- /, "").replace(/\n\s+/g, " ")}
-                    />
+                    <Inline text={item} />
                   </Text>
                 </View>
               ))}
@@ -149,7 +163,9 @@ export function Markdown({
             numberOfLines={lines}
             className={`${className} ${index === blocks.length - 1 ? "" : gap}`}
           >
-            <Inline text={block.replace(/\n[^\S\n]*/g, breaks ? "\n" : " ")} />
+            <Inline
+              text={block.text.replace(/\n[^\S\n]*/g, breaks ? "\n" : " ")}
+            />
           </Text>
         );
       })}

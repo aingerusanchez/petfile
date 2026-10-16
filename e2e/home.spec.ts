@@ -1236,8 +1236,9 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
   await expect(page.getByTestId("home-goal-control")).toBeVisible();
-  // Nothing is running, so nothing pulses.
+  // Nothing is running, so nothing pulses and nothing marks a junction.
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
 
   const entries = page.locator('[data-testid^="home-entry-"]');
   await expect(entries).toHaveCount(0);
@@ -1250,6 +1251,7 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   // bar's segment is in the walk's first minutes.
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await expect(page.getByTestId("home-goal-tick")).toBeVisible();
   await expect(entries).toHaveCount(1);
   await expect(entries.first()).toContainText("En marcha");
 
@@ -1266,8 +1268,142 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
     "De paseo",
   );
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
   await expect(entries).toHaveCount(0);
   await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
+});
+
+/**
+ * The two moments the tick specs hang on, derived from a "now" they own.
+ *
+ * A recorded walk at one minute past midnight — the earliest start that is
+ * still today, and always in the past — and a live walk begun two minutes ago.
+ * It is `null` only in the first few minutes of the day, when the live walk
+ * would be yesterday's. Anchoring on midnight rather than "two hours ago" is
+ * what lets these run at 01:00 instead of skipping for the first two hours.
+ */
+function tickMoments(): { earlier: Date | null; running: Date } {
+  const now = new Date();
+  const running = new Date(now.getTime() - 2 * 60_000);
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const room = running.getDate() === now.getDate() && running > earlier;
+  return { earlier: room ? earlier : null, running };
+}
+
+/**
+ * **The tick is the boundary the two fills cannot draw.** Mist and the
+ * segment's tone sit 1.71:1 apart, and against a 3 h goal the segment is 3.6 dp
+ * wide at two minutes, so the mark at the junction is the only thing that says
+ * where the recorded minutes end. The goal is 60 min here and 30 are recorded,
+ * so the junction is the middle of the bar.
+ */
+test("marks where the recorded minutes end while a walk is running", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const { earlier, running } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  const tick = page.getByTestId("home-goal-tick");
+  await expect(tick).toBeVisible();
+  const bar = await page.getByTestId("home-goal-bar").boundingBox();
+  const box = await tick.boundingBox();
+  expect(bar, "the recorded fill should be drawn").not.toBeNull();
+  expect(box, "the tick should be drawn").not.toBeNull();
+
+  // **Its position tracks the recorded proportion**: the recorded fill's right
+  // edge is the junction, and the tick is centred on it. A half-way junction
+  // also rules out a tick pinned to either end.
+  const junction = bar!.x + bar!.width;
+  expect(box!.x + box!.width / 2).toBeCloseTo(junction, 0);
+  expect(bar!.width).toBeGreaterThan(0);
+
+  // 2 dp wide and 12 tall, and standing proud of the 4 dp track at both ends.
+  expect(box!.width).toBeCloseTo(2, 0);
+  expect(box!.height).toBeCloseTo(12, 0);
+  expect(box!.y).toBeLessThan(bar!.y);
+  expect(box!.y + box!.height).toBeGreaterThan(bar!.y + bar!.height);
+
+  // Decoration to a reader, the way the dot is.
+  await expect(tick).toHaveAttribute("aria-hidden", "true");
+});
+
+test("moves the tick as more is recorded, and leaves the layout alone", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const { earlier } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 15 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal")).toContainText("15 min de 1h");
+  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  const idle = await page.getByTestId("home-goal").boundingBox();
+
+  await page.getByTestId("home-goal-control").click();
+  const tick = page.getByTestId("home-goal-tick");
+  await expect(tick).toBeVisible();
+
+  // A quarter of the bar: the junction is where 15 of 60 minutes end.
+  const bar = await page.getByTestId("home-goal-bar").boundingBox();
+  const box = await tick.boundingBox();
+  // The block is as wide as the track, so the recorded fill is a quarter of it.
+  const idleWidth = idle!.width;
+  expect(box!.x + box!.width / 2).toBeCloseTo(bar!.x + bar!.width, 0);
+  expect(bar!.width / idleWidth).toBeCloseTo(0.25, 2);
+
+  // **It does not change the block.** The tick is absolutely placed, so the
+  // block is the height it was when idle.
+  const walking = await page.getByTestId("home-goal").boundingBox();
+  expect(walking!.height).toBeCloseTo(idle!.height, 0);
+  expect(walking!.y).toBeCloseTo(idle!.y, 0);
+});
+
+test("draws no tick when the goal is already met, walking or not", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const { earlier, running } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 60 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // The bar is full and Aqua and the walk is running; there is no segment, so
+  // a mark at the right end would separate the recorded minutes from nothing.
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(page.getByTestId("home-goal-met")).toBeVisible();
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
 });
 
 test("shows the control working while the start is being written", async ({
@@ -1800,6 +1936,10 @@ test("shows the goal block for a pet with no goal, and still starts a walk", asy
   await expect(
     page.locator('[data-testid^="home-entry-"]').first(),
   ).toContainText("En marcha");
+  // The dot says the walk is live; the tick marks a junction on a bar, and
+  // there is no bar to have one.
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
 
   // Stopped inside a minute, so nothing is left behind in the log.
   await page.getByTestId("home-goal-control").click();

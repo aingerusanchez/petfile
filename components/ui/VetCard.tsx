@@ -8,6 +8,7 @@ import {
 } from "lucide-react-native";
 import { useState } from "react";
 import { Linking, Pressable, View } from "react-native";
+import { NOTE_LIMIT } from "../../lib/limit";
 import {
   EMPTY_VET,
   formatPhone,
@@ -346,6 +347,7 @@ function VetSheet({
         value={draft.hours}
         onChangeText={field("hours")}
         placeholder={"L-V 10:30-14:00 y 17:00-20:00\nS 10:00-13:00"}
+        limit={NOTE_LIMIT}
         corner={<MarkdownHelp testID={`vet-${kind}-hours-help`} />}
       />
 

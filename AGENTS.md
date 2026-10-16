@@ -128,6 +128,8 @@ lib/                      → domain logic and data access
   framing.ts              → the crop maths behind the avatar editor
   duration.ts             → minutes in and out of "1h 30m"
   breeds.ts               → the breed list and what counts as "mestizo"
+  limit.ts                → how long a note may be, and what that means for one already longer
+  markdown.ts             → the block shapes of a note: heading, bullets, numbers, paragraph
 supabase/migrations/      → Postgres schema, RLS policies, RPC functions
 e2e/                       → Playwright specs + sign-in helpers
 ```
