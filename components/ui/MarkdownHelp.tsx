@@ -37,7 +37,10 @@ const EXAMPLES = `## Un título
 **Negrita** para lo importante.
 
 - Una cosa
-- Y otra`;
+- Y otra
+
+1. Primero esto
+2. Luego esto`;
 
 export function MarkdownHelp({ testID }: { testID?: string }) {
   const [open, setOpen] = useState(false);

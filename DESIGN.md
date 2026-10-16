@@ -576,12 +576,13 @@ The way back and the name of where you are, on a screen the tabs do not reach.
 
 - **The help mark lives in the field's own corner, faint.** It was a "T" stacked above the walk's kaka button, where it read as a second control of the sheet rather than as a property of the note — and the two glyphs together did not add up to the textarea's height, so the column beside it was visibly the wrong size. In the corner it belongs to the field, the way the weight chart's maximise mark belongs to the chart. Dimmed, because a note's last line runs under it and a mark that hides a word is worse than no mark. **`BookType`, not a letter**: a letter is what a _formatting_ control looks like, and this formats nothing — it explains.
 
-Four constructs, and no editor.
+Five constructs, and no editor.
 
-- **`###`, `- `, a paragraph, and `**bold**` or `` `code` `` inline.** It was the changelog's private renderer until a treatment note wanted the same things — a couple of bold words, a list of symptoms, a blank line between two thoughts. A dependency for that would ship a general-purpose renderer to display a vet's note.
+- **`###`, `- `, `1. `, a paragraph, and `**bold**` or `` `code` `` inline.** It was the changelog's private renderer until a treatment note wanted the same things — a couple of bold words, a list of symptoms, a blank line between two thoughts. A dependency for that would ship a general-purpose renderer to display a vet's note.
 - **The writing side is a plain three-line field.** No toolbar, no preview, no live formatting: somebody who writes asterisks gets bold and somebody who does not gets their sentence back unchanged. A multiline field starts its text at the top — centring a note that has grown to four lines leaves the first floating in the middle while the caret sits elsewhere.
 - **A lone newline is a soft wrap, except where it cannot be.** A note typed on a phone wraps by accident, so a single newline joins — which is what Markdown itself does. A clinic's opening hours are the opposite: every line is a different day, nobody breaks one by mistake, and joining them produces a sentence about nothing. `breaks` is the exception, set per field rather than guessed from the text, and GitHub-flavoured Markdown makes the same one.
-- **If it does not render, it does not belong in the text.** Tables, links and code fences are outside the vocabulary, which is a fine constraint on a field whose job is to say what the vet said.
+- **A numbered list draws its own numbers.** `1. ` is the symmetric fourth block: a vet's protocol is as likely to be numbered as bulleted. The typed digits are discarded and the renderer counts from one, so a list typed 1, 1, 1 — which Markdown itself allows and a hurried tutor types — or 1, 3, 4 after an item was deleted still reads in order. That reads like a bug to whoever finds it; the bug would be the protocol reading "1. 3. 4." to somebody giving a dog its medicine. The block shapes live in `lib/markdown.ts` and are unit-tested, because a wrong expression here does not throw — it renders a protocol as one run-on sentence.
+- **If it does not render, it does not belong in the text.** Nested lists, tables, links and code fences are outside the vocabulary, which is a fine constraint on a field whose job is to say what the vet said.
 
 ### Health
 

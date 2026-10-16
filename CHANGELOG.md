@@ -16,6 +16,34 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.13.0] — 2026-10-17
+
+### Nuevo
+
+- **Una nota puede llevar una lista numerada.** El renderizador de notas
+  conocía tres formas —un título, una lista con guiones y un párrafo— y un
+  `1. Primero` se pintaba como una frase corrida: los números se leían en medio
+  de la línea y nada separaba un paso del siguiente. La pauta de un veterinario
+  es tan probable que venga numerada como con guiones, y la enfermedad que
+  viene después va a guardar esa pauta en un campo de Markdown, así que la
+  cuarta forma entra ahora, simétrica a la de guiones. En el texto sirve lo
+  mismo que ya servía: una línea en blanco separa bloques y una línea que
+  continúa el paso anterior se pega a él.
+- **Los números que se ven son los de la posición, no los que se tecleó.** Una
+  lista escrita 1, 1, 1 —que es lo que Markdown permite y lo que se teclea con
+  prisa en el móvil— o 1, 3, 4 después de borrar un paso se lee 1, 2, 3. Se
+  decidió así a propósito: dibujar el número tecleado dejaría en pantalla una
+  pauta que dice "1. 3. 4." a quien le está dando la medicina al perro, y
+  nadie lo notaría hasta ese momento. Quien lo vea y piense que es un olvido
+  tiene aquí la razón.
+- **La ayuda del formato enseña la lista numerada**, con el mismo ejemplo y su
+  resultado lado a lado que ya tienen los demás.
+
+### Lo que sigue fuera
+
+Las listas anidadas, los enlaces y las tablas. Cada uno es un analizador y no
+una rama más, y nada en esta app ha pedido todavía ninguno.
+
 ## [v0.12.0] — 2026-10-16
 
 ### Nuevo
