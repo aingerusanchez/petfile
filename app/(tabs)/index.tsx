@@ -64,7 +64,6 @@ import {
   minutesBetween,
   parseTimeOfDay,
   startWalk,
-  startWithinDay,
   updateEvent,
   walkedMinutes,
   type DaySummary,
@@ -163,9 +162,6 @@ const KINDS: Record<
 
 const ORDER: EventKind[] = ["walk", "meal", "medication", "incident"];
 
-/** How much a tap on -15 or +15 moves a walk's duration. */
-const STEP_MINUTES = 15;
-
 /**
  * How far back the calendar's marks reach, in whole months.
  *
@@ -174,29 +170,6 @@ const STEP_MINUTES = 15;
  * marks stop rather than lying, which the calendar says in words.
  */
 const MARKED_MONTHS = 12;
-
-/**
- * The clock time `total` minutes before `at` — or "" when that leaves the day.
- *
- * DESDE holds a time of day with no date, so a start on the previous day comes
- * back as that same clock time on the day on screen, which is *after* the end.
- * Rather than write a time that means the wrong thing, the field goes empty
- * and the duration carries the walk on its own. See `applyMinutes`.
- */
-function startOnDay(atText: string, day: Date, total: number): string {
-  const end = parseTimeOfDay(atText, day);
-  if (!end) return "";
-  const start = startWithinDay(end, total);
-  return start ? formatTimeOfDay(start) : "";
-}
-
-/** The clock time `total` minutes after `at` — or "" when that leaves the day. */
-function endOnDay(atText: string, day: Date, total: number): string {
-  const start = parseTimeOfDay(atText, day);
-  if (!start) return "";
-  const end = endWithinDay(start, total);
-  return end ? formatTimeOfDay(end) : "";
-}
 
 /** The same clock time, `by` days away. */
 function shiftDays(day: Date, by: number): Date {
@@ -1141,12 +1114,13 @@ function Entry({
  * asking the tutor to correct the one field it had filled in. So HASTA opens on
  * the current time and DESDE opens empty.
  *
- * **DESDE and HASTA are the facts; DURACIÓN is derived.** Editing either time
- * recomputes the duration. The duration stays editable, and **it works
- * backwards from HASTA**: typing it, or tapping -15 / +15, moves DESDE. That
- * is the mirror of the earlier rule and follows from the same premise — the
- * field the tutor is sure of must never shift under them, and now that is the
- * end.
+ * **DESDE and HASTA are the facts; DURACIÓN is a reading of them.** Editing
+ * either time recomputes the duration, and the duration is never typed: it
+ * used to write back into a time — typed, or by a -15 / +15 pair of buttons —
+ * and that coupling is where a running walk's real start was overwritten
+ * twice, so the field only shows. It is still saved, and a row that has a
+ * length and no second time (a walk across midnight, a stored one with only a
+ * HASTA) carries it through `save` untouched.
  *
  * Nothing else is proposed. A prefilled thirty minutes would be a fabricated
  * walk one careless tap away, and **a walk with only an end time is a valid
@@ -1216,8 +1190,7 @@ function EntrySheet({
    * adds the duration back on to recover the HASTA it was entered from; when
    * that end lands on the next day there is no HASTA this form can hold and
    * DESDE carries the walk on its own. A walk in progress is that same shape
-   * with no duration yet, which is what `timeMeans` is for. Which of the two
-   * is the anchor from here on is `moveDerived`'s question, not this one's.
+   * with no duration yet, which is what `timeMeans` is for.
    *
    * One source for the three places that need it: `at`, `from`, and `opened`.
    */
@@ -1266,13 +1239,9 @@ function EntrySheet({
   const [opened] = useState(() => ({
     at: initial.at,
     from: initial.from,
-    // **The duration counts as a change on its own.** It used to be left out
-    // because moving it always moved a time with it, so the times spoke for
-    // it — except on the one walk where they cannot: a crossed walk's HASTA
-    // stays empty whatever the duration says, so retyping "30 min" as "45
-    // min" changed nothing the check could see and Guardar stayed dead with
-    // Cancelar the only way out. It was masked until now by the steppers
-    // wiping DESDE, which made the entry dirty by destroying it.
+    // The duration is compared too, although it only ever follows the two
+    // times: it is part of what `save` writes, and a crossed walk's HASTA is
+    // empty, so there the duration is the one fact the times do not carry.
     duration: storedMinutes
       ? formatDuration(storedMinutes, durationFormat)
       : "",
@@ -1282,13 +1251,6 @@ function EntrySheet({
   }));
   const [durationError, setDurationError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  /**
-   * Which time field this sheet wrote itself, rather than the tutor — the
-   * derived one. Null until it writes one, and null again the moment the
-   * tutor touches either field. See `moveDerived`.
-   */
-  const [derived, setDerived] = useState<"at" | "from" | null>(null);
-
   /**
    * **Only an edit can be unchanged.** The profile's blocks disable their save
    * until something differs from the row, and correcting an entry is the same
@@ -1309,32 +1271,32 @@ function EntrySheet({
     note !== opened.note ||
     stools.join(",") !== opened.stools;
 
-  const parsedAt = parseTimeOfDay(at, day);
-  const parsedFrom = from.trim() ? parseTimeOfDay(from, day) : null;
-  // With no DESDE the duration is the fact rather than a derivation of it, so
-  // the steppers count from the field instead of from the two times.
-  const minutes =
-    parsedFrom && parsedAt
-      ? (minutesBetween(parsedFrom, parsedAt) ?? 0)
-      : (parseDuration(durationText) ?? 0);
-
-  /** Recomputes the display of the derived field. Never writes into a time. */
+  /** Recomputes the duration shown from the two times. Never writes into one. */
   const showDuration = useCallback(
     (fromText: string, atText: string) => {
-      // **A DESDE that does not parse is not a reason to throw the duration
-      // away** — the same rule the duration field already applies to itself:
-      // not a time *yet* is mid-typing, not an error. It is also the only
-      // rule that survives a real keyboard. Deleting "10:48" on Android fires
-      // one change per key, so the field passes through "10:" and "1" on its
-      // way to empty, and clearing on each of those wiped a duration that the
+      // **A time that does not parse is not a reason to throw the duration
+      // away**: not a time *yet* is mid-typing, not an error. It is also the
+      // only rule that survives a real keyboard. Deleting "10:48" on Android
+      // fires one change per key, so the field passes through "10:" and "1" on
+      // its way to empty, and clearing on each of those wiped a duration the
       // final empty string was then careful to preserve. The web hid it
       // completely: `fill("")` is a single event.
       //
-      // With nothing in DESDE the duration is the fact rather than a reading
-      // of two times, which is what lets a walk be an end plus a length —
-      // see `applyMinutes`.
+      // **An *empty* DESDE next to a HASTA is the one exception, and it is
+      // not mid-typing.** The duration is only ever a reading of the two
+      // times now, so with one of them gone and HASTA standing alone there is
+      // nothing left to read it from — and since the field cannot be typed
+      // into, a length left behind would be one the tutor can neither see the
+      // reason for nor delete. `save` would file it under HASTA as if it were
+      // the start. The other way round — DESDE and no HASTA — keeps the
+      // duration, because that is the walk across midnight, where the length
+      // is the fact.
       const start = fromText.trim() ? parseTimeOfDay(fromText, day) : null;
       const end = parseTimeOfDay(atText, day);
+      if (end && !fromText.trim()) {
+        setDurationText("");
+        return;
+      }
       if (!start || !end) return;
       const total = minutesBetween(start, end);
       setDurationText(
@@ -1344,13 +1306,9 @@ function EntrySheet({
     [day, durationFormat],
   );
 
-  // A time the tutor types is a time the tutor owns: neither field is the
-  // derived one any more, and `moveDerived` goes back to deciding from the
-  // two values. The same applies to a time picked off the clock, below.
   const editAt = useCallback(
     (text: string) => {
       setAt(text);
-      setDerived(null);
       showDuration(from, text);
     },
     [showDuration, from],
@@ -1359,7 +1317,6 @@ function EntrySheet({
   const editFrom = useCallback(
     (text: string) => {
       setFrom(text);
-      setDerived(null);
       showDuration(text, at);
     },
     [showDuration, at],
@@ -1381,163 +1338,6 @@ function EntrySheet({
     },
     [day],
   );
-
-  /**
-   * Writes a duration into whichever of the two times is the derived one, and
-   * `null` to clear that field. **The anchor is never touched.**
-   *
-   * HASTA is the anchor whenever the tutor put a time there: the hour they
-   * got home is the one they actually know, so the steppers count backwards
-   * from it and DESDE is what moves. With no HASTA the relation inverts — the
-   * walk is a start plus a length, which is the shape of both the walk in
-   * progress and the walk that crossed midnight — so DESDE is the anchor and
-   * HASTA is what moves.
-   *
-   * **Emptiness alone cannot tell them apart, and that is the whole reason
-   * this remembers.** One tap of +15 on a running walk fills HASTA, so by the
-   * second tap a rule reading "HASTA is the anchor if it holds something"
-   * calls the app's own derivation an anchor and moves the real start out
-   * from under it. Measured, both halves destructive:
-   *
-   * - +15 then clearing the duration to undo it wiped DESDE and left HASTA
-   *   standing, and `save` files a walk with no DESDE under its HASTA — so a
-   *   walk that began at 11:02 was stored as beginning at 11:17, a time
-   *   nobody typed, over the one fact the row existed to keep.
-   * - +15 twice walked the start backwards instead: 11:02 became 10:47.
-   *
-   * So the field this writes is remembered as derived, and the memory is
-   * dropped as soon as the tutor types into either time or picks one off the
-   * clock. Nothing the tutor has touched is ever the derived field.
-   */
-  const moveDerived = useCallback(
-    (total: number | null) => {
-      const target =
-        derived ?? (at.trim() ? "from" : from.trim() ? "at" : null);
-      if (target === null) return;
-      if (target === "from") {
-        setFrom(total === null ? "" : startOnDay(at, day, total));
-      } else {
-        setAt(total === null ? "" : endOnDay(from, day, total));
-      }
-      setDerived(total === null ? null : target);
-    },
-    [derived, at, from, day],
-  );
-
-  /**
-   * The quarter-hour steppers: they set the duration, and the duration moves
-   * the derived time — backwards from HASTA, or forwards from DESDE when
-   * HASTA is empty. See `moveDerived` for which is which.
-   *
-   * **A duration longer than a day is refused here, not on save.** Counting
-   * back from the end would put DESDE on a previous day and render it as a
-   * plausible time of day, so the entry would look ordinary and be nonsense;
-   * `logEvent` would then reject it into a toast, which is the wrong place for
-   * a message about one field. Nothing moves and the field says why.
-   *
-   * ---
-   *
-   * **A start that reaches back past midnight is not written into DESDE.**
-   *
-   * `from` is a time of day with no date: `formatTimeOfDay` keeps only HH:MM,
-   * and `parseTimeOfDay(from, day)` puts it back on the day on screen. So a
-   * start computed on the *previous* day came back as that clock time today —
-   * after the end rather than before it. Stepping +15 three times on a walk
-   * ending at 00:20 gave "45 min" with DESDE at 23:35, and then blurring
-   * emptied the duration while Guardar blamed DESDE for a value the tutor had
-   * never typed.
-   *
-   * The answer is not to make DESDE hold a date. It is that **a walk is
-   * allowed to be an end plus a length**: the tutor knows they got home at
-   * 00:20 and were out about forty-five minutes, which is a complete fact, and
-   * `pet_events.duration_minutes` is a real column rather than something
-   * derived from the two times. So when the start falls outside the day, the
-   * duration stays and DESDE goes empty — the field is optional and says so —
-   * and `save` takes the length from the duration field instead.
-   *
-   * It also serves the case PRODUCT.md wanted anyway: "unos cuarenta minutos"
-   * is a real memory of a walk, and now it can be logged without inventing a
-   * start time to go with it.
-   *
-   * What is still refused is a start the tutor **typed** after its end. That
-   * is a different decision, recorded in DESIGN.md: a mistyped digit is
-   * likelier than a walk across midnight, and guessing would file the entry
-   * under a day nobody chose.
-   */
-  const applyMinutes = useCallback(
-    (total: number) => {
-      if (total <= 0) {
-        setDurationError(null);
-        moveDerived(null);
-        setDurationText("");
-        return;
-      }
-      if (total > MAX_WALK_MINUTES) {
-        setDurationError("Como mucho 24 horas");
-        return;
-      }
-      setDurationError(null);
-      setDurationText(formatDuration(total, durationFormat));
-      moveDerived(total);
-    },
-    [moveDerived, durationFormat],
-  );
-
-  /**
-   * Typing is left alone until it parses, and tidied on blur: reformatting on
-   * every keystroke would fight the typist, which is what a controlled field
-   * that normalises too eagerly always does.
-   */
-  const editDuration = useCallback(
-    (text: string) => {
-      setDurationText(text);
-      if (!text.trim()) {
-        setDurationError(null);
-        moveDerived(null);
-        return;
-      }
-      const total = parseDuration(text);
-      // Not a duration *yet* — mid-typing — is not an error to report.
-      if (total === null || total <= 0) return;
-      if (total > MAX_WALK_MINUTES) {
-        setDurationError("Como mucho 24 horas");
-        return;
-      }
-      setDurationError(null);
-      moveDerived(total);
-    },
-    [moveDerived],
-  );
-
-  /**
-   * Blurring discards a refused duration — when there is something to
-   * re-derive it from.
-   *
-   * **With DESDE the field is a reading of the two times**, so blurring asks
-   * `showDuration` for it again and whatever was typed goes. That is a no-op
-   * in the one case DESDE is set and HASTA is not — the running walk, the
-   * crossed walk — because two times are what `showDuration` needs; there the
-   * typed value stays until `save` refuses it on the field itself, which is
-   * where a message about one field belongs.
-   *
-   * **With neither time the duration is the only fact there is**, so nothing
-   * can re-derive it and this has to tidy it by hand, or a refused "99h"
-   * would sit there with its error cleared. A valid value is kept and
-   * normalised; anything else goes.
-   */
-  const tidyDuration = useCallback(() => {
-    setDurationError(null);
-    if (from.trim()) {
-      showDuration(from, at);
-      return;
-    }
-    const total = parseDuration(durationText);
-    setDurationText(
-      total !== null && total > 0 && total <= MAX_WALK_MINUTES
-        ? formatDuration(total, durationFormat)
-        : "",
-    );
-  }, [showDuration, from, at, durationText, durationFormat]);
 
   const save = useCallback(async () => {
     const end = parseTimeOfDay(at, day);
@@ -1590,14 +1390,11 @@ function EntrySheet({
       occurredAt = start;
     } else if (isWalk) {
       const typed = parseDuration(durationText);
-      // A duration out of range is refused here rather than dropped. **This
-      // is the Android path and the web target cannot reach it**: clicking a
-      // button there blurs the input first, so `tidyDuration` has already
-      // thrown the value away by the time this runs, which is why there is no
-      // e2e test for it. Tapping a Pressable on Android does not blur, so the
-      // refused value arrives here — and saving the walk while quietly
-      // discarding the only number the tutor typed is the worst of the three
-      // options.
+      // A duration out of range is refused here rather than dropped. The
+      // field is no longer typed into, so what arrives is the stored length
+      // or a reading of two times — valid by construction — and these checks
+      // are the guard that keeps `save` from depending on that: filing a walk
+      // under a length nobody could have meant is worse than refusing it.
       if (durationText.trim() && (typed === null || typed <= 0)) {
         setDurationError("Escríbela como 45 min o 1h 30m");
         return false;
@@ -1692,10 +1489,7 @@ function EntrySheet({
                       testID="entry-from-picker"
                       label="Desde"
                       value={from}
-                      onChange={(time) => {
-                        setFrom(time);
-                        setDerived(null);
-                      }}
+                      onChange={setFrom}
                     />
                   }
                   label="Desde"
@@ -1716,10 +1510,7 @@ function EntrySheet({
                       testID="entry-to-picker"
                       label="Hasta"
                       value={at}
-                      onChange={(time) => {
-                        setAt(time);
-                        setDerived(null);
-                      }}
+                      onChange={setAt}
                     />
                   }
                   label="Hasta"
@@ -1734,46 +1525,22 @@ function EntrySheet({
               </View>
             </View>
 
-            {/* The steppers sit hard right, nearest the thumb, and the field
-                  takes only the width its value needs. They used to sit beside
-                  it and the unit landed underneath them. */}
-            <View className="mb-5 flex-row items-end justify-between">
-              <View style={{ width: 140 }}>
-                <TextField
-                  testID="entry-duration"
-                  label="Duración"
-                  value={durationText}
-                  onChangeText={editDuration}
-                  onBlur={tidyDuration}
-                  placeholder="30 min"
-                  // A number pad, even though the field shows "1h 30m":
-                  // bare minutes always parse, so nothing here needs a
-                  // letter, and raising the alphabetic keyboard for a
-                  // digits-first task is the defect AGENTS.md names. The
-                  // readable form is what the field gives back, not what it
-                  // demands.
-                  error={durationError}
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  className=""
-                />
-              </View>
-              <View className="flex-row gap-3">
-                <Step
-                  testID="entry-duration-minus"
-                  label={`-${STEP_MINUTES}`}
-                  accessibilityLabel={`Quitar ${STEP_MINUTES} minutos`}
-                  disabled={minutes <= STEP_MINUTES}
-                  onPress={() => applyMinutes(minutes - STEP_MINUTES)}
-                />
-                <Step
-                  testID="entry-duration-plus"
-                  label={`+${STEP_MINUTES}`}
-                  accessibilityLabel={`Añadir ${STEP_MINUTES} minutos`}
-                  disabled={minutes + STEP_MINUTES > MAX_WALK_MINUTES}
-                  onPress={() => applyMinutes(minutes + STEP_MINUTES)}
-                />
-              </View>
+            {/* **A reading, not a field.** The two times above are what the
+                tutor types and this is what they come to, so it is not
+                editable and says nothing to type. It stays in the primary
+                tone on purpose: a value drawn like a disabled control invites
+                the tutor to fight it. It takes only the width its value
+                needs. */}
+            <View className="mb-5" style={{ width: 140 }}>
+              <TextField
+                testID="entry-duration"
+                label="Duración"
+                value={durationText}
+                editable={false}
+                placeholder="—"
+                error={durationError}
+                className=""
+              />
             </View>
           </>
         ) : (
@@ -1945,45 +1712,6 @@ function DayStep({
         strokeWidth={2.5}
         color={disabled ? colors.textMuted : colors.textSecondary}
       />
-    </Pressable>
-  );
-}
-
-/** A fixed increment for the field beside it. Text, not an icon: it is a number. */
-function Step({
-  testID,
-  label,
-  accessibilityLabel,
-  disabled = false,
-  onPress,
-}: {
-  testID: string;
-  label: string;
-  accessibilityLabel: string;
-  disabled?: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      testID={testID}
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled }}
-      aria-disabled={disabled}
-      style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
-      className="items-center justify-center rounded-xl border border-border-strong pr-3 pl-3 active:opacity-70"
-    >
-      {/* `text-tertiary` when disabled, not `text-muted`: the same choice the
-          disabled button made, and 6.64:1 rather than 3.58:1 on this fill. */}
-      <Text
-        className={
-          disabled ? "text-text-tertiary" : "font-semibold text-text-secondary"
-        }
-      >
-        {label}
-      </Text>
     </Pressable>
   );
 }

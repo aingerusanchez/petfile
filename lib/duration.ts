@@ -46,8 +46,8 @@ export function formatDuration(
  * "cleared" or "not a duration", and those are different answers.
  *
  * Decimal hours ("1,5h") are deliberately out: the comma and the dot disagree
- * across locales, and the field has -15 / +15 for the cases where a tutor is
- * approximating anyway.
+ * across locales, and "unos cuarenta minutos" is already "40" — bare minutes
+ * cover the approximation.
  */
 export function parseDuration(text: string): number | null {
   const value = text.trim().toLowerCase().replace(/\s+/g, "");

@@ -133,7 +133,8 @@ export async function resetE2EPets(): Promise<void> {
  * Through the client rather than the UI: seeding thirty days of a realistic
  * pattern by driving the sheet would take minutes and prove nothing about the
  * sheet. Guarded by the same account check as everything else here, and the
- * rows cascade away with the pet on `resetE2EPets`.
+ * rows cascade away with the pet on `resetE2EPets`. Returns the new rows' ids,
+ * in the order given.
  */
 export async function seedE2EEvents(
   petId: string,
@@ -144,7 +145,7 @@ export async function seedE2EEvents(
     note?: string | null;
     what?: string | null;
   }[],
-): Promise<void> {
+): Promise<string[]> {
   if (email !== E2E_ACCOUNT_EMAIL) {
     throw new Error(
       `Refusing to seed events: E2E_EMAIL is not the dedicated test account (${E2E_ACCOUNT_EMAIL}).`,
@@ -152,17 +153,22 @@ export async function seedE2EEvents(
   }
 
   const { client } = await signInE2EUser();
-  const { error } = await client.from("pet_events").insert(
-    rows.map((row) => ({
-      pet_id: petId,
-      kind: row.kind,
-      occurred_at: row.occurredAt.toISOString(),
-      duration_minutes: row.durationMinutes ?? null,
-      note: row.note ?? null,
-      details: row.what ? { what: row.what } : {},
-    })),
-  );
+  const { data, error } = await client
+    .from("pet_events")
+    .insert(
+      rows.map((row) => ({
+        pet_id: petId,
+        kind: row.kind,
+        occurred_at: row.occurredAt.toISOString(),
+        duration_minutes: row.durationMinutes ?? null,
+        note: row.note ?? null,
+        details: row.what ? { what: row.what } : {},
+      })),
+    )
+    .select("id");
   if (error) throw new Error(`Failed to seed e2e events: ${error.message}`);
+  // In insertion order, so a spec that needs one row's id can have it.
+  return data.map((row) => row.id);
 }
 
 /** A weight line, for the specs that need a shape rather than one number. */
