@@ -91,7 +91,12 @@ const CAKE = 32;
  */
 const VACCINE = 26;
 
-/** What one day carries, from `summariseMonth` in `lib/events.ts`. */
+/**
+ * What one day carries, from `summariseMonth` in `lib/events.ts`.
+ *
+ * `hasMedication` is a Medicación entry **or a treatment from Salud**: to a
+ * cell they are the same fact, and one mark has one meaning.
+ */
 export type CalendarMark = {
   walkedMinutes: number;
   hasIncident: boolean;
@@ -104,10 +109,11 @@ type MonthCalendarProps = {
   /**
    * The days a vaccine touches, given or due.
    *
-   * **Vaccines and nothing else from Salud.** A mark earns a cell by being
-   * the exception: after the first four months a vaccine is about annual,
-   * which is the birthday's own frequency, while a monthly antiparasitic
-   * would be twelve a year on a grid whose marks mean "something happened".
+   * **The watermark is for vaccines and nothing else from Salud.** A mark
+   * earns a watermark by being the exception: after the first four months a
+   * vaccine is about annual, which is the birthday's own frequency. Every
+   * other treatment reaches the grid through `marks` instead, folded into the
+   * medication ring — a ring is punctuation where a watermark is ground.
    */
   vaccines?: Map<string, "given" | "due">;
   /** The current daily target, for the bar. Null hides it entirely. */
@@ -160,7 +166,7 @@ function keyOf(date: string): string {
  * | Met the goal | a bar under the number | Aqua Glaciar |
  * | Fell short | the number, no bar | `text-primary` |
  * | Nothing logged | the number, dimmed | `text-muted` |
- * | Medication | a ring | Warning Amber |
+ * | Medication | a ring (an entry, or a treatment from Salud) | Warning Amber |
  * | Incident | a filled dot | Error Red |
  *
  * The rule holds for every hue, including the friendly one. A month has about
