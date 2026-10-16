@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Maximize2, Scale, ShieldPlus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
@@ -93,6 +93,49 @@ export default function Health() {
   const [treating, setTreating] = useState<PetTreatmentRow | "new" | null>(
     null,
   );
+
+  /**
+   * The treatment another screen asked to see.
+   *
+   * **`?treatment=` exists so the diary can point at one.** A treatment
+   * recorded here shows in its day's TRATAMIENTOS section there, and tapping
+   * it has to land on *that* treatment's sheet — not on this tab, which would be a list
+   * to hunt through for the thing just tapped. It is the diary's `?day=` run
+   * the other way.
+   *
+   * **Applied when it changes, against a remembered value, during render** —
+   * the same shape as `?day=`, for the same reason: this screen is a tab, so
+   * it is already mounted when the diary pushes and a read at mount would
+   * never run again. And only once the treatments have loaded, because the
+   * sheet opens on the row itself, not on an id: until the rows are here
+   * there is nothing to open, and the request is kept rather than dropped.
+   *
+   * **Then the parameter is cleared**, in the effect below — a navigation
+   * call, which cannot happen during render. Left in place it would reopen
+   * the sheet every time this tab was reached again, for as long as the
+   * route kept it; and `handled` is forgotten as the parameter clears, so
+   * asking for the same treatment twice in a row works both times.
+   */
+  const { treatment: askedFor } = useLocalSearchParams<{
+    treatment?: string;
+  }>();
+  const [handled, setHandled] = useState<string | undefined>(undefined);
+
+  if (!askedFor && handled !== undefined) {
+    setHandled(undefined);
+  } else if (askedFor && askedFor !== handled && treatments !== null) {
+    setHandled(askedFor);
+    // A row that is not there — deleted on the other phone since the diary
+    // read it — opens nothing, and the parameter is still cleared below.
+    const row = treatments.find((candidate) => candidate.id === askedFor);
+    if (row) setTreating(row);
+  }
+
+  useEffect(() => {
+    if (askedFor && askedFor === handled) {
+      router.setParams({ treatment: undefined });
+    }
+  }, [askedFor, handled, router]);
 
   /**
    * Today, read once per mount.

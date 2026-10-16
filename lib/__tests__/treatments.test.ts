@@ -12,12 +12,15 @@ import {
   treatmentCadence,
   dateKey,
   daysBetween,
+  describeTreatment,
   dueStatus,
   fromDateKey,
   pending,
   proposeNextDue,
   scheduleKey,
   treatmentLabel,
+  treatmentsOn,
+  treatmentsSince,
   validateTreatment,
   type PetTreatmentRow,
 } from "../treatments";
@@ -346,5 +349,120 @@ describe("treatmentLabel", () => {
     // twice to anybody who has not had the vet explain it.
     expect(treatmentLabel("deworming")).toBe("Desparasitación (Int.)");
     expect(treatmentLabel("antiparasitic")).toBe("Antiparasitario (Ext.)");
+  });
+});
+
+describe("treatmentsOn", () => {
+  const rows = [
+    given("deworming", "Milbemax 125mg", "2026-10-15", "2027-01-13"),
+    given("antiparasitic", "Seresto", "2026-10-14", null),
+    given("vaccine", "Rabia", "2026-10-15", "2027-10-15"),
+  ];
+
+  it("keeps only the rows given on that local day", () => {
+    const found = treatmentsOn(rows, new Date(2026, 9, 15, 23, 59));
+    expect(found.map((row) => row.name).sort()).toEqual([
+      "Milbemax 125mg",
+      "Rabia",
+    ]);
+  });
+
+  it("matches the day at its first and last minute alike", () => {
+    // `administered_on` is a date: the hour of the day on screen is no part
+    // of the question, and 00:00 must not fall into the day before.
+    expect(treatmentsOn(rows, new Date(2026, 9, 14, 0, 0))).toHaveLength(1);
+    expect(treatmentsOn(rows, new Date(2026, 9, 14, 23, 59))).toHaveLength(1);
+  });
+
+  it("is empty for a day with nothing given", () => {
+    expect(treatmentsOn(rows, new Date(2026, 9, 16))).toEqual([]);
+  });
+
+  it("orders two on one day by when they were written down, not by chance", () => {
+    const first = {
+      ...given("vaccine", "Rabia", "2026-10-15", null),
+      id: "b",
+      created_at: "2026-10-15T09:00:00Z",
+    };
+    const second = {
+      ...given("deworming", "Milbemax", "2026-10-15", null),
+      id: "a",
+      created_at: "2026-10-15T10:00:00Z",
+    };
+    // Handed over in the wrong order, and the ids sort the other way round:
+    // only `created_at` can put them right.
+    const found = treatmentsOn([second, first], new Date(2026, 9, 15));
+    expect(found.map((row) => row.name)).toEqual(["Rabia", "Milbemax"]);
+  });
+
+  it("breaks a tie on the id so the order never moves between visits", () => {
+    const a = { ...given("vaccine", "A", "2026-10-15", null), id: "a" };
+    const b = { ...given("vaccine", "B", "2026-10-15", null), id: "b" };
+    expect(
+      treatmentsOn([b, a], new Date(2026, 9, 15)).map((row) => row.id),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("does not reorder or mutate what it was given", () => {
+    const input = [...rows];
+    treatmentsOn(input, new Date(2026, 9, 15));
+    expect(input).toEqual(rows);
+  });
+});
+
+describe("treatmentsSince", () => {
+  const rows = [
+    given("vaccine", "Rabia", "2025-09-30", null),
+    given("vaccine", "Rabia", "2025-10-01", null),
+    given("vaccine", "Rabia", "2026-10-15", null),
+  ];
+
+  it("keeps the day itself and everything after it", () => {
+    expect(
+      treatmentsSince(rows, "2025-10-01").map((r) => r.administered_on),
+    ).toEqual(["2025-10-01", "2026-10-15"]);
+  });
+});
+
+describe("describeTreatment", () => {
+  it("gives the name, the kind and the next date a line each", () => {
+    expect(
+      describeTreatment(
+        given("deworming", "Milbemax 125mg", "2026-10-15", "2026-10-30"),
+      ),
+    ).toEqual({
+      title: "Milbemax 125mg",
+      kind: "Desparasitación (Int.)",
+      next: "Próxima 30 oct",
+    });
+  });
+
+  it("has no third line when nothing is scheduled after it", () => {
+    expect(
+      describeTreatment(given("deworming", "Milbemax", "2026-10-15", null)),
+    ).toEqual({
+      title: "Milbemax",
+      kind: "Desparasitación (Int.)",
+      next: null,
+    });
+  });
+
+  it("names the year when the next one falls in another", () => {
+    // The ordinary case for an annual vaccine, and the one where "14 ene"
+    // alone would read as a date already behind us. In full: "14 ene 27"
+    // beside a day of the month reads as the 27th.
+    expect(
+      describeTreatment(given("vaccine", "Rabia", "2026-10-15", "2027-01-14"))
+        .next,
+    ).toBe("Próxima 14 ene 2027");
+  });
+
+  it("does not repeat the kind when there is no name to lead with", () => {
+    expect(
+      describeTreatment(given("vaccine", null, "2026-10-15", "2026-11-01")),
+    ).toEqual({ title: "Vacuna", kind: null, next: "Próxima 1 nov" });
+    expect(
+      describeTreatment(given("vaccine", "  ", "2026-10-15", null)),
+    ).toEqual({ title: "Vacuna", kind: null, next: null });
   });
 });

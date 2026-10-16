@@ -7,6 +7,9 @@ import {
   MAX_WALK_MINUTES,
   minutesBetween,
   monthBounds,
+  marksForMonths,
+  marksWindowRows,
+  monthsBackStart,
   shiftMinutes,
   startWithinDay,
   summariseMonth,
@@ -15,6 +18,7 @@ import {
   type NewEvent,
   type PetEventRow,
 } from "../events";
+import type { PetTreatmentRow } from "../treatments";
 
 const walk = (minutes: number | null): PetEventRow => ({
   id: "e",
@@ -311,6 +315,143 @@ describe("summariseMonth", () => {
 
   it("has nothing to say about an empty month", () => {
     expect(summariseMonth([]).size).toBe(0);
+  });
+
+  describe("with treatments", () => {
+    const treated = (administered_on: string) => ({ administered_on });
+
+    it("folds a treatment into the medication mark, and nothing else", () => {
+      const days = summariseMonth([], [treated("2026-09-12")]);
+      // The same mark a Medicación entry draws: one mark, one meaning. No
+      // new field, so the calendar needs no new element and the legend no
+      // new word.
+      expect(days.get("2026-09-12")).toEqual({
+        day: "2026-09-12",
+        walkedMinutes: 0,
+        hasIncident: false,
+        hasMedication: true,
+      });
+    });
+
+    it("makes the day present, so a lone treatment is not 'sin registros'", () => {
+      const days = summariseMonth([], [treated("2026-09-12")]);
+      expect(days.has("2026-09-12")).toBe(true);
+      expect(days.has("2026-09-13")).toBe(false);
+    });
+
+    it("keeps what the day's events carried", () => {
+      const days = summariseMonth(
+        [at(12, 9, { duration_minutes: 40 }), at(12, 20, { kind: "incident" })],
+        [treated("2026-09-12")],
+      );
+      expect(days.get("2026-09-12")).toEqual({
+        day: "2026-09-12",
+        walkedMinutes: 40,
+        hasIncident: true,
+        hasMedication: true,
+      });
+    });
+
+    it("does not count a day twice for two treatments, or for both sources", () => {
+      const days = summariseMonth(
+        [at(12, 9, { kind: "medication" })],
+        [treated("2026-09-12"), treated("2026-09-12")],
+      );
+      expect(days.size).toBe(1);
+      expect(days.get("2026-09-12")?.hasMedication).toBe(true);
+    });
+
+    it("is unchanged when there are none, which is every existing caller", () => {
+      const events = [at(3, 9, { duration_minutes: 40 })];
+      expect(summariseMonth(events, [])).toEqual(summariseMonth(events));
+    });
+  });
+});
+
+describe("marksForMonths", () => {
+  const at = (day: number, hour: number, over: Partial<PetEventRow> = {}) =>
+    ({
+      ...walk(null),
+      id: `${day}-${hour}-${over.kind ?? "walk"}`,
+      occurred_at: new Date(2026, 8, day, hour).toISOString(),
+      ...over,
+    }) as PetEventRow;
+  const treated = (administered_on: string) =>
+    ({ administered_on }) as PetTreatmentRow;
+  // Twelve months back from 16 October 2026: the window opens 1 October 2025.
+  const today = new Date(2026, 9, 16);
+
+  it("marks nothing at all while the window has not answered", () => {
+    // Null is "not read yet", and the treatments are usually in hand first.
+    // An empty map draws a clean grid; folding the treatments in here would
+    // draw their days as "objetivo sin conseguir" before a single walk had
+    // been read.
+    expect(marksForMonths(null, [treated("2026-09-12")], today, 12).size).toBe(
+      0,
+    );
+  });
+
+  it("drops a treatment older than the window the events came from", () => {
+    const days = marksForMonths(
+      [],
+      [treated("2025-09-30"), treated("2025-10-01")],
+      today,
+      12,
+    );
+    // The edge is in: 1 October 2025 is the first day the events were read
+    // from, so the grid can say what was walked on it. The day before it
+    // cannot be marked without claiming something nobody looked at.
+    expect(days.has("2025-09-30")).toBe(false);
+    expect(days.get("2025-10-01")?.hasMedication).toBe(true);
+  });
+
+  it("folds the events and the treatments inside the window into one day", () => {
+    const days = marksForMonths(
+      [at(12, 9, { duration_minutes: 40 })],
+      [treated("2026-09-12")],
+      today,
+      12,
+    );
+    expect(days.get("2026-09-12")).toEqual({
+      day: "2026-09-12",
+      walkedMinutes: 40,
+      hasIncident: false,
+      hasMedication: true,
+    });
+  });
+});
+
+describe("marksWindowRows", () => {
+  const row = { id: "a" } as PetEventRow;
+
+  it("is the rows when the read worked", () => {
+    expect(marksWindowRows({ events: [row], error: null })).toEqual([row]);
+    // An empty window that was read is an answer: nothing was logged.
+    expect(marksWindowRows({ events: [], error: null })).toEqual([]);
+  });
+
+  it("is null when the read failed, so nothing is marked at all", () => {
+    // `eventsForMonths` resolves with [] on failure. Stored as it came, that
+    // empty list would have `marksForMonths` fold the treatments in.
+    const failed = marksWindowRows({ events: [], error: "sin conexión" });
+    expect(failed).toBeNull();
+    expect(
+      marksForMonths(
+        failed,
+        [{ administered_on: "2026-09-12" } as PetTreatmentRow],
+        new Date(2026, 9, 16),
+        12,
+      ).size,
+    ).toBe(0);
+  });
+});
+
+describe("monthsBackStart", () => {
+  it("is the first day of the first month the window reaches", () => {
+    // Twelve months back from any day of October 2026 starts on 1 October
+    // 2025 — the same edge `monthsBackBounds` reads events from.
+    expect(monthsBackStart(new Date(2026, 9, 16), 12)).toBe("2025-10-01");
+    expect(monthsBackStart(new Date(2026, 0, 31), 1)).toBe("2025-12-01");
   });
 });
 

@@ -1,5 +1,5 @@
 import type { Database } from "./database.types";
-import { parseISO, toISO } from "./dates";
+import { MONTHS_ES_SHORT, parseISO, toISO } from "./dates";
 import { describeFailure, withTimeout } from "./failures";
 import { supabase } from "./supabase";
 
@@ -381,6 +381,107 @@ export function vaccineDays(
   }
 
   return days;
+}
+
+/**
+ * The treatments given on one local day, in the order they were written down.
+ *
+ * **Matched on the day's key, not on a range.** `administered_on` is a `date`,
+ * not an instant: nobody recorded an hour, so there is no timezone to be wrong
+ * about and a string comparison against the local day's key is exact. The key
+ * goes through `dateKey` — local getters — for the reason `fromDateKey` gives.
+ *
+ * **Ordered by when each row was created, ties by id.** Two treatments on one
+ * day have nothing to sort them by except the order they were typed, and the
+ * diary reads forwards. Without a tiebreak the order is whatever the server
+ * returned — `treatmentsFor` sorts by day alone — and two rows would swap
+ * places between visits.
+ */
+export function treatmentsOn(
+  rows: PetTreatmentRow[],
+  day: Date,
+): PetTreatmentRow[] {
+  const key = dateKey(day);
+  return rows
+    .filter((row) => row.administered_on === key)
+    .sort(
+      (a, b) =>
+        a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
+    );
+}
+
+/**
+ * The treatments from a day onward, `since` being an ISO `YYYY-MM-DD`.
+ *
+ * **The calendar reads events through a window, and a mark has to stay inside
+ * it.** Past the window's edge the grid cannot know what was walked, so a day
+ * that a treatment pulled into the map would be drawn as "logged, and fell
+ * short of the goal" — a claim about walks the calendar never looked at. ISO
+ * days compare correctly as strings.
+ */
+export function treatmentsSince(
+  rows: PetTreatmentRow[],
+  since: string,
+): PetTreatmentRow[] {
+  return rows.filter((row) => row.administered_on >= since);
+}
+
+/**
+ * "14 ene" — and "14 ene 2027" when it falls in another year than
+ * `relativeTo`.
+ *
+ * The short month the weight line already writes. **The year appears exactly
+ * when the date is not the obvious one**, and for a due date that is the
+ * ordinary case: an annual vaccine given in January is next due in January,
+ * and "Próxima 14 ene" under a day in 2026 would read as already behind us.
+ * `relativeTo` is the day the treatment was given rather than today, so the
+ * line says the same thing whenever it is read.
+ *
+ * **Four digits, because two read as a day.** "14 ene 27" sits beside a
+ * line whose first number is a day of the month, and the eye takes the
+ * second one for another — on the one line a tutor reads to know when the
+ * next dose is. The whole year costs two characters and is unambiguous; the
+ * other way out, `DD/MM/AAAA` from `lib/dates.ts`, drops the month word that
+ * makes the line scannable in the first place.
+ */
+function shortDay(iso: string, relativeTo: string): string {
+  const parts = parseISO(iso);
+  if (!parts) return iso;
+  const month = MONTHS_ES_SHORT[parts.month - 1].toLowerCase();
+  const sameYear = parseISO(relativeTo)?.year === parts.year;
+  return sameYear
+    ? `${parts.day} ${month}`
+    : `${parts.day} ${month} ${parts.year}`;
+}
+
+/**
+ * The three lines a treatment is read in, where it is listed without its
+ * sheet: the title, the kind, and the next date — each for a line of its own.
+ *
+ * **The name leads, because it is what the tutor typed and recognises** —
+ * "Milbemax 125mg", off the box in the cupboard — and the kind's label is the
+ * category it belongs to. A treatment with no name (it is optional, and often
+ * unremembered) leads with the label instead and has no `kind` line: saying
+ * it twice would be furniture. A treatment with no `next_due_on` has no `next`
+ * line — a one-off is done, not pending.
+ *
+ * **Separate fields rather than one joined string, because the break between
+ * them is the point.** Joined with " · " the line wrapped wherever the phone's
+ * width fell, and left a year alone on its own line.
+ */
+export function describeTreatment(row: PetTreatmentRow): {
+  title: string;
+  kind: string | null;
+  next: string | null;
+} {
+  const label = treatmentLabel(row.kind as TreatmentKind);
+  const next = row.next_due_on
+    ? `Próxima ${shortDay(row.next_due_on, row.administered_on)}`
+    : null;
+  const name = row.name?.trim();
+
+  if (name) return { title: name, kind: label, next };
+  return { title: label, kind: null, next };
 }
 
 export function validateTreatment(
