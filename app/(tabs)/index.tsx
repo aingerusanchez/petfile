@@ -1089,7 +1089,13 @@ function Entry({
           {spec?.label ?? event.kind}
         </Text>
         {described ? (
-          <Text className="text-text-secondary">{described}</Text>
+          // **A running walk's state takes the accent**, like the time and the
+          // glyph beside it: all three say the same thing, and one of them
+          // reading in the column's ordinary tone made it look like the row's
+          // content rather than its status.
+          <Text className={running ? "text-accent" : "text-text-secondary"}>
+            {described}
+          </Text>
         ) : null}
         {event.note ? (
           // **The note renders its Markdown.** A tutor writing "**Cojea** de
