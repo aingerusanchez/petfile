@@ -33,6 +33,14 @@ describe("parseBlocks", () => {
     });
   });
 
+  it("folds a continuation line nobody indented, because nobody does", () => {
+    const [block] = parseBlocks("1. Un comprimido\ncon la comida\n2. Agua");
+    expect(block).toEqual({
+      kind: "numbers",
+      items: ["Un comprimido con la comida", "Agua"],
+    });
+  });
+
   it("still reads a bulleted list", () => {
     expect(parseBlocks("- Una cosa\n- Y otra")).toEqual([
       { kind: "bullets", items: ["Una cosa", "Y otra"] },
@@ -45,6 +53,17 @@ describe("parseBlocks", () => {
     ]);
     expect(parseBlocks("1.5 mg al día")).toEqual([
       { kind: "paragraph", text: "1.5 mg al día" },
+    ]);
+  });
+
+  it("leaves a year where the tutor typed it", () => {
+    // `\d+` made this a one-item list, and the renderer draws the marker from
+    // position: the 2026 vanished and a `1.` took its place.
+    expect(parseBlocks("2026. Un año raro")).toEqual([
+      { kind: "paragraph", text: "2026. Un año raro" },
+    ]);
+    expect(parseBlocks("100. cosas que hacer")).toEqual([
+      { kind: "paragraph", text: "100. cosas que hacer" },
     ]);
   });
 

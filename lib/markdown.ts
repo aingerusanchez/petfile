@@ -18,16 +18,27 @@ export type Block =
   | { kind: "numbers"; items: string[] }
   | { kind: "paragraph"; text: string };
 
-/** A line that opens a numbered item: `1. `, `12. ` — digits, a dot, a space. */
-const NUMBERED = /^\d+\. /;
+/**
+ * A line that opens a numbered item: `1. `, `12. ` — one or two digits, a dot,
+ * a space. **Two digits and no more, which is the whole point of the bound:**
+ * `\d+` also matches `2026. Un año raro`, and a note is free text a tutor
+ * writes. That block became a one-item list whose marker was redrawn from
+ * position, so the year disappeared off the screen and `1.` stood where it
+ * had been. Ninety-nine items is more than any pauta has ever had; a
+ * four-digit number followed by a dot is a date far more often than a list.
+ */
+const NUMBERED = /^\d{1,2}\. /;
 
 /**
  * A list item's own newlines are soft wraps, which is how somebody types into
  * a phone and how Markdown reads it. A continuation line (indented or not) is
- * folded into the item it follows.
+ * folded into the item it follows — `[^\S\n]*` rather than `\s+`, which would
+ * need whitespace after the newline and so leave an unindented continuation
+ * standing. It is the expression the paragraph branch uses, for the same
+ * reason: on a phone nobody indents.
  */
 function item(text: string, marker: RegExp): string {
-  return text.replace(marker, "").replace(/\n\s+/g, " ");
+  return text.replace(marker, "").replace(/\n[^\S\n]*/g, " ");
 }
 
 export function parseBlocks(text: string): Block[] {
