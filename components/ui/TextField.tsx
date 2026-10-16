@@ -43,6 +43,10 @@ type TextFieldProps = Omit<
    *
    * **Set it instead of `maxLength`, not as well**: this prop is what supplies
    * the platform cap, and only while the value fits under it.
+   *
+   * It needs a controlled field driven by `onChangeText`: the clamp wraps that
+   * handler and the count reads `value`, so an uncontrolled field would count
+   * an empty string forever and an `onChange` caller would bypass the clamp.
    */
   limit?: number;
   /** Marks the field as one that blocks a save. */
@@ -256,7 +260,10 @@ export function TextField({
           accessibilityLiveRegion={
             atLimit(current.length, limit) ? "polite" : "none"
           }
-          className={`mt-1 self-end text-sm ${
+          // `text-xs`, the size the error below it takes. A count is
+          // decorative and an error blocks the save; drawing the count a step
+          // larger put them the wrong way round.
+          className={`mt-1 self-end text-xs ${
             atLimit(current.length, limit)
               ? "text-warning"
               : "text-text-tertiary"
