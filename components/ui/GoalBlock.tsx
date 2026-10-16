@@ -56,6 +56,16 @@ const RIPPLE_SCALE = 2.5;
 const RIPPLE_ALPHA = 0.6;
 
 /**
+ * The transport glyph's box, in dp: the size of the Play and Square icons, and
+ * of the box the spinner stands in for them in while the write is in flight.
+ *
+ * **One name for all three, because they were three literals.** Change the
+ * icons and leave the spinner's box alone, and the control changes width while
+ * it is busy — the shift the spinner's box exists to prevent.
+ */
+const GLYPH_SIZE = 16;
+
+/**
  * The day's walking, and the control that starts and stops it.
  *
  * **The only place on this screen that already talks about walks**, which is
@@ -151,9 +161,14 @@ export function GoalBlock({
    */
   const stopping = onStop !== undefined;
   const control = stopping ? onStop : onStart;
-  // **The one line that decides the control's look.** `stopping` is variant C,
-  // outlined when idle and filled when running; `true` is variant A, filled in
-  // both states.
+  // **The one line that decides the control's look: outlined when idle, filled
+  // when running.** That is variant C. Variant A, filled in both states, was
+  // built and photographed on the device against this one and lost: a
+  // permanently filled Aqua pill was the brightest thing on the screen, brighter
+  // than the floating action, which means "this is the one thing to do here".
+  // The rule is The Unfinished-Thing Rule in DESIGN.md — a filled control is
+  // reserved for the thing that is not finished. Do not make `filled` constant
+  // again to try A; read the rule first.
   const filled = stopping;
   // **Both transport glyphs are solid, and `fill` takes the same token as the
   // stroke** so the two cannot drift apart. Idle, the triangle is solid Aqua;
@@ -208,6 +223,8 @@ export function GoalBlock({
             accessibilityRole="button"
             accessibilityLabel={stopping ? "Terminar paseo" : "Empezar paseo"}
             accessibilityState={{ disabled: busy, busy }}
+            // See Checkbox: the web renders the role and drops the state.
+            aria-busy={busy}
             style={{ minHeight: TOUCH_TARGET }}
             // **Outlined when idle, filled when running: the chosen one is the
             // filled one.** The selected calendar day, the active tab and the
@@ -228,13 +245,18 @@ export function GoalBlock({
               // doorway, and a control that is present but inert is what
               // makes someone press it again. `ActivityIndicator`'s small size
               // is 20 dp, hence the scale. Decoration to a reader: the
-              // button's own state says `busy`.
+              // button's own state says `busy`. **It is the one animation here
+              // that does not consult `useReducedMotion`, and that is a
+              // decision:** the glyph is swapped for the spinner, which a still
+              // screen shows, and the control is disabled and marked busy, so
+              // motion is not the only signal. `Button`'s loading state makes
+              // the same choice.
               <View
                 testID={testID ? `${testID}-spinner` : undefined}
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
                 aria-hidden
-                style={{ width: 16, height: 16 }}
+                style={{ width: GLYPH_SIZE, height: GLYPH_SIZE }}
                 className="items-center justify-center"
               >
                 <ActivityIndicator
@@ -244,9 +266,19 @@ export function GoalBlock({
                 />
               </View>
             ) : stopping ? (
-              <Square size={16} strokeWidth={2.5} color={glyph} fill={glyph} />
+              <Square
+                size={GLYPH_SIZE}
+                strokeWidth={2.5}
+                color={glyph}
+                fill={glyph}
+              />
             ) : (
-              <Play size={16} strokeWidth={2.5} color={glyph} fill={glyph} />
+              <Play
+                size={GLYPH_SIZE}
+                strokeWidth={2.5}
+                color={glyph}
+                fill={glyph}
+              />
             )}
             <Text
               className={`font-semibold ${filled ? "text-on-accent" : "text-accent"}`}
