@@ -312,6 +312,21 @@ export default function Home() {
   const [attempt, setAttempt] = useState(0);
   /** The walk this device has open, or null. Read once, then kept in step. */
   const [runningId, setRunningId] = useState<string | null>(null);
+  /**
+   * The walk the sheet has written to since it was last fetched, by id.
+   *
+   * **`stop` reads the fetched row, and the fetched row lags a sheet save.**
+   * Between the sheet saving a mid-walk note and the reload landing — well
+   * under a second, but not zero — `runningWalk.note` is still empty, so a
+   * stop inside the minute would read the walk as untouched and delete a row
+   * that already holds something the tutor wrote. Saving the sheet on the
+   * running row records its id here, and `stop` treats that as touched
+   * alongside the row's own fields. Keyed by id rather than a boolean so a
+   * new walk starts clean without anything having to reset it, and it is
+   * conservative on purpose: a note written and then erased still closes the
+   * walk at a minute instead of deleting it.
+   */
+  const [writtenToId, setWrittenToId] = useState<string | null>(null);
   const [walkBusy, setWalkBusy] = useState(false);
   /**
    * A tap that arrives while another is still being handled.
@@ -589,11 +604,15 @@ export default function Home() {
       // something the tutor typed, silently and with no way back. So a row
       // anybody has written on is closed at one minute instead: the smallest
       // length the column accepts, and honest about a walk that did happen.
+      // The fetched row can be a save behind, so `writtenToId` stands in for
+      // whatever the sheet has written that the row does not show yet.
       // `details` is `jsonb`, so it arrives as `Json` and needs the same cast
       // `eventDetail` makes.
       const details = runningWalk.details as Record<string, unknown> | null;
       const untouched =
-        !runningWalk.note && Object.keys(details ?? {}).length === 0;
+        !runningWalk.note &&
+        Object.keys(details ?? {}).length === 0 &&
+        writtenToId !== runningWalk.id;
       const { error } =
         outcome.action === "discard"
           ? untouched
@@ -637,7 +656,7 @@ export default function Home() {
       walkInFlight.current = false;
       setWalkBusy(false);
     }
-  }, [runningWalk, toast, celebrate, isToday, goal, met, walked]);
+  }, [runningWalk, writtenToId, toast, celebrate, isToday, goal, met, walked]);
 
   if (petError) {
     return (
@@ -690,9 +709,10 @@ export default function Home() {
   /**
    * Whether the sheet is open on the walk this device has running.
    *
-   * Worked out once, because two things have to agree on it: how the sheet
-   * reads the row's lone time (`timeMeans`), and whether it lets the times be
-   * changed (`running`).
+   * Worked out once, because three things have to agree on it: how the sheet
+   * reads the row's lone time (`timeMeans`), whether it lets the times be
+   * changed (`running`), and whether a save counts as a write to the walk
+   * `stop` is about to judge (`writtenToId`).
    */
   const editingRunning =
     editing !== null &&
@@ -952,6 +972,11 @@ export default function Home() {
                 (walkMinutes ?? 0) >=
                 goal;
 
+            // A save on the running walk is a write the fetched row does not
+            // show yet: see `writtenToId`.
+            if (editingRunning && editing.event) {
+              setWrittenToId(editing.event.id);
+            }
             setEditing(null);
             setAttempt((n) => n + 1);
             if (crossed) celebrate();

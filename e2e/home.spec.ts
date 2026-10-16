@@ -1412,6 +1412,50 @@ test("annotates a walk in progress, then closes it with its length", async ({
   await expect(row).toHaveAttribute("aria-label", /una kaka: perfecta/);
 });
 
+test("keeps a walk that was written on a moment ago, even stopped before the day reloads", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+
+  // **Hold the day's reload back, so the window is wide enough to stop in.**
+  // Normally the log lands in well under a second and the row `stop` reads
+  // already has the note; here the read is parked for a few seconds, which is
+  // the same state a slow connection produces. Writes go through untouched —
+  // only the day's list is delayed.
+  await page.route("**/rest/v1/pet_events?*", async (route) => {
+    if (route.request().method() === "GET") {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+    }
+    await route.continue();
+  });
+
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+
+  // Stopped inside the first minute, before the row on screen can know about
+  // the note. An untouched walk this young is deleted as a mis-tap; this one
+  // was written on, so it is closed at the one minute the column accepts.
+  await page.getByTestId("home-goal-control").click();
+  await page.unroute("**/rest/v1/pet_events?*");
+
+  await expect(page.getByTestId("home-goal-measure")).not.toContainText(
+    "De paseo",
+  );
+  const entries = page.locator('[data-testid^="home-entry-"]');
+  await expect(entries).toHaveCount(1);
+  await expect(entries.first()).toContainText("1 min");
+  await expect(entries.first()).toContainText("Ha bebido en la fuente");
+});
+
 test("saves a stored walk that crossed midnight, and saves it again after an edit", async ({
   page,
 }) => {
