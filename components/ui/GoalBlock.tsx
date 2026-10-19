@@ -67,8 +67,9 @@ const RIPPLE_SCALE = 2.5;
 const RIPPLE_ALPHA = 0.6;
 
 /**
- * The wave that crosses the track while a walk runs: how wide it is, how tall
- * it swells, how long one crossing takes, and how strong it is on each ground.
+ * The band that crosses the track while a walk runs: how wide it is, how tall
+ * it is (the bar's own height), how long one crossing takes, and how strong it
+ * is on each ground.
  *
  * **The band is the opposite tone to the ground it crosses**, so it is always
  * a lightening or a darkening of what is under it. The alpha is the peak of
@@ -109,9 +110,10 @@ const BAND_HEIGHT = 4;
  * beat lands inside it.
  *
  * **One sentence — "this much has just been saved" — said four ways.** The
- * track thickens, a pale band crosses the stretch the walk added, that stretch
- * travels from the in-progress grey to the tone it will keep, and the bar
- * settles back to its 4 dp. Before this, stopping a walk changed the segment
+ * stretch the walk added thickens, a pale band crosses it, that stretch
+ * travels from the in-progress grey to the tone it will keep, and it settles
+ * back to its 4 dp. (Where there is no stretch to point at, the whole track is
+ * what thickens; see below.) Before this, stopping a walk changed the segment
  * to a slightly lighter grey and took the tick away: the most significant
  * event of the dog's day, and the least visible thing the app did.
  *
@@ -141,7 +143,9 @@ const BAND_HEIGHT = 4;
  * **The sheen is the close's own band, not the running sweep.** `SWEEP_WIDTH`
  * crosses the whole track forever; this one crosses a stretch that can be 3 dp
  * wide, once. Same width and nearly the same alpha, so the two read as the
- * same material.
+ * same material. **It is a child of the stretch, so it swells with it**: a 4 dp
+ * band across a 7 dp stretch would leave a rim of uncovered stretch above and
+ * below it, and the sheen is meant to be lighting the thing that is swelling.
  */
 const CLOSE_MS = 760;
 const CLOSE_SWELL_MS = 120;
@@ -608,22 +612,31 @@ export function GoalBlock({
                 className="h-[4px] bg-text-tertiary"
               />
             ) : null}
+            {/* **Inside the track, so its rounded `overflow-hidden` is the
+                band's clip too.** Nothing forces it out: the band is the bar's
+                own 4 dp, so the track cuts nothing it would not already cut.
+                Out beside the track its own clip was square, and the band
+                painted a square corner into the bar's rounded ends every time
+                it passed one — for the whole length of every walk. Absolutely
+                placed, so it adds nothing to the flex row, and the track has
+                no padding or border, so its left edge is the bar's. Last, so
+                it paints over both fills. */}
+            {walkingSince ? (
+              <Sweep
+                met={met}
+                recorded={recorded}
+                testID={testID ? `${testID}-sweep` : undefined}
+              />
+            ) : null}
           </Animated.View>
-          {/* **The wave and the close are the track's siblings, not its
-              children, because both are thicker than the bar.** The track
-              keeps the `overflow-hidden` its two fills need, and that would
-              cut a 10 dp wave and a swollen stretch down to 4 dp. Out here
-              they are clipped by nothing, the way the swell on the track
-              already was. The cost, accepted: the close's overlays no longer
-              inherit the track's `rounded-xl`, so for 760 ms the bar's two
-              extreme ends are square rather than carrying their 2 dp cap. */}
-          {walkingSince ? (
-            <Sweep
-              met={met}
-              recorded={recorded}
-              testID={testID ? `${testID}-sweep` : undefined}
-            />
-          ) : null}
+          {/* **The close is the track's sibling, not its child, because the
+              swollen stretch is thicker than the bar.** The track keeps the
+              `overflow-hidden` its fills and the sweep need, and that would
+              cut a 7 dp stretch down to 4 dp. Out here it is clipped by
+              nothing, the way the swell on the track already was. The cost,
+              accepted: the close's overlays do not inherit the track's
+              `rounded-xl`, so for 760 ms the bar's two extreme ends are square
+              rather than carrying their 2 dp cap. */}
           {closing !== null && closing.kind === "land" ? (
             <CloseLanding
               // Keyed by the close, not by the position: a second close
@@ -939,25 +952,30 @@ function Band({
  * progress, drawn on a bar that knows exactly where it is. The tick and the
  * segment still say where; the band says only "live".
  *
- * **Two bands, one wave.** The bar has two grounds and the rule is that the
- * sweep takes the opposite tone of the ground it crosses, so the wave is cut
- * at the **junction** — the `recorded` percentage, which is exactly where the
- * tick stands, so the tone change and the fixed mark coincide rather than
+ * **Two bands, one crossing.** The bar has two grounds and the rule is that
+ * the sweep takes the opposite tone of the ground it crosses, so the band is
+ * cut at the **junction** — the `recorded` percentage, which is exactly where
+ * the tick stands, so the tone change and the fixed mark coincide rather than
  * giving the eye a second boundary to explain. Left of it, over the light
  * recorded fill, the band is dark; right of it, over the dark track and the
  * in-progress segment, it is light. Both halves read one shared value, and the
  * right-hand one's translation is offset by the junction's own pixel position,
- * so the wave is continuous as it crosses: the two clips are a window onto one
- * band, not two bands taking turns. Once the goal is met there is one ground
- * and one band again.
+ * so the crossing is continuous: the two clips are a window onto one band, not
+ * two bands taking turns. Once the goal is met there is one ground and one
+ * band again.
  *
- * **Lives beside the track rather than in it**, because a 10 dp wave inside a
- * 4 dp `overflow-hidden` box is a 4 dp wave. Its own clip is the track's
- * width and `BAND_HEIGHT` tall, so the ends of the bar
- * still cut the wave off exactly as the track did and the vertical clip lands
- * on the ellipse's own extent, where there is nothing to lose.
+ * **Lives inside the track**, as the last child of its `overflow-hidden`
+ * `rounded-xl` box, so the bar's own rounded ends clip the band exactly as
+ * they clip the fills. It was put beside the track while the band was 10 dp
+ * tall and a 4 dp clip would have cut it; the band is 4 dp again, and out there
+ * its square clip painted into the rounded ends on every pass. It adds no
+ * clip of its own around the two regions: they tile `[0, trackWidth]` — the
+ * left one `[0, junction]`, the right one `[junction, trackWidth]` — so there
+ * is nothing left over for an outer box to cut. That depends on this
+ * component's own box starting at the bar's left edge, which it does: it is
+ * absolutely placed in a track with no padding or border.
  *
- * The track's width comes from `onLayout` on that clip — a percentage cannot
+ * The track's width comes from `onLayout` on this box — a percentage cannot
  * be a transform — and the crossing restarts if the width changes (rotation,
  * font scale).
  *
@@ -1016,7 +1034,7 @@ function Sweep({
       importantForAccessibility="no-hide-descendants"
       aria-hidden
       style={{ top: 0, height: BAND_HEIGHT }}
-      className="absolute right-0 left-0 overflow-hidden"
+      className="absolute right-0 left-0"
     >
       {trackWidth > 0 && junction > 0 ? (
         <View
@@ -1171,8 +1189,14 @@ function CloseLanding({
           stretchStyle,
         ]}
         className="absolute top-0 bottom-0"
-      />
-      <CloseSheen stretch={stretch} />
+      >
+        {/* **Inside the stretch, so the sheen swells with it.** As the
+            stretch's sibling it stayed 4 dp while the stretch it was lighting
+            went to 7, and crossed a lozenge leaving an unlit rim above and
+            below. The scale is on this element, and a transform reaches its
+            children. The sheen's own timing is untouched. */}
+        <CloseSheen testID={testID ? `${testID}-sheen` : undefined} />
+      </Animated.View>
     </View>
   );
 }
@@ -1187,13 +1211,24 @@ function CloseLanding({
  * "*this much* has just been saved", and a band over the whole track would
  * point at all of it.
  *
+ * **It is a child of the stretch and fills it** (`inset-0`), which is what
+ * makes it swell with it. The swell is a `scaleY` on the stretch, and when
+ * this was the stretch's sibling in a 4 dp clip of its own it crossed a 7 dp
+ * stretch and left a rim of it unlit above and below. Its clip is now the
+ * stretch's own box, scaled along with it, so the sheen is exactly as thick as
+ * the thing it lights at every frame of the swell and can paint nowhere the
+ * stretch is not. Nothing about *when* it runs changes: the translation is
+ * its own shared value.
+ *
  * **The stretch's width has to be measured.** `Band` is drawn in dp and a
  * translation cannot be a percentage, so the width comes from `onLayout` on
- * the clip, the same way `Sweep` reads the track's. The stretch can be 3 dp
- * wide against a long goal, in which case the band is a flash rather than a
- * crossing — which is the honest picture of two minutes against three hours.
+ * the clip, the same way `Sweep` reads the track's. `onLayout` reports the
+ * unscaled box, and the scale is vertical only, so the width is still right.
+ * The stretch can be 3 dp wide against a long goal, in which case the band is
+ * a flash rather than a crossing — which is the honest picture of two minutes
+ * against three hours.
  */
-function CloseSheen({ stretch }: { stretch: { start: number; end: number } }) {
+function CloseSheen({ testID }: { testID?: string }) {
   const [width, setWidth] = useState(0);
   const x = useSharedValue(-CLOSE_SHEEN_WIDTH);
 
@@ -1214,12 +1249,9 @@ function CloseSheen({ stretch }: { stretch: { start: number; end: number } }) {
 
   return (
     <View
+      testID={testID}
       onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
-      style={{
-        left: `${stretch.start}%`,
-        width: `${stretch.end - stretch.start}%`,
-      }}
-      className="absolute top-0 bottom-0 overflow-hidden"
+      className="absolute inset-0 overflow-hidden"
     >
       {width > 0 ? (
         <Animated.View

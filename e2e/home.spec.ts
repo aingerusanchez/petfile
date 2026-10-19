@@ -1436,6 +1436,17 @@ test("sweeps the bar while a walk runs, and only then", async ({ page }) => {
     "aria-hidden",
     "true",
   );
+  // **Inside the track, so the track's rounded clip is the band's.** Beside
+  // it, the band's own square clip painted square corners into the bar's
+  // rounded ends on every pass of every walk.
+  const insideTrack = await page
+    .getByTestId("home-goal-sweep")
+    .evaluate(
+      (el) =>
+        el.parentElement ===
+        document.querySelector('[data-testid="home-goal-bar"]')?.parentElement,
+    );
+  expect(insideTrack, "the sweep should be a child of the track").toBe(true);
 });
 
 test("sweeps nothing for a tutor who asked for no animation", async ({
@@ -1714,7 +1725,9 @@ function closeColoursInFlight(page: Page) {
   return page.waitForFunction(
     ([starts, end]) => {
       const overlay = document.querySelector('[data-testid="home-goal-close"]');
-      if (!overlay || overlay.children.length < 3) return false;
+      // The whole-bar layer and the stretch. The sheen is the stretch's child
+      // now, so it is no longer a third child of the overlay.
+      if (!overlay || overlay.children.length < 2) return false;
       return starts.every((start, i) => {
         const css = getComputedStyle(overlay.children[i]).backgroundColor;
         const c = (css.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
@@ -1808,6 +1821,39 @@ function verticalScale(
   );
 }
 
+/**
+ * Resolves on the first frame where the stretch is swollen **and the sheen is
+ * exactly as thick as it is**, read from the two boxes' own rectangles.
+ *
+ * The sheen used to be the stretch's sibling in a clip of 4 dp, so it crossed a
+ * stretch of 7 and left a rim of it unlit above and below; as the stretch's
+ * child it inherits the swell. Drawn thickness is the thing worth pinning,
+ * because a sheen that is only *mounted* in the right place says nothing about
+ * whether it covers what it crosses. The sheen's timing is not what this reads:
+ * it is true on any frame the stretch is swollen, whenever the band passes.
+ */
+function sheenAsThickAsStretch(page: Page) {
+  return page.waitForFunction(
+    () => {
+      const stretch = document.querySelector(
+        '[data-testid="home-goal-close-stretch"]',
+      );
+      const sheen = document.querySelector(
+        '[data-testid="home-goal-close-sheen"]',
+      );
+      if (!stretch || !sheen) return false;
+      const t = getComputedStyle(stretch).transform;
+      const y = t === "none" ? 1 : new DOMMatrix(t).m22;
+      if (y <= 1.05) return false;
+      const lit = sheen.getBoundingClientRect().height;
+      const swollen = stretch.getBoundingClientRect().height;
+      return swollen > 4.2 && Math.abs(lit - swollen) < 0.1;
+    },
+    undefined,
+    { polling: "raf", timeout: 5_000 },
+  );
+}
+
 /** The track's vertical scale right now, with no waiting and no retry. */
 function trackScaleNow(page: Page) {
   return page.getByTestId("home-goal-bar").evaluate((bar: Element) => {
@@ -1834,8 +1880,11 @@ test("swells the minutes a walk just saved, and not the whole bar", async ({
   // At rest before the press, so "swollen" can only be the close's doing.
   await verticalScale(page, "track", "rest");
   const swollen = verticalScale(page, "stretch", "swollen");
+  const lit = sheenAsThickAsStretch(page);
   await page.getByTestId("home-goal-control").click();
   await swollen;
+  // **The sheen swells with the stretch it crosses.** Not just the stretch.
+  await lit;
 
   // **And the track is not swelling with it.** Read in the same breath as
   // the stretch's peak rather than after the close, because the thing this
