@@ -105,6 +105,18 @@ Logging is mostly retrospective, not real-time during the event itself: a walk o
 - Explicitly undecided: the tutor-invitation mechanism for v1 (6-digit code vs. direct link); cosmetic app identity (icon/splash colors, license file) still carries Expo's scaffold defaults.
 - Android is the platform the app actually ships to and is used on — both household members install and run it there. The browser is the development and QA harness (most visual work is judged there first), and a web export exists as a secondary target, but the delivered product is an Android app. iOS is buildable from the same React Native codebase but is not a target for anyone in the household. The visual system stays uniform regardless (see Brand Commitments).
 
+## Decided, Not Yet Built
+
+What a decision has settled but no build has shipped. The other lists bracket
+this one and neither holds it: `CHANGELOG.md` says what is on a phone,
+**Capabilities and Constraints** says what was deferred and why. An item leaves
+here when it ships, and its changelog entry is the exit — so a line that has
+been here for weeks is either forgotten or secretly deferred, and both are
+worth noticing.
+
+- **The goal bar gets a sweep while a walk is running** (decided 2026-10-19, variant E). A pale band crossing the whole track every ~2.4 s. The whole track rather than the in-progress segment, because that segment is 3.6 dp at two minutes and no treatment of it survives the measure. Known cost, accepted: a band travelling along a progress bar is the usual idiom for _indeterminate_ progress, and this bar knows exactly where it is. Open with it: whether the junction tick that shipped in v0.13.0 stays once the sweep exists, and whether E2 — the same band departing _from_ the junction, so the movement states the junction too — replaces it. Both wait on a real walk with v0.13.0 on the phone.
+- **Closing a walk gets four beats** (decided 2026-10-19). On a success from the server and on nothing else: the bar swells 4 → 7 dp and back, the stretch just closed lights Aqua, a sheen crosses that stretch alone, and it settles into the recorded grey as the tick fades. About 760 ms, under a second so it reads as an answer to the button. The emphasis has to come from thickness because the width cannot change — the stretch was already drawn at its length. **Where the walk crosses the goal the Aqua does not settle**: it stays and finishes filling the bar, with the confetti that already exists falling over it. This is the one moment of a walk with surface to spare — a confirmed walk is 45–73 dp, not the 3.6 it had at the start — and today it is also the least visible thing the app does.
+
 ## Brand Commitments
 
 **Celebration.** Registering the pet is worth marking with a confetti effect — approved 2026-09-08. It earns the exception because v0 is single-pet: onboarding runs _once in an account's life_, so the effect can never become the repeated noise that usually ruins it. Two conditions: it must be disableable exactly like every other animation in the app (the system "remove animations" setting, via `useReducedMotion()`), and it must be hosted above the navigator like the toast, or the success navigation will unmount it before it lands.
