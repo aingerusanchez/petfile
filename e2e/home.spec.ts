@@ -1498,10 +1498,23 @@ test("lands the minute a walk that was written on recorded", async ({
 
   // Stopped inside the first minute, but written on — so the row is closed at
   // the one minute the column accepts rather than deleted, and that minute is
-  // what the close animates. The measure waits for the reload the animation
-  // waits for, and the bar settles after it.
+  // what the close animates.
   await page.getByTestId("home-goal-control").click();
+
+  // **The one assertion in this file that catches the close in the air, and
+  // it is here because nothing else in the suite would notice the whole
+  // animation being deleted.** Every other close spec asserts an absence,
+  // which an unbuilt overlay satisfies exactly as well as a settled one.
+  //
+  // It is not a race in disguise. The measure cannot say "1 min" until the
+  // day's rows have come back, and that is the same frame the overlay mounts
+  // on — the animation waits for the reload for the reason the call site in
+  // the day view explains. So this begins polling before there is anything
+  // to find and has the whole 760 ms to find it.
   await expect(page.getByTestId("home-goal")).toContainText("1 min de 1h");
+  await expect(page.getByTestId("home-goal-close")).toBeAttached();
+
+  // And then it goes, leaving the fill holding the tone it already had.
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
 });
@@ -1513,10 +1526,31 @@ test("does not animate a close onto a day that is not the walk's", async ({
 
   await seedSession(page);
   await page.goto("/");
+  // **Written on before it is stopped, or there is no close to withhold.** A
+  // walk stopped inside its first minute is deleted as a mis-tap and adds no
+  // minutes, so nothing is recorded and this would pass over a day gate that
+  // had been deleted. Written on, the row is closed at a minute instead.
   await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
   await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1 min de 1h");
+
   await page.getByTestId("home-prev-day").click();
-  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
+  // Never, rather than "gone by the time we looked" — the same reason the
+  // replay spec below waits to be disappointed. Yesterday's bar would have
+  // animated for 760 ms, and a settled assertion would simply retry past it.
+  await expect(
+    page.waitForSelector('[data-testid="home-goal-close"]', {
+      state: "attached",
+      timeout: 2000,
+    }),
+  ).rejects.toThrow();
 });
 
 test("does not replay a close on the way back to the day it happened on", async ({

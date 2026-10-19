@@ -745,6 +745,14 @@ export default function Home() {
         toast.show({ variant: "error", message: error, persist: true });
         return;
       }
+      // Best-effort, as in `start`: if the flag outlives the walk, the row has
+      // a length (or is gone) by the next load and the staleness effect drops
+      // it.
+      try {
+        await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+      } catch {
+        // See above.
+      }
       // **What the close actually added, which is the only thing the bar has
       // to say.** `outcome.minutes` for a close; one minute for a discard
       // that had been written on, which is closed at a minute rather than
@@ -754,6 +762,20 @@ export default function Home() {
       // because that is what makes the animation fire once per close: two
       // walks of the same length are two animations, and a value check would
       // swallow the second.
+      //
+      // **Below the `await`, and that is not tidiness.** It has to be set in
+      // the same batch as `setAttempt`, because the gate the animation waits
+      // on is "the rows answer the current request" and bumping `attempt` is
+      // what shuts it. An `await` ends the window React coalesces updates in,
+      // so recording the close above the storage write let a render commit
+      // between the two: `attempt` not yet bumped, the gate open, and the
+      // animation computed from the total from *before* this walk — which
+      // then marks itself played and swallows the real one. **Measured**: on
+      // the web the storage write resolves in a microtask and the batch held,
+      // which is why every test passed over it; standing a 50 ms tick in for
+      // the native module's round trip reproduced it exactly, with the close
+      // firing at 59 of 60 minutes and drawing the previous walk's stretch
+      // instead of the one that reached the goal.
       const added =
         outcome.action === "close"
           ? outcome.minutes
@@ -762,14 +784,6 @@ export default function Home() {
             : null;
       if (added !== null) {
         setClosed({ id: runningWalk.id, minutes: added, day: dayKey(day) });
-      }
-      // Best-effort, as in `start`: if the flag outlives the walk, the row has
-      // a length (or is gone) by the next load and the staleness effect drops
-      // it.
-      try {
-        await AsyncStorage.removeItem(WALK_STORAGE_KEY);
-      } catch {
-        // See above.
       }
       setRunningId(null);
       setAttempt((n) => n + 1);
@@ -993,12 +1007,14 @@ export default function Home() {
           // `walked` is still the total from before it, and the animation
           // would point at the previous walk's stretch and land the bar in the
           // wrong tone. `fresh` says exactly "the rows on screen answer the
-          // current request", and `stop` bumps `attempt` in the same batch
-          // that records the close, so this is shut from the tap until the
-          // day's rows come back — which is also the frame the fill jumps to
-          // its new width, so the overlay arrives over the bar it is about to
-          // land. The day it belongs to is the other half, and that is
-          // settled above: `closed` is dropped as the day in view leaves it.
+          // current request", so it is open only once they do — which is also
+          // the frame the fill jumps to its new width, so the overlay arrives
+          // over the bar it is about to land on. **It is shut in the first
+          // place only because `stop` records the close and bumps `attempt`
+          // with no `await` between them**, which is a property of three
+          // adjacent lines over there, not of anything visible here. The day
+          // it belongs to is the other half, and that is settled above:
+          // `closed` is dropped as the day in view leaves it.
           justClosed={
             closed && fresh ? { id: closed.id, minutes: closed.minutes } : null
           }
