@@ -312,7 +312,9 @@ export function GoalBlock({
    * meets it, and the e2e suite's `toHaveCount(0)` would be a lie. The swell
    * needs no state: it is a shared value on a track that is always mounted.
    */
-  const [closing, setClosing] = useState<CloseMotion | null>(null);
+  const [closing, setClosing] = useState<(CloseMotion & { id: string }) | null>(
+    null,
+  );
   /** The last close this block has seen, so a re-render does not replay it. */
   const playedClose = useRef<string | null>(null);
   /** The timer that takes the overlay away again, so it can be re-armed. */
@@ -326,9 +328,13 @@ export function GoalBlock({
 
   useEffect(() => {
     if (closeId === null || closeId === playedClose.current) return;
-    // Marked seen before the reduced-motion check, not after: a tutor who
-    // turns animations back on mid-session is not owed the close that was
-    // skipped while they were off.
+    // Marked seen before the reduced-motion check, so that a close which
+    // plays nothing is still a close this block has seen. `useReducedMotion`
+    // is a constant read once at module load (Reanimated 4.5.1: "Changing
+    // the reduced motion system setting doesn't cause your components to
+    // rerender"), so the preference cannot change under this effect and the
+    // order does not decide whether a skipped close is owed later; it only
+    // keeps the bookkeeping the same on both branches.
     playedClose.current = closeId;
     if (reduceMotion) return;
     const motion = closeMotion({
@@ -359,7 +365,7 @@ export function GoalBlock({
     // writes something — so the timers are held in a ref rather than in the
     // effect's cleanup, which would take the animation away mid-beat.
     if (closeTimer.current !== null) clearTimeout(closeTimer.current);
-    setTimeout(() => setClosing(motion), 0);
+    setTimeout(() => setClosing({ ...motion, id: closeId }), 0);
     closeTimer.current = setTimeout(() => setClosing(null), CLOSE_MS);
   }, [
     closeId,
@@ -572,6 +578,14 @@ export function GoalBlock({
             ) : null}
             {closing !== null && closing.kind === "land" ? (
               <CloseLanding
+                // Keyed by the close, not by the position: a second close
+                // inside the 760 ms of the first reconciles into this same
+                // element, and without a new key `landed` would still be 1
+                // from the first animation, so the second would paint its
+                // geometry already at its destination tone with no travel.
+                // Reasoned from how React reconciles, not reproduced — it
+                // needs two server round trips inside the window.
+                key={closing.id}
                 stretch={closing.stretch}
                 met={closing.met}
                 testID={testID ? `${testID}-close` : undefined}
@@ -634,8 +648,10 @@ export function GoalBlock({
  * toast is not motion and the control is back at rest with its label intact —
  * so the shake is an addition to the message and never the only carrier of it.
  * The live half is a component of its own so that its hooks are not called
- * conditionally; a tutor who flips the preference mid-session remounts the
- * control once, which costs nothing here because it holds no state.
+ * conditionally. The preference is a constant for the life of the process
+ * (`useReducedMotion` reads the system setting once at module load), so the
+ * choice between the two branches is made once and never flips under a
+ * mounted control.
  *
  * **A wrapper, not an animated `Pressable`.** The control takes its shape
  * from a `className` and its height from a plain `style`, and a callback
