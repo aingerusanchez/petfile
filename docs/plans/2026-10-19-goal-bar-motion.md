@@ -24,13 +24,14 @@
 
 ## Review Focus
 
-Five conditions the spec implies and no task's happy path reaches. Each one's test is added to the task that owns the code.
+Six conditions the spec implies and no task's happy path reaches. Each one's test is added to the task that owns the code.
 
 1. **`goalMinutes` null or 0 at the moment of a close.** There is no bar, so there is nothing to animate; nothing may divide by it. → Task 1.
 2. **A closed walk longer than what was left of the goal.** The stretch must stop at the bar's right edge rather than run past it. → Task 1.
 3. **Reduced motion.** Neither animation may exist — not a faster one. The sweep must not render and the close must arrive at its final tone and thickness from props alone. Playwright reaches this with `page.emulateMedia({ reducedMotion: "reduce" })`, which `react-native-web` resolves into the same `useReducedMotion()` the device reads. → Tasks 3 and 4.
 4. **The day changes while a close is still pending.** Yesterday's walk must not animate today's bar. → Task 4.
 5. **Two walks closed in succession at the same length.** The second must replay; a value-equality check would swallow it. → Task 4.
+6. **A stop the server refuses.** No animation of any kind, the walk still running, the control back from its spinner and still pressable. → Task 5.
 
 ---
 
@@ -391,7 +392,95 @@ git commit -m "feat(goal-bar): say what was saved when a walk stops, in four bea
 
 ---
 
-### Task 5: Ship it
+### Task 5: The failure shakes the control that failed
+
+The success path says where the minutes went. The failure path says it in a
+toast at the top of the screen, which names what went wrong and not _where_.
+The control that was pressed is the one place the eye already is.
+
+**Files:**
+
+- Modify: `components/ui/GoalBlock.tsx` (a `failed` token prop, the shake)
+- Modify: `app/(tabs)/index.tsx` (set it on the error branch of `stop`, and of `start`)
+- Test: `e2e/home.spec.ts`
+
+**Interfaces:**
+
+- Consumes: nothing from earlier tasks.
+- Produces: one more optional prop on `GoalBlock`:
+  ```ts
+  /**
+   * Bumped each time a start or a stop came back with an error. A counter
+   * rather than a boolean, for the reason `justClosed` carries an id: two
+   * failures in a row are two shakes.
+   */
+  failed?: number;
+  ```
+
+**Already true, and not to be rebuilt:** the button returns from its spinner
+to STOP on its own — `stop` clears `walkBusy` and `walkInFlight` in a
+`finally` — and the error toast is already raised and already persists. This
+task adds the shake and nothing else.
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+test("shakes the control and keeps it pressable when a stop cannot be saved", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-walk").click();
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+
+  // The close fails at the transport, which is the one failure a tutor
+  // actually meets: a stop pressed where there is no signal.
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    route.request().method() === "PATCH" ? route.abort() : route.continue(),
+  );
+  await page.getByTestId("home-goal-walk").click();
+
+  await expect(page.getByTestId("toast")).toBeVisible();
+  // The walk is still running and the control is still a stop, because
+  // nothing was saved — and no close animation ran.
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await expect(page.getByTestId("home-goal-close")).toBeHidden();
+  await expect(page.getByTestId("home-goal-walk")).toBeEnabled();
+});
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `npx playwright test e2e/home.spec.ts -g "cannot be saved"`
+Expected: FAIL. If it fails only on the enabled/dot assertions, the shake is
+still missing and the rest already held — implement step 3 regardless.
+
+- [ ] **Step 3: Implement the shake**
+
+`translateX` over `SHAKE_MS = 400`: three decaying oscillations to ±4 dp and
+back to zero, driven from one `withTiming` and a `useAnimatedStyle`, keyed on
+`failed` in a `useEffect` the way the close is keyed on `justClosed.id`.
+Guarded by `useReducedMotion()` like everything else in this file, and the
+control keeps its own `TOUCH_TARGET` height — the shake moves the pill, so
+the comment records that ±4 dp was chosen to stay well inside the 48 dp the
+thumb is aiming at.
+
+- [ ] **Step 4: Run the walk specs**
+
+Run: `npx playwright test e2e/home.spec.ts -g "cannot be saved|starts a walk|lands a closed walk"`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add components/ui/GoalBlock.tsx "app/(tabs)/index.tsx" e2e/home.spec.ts
+git commit -m "feat(goal-bar): shake the control when a walk could not be saved"
+```
+
+---
+
+### Task 6: Ship it
 
 **Files:**
 
