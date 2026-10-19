@@ -173,7 +173,7 @@ test("draws no tick on the first walk of the day, where nothing is recorded yet"
   // walk in progress.
   await seedSession(page);
   await page.goto("/");
-  await page.getByTestId("home-goal-walk").click();
+  await page.getByTestId("home-goal-control").click();
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
   await expect(page.getByTestId("home-goal-tick")).toBeHidden();
 });
@@ -212,7 +212,31 @@ git commit -m "fix(goal-bar): draw no tick on the first walk, where there is no 
 **Interfaces:**
 
 - Consumes: nothing.
-- Produces: `function Sweep({ met, testID }: { met: boolean; testID?: string })`, absolutely positioned, filling its parent. Rendered only while `walkingSince` is set; `met` picks the band's tone.
+- Produces two things, because Task 4 needs the drawing without the loop:
+
+  ```ts
+  /** The gradient band itself: transparent → tone → transparent. */
+  function Band({
+    width,
+    tone,
+    alpha,
+  }: {
+    width: number;
+    tone: string;
+    alpha: number;
+  }): JSX.Element;
+
+  /** That band, crossing the track forever while a walk runs. */
+  function Sweep({
+    met,
+    testID,
+  }: {
+    met: boolean;
+    testID?: string;
+  }): JSX.Element | null;
+  ```
+
+  `Sweep` is absolutely positioned and fills its parent, rendered only while `walkingSince` is set, and `met` picks the tone it hands `Band`. Task 4's sheen reuses `Band` and supplies its own one-shot motion — do not reach for `Sweep` there, which loops and spans the whole track.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -222,7 +246,7 @@ test("sweeps the bar while a walk runs, and only then", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
   await expect(page.getByTestId("home-goal-sweep")).toBeHidden();
-  await page.getByTestId("home-goal-walk").click();
+  await page.getByTestId("home-goal-control").click();
   await expect(page.getByTestId("home-goal-sweep")).toBeVisible();
 });
 
@@ -233,7 +257,7 @@ test("sweeps nothing for a tutor who asked for no animation", async ({
   await page.emulateMedia({ reducedMotion: "reduce" });
   await seedSession(page);
   await page.goto("/");
-  await page.getByTestId("home-goal-walk").click();
+  await page.getByTestId("home-goal-control").click();
   // The walk is running — the dot proves the state is real — and the band
   // is absent rather than slow.
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
@@ -299,9 +323,9 @@ test("lands a closed walk in the recorded tone, and clears the live segment", as
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
   await seedSession(page);
   await page.goto("/");
-  await page.getByTestId("home-goal-walk").click();
+  await page.getByTestId("home-goal-control").click();
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
-  await page.getByTestId("home-goal-walk").click();
+  await page.getByTestId("home-goal-control").click();
   await expect(page.getByTestId("home-goal-dot")).toBeHidden();
   await expect(page.getByTestId("home-goal-close")).toBeHidden();
   await expect(page.getByTestId("home-goal-tick")).toBeHidden();
@@ -313,9 +337,9 @@ test("does not animate a close onto a day that is not the walk's", async ({
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
   await seedSession(page);
   await page.goto("/");
-  await page.getByTestId("home-goal-walk").click();
-  await page.getByTestId("home-goal-walk").click();
-  await page.getByTestId("day-prev").click();
+  await page.getByTestId("home-goal-control").click();
+  await page.getByTestId("home-goal-control").click();
+  await page.getByTestId("home-prev-day").click();
   await expect(page.getByTestId("home-goal-close")).toBeHidden();
 });
 ```
@@ -332,9 +356,9 @@ test("settles twice when two walks are closed in succession", async ({
   await seedSession(page);
   await page.goto("/");
   for (const _ of [0, 1]) {
-    await page.getByTestId("home-goal-walk").click();
+    await page.getByTestId("home-goal-control").click();
     await expect(page.getByTestId("home-goal-dot")).toBeVisible();
-    await page.getByTestId("home-goal-walk").click();
+    await page.getByTestId("home-goal-control").click();
     await expect(page.getByTestId("home-goal-dot")).toBeHidden();
   }
   await expect(page.getByTestId("home-goal-close")).toBeHidden();
@@ -347,8 +371,8 @@ test("lands a close with no animation at all for a tutor who asked for none", as
   await page.emulateMedia({ reducedMotion: "reduce" });
   await seedSession(page);
   await page.goto("/");
-  await page.getByTestId("home-goal-walk").click();
-  await page.getByTestId("home-goal-walk").click();
+  await page.getByTestId("home-goal-control").click();
+  await page.getByTestId("home-goal-control").click();
   // No overlay is ever mounted, and the bar is still right: the tone and
   // the thickness come from props, which is what makes "absent" true rather
   // than "too quick to catch".
@@ -373,7 +397,7 @@ A `useEffect` keyed on `justClosed?.id`, holding the last id it played in a ref 
 
 - `CLOSE_MS = 760`, with the beats at the proportions the board settled: swell by 120 ms, sheen crossing to 400, landed by 760.
 - **Swell** is `scaleY` 1 → 1.75 → 1 on the track itself, never on the wrapper — the tick is the wrapper's other child and would scale with it.
-- **Sheen** is the Task 3 gradient at `colors.textPrimary`, inside a view clipped to `stretch`, crossing once.
+- **Sheen** is Task 3's `Band` at `colors.textPrimary`, inside a view clipped to `stretch`, crossing once — not `Sweep`, which loops.
 - **Landing** is an overlay over `stretch` animating `colors.textTertiary` → the destination, which is `colors.accent` when `motion.met` and `colors.textSecondary` otherwise. When `motion.met`, a second overlay covers `0` → `stretch.start` and travels `colors.textSecondary` → `colors.accent`, because reaching the goal turns the whole bar Aqua and not only the new stretch. Both are removed when the animation ends; the fill underneath already holds the destination tone, so there is no frame where it jumps.
 - `kind: "swell"` runs the swell alone, in Aqua, with no sheen and no overlay.
 - `testID`-`close` marks the overlay, so its absence is the settled state.
@@ -431,7 +455,7 @@ test("shakes the control and keeps it pressable when a stop cannot be saved", as
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
   await seedSession(page);
   await page.goto("/");
-  await page.getByTestId("home-goal-walk").click();
+  await page.getByTestId("home-goal-control").click();
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
 
   // The close fails at the transport, which is the one failure a tutor
@@ -439,14 +463,16 @@ test("shakes the control and keeps it pressable when a stop cannot be saved", as
   await page.route("**/rest/v1/pet_events*", (route) =>
     route.request().method() === "PATCH" ? route.abort() : route.continue(),
   );
-  await page.getByTestId("home-goal-walk").click();
+  await page.getByTestId("home-goal-control").click();
 
-  await expect(page.getByTestId("toast")).toBeVisible();
+  await expect(page.getByTestId("toast-error")).toBeVisible();
   // The walk is still running and the control is still a stop, because
   // nothing was saved — and no close animation ran.
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
   await expect(page.getByTestId("home-goal-close")).toBeHidden();
-  await expect(page.getByTestId("home-goal-walk")).toBeEnabled();
+  // The spinner is the real signal that the control came back: a web
+  // Pressable renders as a div, where `toBeEnabled` passes regardless.
+  await expect(page.getByTestId("home-goal-spinner")).toBeHidden();
 });
 ```
 
