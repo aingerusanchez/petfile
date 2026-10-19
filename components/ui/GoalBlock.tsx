@@ -358,17 +358,18 @@ export function GoalBlock({
               />
             ) : null}
           </View>
-          {walkingSince && !met ? (
+          {walkingSince && recorded > 0 && !met ? (
             // Hidden from a reader the way the dot is: the measure says what
             // the walk is, and a line has nothing to announce. Positioned from
             // the same percentage the recorded fill is drawn at, so the two
             // cannot disagree.
             //
-            // **At zero recorded it hangs 1 dp off the left edge**, because
-            // the centring offset is unclamped. Deliberate: a mark that
-            // shuffled inward at the ends would stop meaning "the junction is
-            // here". The right edge never arises — `recorded` reaches 100
-            // only when the goal is met, and then the tick is not drawn.
+            // **Not drawn at zero recorded**: nothing recorded is nothing to
+            // separate the walk from, and the left edge was the only position
+            // where the tick left the track — the centring offset is
+            // unclamped, so it hung 1 dp outside it. The right edge never
+            // arises either: `recorded` reaches 100 only when the goal is met,
+            // and then the tick is not drawn.
             <View
               testID={testID ? `${testID}-tick` : undefined}
               accessibilityElementsHidden

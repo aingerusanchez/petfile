@@ -1251,7 +1251,8 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   // bar's segment is in the walk's first minutes.
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
-  await expect(page.getByTestId("home-goal-tick")).toBeVisible();
+  // The first walk of the day has nothing recorded before it, so no junction.
+  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
   await expect(entries).toHaveCount(1);
   await expect(entries.first()).toContainText("En marcha");
 
@@ -1404,6 +1405,21 @@ test("draws no tick when the goal is already met, walking or not", async ({
   await expect(page.getByTestId("home-goal-met")).toBeVisible();
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
   await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+});
+
+test("draws no tick on the first walk of the day, where nothing is recorded yet", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // Nothing recorded, so there is no junction: the line would sit on the
+  // bar's left edge, 1 dp outside the track, separating nothing from the
+  // walk in progress.
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await expect(page.getByTestId("home-goal-tick")).toBeHidden();
 });
 
 test("shows the control working while the start is being written", async ({
