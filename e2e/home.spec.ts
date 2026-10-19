@@ -6,6 +6,7 @@ import {
   seedE2EPet,
   seedSession,
 } from "./auth";
+import { colors } from "../components/ui/tokens";
 
 /**
  * The day view's log needs `0006_events_weights_treatments.sql` applied.
@@ -1453,7 +1454,7 @@ test("sweeps nothing for a tutor who asked for no animation", async ({
 });
 
 /**
- * **The close is asserted settled, never mid-flight.** It runs for 760 ms and
+ * **The close is asserted settled, except where noted.** It runs for 760 ms and
  * Playwright cannot be parked inside it: this file's own header records that
  * `page.clock.setFixedTime` stops Reanimated dead and `install` + `resume`
  * keeps the day view from rendering at all. So what these pin is where the
@@ -1465,6 +1466,11 @@ test("sweeps nothing for a tutor who asked for no animation", async ({
  * mis-tap, so they pin the other half of the rule too: a close that added no
  * minutes says nothing. The fourth writes on the walk first, which closes it
  * at one minute instead, and is the one that actually travels the four beats.
+ *
+ * The exceptions poll `getComputedStyle` on every frame the way
+ * `shakeTranslation` does, and are what keep the drawing from being deletable
+ * in silence: the colour landing (`closeColoursInFlight`) and the swell
+ * (`trackScale`). The sheen is still not covered.
  */
 test("lands a closed walk in the recorded tone, and clears the live segment", async ({
   page,
@@ -1597,13 +1603,168 @@ test("settles twice when two walks are closed in succession", async ({
 
   await seedSession(page);
   await page.goto("/");
-  for (const _ of [0, 1]) {
+  // **Each walk is written on before it is stopped, or neither is a close.**
+  // A walk stopped inside its first minute is deleted as a mis-tap and adds
+  // nothing, so with no note on either this passed with the whole close
+  // feature removed — under the one title that claims the double close. Both
+  // are real closes now, at the one minute the column accepts, which is what
+  // the running total below counts.
+  for (const total of [1, 2]) {
     await page.getByTestId("home-goal-control").click();
-    await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+    const row = page
+      .locator('[data-testid^="home-entry-"]')
+      .filter({ hasText: "En marcha" });
+    await expect(row).toHaveCount(1);
+    await row.click();
+    await page.getByTestId("entry-note").fill(`Paseo ${total}`);
+    await page.getByTestId("entry-save").click();
+    await expect(page.getByTestId("entry-title")).toHaveCount(0);
     await page.getByTestId("home-goal-control").click();
+    await expect(page.getByTestId("home-goal")).toContainText(
+      `${total} min de 1h`,
+    );
+    // The overlay is mounted for this close, so it was one — and it goes.
+    await expect(page.getByTestId("home-goal-close")).toBeAttached();
+    await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
     await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
   }
+});
+
+/**
+ * "rgb(r, g, b)" for a token, the form `getComputedStyle` reports a colour in.
+ * The suite reads the palette from `tokens.ts` rather than retyping it.
+ */
+function rgbOf(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/**
+ * Resolves once the close overlay's first two layers are each partway between
+ * the tone they leave and the tone they land in.
+ *
+ * **"Travelled", not "arrived".** The settled state is where the bar would
+ * be with no animation at all, so it cannot tell a colour that moved from one
+ * that was simply set. A reading that is neither endpoint can only come from
+ * the interpolation. Polled on every frame from before the press, the way
+ * `shakeTranslation` is, because the 360 ms landing cannot be parked inside.
+ *
+ * The layers are the whole-bar one (Mist → Aqua) and the new stretch
+ * (Ash → Aqua); a close that did not reach the goal has no first one, which
+ * is the case the first layer's presence is here to distinguish.
+ */
+function closeColoursInFlight(page: Page) {
+  const from = [colors.textSecondary, colors.textTertiary].map(rgbOf);
+  const to = rgbOf(colors.accent);
+  return page.waitForFunction(
+    ([starts, end]) => {
+      const overlay = document.querySelector('[data-testid="home-goal-close"]');
+      if (!overlay || overlay.children.length < 3) return false;
+      return starts.every((start, i) => {
+        const css = getComputedStyle(overlay.children[i]).backgroundColor;
+        const c = (css.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+        if (c.length < 3) return false;
+        const apart = (a: number[], b: number[]) =>
+          Math.max(...a.map((v, k) => Math.abs(v - b[k]))) > 4;
+        return apart(c, start) && apart(c, end);
+      });
+    },
+    [from, to] as const,
+    { polling: "raf", timeout: 5_000 },
+  );
+}
+
+test("takes the whole bar to Aqua, travelling there, when a close reaches the goal", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // 30 minutes recorded from one minute past midnight, and a walk begun 31
+  // minutes ago to be stopped against a 60-minute goal: 61, which is met. It
+  // needs both on today and the live one after the recorded one.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  // Before the stop the recorded half is Mist: the goal is not met yet.
+  const bar = page.getByTestId("home-goal-bar");
+  const background = () =>
+    bar.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const [mr, mg, mb] = rgbOf(colors.textSecondary);
+  await expect.poll(background).toBe(`rgb(${mr}, ${mg}, ${mb})`);
+
+  const travelled = closeColoursInFlight(page);
+  await page.getByTestId("home-goal-control").click();
+  await travelled;
+
+  // And it comes to rest Aqua, with the conclusion said under the bar.
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "Objetivo conseguido",
+  );
+  const [ar, ag, ab] = rgbOf(colors.accent);
+  await expect.poll(background).toBe(`rgb(${ar}, ${ag}, ${ab})`);
+});
+
+/**
+ * Resolves on the track's vertical scale, polled on every frame: `"swollen"`
+ * once it is above rest, `"rest"` once it is exactly 1 again. The track is the
+ * bar's parent — it is the one element the swell is applied to, and it has no
+ * testID of its own because nothing else needs to find it.
+ */
+function trackScale(page: Page, state: "swollen" | "rest") {
+  return page.waitForFunction(
+    (want) => {
+      const bar = document.querySelector('[data-testid="home-goal-bar"]');
+      if (!bar?.parentElement) return false;
+      const t = getComputedStyle(bar.parentElement).transform;
+      const y = t === "none" ? 1 : new DOMMatrix(t).m22;
+      return want === "swollen" ? y > 1.05 : y === 1;
+    },
+    state,
+    { polling: "raf", timeout: 5_000 },
+  );
+}
+
+test("swells the track when a walk is saved, and lets it go", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+
+  // At rest before the press, so "swollen" can only be the close's doing.
+  await trackScale(page, "rest");
+  const swollen = trackScale(page, "swollen");
+  await page.getByTestId("home-goal-control").click();
+  await swollen;
+
+  // And back to exactly 1: a bar left thicker would be a different bar.
+  await trackScale(page, "rest");
+  await expect(page.getByTestId("home-goal")).toContainText("1 min de 1h");
 });
 
 test("lands a close with no animation at all for a tutor who asked for none", async ({
