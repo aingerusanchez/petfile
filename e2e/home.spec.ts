@@ -1454,13 +1454,14 @@ test("sweeps nothing for a tutor who asked for no animation", async ({
 });
 
 /**
- * **One bar, two grounds, and the wave has to answer both.** Measured on the
+ * **One bar, two grounds, and the band has to answer both.** Measured on the
  * device: a pale band over the dark track lifts the red channel by 123 and
  * over the recorded fill by 20, so on a day with minutes already banked the
- * band crossed half the bar unseen. The fix has two halves and this pins
- * both — the tone is cut at the junction, and the wave is taller than the bar
- * it crosses while staying under the tick, which is the bar's one fixed mark
- * and must stay the tallest thing on it.
+ * band crossed half the bar unseen. Cutting the tone at the junction took the
+ * weak half to −67, measured on the phone, and that is what this pins. A
+ * second answer was tried alongside it — making the band taller than the bar —
+ * and removed: it bought nothing the tone had not already bought, and it
+ * coarsened the half that was never broken.
  *
  * The goal is 60 min here and 30 are recorded, so there is a junction in the
  * middle of the bar and both halves exist.
@@ -1498,14 +1499,13 @@ test("takes the opposite tone of each half of the bar it crosses", async ({
     new Set([colors.onAccent, colors.textPrimary]),
   );
 
-  // And the shape reads whatever colour it crosses: taller than the 4 dp bar,
-  // shorter than the 12 dp tick.
-  const wave = await sweep.boundingBox();
+  // And it stays the bar's own height: the tick is the one mark that rises
+  // above the track, and nothing that merely passes may compete with it.
+  const band = await sweep.boundingBox();
   const tick = await page.getByTestId("home-goal-tick").boundingBox();
-  expect(wave, "the wave should be drawn").not.toBeNull();
+  expect(band, "the band should be drawn").not.toBeNull();
   expect(tick, "the tick should be drawn").not.toBeNull();
-  expect(wave!.height).toBeGreaterThan(4);
-  expect(wave!.height).toBeLessThan(tick!.height);
+  expect(band!.height).toBeLessThan(tick!.height);
 });
 
 /**

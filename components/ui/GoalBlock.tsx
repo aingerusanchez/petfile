@@ -18,7 +18,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import Svg, { Defs, Ellipse, LinearGradient, Stop } from "react-native-svg";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { formatDuration } from "../../lib/duration";
 import { type CloseMotion, closeMotion } from "../../lib/goalbar";
 import type { DurationFormat } from "../../lib/settings";
@@ -86,10 +86,14 @@ const RIPPLE_ALPHA = 0.6;
  * is `textPrimary` at `SWEEP_ALPHA` exactly as before. Once the goal is met
  * the bar is one ground again (Aqua) and there is one dark band.
  *
- * **`WAVE_HEIGHT` is the other half of the answer, because height reads
- * whatever colour it crosses.** 10 dp, and deliberately below the tick's 12:
- * the tick is the bar's one fixed reference, and a thing that merely passes
- * must not out-shout it.
+ * **It was briefly a wave, 10 dp tall and lens-shaped, and that is gone.**
+ * Height reads whatever colour it crosses, so it was built as a second answer
+ * alongside the tone — and once the tone was measured on the device at −67 the
+ * height had nothing left to fix. What it still cost was the half of the bar
+ * that was never broken: over the dark track the flat band already lifted the
+ * channel by 123 and read clean, and the lens turned it into a blob. The
+ * tutor's word was "tosca". **An insurance that disfigures what already worked
+ * is not worth its premium** — the band is 4 dp again, the bar's own height.
  *
  * **2.4 s a crossing, linear**, a little quicker than the dot's 2.8 s
  * heartbeat, so the two never settle into lock-step.
@@ -98,7 +102,7 @@ const SWEEP_WIDTH = 70;
 const SWEEP_MS = 2400;
 const SWEEP_ALPHA = 0.55;
 const SWEEP_ALPHA_MET = 0.35;
-const WAVE_HEIGHT = 10;
+const BAND_HEIGHT = 4;
 
 /**
  * The close, in four beats: how long the whole thing lasts, and where each
@@ -854,17 +858,17 @@ function PulseDot({ testID }: { testID?: string }) {
 }
 
 /**
- * The wave itself: an ellipse `width` dp across and `WAVE_HEIGHT` dp tall,
+ * The band itself: a rectangle `width` dp across and `BAND_HEIGHT` dp tall,
  * filled transparent → `tone` at `alpha` → transparent from left to right.
  *
- * **An ellipse and not a rectangle, because colour alone could not carry
- * this.** Over the recorded fill a lightening band moved the red channel by
- * 20 where over the dark track it moved it by 123, and the band crossed half
- * the bar unseen; the region split answers the colour half, and the shape
- * answers the rest, since height reads regardless of what it passes over. An
- * ellipse is thickest exactly where the gradient is brightest and tapers to
- * nothing at both ends, which is the shape that was asked for and the one the
- * gradient already implies.
+ * **A rectangle, after an ellipse was tried and removed.** Over the recorded
+ * fill a lightening band moved the red channel by 20 where over the dark track
+ * it moved it by 123, so it crossed half the bar unseen. Two answers were
+ * built for that: splitting the tone at the junction, and giving the band
+ * height so it would read whatever it passed over. Measured on the device, the
+ * tone alone took the weak half to −67, and the height was then paying only on
+ * the half that was already fine, where it turned a clean band into a blob.
+ * The shape went back.
  *
  * **Drawn in `react-native-svg`, which is already a dependency, rather than
  * `expo-linear-gradient`**, a native module: adding it would mean recompiling
@@ -872,12 +876,11 @@ function PulseDot({ testID }: { testID?: string }) {
  * opacity, so `tone` stays a token.
  *
  * **It centres itself on the box it is put in**, rather than filling it: the
- * sweep's clip is `WAVE_HEIGHT` tall and straddles the bar, where the ellipse
- * fits exactly, while the close's sheen is clipped to the 4 dp stretch, where
- * the ellipse's own middle is what shows. `top: "50%"` with a half-height
- * negative margin is the one expression that is right in both, and it needs
- * the parent to have a definite height — both callers give it one with
- * `top-0 bottom-0` inside a box that has one.
+ * sweep's clip and the close's sheen are both 4 dp, so `top: "50%"` with a
+ * half-height negative margin lands at zero in both and keeps working if
+ * either box ever changes height. It needs the parent to have a definite
+ * height — both callers give it one with `top-0 bottom-0` inside a box that
+ * has one.
  *
  * **No animation and no horizontal position**, on purpose: `Sweep` loops it
  * across the track, and the close's sheen puts it on a short stretch with a
@@ -898,11 +901,11 @@ function Band({
   return (
     <Svg
       width={width}
-      height={WAVE_HEIGHT}
+      height={BAND_HEIGHT}
       style={{
         position: "absolute",
         top: "50%",
-        marginTop: -WAVE_HEIGHT / 2,
+        marginTop: -BAND_HEIGHT / 2,
       }}
     >
       <Defs>
@@ -912,11 +915,11 @@ function Band({
           <Stop offset="1" stopColor={tone} stopOpacity={0} />
         </LinearGradient>
       </Defs>
-      <Ellipse
-        cx={width / 2}
-        cy={WAVE_HEIGHT / 2}
-        rx={width / 2}
-        ry={WAVE_HEIGHT / 2}
+      <Rect
+        x={0}
+        y={0}
+        width={width}
+        height={BAND_HEIGHT}
         fill={`url(#${id})`}
       />
     </Svg>
@@ -950,7 +953,7 @@ function Band({
  *
  * **Lives beside the track rather than in it**, because a 10 dp wave inside a
  * 4 dp `overflow-hidden` box is a 4 dp wave. Its own clip is the track's
- * width, `WAVE_HEIGHT` tall and straddling the bar, so the ends of the bar
+ * width and `BAND_HEIGHT` tall, so the ends of the bar
  * still cut the wave off exactly as the track did and the vertical clip lands
  * on the ellipse's own extent, where there is nothing to lose.
  *
@@ -1012,7 +1015,7 @@ function Sweep({
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       aria-hidden
-      style={{ top: -(WAVE_HEIGHT - 4) / 2, height: WAVE_HEIGHT }}
+      style={{ top: 0, height: BAND_HEIGHT }}
       className="absolute right-0 left-0 overflow-hidden"
     >
       {trackWidth > 0 && junction > 0 ? (
