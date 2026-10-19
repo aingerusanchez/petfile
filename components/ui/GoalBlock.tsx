@@ -111,34 +111,35 @@ const SWEEP_ALPHA_MET = 0.35;
  * same material.
  */
 const CLOSE_MS = 760;
+const CLOSE_SWELL_MS = 120;
+const CLOSE_SWELL_SCALE = 1.75;
+const CLOSE_SHEEN_END_MS = 400;
+const CLOSE_SHEEN_WIDTH = 70;
+const CLOSE_SHEEN_ALPHA = 0.55;
 
 /**
  * The shake a failed start or stop gives the control: how long it takes, how
  * far it travels, and how many times it goes there and back.
  *
  * **4 dp is the ceiling, and it is chosen against the 48 dp the thumb is
- * aiming at.** The control is `TOUCH_TARGET` tall and, at its narrowest, about
- * that wide again; the shake moves the pill, and so the target the thumb is
- * on, sideways while it is still pressed. At 4 dp the pill is never more than
- * a twelfth of a 48 dp target off where the finger found it, so a second press
- * a beat after the first still lands on it — which is the whole point, since
- * the walk is still running and the next thing the tutor does is press stop
- * again. A shake big enough to read from across the room would be one that
- * moves the control out from under the retry. The amplitude decays to nothing,
+ * aiming at.** The control is at least `TOUCH_TARGET` (48 dp) in each
+ * direction; the shake moves the pill, and so the target the thumb is on,
+ * sideways. At 4 dp the pill is never more than a twelfth of a 48 dp target
+ * off where the finger found it, so a second press during the shake still
+ * lands on it — which is the whole point, since the walk is still running and
+ * the next thing the tutor does is press stop again. A shake big enough to
+ * read from across the room would be one that moves the control out from
+ * under the retry. The amplitude decays to nothing,
  * so the largest excursion is the first and the pill ends exactly where it
  * began.
  *
- * **Three swings in 400 ms** reads as "no" rather than as a tremor, and ends
- * before a tutor who looked away at the toast has looked back.
+ * **Three swings in 400 ms** is a judgement, not a measurement: slow enough to
+ * read as "no" rather than as a tremor, and brief enough that the control is
+ * back in place before a retry. It has not been tried on a device yet.
  */
 const SHAKE_MS = 400;
 const SHAKE_DP = 4;
 const SHAKE_SWINGS = 3;
-const CLOSE_SWELL_MS = 120;
-const CLOSE_SWELL_SCALE = 1.75;
-const CLOSE_SHEEN_END_MS = 400;
-const CLOSE_SHEEN_WIDTH = 70;
-const CLOSE_SHEEN_ALPHA = 0.55;
 
 /**
  * The mark at the junction of the bar, in dp: how wide, how tall, and how far
