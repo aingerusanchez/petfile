@@ -16,6 +16,76 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.14.0] — 2026-10-19
+
+### Nuevo
+
+- **Mientras un paseo corre, una banda clara cruza la barra del objetivo entera
+  cada 2,4 s.** La barra no podía decir que había un paseo en marcha sin que
+  quien la mira leyera el número: el punto pulsa junto a la medida, pero la
+  barra, que es lo que se mira de reojo, estaba quieta. La banda cruza **toda
+  la pista y no el tramo del paseo**, y por una medición: contra un objetivo de
+  3 h el tramo mide 3,6 dp a los dos minutos y nada que se le haga se ve en
+  3,6 dp —el mismo agujero de la marca de la unión—. Se abre también por el
+  otro extremo: un paseo que empieza a un minuto del objetivo tampoco tiene
+  adónde crecer. **Siempre es el tono opuesto al suelo que cruza**: clara sobre
+  la pista oscura y sobre el gris, oscura sobre el Aqua cuando el objetivo ya
+  estaba cumplido antes de empezar. Un acento nuevo no hacía falta; hacía falta
+  una banda que fuera siempre un aclarado o un oscurecido de lo que hay debajo.
+  El coste, aceptado: una banda que recorre una barra de progreso es el idioma
+  habitual del progreso _indeterminado_, y esta barra sabe exactamente dónde
+  está. La marca de la unión y la medida siguen diciendo dónde; la banda solo
+  dice que sigue en marcha. 2,4 s y no 2,8 para que no se acompase con el
+  latido del punto.
+- **Parar un paseo ahora se ve: cuatro tiempos en unos 760 ms.** El momento más
+  importante del día del perro —el paseo entrando en el registro— era lo menos
+  visible que hacía la app: el tramo cambiaba a un gris algo más claro y la
+  marca desaparecía, y no había forma de distinguirlo de un parpadeo. Ahora la
+  pista se engorda de 4 a 7 dp y vuelve, un destello cruza el tramo que se
+  acaba de añadir y solo ese, y el tramo aterriza en el tono que va a
+  conservar. **Solo cuando el servidor ha dicho que sí**, y por debajo del
+  segundo para que se lea como la respuesta al botón. El énfasis sale del
+  grosor porque el ancho no puede cambiar: el tramo ya estaba dibujado con su
+  largo.
+- **El cierre anima en el tono que la barra va a conservar, no como adorno.**
+  El primer diseño iluminaba el tramo en Aqua y lo dejaba volver al gris, y eso
+  gasta el acento en algo que no es una conclusión y contradice la regla que
+  esta barra ya tenía: gris mientras se lee, Aqua como conclusión. Quedó en
+  tres casos. **Si el paseo no llega al objetivo**, del gris del paseo en curso
+  al gris de lo guardado y ni un paso más. **Si llega**, **toda la barra** pasa
+  a Aqua y no solo el tramo nuevo, porque eso es lo que ya hacía el relleno
+  guardado al cumplirse, y cae el confeti que ya existía en el mismo momento.
+  **Si el objetivo ya estaba cumplido antes del paseo**, solo el engorde y en
+  Aqua: "esto es lo que se acaba de guardar" no tiene un _esto_ al que apuntar
+  en una barra llena, porque los minutos de más se salen por el borde, pero
+  alguien ha pulsado un botón y se le debe una respuesta. Un paseo demasiado
+  corto para conservarse se descarta y no llega aquí, y un día sin objetivo no
+  tiene barra que animar. Con la animación del sistema quitada, nada de esto se
+  monta. Qué caso toca lo decide `closeMotion` en `lib/goalbar.ts`, con
+  pruebas: un caso equivocado no lanza nada, pinta la barra como cumplida
+  cuando no lo está. **La marca de la unión no es uno de los tiempos:** se
+  había decidido que se difuminara con el cierre, pero solo se dibuja mientras
+  hay un paseo en marcha y se va en el primer cuadro, sin desvanecerse.
+- **Si empezar o parar un paseo falla, el botón que se pulsó se sacude.** 4 dp
+  hacia los lados, tres vaivenes, 400 ms, con la amplitud cayendo hasta
+  quedarse en nada, así que el botón acaba donde estaba. El toast ya decía que
+  algo había ido mal; el temblor dice **qué botón** y lo dice donde está el
+  pulgar. Son 4 dp porque el paseo sigue en marcha y lo siguiente que se hará
+  es pulsar parar otra vez: es la doceava parte de un objetivo táctil de 48 dp,
+  así que el reintento durante el temblor sigue cayendo encima. Los 400 ms y
+  los tres vaivenes son un criterio y no una medida: **no se han probado en un
+  móvil todavía**, y tampoco si 760 ms se lee como una respuesta o como una
+  espera.
+
+### Arreglado
+
+- **La marca de la unión salía en el primer paseo del día, donde no hay unión.**
+  Sin nada guardado no hay nada que separar del paseo, y la marca quedaba 1 dp
+  fuera de la pista, en el borde izquierdo, leyéndose como un resto. Ahora solo
+  sale con un paseo en marcha, con objetivo, con minutos guardados y sin el
+  objetivo cumplido. Es el único caso que se quita: la marca sigue diciendo
+  cuánto está ya guardado, que es lo único que la banda no dice.
+
 ## [v0.13.0] — 2026-10-17
 
 ### Nuevo
