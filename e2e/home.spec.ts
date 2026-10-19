@@ -1419,7 +1419,37 @@ test("draws no tick on the first walk of the day, where nothing is recorded yet"
   await page.goto("/");
   await page.getByTestId("home-goal-control").click();
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
-  await expect(page.getByTestId("home-goal-tick")).toBeHidden();
+  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+});
+
+test("sweeps the bar while a walk runs, and only then", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+  await expect(page.getByTestId("home-goal-sweep")).toHaveCount(0);
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-sweep")).toBeVisible();
+  await expect(page.getByTestId("home-goal-sweep")).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
+});
+
+test("sweeps nothing for a tutor who asked for no animation", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  // The walk is running — the dot proves the state is real — and the band
+  // is absent rather than slow.
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await expect(page.getByTestId("home-goal-sweep")).toHaveCount(0);
 });
 
 test("shows the control working while the start is being written", async ({

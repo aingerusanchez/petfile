@@ -1,6 +1,12 @@
 import { Play, Square } from "lucide-react-native";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, AppState, Pressable, View } from "react-native";
+import { useEffect, useId, useState } from "react";
+import {
+  ActivityIndicator,
+  AppState,
+  type LayoutChangeEvent,
+  Pressable,
+  View,
+} from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -9,6 +15,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { formatDuration } from "../../lib/duration";
 import type { DurationFormat } from "../../lib/settings";
 import { elapsedMinutes } from "../../lib/walk";
@@ -54,6 +61,23 @@ const PULSE_MS = 2800;
 const DOT_DIM = 0.55;
 const RIPPLE_SCALE = 2.5;
 const RIPPLE_ALPHA = 0.6;
+
+/**
+ * The band that crosses the track while a walk runs: how wide it is, how long
+ * one crossing takes, and how strong it is on each ground.
+ *
+ * **The band is the opposite tone to the ground it crosses**, so it is always
+ * a lightening or a darkening of what is under it: `textPrimary` over the dark
+ * track and the Mist fill, `onAccent` over the Aqua fill once the goal is met.
+ * The alpha is the peak of the gradient, not a flat tint.
+ *
+ * **2.4 s a crossing, linear**, a little quicker than the dot's 2.8 s
+ * heartbeat, so the two never settle into lock-step.
+ */
+const SWEEP_WIDTH = 70;
+const SWEEP_MS = 2400;
+const SWEEP_ALPHA = 0.55;
+const SWEEP_ALPHA_MET = 0.35;
 
 /**
  * The mark at the junction of the bar, in dp: how wide, how tall, and how far
@@ -123,9 +147,11 @@ const GLYPH_SIZE = 16;
  * say the walk is live; the tick answers a different question — how much of
  * this is already recorded — and a pulse on it would say "live" twice. One
  * thing moving, one thing still. It draws only while a walk runs and only
- * where there is a bar, and **not once the goal is met**: the bar is then full
- * and Aqua and there is no segment, so a mark at its right end would separate
- * the recorded minutes from nothing and read as a cap on the bar.
+ * where there is a bar, **not before anything is recorded** — there is no
+ * junction to mark, and the line would hang off the bar's left edge — and
+ * **not once the goal is met**: the bar is then full and Aqua and there is no
+ * segment, so a mark at its right end would separate the recorded minutes from
+ * nothing and read as a cap on the bar.
  *
  * **The block renders with no goal too.** `exercise_goal_minutes` is nullable
  * and the activity question is optional, so gating the whole block on a goal
@@ -357,6 +383,12 @@ export function GoalBlock({
                 className="h-[4px] bg-text-tertiary"
               />
             ) : null}
+            {walkingSince ? (
+              <Sweep
+                met={met}
+                testID={testID ? `${testID}-sweep` : undefined}
+              />
+            ) : null}
           </View>
           {walkingSince && recorded > 0 && !met ? (
             // Hidden from a reader the way the dot is: the measure says what
@@ -365,11 +397,12 @@ export function GoalBlock({
             // cannot disagree.
             //
             // **Not drawn at zero recorded**: nothing recorded is nothing to
-            // separate the walk from, and the left edge was the only position
-            // where the tick left the track — the centring offset is
-            // unclamped, so it hung 1 dp outside it. The right edge never
-            // arises either: `recorded` reaches 100 only when the goal is met,
-            // and then the tick is not drawn.
+            // separate the walk from, and at zero the tick sat 1 dp outside the
+            // track — the centring offset is unclamped. Zero is the only place
+            // that is exactly true: at a very small positive proportion the
+            // tick still hangs out by under 1 dp, which it accepts. The right
+            // edge never arises: `recorded` reaches 100 only when the goal is
+            // met, and then the tick is not drawn.
             <View
               testID={testID ? `${testID}-tick` : undefined}
               accessibilityElementsHidden
@@ -485,6 +518,116 @@ function PulseDot({ testID }: { testID?: string }) {
         style={dotStyle}
         className="h-[8px] w-[8px] rounded-[4px] bg-accent"
       />
+    </View>
+  );
+}
+
+/**
+ * The gradient rectangle itself: transparent, then `tone` at `alpha`, then
+ * transparent, `width` dp across and as tall as the box it is put in.
+ *
+ * **Drawn in `react-native-svg`, which is already a dependency, rather than
+ * `expo-linear-gradient`**, a native module: adding it would mean recompiling
+ * and reinstalling on both phones to draw a band. The fade is the stops'
+ * opacity, so `tone` stays a token.
+ *
+ * **No animation and no position**, on purpose: `Sweep` loops it across the
+ * whole track, and the close's sheen puts it on a short stretch with a motion
+ * of its own. The gradient's id comes from `useId`, because SVG ids are global
+ * to the document on the web and two bands of different tone must not resolve
+ * to the same `<linearGradient>`.
+ */
+function Band({
+  width,
+  tone,
+  alpha,
+}: {
+  width: number;
+  tone: string;
+  alpha: number;
+}) {
+  const id = `band-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  return (
+    <Svg width={width} height="100%">
+      <Defs>
+        <LinearGradient id={id} x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor={tone} stopOpacity={0} />
+          <Stop offset="0.5" stopColor={tone} stopOpacity={alpha} />
+          <Stop offset="1" stopColor={tone} stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width={width} height="100%" fill={`url(#${id})`} />
+    </Svg>
+  );
+}
+
+/**
+ * A pale band that crosses the whole track, again and again, while a walk
+ * runs.
+ *
+ * **Across the whole track and not the in-progress segment, because that
+ * segment cannot carry an animation.** Against a 3 h goal it is 3.6 dp wide at
+ * two minutes — the moment the tutor most wants to see the walk is recording —
+ * and the same hole opens from the other end when a walk starts a minute short
+ * of the goal. A band over the track is the same size whatever the walk's
+ * length. **The cost, accepted:** a sweep is the idiom for _indeterminate_
+ * progress, drawn on a bar that knows exactly where it is. The tick and the
+ * segment still say where; the band says only "live".
+ *
+ * **Lives inside the track**, which clips it at both ends, and fills it. The
+ * track's width comes from `onLayout` on this component itself — a percentage
+ * cannot be a transform — and the crossing restarts if the width changes
+ * (rotation, font scale).
+ *
+ * **Under "remove animations" it renders nothing at all**, not a slower band:
+ * the dot already says the walk is live, and nothing moving is the request.
+ * The same rule as `PulseDot`. Decoration to a reader: the measure says
+ * `De paseo`.
+ */
+function Sweep({ met, testID }: { met: boolean; testID?: string }) {
+  const reduceMotion = useReducedMotion();
+  const [trackWidth, setTrackWidth] = useState(0);
+  const x = useSharedValue(-SWEEP_WIDTH);
+
+  useEffect(() => {
+    if (reduceMotion || trackWidth === 0) return;
+    x.value = -SWEEP_WIDTH;
+    x.value = withRepeat(
+      withTiming(trackWidth, { duration: SWEEP_MS, easing: Easing.linear }),
+      -1,
+      false,
+    );
+  }, [reduceMotion, trackWidth, x]);
+
+  const bandStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }],
+  }));
+
+  if (reduceMotion) return null;
+
+  return (
+    <View
+      testID={testID}
+      onLayout={(e: LayoutChangeEvent) =>
+        setTrackWidth(e.nativeEvent.layout.width)
+      }
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      aria-hidden
+      className="absolute inset-0"
+    >
+      {trackWidth > 0 ? (
+        <Animated.View
+          style={[{ width: SWEEP_WIDTH }, bandStyle]}
+          className="absolute top-0 bottom-0 left-0"
+        >
+          <Band
+            width={SWEEP_WIDTH}
+            tone={met ? colors.onAccent : colors.textPrimary}
+            alpha={met ? SWEEP_ALPHA_MET : SWEEP_ALPHA}
+          />
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
