@@ -18,7 +18,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Defs, Ellipse, LinearGradient, Stop } from "react-native-svg";
 import { formatDuration } from "../../lib/duration";
 import { type CloseMotion, closeMotion } from "../../lib/goalbar";
 import type { DurationFormat } from "../../lib/settings";
@@ -67,13 +67,29 @@ const RIPPLE_SCALE = 2.5;
 const RIPPLE_ALPHA = 0.6;
 
 /**
- * The band that crosses the track while a walk runs: how wide it is, how long
- * one crossing takes, and how strong it is on each ground.
+ * The wave that crosses the track while a walk runs: how wide it is, how tall
+ * it swells, how long one crossing takes, and how strong it is on each ground.
  *
  * **The band is the opposite tone to the ground it crosses**, so it is always
- * a lightening or a darkening of what is under it: `textPrimary` over the dark
- * track and the Mist fill, `onAccent` over the Aqua fill once the goal is met.
- * The alpha is the peak of the gradient, not a flat tint.
+ * a lightening or a darkening of what is under it. The alpha is the peak of
+ * the gradient, not a flat tint.
+ *
+ * **One bar, two grounds — which is why the rule is applied per region and
+ * not per state.** Measured on the device: a `textPrimary` band at 0.55 over
+ * the dark track (`surface`, red channel 19) reads **142**, a lift of +123;
+ * the same band over the recorded fill (`text-secondary`, 205) reads **225**,
+ * a lift of +20. Six times less, and on the third walk of the day most of the
+ * bar *is* recorded fill, so the band travelled invisibly until it crossed
+ * into the dark part. Left of the junction the band is therefore `onAccent` at
+ * `SWEEP_ALPHA_MET` — predicted 205 − 0.35 × (205 − 12) = **137**, a fall of
+ * −68 — and right of it, over the dark track and the in-progress segment, it
+ * is `textPrimary` at `SWEEP_ALPHA` exactly as before. Once the goal is met
+ * the bar is one ground again (Aqua) and there is one dark band.
+ *
+ * **`WAVE_HEIGHT` is the other half of the answer, because height reads
+ * whatever colour it crosses.** 10 dp, and deliberately below the tick's 12:
+ * the tick is the bar's one fixed reference, and a thing that merely passes
+ * must not out-shout it.
  *
  * **2.4 s a crossing, linear**, a little quicker than the dot's 2.8 s
  * heartbeat, so the two never settle into lock-step.
@@ -82,6 +98,7 @@ const SWEEP_WIDTH = 70;
 const SWEEP_MS = 2400;
 const SWEEP_ALPHA = 0.55;
 const SWEEP_ALPHA_MET = 0.35;
+const WAVE_HEIGHT = 10;
 
 /**
  * The close, in four beats: how long the whole thing lasts, and where each
@@ -100,10 +117,22 @@ const SWEEP_ALPHA_MET = 0.35;
  * its own: it eases back over the rest of the close, under the sheen and the
  * colour, so the bar settles once rather than twice.
  *
- * **1.75 on a 4 dp track is 7 dp**, which is the thickest the bar gets. It is
- * `scaleY` on the track and never on the wrapper around it: the tick is the
- * wrapper's other child and would scale with it, and a 12 dp tick at 1.75 is
- * a 21 dp spike.
+ * **1.75 on a 4 dp track is 7 dp**, which is the thickest the bar gets. Never
+ * `scaleY` on the wrapper: the tick is the wrapper's other child and would
+ * scale with it, and a 12 dp tick at 1.75 is a 21 dp spike.
+ *
+ * **The swell lands on the stretch, not on the whole bar — except when there
+ * is no stretch.** It used to thicken the entire track while the sheen and the
+ * colour landing pointed only at the minutes the walk added, so the loudest of
+ * the three beats contradicted the sentence the other two spoke. In the `land`
+ * case it is `scaleY` on `CloseLanding`'s stretch overlay, and all three beats
+ * then act on the same place. In the `swell` case — the goal was already met
+ * before this walk, so there is no stretch to point at — it stays on the track,
+ * because there the message really is about the whole thing.
+ *
+ * **Known and accepted:** a one-minute close against a 3 h goal leaves a
+ * stretch about 3.6 dp wide, and a swell on 3.6 dp is barely anything. A real
+ * walk's stretch is 45–73 dp. A minute does not earn a fanfare.
  *
  * **The sheen is the close's own band, not the running sweep.** `SWEEP_WIDTH`
  * crosses the whole track forever; this one crosses a stretch that can be 3 dp
@@ -343,20 +372,25 @@ export function GoalBlock({
       goalMinutes,
     });
     if (motion.kind === "none") return;
-    trackScale.value = withSequence(
-      withTiming(CLOSE_SWELL_SCALE, {
-        duration: CLOSE_SWELL_MS,
-        easing: Easing.out(Easing.quad),
-      }),
-      withTiming(1, {
-        duration: CLOSE_MS - CLOSE_SWELL_MS,
-        easing: Easing.inOut(Easing.quad),
-      }),
-    );
     // The bar was already full before this walk, so the minutes it added fall
     // past the bar's edge: there is no stretch to sheen or to land, and the
-    // thickness is the whole sentence.
-    if (motion.kind === "swell") return;
+    // thickness is the whole sentence — so the whole bar is what thickens.
+    // Everywhere else the swell belongs to the stretch and `CloseLanding`
+    // runs it; see the close's comment for why the loudest beat may not point
+    // somewhere the other two do not.
+    if (motion.kind === "swell") {
+      trackScale.value = withSequence(
+        withTiming(CLOSE_SWELL_SCALE, {
+          duration: CLOSE_SWELL_MS,
+          easing: Easing.out(Easing.quad),
+        }),
+        withTiming(1, {
+          duration: CLOSE_MS - CLOSE_SWELL_MS,
+          easing: Easing.inOut(Easing.quad),
+        }),
+      );
+      return;
+    }
     // **The overlay is mounted from a timer and not from here.** A `setState`
     // in an effect body is what `react-hooks/set-state-in-effect` exists to
     // report, and the zero-delay timeout is the shape this file already uses
@@ -544,11 +578,11 @@ export function GoalBlock({
           {/* `h-[4px]`, not `h-1`: the calendar draws this bar in miniature
               and sizes it in literal pixels, and 0.25rem resolves to 3.38dp
               on native. */}
-          {/* The track and not the wrapper carries the swell, for the reason
-              the wrapper exists: the tick is the wrapper's other child, and a
-              12 dp mark at 1.75 would be a 21 dp spike. The scale is paint,
-              so the thickened bar overflows the 4 dp wrapper without moving
-              anything under it. */}
+          {/* The track and not the wrapper carries the one swell that is
+              about the whole bar, for the reason the wrapper exists: the tick
+              is the wrapper's other child, and a 12 dp mark at 1.75 would be
+              a 21 dp spike. The scale is paint, so the thickened bar
+              overflows the 4 dp wrapper without moving anything under it. */}
           <Animated.View
             style={trackStyle}
             className="h-[4px] flex-row overflow-hidden rounded-xl bg-surface"
@@ -570,28 +604,37 @@ export function GoalBlock({
                 className="h-[4px] bg-text-tertiary"
               />
             ) : null}
-            {walkingSince ? (
-              <Sweep
-                met={met}
-                testID={testID ? `${testID}-sweep` : undefined}
-              />
-            ) : null}
-            {closing !== null && closing.kind === "land" ? (
-              <CloseLanding
-                // Keyed by the close, not by the position: a second close
-                // inside the 760 ms of the first reconciles into this same
-                // element, and without a new key `landed` would still be 1
-                // from the first animation, so the second would paint its
-                // geometry already at its destination tone with no travel.
-                // Reasoned from how React reconciles, not reproduced — it
-                // needs two server round trips inside the window.
-                key={closing.id}
-                stretch={closing.stretch}
-                met={closing.met}
-                testID={testID ? `${testID}-close` : undefined}
-              />
-            ) : null}
           </Animated.View>
+          {/* **The wave and the close are the track's siblings, not its
+              children, because both are thicker than the bar.** The track
+              keeps the `overflow-hidden` its two fills need, and that would
+              cut a 10 dp wave and a swollen stretch down to 4 dp. Out here
+              they are clipped by nothing, the way the swell on the track
+              already was. The cost, accepted: the close's overlays no longer
+              inherit the track's `rounded-xl`, so for 760 ms the bar's two
+              extreme ends are square rather than carrying their 2 dp cap. */}
+          {walkingSince ? (
+            <Sweep
+              met={met}
+              recorded={recorded}
+              testID={testID ? `${testID}-sweep` : undefined}
+            />
+          ) : null}
+          {closing !== null && closing.kind === "land" ? (
+            <CloseLanding
+              // Keyed by the close, not by the position: a second close
+              // inside the 760 ms of the first reconciles into this same
+              // element, and without a new key `landed` would still be 1
+              // from the first animation, so the second would paint its
+              // geometry already at its destination tone with no travel.
+              // Reasoned from how React reconciles, not reproduced — it
+              // needs two server round trips inside the window.
+              key={closing.id}
+              stretch={closing.stretch}
+              met={closing.met}
+              testID={testID ? `${testID}-close` : undefined}
+            />
+          ) : null}
           {walkingSince && recorded > 0 && !met ? (
             // Hidden from a reader the way the dot is: the measure says what
             // the walk is, and a line has nothing to announce. Positioned from
@@ -811,26 +854,36 @@ function PulseDot({ testID }: { testID?: string }) {
 }
 
 /**
- * The gradient rectangle itself: transparent, then `tone` at `alpha`, then
- * transparent, `width` dp across and as tall as the box it is put in.
+ * The wave itself: an ellipse `width` dp across and `WAVE_HEIGHT` dp tall,
+ * filled transparent → `tone` at `alpha` → transparent from left to right.
+ *
+ * **An ellipse and not a rectangle, because colour alone could not carry
+ * this.** Over the recorded fill a lightening band moved the red channel by
+ * 20 where over the dark track it moved it by 123, and the band crossed half
+ * the bar unseen; the region split answers the colour half, and the shape
+ * answers the rest, since height reads regardless of what it passes over. An
+ * ellipse is thickest exactly where the gradient is brightest and tapers to
+ * nothing at both ends, which is the shape that was asked for and the one the
+ * gradient already implies.
  *
  * **Drawn in `react-native-svg`, which is already a dependency, rather than
  * `expo-linear-gradient`**, a native module: adding it would mean recompiling
  * and reinstalling on both phones to draw a band. The fade is the stops'
  * opacity, so `tone` stays a token.
  *
- * **The box it is put in must have a definite height**, which is the one
- * thing this signature cannot say. The `Svg` is `height="100%"` of its
- * parent, so a parent that is sized by its children — the ordinary case for a
- * `View` — resolves to nothing and the band is invisible with no error
- * anywhere. Both callers position it absolutely with `top-0 bottom-0` inside
- * the 4 dp track, which is what makes the percentage mean something.
+ * **It centres itself on the box it is put in**, rather than filling it: the
+ * sweep's clip is `WAVE_HEIGHT` tall and straddles the bar, where the ellipse
+ * fits exactly, while the close's sheen is clipped to the 4 dp stretch, where
+ * the ellipse's own middle is what shows. `top: "50%"` with a half-height
+ * negative margin is the one expression that is right in both, and it needs
+ * the parent to have a definite height — both callers give it one with
+ * `top-0 bottom-0` inside a box that has one.
  *
- * **No animation and no position**, on purpose: `Sweep` loops it across the
- * whole track, and the close's sheen puts it on a short stretch with a motion
- * of its own. The gradient's id comes from `useId`, because SVG ids are global
- * to the document on the web and two bands of different tone must not resolve
- * to the same `<linearGradient>`.
+ * **No animation and no horizontal position**, on purpose: `Sweep` loops it
+ * across the track, and the close's sheen puts it on a short stretch with a
+ * motion of its own. The gradient's id comes from `useId`, because SVG ids are
+ * global to the document on the web and two bands of different tone must not
+ * resolve to the same `<linearGradient>`.
  */
 function Band({
   width,
@@ -843,7 +896,15 @@ function Band({
 }) {
   const id = `band-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   return (
-    <Svg width={width} height="100%">
+    <Svg
+      width={width}
+      height={WAVE_HEIGHT}
+      style={{
+        position: "absolute",
+        top: "50%",
+        marginTop: -WAVE_HEIGHT / 2,
+      }}
+    >
       <Defs>
         <LinearGradient id={id} x1="0" y1="0" x2="1" y2="0">
           <Stop offset="0" stopColor={tone} stopOpacity={0} />
@@ -851,7 +912,13 @@ function Band({
           <Stop offset="1" stopColor={tone} stopOpacity={0} />
         </LinearGradient>
       </Defs>
-      <Rect x="0" y="0" width={width} height="100%" fill={`url(#${id})`} />
+      <Ellipse
+        cx={width / 2}
+        cy={WAVE_HEIGHT / 2}
+        rx={width / 2}
+        ry={WAVE_HEIGHT / 2}
+        fill={`url(#${id})`}
+      />
     </Svg>
   );
 }
@@ -869,17 +936,43 @@ function Band({
  * progress, drawn on a bar that knows exactly where it is. The tick and the
  * segment still say where; the band says only "live".
  *
- * **Lives inside the track**, which clips it at both ends, and fills it. The
- * track's width comes from `onLayout` on this component itself — a percentage
- * cannot be a transform — and the crossing restarts if the width changes
- * (rotation, font scale).
+ * **Two bands, one wave.** The bar has two grounds and the rule is that the
+ * sweep takes the opposite tone of the ground it crosses, so the wave is cut
+ * at the **junction** — the `recorded` percentage, which is exactly where the
+ * tick stands, so the tone change and the fixed mark coincide rather than
+ * giving the eye a second boundary to explain. Left of it, over the light
+ * recorded fill, the band is dark; right of it, over the dark track and the
+ * in-progress segment, it is light. Both halves read one shared value, and the
+ * right-hand one's translation is offset by the junction's own pixel position,
+ * so the wave is continuous as it crosses: the two clips are a window onto one
+ * band, not two bands taking turns. Once the goal is met there is one ground
+ * and one band again.
+ *
+ * **Lives beside the track rather than in it**, because a 10 dp wave inside a
+ * 4 dp `overflow-hidden` box is a 4 dp wave. Its own clip is the track's
+ * width, `WAVE_HEIGHT` tall and straddling the bar, so the ends of the bar
+ * still cut the wave off exactly as the track did and the vertical clip lands
+ * on the ellipse's own extent, where there is nothing to lose.
+ *
+ * The track's width comes from `onLayout` on that clip — a percentage cannot
+ * be a transform — and the crossing restarts if the width changes (rotation,
+ * font scale).
  *
  * **Under "remove animations" it renders nothing at all**, not a slower band:
  * the dot already says the walk is live, and nothing moving is the request.
  * The same rule as `PulseDot`. Decoration to a reader: the measure says
  * `De paseo`.
  */
-function Sweep({ met, testID }: { met: boolean; testID?: string }) {
+function Sweep({
+  met,
+  recorded,
+  testID,
+}: {
+  met: boolean;
+  /** Where the junction is, as a percentage of the bar: the tick's own place. */
+  recorded: number;
+  testID?: string;
+}) {
   const reduceMotion = useReducedMotion();
   const [trackWidth, setTrackWidth] = useState(0);
   const x = useSharedValue(-SWEEP_WIDTH);
@@ -894,8 +987,18 @@ function Sweep({ met, testID }: { met: boolean; testID?: string }) {
     );
   }, [reduceMotion, trackWidth, x]);
 
-  const bandStyle = useAnimatedStyle(() => ({
+  // Met, the bar is one ground, so the junction is at the left edge and the
+  // light half has no room: one clip spans everything and draws the dark band.
+  const junction = met
+    ? 0
+    : Math.min(trackWidth, Math.max(0, (recorded / 100) * trackWidth));
+
+  const overFillStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: x.value }],
+  }));
+  // The same position, read in the right-hand clip's own coordinates.
+  const overTrackStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value - junction }],
   }));
 
   if (reduceMotion) return null;
@@ -909,28 +1012,58 @@ function Sweep({ met, testID }: { met: boolean; testID?: string }) {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       aria-hidden
-      className="absolute inset-0"
+      style={{ top: -(WAVE_HEIGHT - 4) / 2, height: WAVE_HEIGHT }}
+      className="absolute right-0 left-0 overflow-hidden"
     >
-      {trackWidth > 0 ? (
-        <Animated.View
-          style={[{ width: SWEEP_WIDTH }, bandStyle]}
-          className="absolute top-0 bottom-0 left-0"
+      {trackWidth > 0 && junction > 0 ? (
+        <View
+          style={{ width: junction }}
+          className="absolute top-0 bottom-0 left-0 overflow-hidden"
         >
-          <Band
-            width={SWEEP_WIDTH}
-            tone={met ? colors.onAccent : colors.textPrimary}
-            alpha={met ? SWEEP_ALPHA_MET : SWEEP_ALPHA}
-          />
-        </Animated.View>
+          <Animated.View
+            style={[{ width: SWEEP_WIDTH }, overFillStyle]}
+            className="absolute top-0 bottom-0 left-0"
+          >
+            <Band
+              width={SWEEP_WIDTH}
+              tone={colors.onAccent}
+              alpha={SWEEP_ALPHA_MET}
+            />
+          </Animated.View>
+        </View>
+      ) : null}
+      {trackWidth > 0 ? (
+        <View
+          style={{ left: junction }}
+          className="absolute top-0 right-0 bottom-0 overflow-hidden"
+        >
+          <Animated.View
+            style={[{ width: SWEEP_WIDTH }, overTrackStyle]}
+            className="absolute top-0 bottom-0 left-0"
+          >
+            <Band
+              width={SWEEP_WIDTH}
+              tone={met ? colors.onAccent : colors.textPrimary}
+              alpha={met ? SWEEP_ALPHA_MET : SWEEP_ALPHA}
+            />
+          </Animated.View>
+        </View>
       ) : null}
     </View>
   );
 }
 
 /**
- * The three beats of a close that has a stretch to point at: the sheen across
- * it, the stretch arriving at the tone it will keep, and — when the goal was
- * reached — the rest of the bar coming with it.
+ * The three beats of a close that has a stretch to point at: the stretch
+ * swelling, the sheen across it, the stretch arriving at the tone it will
+ * keep, and — when the goal was reached — the rest of the bar coming with it.
+ *
+ * **All three act on the stretch, which is the whole reason the swell lives
+ * here.** It used to be `scaleY` on the track, so the loudest beat pointed at
+ * the entire bar while the two quiet ones pointed at the minutes just saved —
+ * the sentence said two different things at once. The only close that still
+ * thickens the whole track is the one with no stretch to point at, and that
+ * one never reaches this component.
  *
  * **A component rather than three branches inside the block**, so the whole
  * close is mounted and unmounted as one thing: `testID` marks this wrapper,
@@ -968,6 +1101,7 @@ function CloseLanding({
   testID?: string;
 }) {
   const landed = useSharedValue(0);
+  const swell = useSharedValue(1);
 
   useEffect(() => {
     landed.value = withDelay(
@@ -977,7 +1111,21 @@ function CloseLanding({
         easing: Easing.inOut(Easing.quad),
       }),
     );
-  }, [landed]);
+    // The first beat, and the only one of the three that used to point
+    // somewhere else. It ends at exactly `CLOSE_MS`, which is the frame this
+    // overlay is taken away on, so the stretch is back at 4 dp before the
+    // fill beneath it is uncovered.
+    swell.value = withSequence(
+      withTiming(CLOSE_SWELL_SCALE, {
+        duration: CLOSE_SWELL_MS,
+        easing: Easing.out(Easing.quad),
+      }),
+      withTiming(1, {
+        duration: CLOSE_MS - CLOSE_SWELL_MS,
+        easing: Easing.inOut(Easing.quad),
+      }),
+    );
+  }, [landed, swell]);
 
   const stretchStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
@@ -985,6 +1133,7 @@ function CloseLanding({
       [0, 1],
       [colors.textTertiary, met ? colors.accent : colors.textSecondary],
     ),
+    transform: [{ scaleY: swell.value }],
   }));
 
   const beforeStyle = useAnimatedStyle(() => ({
@@ -1010,6 +1159,7 @@ function CloseLanding({
         />
       ) : null}
       <Animated.View
+        testID={testID ? `${testID}-stretch` : undefined}
         style={[
           {
             left: `${stretch.start}%`,

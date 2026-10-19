@@ -1454,6 +1454,61 @@ test("sweeps nothing for a tutor who asked for no animation", async ({
 });
 
 /**
+ * **One bar, two grounds, and the wave has to answer both.** Measured on the
+ * device: a pale band over the dark track lifts the red channel by 123 and
+ * over the recorded fill by 20, so on a day with minutes already banked the
+ * band crossed half the bar unseen. The fix has two halves and this pins
+ * both — the tone is cut at the junction, and the wave is taller than the bar
+ * it crosses while staying under the tick, which is the bar's one fixed mark
+ * and must stay the tallest thing on it.
+ *
+ * The goal is 60 min here and 30 are recorded, so there is a junction in the
+ * middle of the bar and both halves exist.
+ */
+test("takes the opposite tone of each half of the bar it crosses", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const { earlier, running } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  const sweep = page.getByTestId("home-goal-sweep");
+  await expect(sweep).toBeVisible();
+
+  // Two bands, not one: a dark one over the light recorded fill and the light
+  // one over the dark track. A single tone here is the defect coming back.
+  const tones = await sweep.evaluate((el) =>
+    [...el.querySelectorAll("stop")].map(
+      (s) => s.getAttribute("stop-color") ?? "",
+    ),
+  );
+  expect(new Set(tones)).toEqual(
+    new Set([colors.onAccent, colors.textPrimary]),
+  );
+
+  // And the shape reads whatever colour it crosses: taller than the 4 dp bar,
+  // shorter than the 12 dp tick.
+  const wave = await sweep.boundingBox();
+  const tick = await page.getByTestId("home-goal-tick").boundingBox();
+  expect(wave, "the wave should be drawn").not.toBeNull();
+  expect(tick, "the tick should be drawn").not.toBeNull();
+  expect(wave!.height).toBeGreaterThan(4);
+  expect(wave!.height).toBeLessThan(tick!.height);
+});
+
+/**
  * **The close is asserted settled, except where noted.** It runs for 760 ms and
  * Playwright cannot be parked inside it: this file's own header records that
  * `page.clock.setFixedTime` stops Reanimated dead and `install` + `resume`
@@ -1722,26 +1777,46 @@ test("takes the whole bar to Aqua, travelling there, when a close reaches the go
 });
 
 /**
- * Resolves on the track's vertical scale, polled on every frame: `"swollen"`
- * once it is above rest, `"rest"` once it is exactly 1 again. The track is the
- * bar's parent — it is the one element the swell is applied to, and it has no
- * testID of its own because nothing else needs to find it.
+ * Resolves on the vertical scale of an element, polled on every frame:
+ * `"swollen"` once it is above rest, `"rest"` once it is exactly 1 again.
+ *
+ * Two elements can carry the swell and which one does is the whole point:
+ * the **track** — the bar's parent, which has no testID of its own because
+ * nothing else needs to find it — when the close has no stretch to point at,
+ * and the close's **stretch overlay** every other time, so that the loudest
+ * beat lands on the same minutes the sheen and the colour do.
  */
-function trackScale(page: Page, state: "swollen" | "rest") {
+function verticalScale(
+  page: Page,
+  which: "track" | "stretch",
+  state: "swollen" | "rest",
+) {
   return page.waitForFunction(
-    (want) => {
-      const bar = document.querySelector('[data-testid="home-goal-bar"]');
-      if (!bar?.parentElement) return false;
-      const t = getComputedStyle(bar.parentElement).transform;
+    ([want, target]) => {
+      const el =
+        target === "track"
+          ? document.querySelector('[data-testid="home-goal-bar"]')
+              ?.parentElement
+          : document.querySelector('[data-testid="home-goal-close-stretch"]');
+      if (!el) return false;
+      const t = getComputedStyle(el).transform;
       const y = t === "none" ? 1 : new DOMMatrix(t).m22;
       return want === "swollen" ? y > 1.05 : y === 1;
     },
-    state,
+    [state, which] as const,
     { polling: "raf", timeout: 5_000 },
   );
 }
 
-test("swells the track when a walk is saved, and lets it go", async ({
+/** The track's vertical scale right now, with no waiting and no retry. */
+function trackScaleNow(page: Page) {
+  return page.getByTestId("home-goal-bar").evaluate((bar: Element) => {
+    const t = getComputedStyle(bar.parentElement as Element).transform;
+    return t === "none" ? 1 : new DOMMatrix(t).m22;
+  });
+}
+
+test("swells the minutes a walk just saved, and not the whole bar", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -1757,14 +1832,57 @@ test("swells the track when a walk is saved, and lets it go", async ({
   await expect(page.getByTestId("entry-title")).toHaveCount(0);
 
   // At rest before the press, so "swollen" can only be the close's doing.
-  await trackScale(page, "rest");
-  const swollen = trackScale(page, "swollen");
+  await verticalScale(page, "track", "rest");
+  const swollen = verticalScale(page, "stretch", "swollen");
   await page.getByTestId("home-goal-control").click();
   await swollen;
 
-  // And back to exactly 1: a bar left thicker would be a different bar.
-  await trackScale(page, "rest");
+  // **And the track is not swelling with it.** Read in the same breath as
+  // the stretch's peak rather than after the close, because the thing this
+  // pins is where the beat points, and the bar comes to rest either way.
+  expect(await trackScaleNow(page)).toBe(1);
+
+  // And it all goes, leaving a bar of the thickness it started at: one left
+  // thicker would be a different bar.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await verticalScale(page, "track", "rest");
   await expect(page.getByTestId("home-goal")).toContainText("1 min de 1h");
+});
+
+/**
+ * **The one close that is about the whole bar.** The goal was already met
+ * before this walk began, so the minutes it added fall past the bar's edge
+ * and there is no stretch to point at — `closeMotion` returns `swell`, no
+ * overlay is mounted, and the thickness is the whole sentence. 60 min
+ * recorded against a 60 min goal, and a walk of two minutes on top.
+ */
+test("swells the whole track for a close with no stretch to point at", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const { earlier, running } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 60 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  await verticalScale(page, "track", "rest");
+  const swollen = verticalScale(page, "track", "swollen");
+  await page.getByTestId("home-goal-control").click();
+  await swollen;
+
+  // Nothing was drawn on the bar: there was nowhere on it to draw.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await verticalScale(page, "track", "rest");
 });
 
 test("lands a close with no animation at all for a tutor who asked for none", async ({
