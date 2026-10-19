@@ -1,5 +1,5 @@
 import { Play, Square } from "lucide-react-native";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -9,14 +9,18 @@ import {
 } from "react-native";
 import Animated, {
   Easing,
+  interpolateColor,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
+  withSequence,
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { formatDuration } from "../../lib/duration";
+import { type CloseMotion, closeMotion } from "../../lib/goalbar";
 import type { DurationFormat } from "../../lib/settings";
 import { elapsedMinutes } from "../../lib/walk";
 import { Text } from "./Text";
@@ -78,6 +82,40 @@ const SWEEP_WIDTH = 70;
 const SWEEP_MS = 2400;
 const SWEEP_ALPHA = 0.55;
 const SWEEP_ALPHA_MET = 0.35;
+
+/**
+ * The close, in four beats: how long the whole thing lasts, and where each
+ * beat lands inside it.
+ *
+ * **One sentence — "this much has just been saved" — said four ways.** The
+ * track thickens, a pale band crosses the stretch the walk added, that stretch
+ * travels from the in-progress grey to the tone it will keep, and the bar
+ * settles back to its 4 dp. Before this, stopping a walk changed the segment
+ * to a slightly lighter grey and took the tick away: the most significant
+ * event of the dog's day, and the least visible thing the app did.
+ *
+ * **The beats are cumulative instants, not durations.** The swell is up by
+ * `CLOSE_SWELL_MS`, the sheen has finished crossing by `CLOSE_SHEEN_END_MS`,
+ * and everything has landed at `CLOSE_MS`. The swell's return is not a beat of
+ * its own: it eases back over the rest of the close, under the sheen and the
+ * colour, so the bar settles once rather than twice.
+ *
+ * **1.75 on a 4 dp track is 7 dp**, which is the thickest the bar gets. It is
+ * `scaleY` on the track and never on the wrapper around it: the tick is the
+ * wrapper's other child and would scale with it, and a 12 dp tick at 1.75 is
+ * a 21 dp spike.
+ *
+ * **The sheen is the close's own band, not the running sweep.** `SWEEP_WIDTH`
+ * crosses the whole track forever; this one crosses a stretch that can be 3 dp
+ * wide, once. Same width and nearly the same alpha, so the two read as the
+ * same material.
+ */
+const CLOSE_MS = 760;
+const CLOSE_SWELL_MS = 120;
+const CLOSE_SWELL_SCALE = 1.75;
+const CLOSE_SHEEN_END_MS = 400;
+const CLOSE_SHEEN_WIDTH = 70;
+const CLOSE_SHEEN_ALPHA = 0.55;
 
 /**
  * The mark at the junction of the bar, in dp: how wide, how tall, and how far
@@ -143,15 +181,26 @@ const GLYPH_SIZE = 16;
  * drag. A 2 dp line is not a handle: on a track it reads as a point of
  * reference, which is what it is. Do not round it off.
  *
- * **The tick does not animate.** The dot before the measure already pulses to
- * say the walk is live; the tick answers a different question — how much of
- * this is already recorded — and a pulse on it would say "live" twice. One
- * thing moving, one thing still. It draws only while a walk runs and only
+ * **The tick does not animate.** The dot before the measure pulses and the
+ * band crosses the track, and both say the same thing: the walk is live. The
+ * tick answers a different question — how much of this is already recorded —
+ * and a pulse on it would say "live" a third time. It is the one fixed mark
+ * among the moving ones, which is what lets it be read as a measurement. It
+ * draws only while a walk runs and only
  * where there is a bar, **not before anything is recorded** — there is no
  * junction to mark, and the line would hang off the bar's left edge — and
  * **not once the goal is met**: the bar is then full and Aqua and there is no
  * segment, so a mark at its right end would separate the recorded minutes from
  * nothing and read as a cap on the bar.
+ *
+ * **The close is the one moment this block speaks, and `justClosed` is how it
+ * is told.** Which of three things it then does is `closeMotion`'s decision,
+ * not this component's: a wrong one does not throw, it paints the bar as met
+ * when it is not. The caller is responsible for one thing the prop cannot
+ * express — that `walkedMinutes` already counts the walk being announced. It
+ * is the total of *closed* walks, so it does, but only once the day's rows
+ * have been read again; handing this over before that points the animation at
+ * the previous walk's stretch.
  *
  * **The block renders with no goal too.** `exercise_goal_minutes` is nullable
  * and the activity question is optional, so gating the whole block on a goal
@@ -166,6 +215,7 @@ export function GoalBlock({
   onStart,
   onStop,
   busy = false,
+  justClosed = null,
   testID,
 }: {
   walkedMinutes: number;
@@ -177,6 +227,12 @@ export function GoalBlock({
   onStart?: () => void;
   onStop?: () => void;
   busy?: boolean;
+  /**
+   * The walk just closed, or null. The id is what makes it fire once: two
+   * walks of the same length are a different animation, and a value check
+   * would swallow the second.
+   */
+  justClosed?: { id: string; minutes: number } | null;
   testID?: string;
 }) {
   const [now, setNow] = useState(() => new Date());
@@ -214,6 +270,87 @@ export function GoalBlock({
       sub.remove();
     };
   }, [since]);
+
+  const reduceMotion = useReducedMotion();
+  /**
+   * The close being drawn right now, or null when the bar is at rest.
+   *
+   * **State, because the overlay has to be absent and not transparent.** The
+   * commitment under "remove animations" is that nothing animated exists, and
+   * an always-mounted overlay held at zero opacity is still there — a reader
+   * meets it, and the e2e suite's `toHaveCount(0)` would be a lie. The swell
+   * needs no state: it is a shared value on a track that is always mounted.
+   */
+  const [closing, setClosing] = useState<CloseMotion | null>(null);
+  /** The last close this block has seen, so a re-render does not replay it. */
+  const playedClose = useRef<string | null>(null);
+  /** The timer that takes the overlay away again, so it can be re-armed. */
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const trackScale = useSharedValue(1);
+
+  // Primitives rather than the object: the prop is rebuilt by the caller on
+  // every render, and an effect depending on its identity would fire forever.
+  const closeId = justClosed?.id ?? null;
+  const closeMinutes = justClosed?.minutes ?? 0;
+
+  useEffect(() => {
+    if (closeId === null || closeId === playedClose.current) return;
+    // Marked seen before the reduced-motion check, not after: a tutor who
+    // turns animations back on mid-session is not owed the close that was
+    // skipped while they were off.
+    playedClose.current = closeId;
+    if (reduceMotion) return;
+    const motion = closeMotion({
+      walkedMinutes,
+      closedMinutes: closeMinutes,
+      goalMinutes,
+    });
+    if (motion.kind === "none") return;
+    trackScale.value = withSequence(
+      withTiming(CLOSE_SWELL_SCALE, {
+        duration: CLOSE_SWELL_MS,
+        easing: Easing.out(Easing.quad),
+      }),
+      withTiming(1, {
+        duration: CLOSE_MS - CLOSE_SWELL_MS,
+        easing: Easing.inOut(Easing.quad),
+      }),
+    );
+    // The bar was already full before this walk, so the minutes it added fall
+    // past the bar's edge: there is no stretch to sheen or to land, and the
+    // thickness is the whole sentence.
+    if (motion.kind === "swell") return;
+    // **The overlay is mounted from a timer and not from here.** A `setState`
+    // in an effect body is what `react-hooks/set-state-in-effect` exists to
+    // report, and the zero-delay timeout is the shape this file already uses
+    // for it a few lines up. Nothing is cancelled when the deps change —
+    // `walkedMinutes` moves under a running close every time the other phone
+    // writes something — so the timers are held in a ref rather than in the
+    // effect's cleanup, which would take the animation away mid-beat.
+    if (closeTimer.current !== null) clearTimeout(closeTimer.current);
+    setTimeout(() => setClosing(motion), 0);
+    closeTimer.current = setTimeout(() => setClosing(null), CLOSE_MS);
+  }, [
+    closeId,
+    closeMinutes,
+    reduceMotion,
+    walkedMinutes,
+    goalMinutes,
+    trackScale,
+  ]);
+
+  // Only on the way out: a close in flight when the screen goes would
+  // otherwise set state on a component that has gone.
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
+  const trackStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: trackScale.value }],
+  }));
 
   const running = walkingSince ? elapsedMinutes(walkingSince, now) : 0;
   const met = goalMinutes !== null && walkedMinutes >= goalMinutes;
@@ -365,7 +502,15 @@ export function GoalBlock({
           {/* `h-[4px]`, not `h-1`: the calendar draws this bar in miniature
               and sizes it in literal pixels, and 0.25rem resolves to 3.38dp
               on native. */}
-          <View className="h-[4px] flex-row overflow-hidden rounded-xl bg-surface">
+          {/* The track and not the wrapper carries the swell, for the reason
+              the wrapper exists: the tick is the wrapper's other child, and a
+              12 dp mark at 1.75 would be a 21 dp spike. The scale is paint,
+              so the thickened bar overflows the 4 dp wrapper without moving
+              anything under it. */}
+          <Animated.View
+            style={trackStyle}
+            className="h-[4px] flex-row overflow-hidden rounded-xl bg-surface"
+          >
             <View
               testID={testID ? `${testID}-bar` : undefined}
               style={{ width: `${recorded}%` }}
@@ -389,7 +534,14 @@ export function GoalBlock({
                 testID={testID ? `${testID}-sweep` : undefined}
               />
             ) : null}
-          </View>
+            {closing !== null && closing.kind === "land" ? (
+              <CloseLanding
+                stretch={closing.stretch}
+                met={closing.met}
+                testID={testID ? `${testID}-close` : undefined}
+              />
+            ) : null}
+          </Animated.View>
           {walkingSince && recorded > 0 && !met ? (
             // Hidden from a reader the way the dot is: the measure says what
             // the walk is, and a line has nothing to announce. Positioned from
@@ -531,6 +683,13 @@ function PulseDot({ testID }: { testID?: string }) {
  * and reinstalling on both phones to draw a band. The fade is the stops'
  * opacity, so `tone` stays a token.
  *
+ * **The box it is put in must have a definite height**, which is the one
+ * thing this signature cannot say. The `Svg` is `height="100%"` of its
+ * parent, so a parent that is sized by its children — the ordinary case for a
+ * `View` — resolves to nothing and the band is invisible with no error
+ * anywhere. Both callers position it absolutely with `top-0 bottom-0` inside
+ * the 4 dp track, which is what makes the percentage mean something.
+ *
  * **No animation and no position**, on purpose: `Sweep` loops it across the
  * whole track, and the close's sheen puts it on a short stretch with a motion
  * of its own. The gradient's id comes from `useId`, because SVG ids are global
@@ -625,6 +784,163 @@ function Sweep({ met, testID }: { met: boolean; testID?: string }) {
             width={SWEEP_WIDTH}
             tone={met ? colors.onAccent : colors.textPrimary}
             alpha={met ? SWEEP_ALPHA_MET : SWEEP_ALPHA}
+          />
+        </Animated.View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * The three beats of a close that has a stretch to point at: the sheen across
+ * it, the stretch arriving at the tone it will keep, and — when the goal was
+ * reached — the rest of the bar coming with it.
+ *
+ * **A component rather than three branches inside the block**, so the whole
+ * close is mounted and unmounted as one thing: `testID` marks this wrapper,
+ * and its absence is the settled state the e2e suite asserts.
+ *
+ * **It starts from `colors.textTertiary` because that is where the eye already
+ * is.** The in-progress segment is drawn in exactly that tone while the walk
+ * runs, and the frame the overlay mounts on is the frame the segment goes and
+ * the recorded fill grows to take its place. So the overlay opens as a
+ * continuation of the segment rather than as a new object, and then travels
+ * to the tone the fill underneath is already holding.
+ *
+ * **Which is also why nothing jumps when it is taken away.** The fill beneath
+ * was given its destination tone by props the moment the day's rows landed;
+ * the overlay only hides it for 760 ms and arrives at the same colour. There
+ * is no frame where the bar changes when the overlay unmounts — the one risk
+ * being that it is removed early, which is why the timer that removes it is
+ * never cancelled by a re-render.
+ *
+ * **When the goal was met the whole bar turns Aqua, not just the new
+ * stretch**, so a second overlay covers everything before it and travels Mist
+ * → Aqua. Without it the bar would land two-tone for the length of the
+ * animation and then snap.
+ *
+ * Decoration to a reader: `Objetivo conseguido` appears under the bar in the
+ * same breath, and the measure says the new total.
+ */
+function CloseLanding({
+  stretch,
+  met,
+  testID,
+}: {
+  stretch: { start: number; end: number };
+  met: boolean;
+  testID?: string;
+}) {
+  const landed = useSharedValue(0);
+
+  useEffect(() => {
+    landed.value = withDelay(
+      CLOSE_SHEEN_END_MS,
+      withTiming(1, {
+        duration: CLOSE_MS - CLOSE_SHEEN_END_MS,
+        easing: Easing.inOut(Easing.quad),
+      }),
+    );
+  }, [landed]);
+
+  const stretchStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      landed.value,
+      [0, 1],
+      [colors.textTertiary, met ? colors.accent : colors.textSecondary],
+    ),
+  }));
+
+  const beforeStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      landed.value,
+      [0, 1],
+      [colors.textSecondary, colors.accent],
+    ),
+  }));
+
+  return (
+    <View
+      testID={testID}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      aria-hidden
+      className="absolute inset-0"
+    >
+      {met ? (
+        <Animated.View
+          style={[{ left: 0, width: `${stretch.start}%` }, beforeStyle]}
+          className="absolute top-0 bottom-0"
+        />
+      ) : null}
+      <Animated.View
+        style={[
+          {
+            left: `${stretch.start}%`,
+            width: `${stretch.end - stretch.start}%`,
+          },
+          stretchStyle,
+        ]}
+        className="absolute top-0 bottom-0"
+      />
+      <CloseSheen stretch={stretch} />
+    </View>
+  );
+}
+
+/**
+ * The pale band that crosses the stretch a walk just added, once.
+ *
+ * **`Band` and not `Sweep`.** The sweep loops across the whole track for as
+ * long as a walk runs, which is the right shape for "live" and the wrong one
+ * for a single event; this crosses the stretch and is gone. It is clipped to
+ * the stretch rather than drawn over the whole bar because the sentence is
+ * "*this much* has just been saved", and a band over the whole track would
+ * point at all of it.
+ *
+ * **The stretch's width has to be measured.** `Band` is drawn in dp and a
+ * translation cannot be a percentage, so the width comes from `onLayout` on
+ * the clip, the same way `Sweep` reads the track's. The stretch can be 3 dp
+ * wide against a long goal, in which case the band is a flash rather than a
+ * crossing — which is the honest picture of two minutes against three hours.
+ */
+function CloseSheen({ stretch }: { stretch: { start: number; end: number } }) {
+  const [width, setWidth] = useState(0);
+  const x = useSharedValue(-CLOSE_SHEEN_WIDTH);
+
+  useEffect(() => {
+    if (width === 0) return;
+    x.value = withDelay(
+      CLOSE_SWELL_MS,
+      withTiming(width, {
+        duration: CLOSE_SHEEN_END_MS - CLOSE_SWELL_MS,
+        easing: Easing.linear,
+      }),
+    );
+  }, [width, x]);
+
+  const bandStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }],
+  }));
+
+  return (
+    <View
+      onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
+      style={{
+        left: `${stretch.start}%`,
+        width: `${stretch.end - stretch.start}%`,
+      }}
+      className="absolute top-0 bottom-0 overflow-hidden"
+    >
+      {width > 0 ? (
+        <Animated.View
+          style={[{ width: CLOSE_SHEEN_WIDTH }, bandStyle]}
+          className="absolute top-0 bottom-0 left-0"
+        >
+          <Band
+            width={CLOSE_SHEEN_WIDTH}
+            tone={colors.textPrimary}
+            alpha={CLOSE_SHEEN_ALPHA}
           />
         </Animated.View>
       ) : null}

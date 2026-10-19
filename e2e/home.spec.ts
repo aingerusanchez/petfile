@@ -1452,6 +1452,157 @@ test("sweeps nothing for a tutor who asked for no animation", async ({
   await expect(page.getByTestId("home-goal-sweep")).toHaveCount(0);
 });
 
+/**
+ * **The close is asserted settled, never mid-flight.** It runs for 760 ms and
+ * Playwright cannot be parked inside it: this file's own header records that
+ * `page.clock.setFixedTime` stops Reanimated dead and `install` + `resume`
+ * keeps the day view from rendering at all. So what these pin is where the
+ * bar comes to rest — the overlay gone, the live marks gone, the fill holding
+ * the tone and the thickness its props give it. The overlay carries
+ * `home-goal-close`, so `toHaveCount(0)` is the settled state.
+ *
+ * Three of them stop inside the first minute, which deletes the row as a
+ * mis-tap, so they pin the other half of the rule too: a close that added no
+ * minutes says nothing. The fourth writes on the walk first, which closes it
+ * at one minute instead, and is the one that actually travels the four beats.
+ */
+test("lands a closed walk in the recorded tone, and clears the live segment", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+});
+
+test("lands the minute a walk that was written on recorded", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+
+  // Stopped inside the first minute, but written on — so the row is closed at
+  // the one minute the column accepts rather than deleted, and that minute is
+  // what the close animates. The measure waits for the reload the animation
+  // waits for, and the bar settles after it.
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1 min de 1h");
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+});
+
+test("does not animate a close onto a day that is not the walk's", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  await page.getByTestId("home-goal-control").click();
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+});
+
+test("does not replay a close on the way back to the day it happened on", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1 min de 1h");
+
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
+  await page.getByTestId("home-next-day").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1 min de 1h");
+
+  // **Never, rather than "gone by the time we looked".** The settled
+  // assertion the others make cannot tell a replay from no replay here: the
+  // overlay would stand for 760 ms and `toHaveCount(0)` would simply retry
+  // past it. The block unmounts behind the skeleton while the other day
+  // loads, so it comes back with no memory of what it has already played —
+  // the close has to have been let go of by then, which is what this waits
+  // to be disappointed by.
+  await expect(
+    page.waitForSelector('[data-testid="home-goal-close"]', {
+      state: "attached",
+      timeout: 2000,
+    }),
+  ).rejects.toThrow();
+});
+
+test("settles twice when two walks are closed in succession", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  for (const _ of [0, 1]) {
+    await page.getByTestId("home-goal-control").click();
+    await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+    await page.getByTestId("home-goal-control").click();
+    await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  }
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+});
+
+test("lands a close with no animation at all for a tutor who asked for none", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await seedSession(page);
+  await page.goto("/");
+  // **Written on first, so this is a close and not a mis-tap.** An immediate
+  // stop deletes the row, and a close that recorded nothing animates nothing
+  // whatever the tutor asked for — which would leave this proving the
+  // commitment against a case that never reaches it. It also leaves the fill
+  // at 0% wide, which Playwright reads as hidden.
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await page.getByTestId("home-goal-control").click();
+
+  // No overlay is ever mounted, and the bar is still right: the tone and
+  // the thickness come from props, which is what makes "absent" true rather
+  // than "too quick to catch".
+  await expect(page.getByTestId("home-goal")).toContainText("1 min de 1h");
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-bar")).toBeVisible();
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+});
+
 test("shows the control working while the start is being written", async ({
   page,
 }) => {

@@ -361,6 +361,30 @@ export default function Home() {
    * walk at a minute instead of deleting it.
    */
   const [writtenToId, setWrittenToId] = useState<string | null>(null);
+  /**
+   * The walk this device has just closed, and the day it was closed on.
+   *
+   * **The goal bar's animation, and nothing else.** It is set only where the
+   * server has said yes, it carries the minutes the close actually added, and
+   * it is read by `GoalBlock` — no other part of the screen consults it, and
+   * dropping it would cost the bar its motion and nothing more.
+   *
+   * **The day travels with it** so that a walk closed just before the arrows
+   * are pressed cannot animate the day they land on.
+   */
+  const [closed, setClosed] = useState<{
+    id: string;
+    minutes: number;
+    day: string;
+  } | null>(null);
+  // **Dropped the moment the day in view leaves it**, in React's own "adjust
+  // state when an input changes" shape — the one `?day=` uses above — rather
+  // than in an effect. Reading the stored day at the call site instead would
+  // not be enough: the goal block unmounts behind the skeleton while the new
+  // day loads, and comes back with no memory of which closes it has already
+  // played, so a walk closed minutes ago would animate again on the way back
+  // to its own day, and again on every return after that.
+  if (closed !== null && closed.day !== dayKey(day)) setClosed(null);
   const [walkBusy, setWalkBusy] = useState(false);
   /**
    * A tap that arrives while another is still being handled.
@@ -721,6 +745,24 @@ export default function Home() {
         toast.show({ variant: "error", message: error, persist: true });
         return;
       }
+      // **What the close actually added, which is the only thing the bar has
+      // to say.** `outcome.minutes` for a close; one minute for a discard
+      // that had been written on, which is closed at a minute rather than
+      // deleted for the reason above; and nothing at all for a deleted row or
+      // an abandon, which add no minutes — a bar that moved for them would be
+      // claiming a walk was saved when none was. The row's id goes with it
+      // because that is what makes the animation fire once per close: two
+      // walks of the same length are two animations, and a value check would
+      // swallow the second.
+      const added =
+        outcome.action === "close"
+          ? outcome.minutes
+          : outcome.action === "discard" && !untouched
+            ? 1
+            : null;
+      if (added !== null) {
+        setClosed({ id: runningWalk.id, minutes: added, day: dayKey(day) });
+      }
       // Best-effort, as in `start`: if the flag outlives the walk, the row has
       // a length (or is gone) by the next load and the staleness effect drops
       // it.
@@ -751,7 +793,17 @@ export default function Home() {
       walkInFlight.current = false;
       setWalkBusy(false);
     }
-  }, [runningWalk, writtenToId, toast, celebrate, isToday, goal, met, walked]);
+  }, [
+    runningWalk,
+    writtenToId,
+    toast,
+    celebrate,
+    isToday,
+    goal,
+    met,
+    walked,
+    day,
+  ]);
 
   if (petError) {
     return (
@@ -934,6 +986,21 @@ export default function Home() {
           onStart={isToday && !runningId ? start : undefined}
           onStop={
             walkingSince || (isToday && runningId !== null) ? stop : undefined
+          }
+          // **The close animates on the first render that can draw it, not on
+          // the tap.** `walkedMinutes` is the total of *closed* walks, and the
+          // walk just closed joins it only when the reload lands — until then
+          // `walked` is still the total from before it, and the animation
+          // would point at the previous walk's stretch and land the bar in the
+          // wrong tone. `fresh` says exactly "the rows on screen answer the
+          // current request", and `stop` bumps `attempt` in the same batch
+          // that records the close, so this is shut from the tap until the
+          // day's rows come back — which is also the frame the fill jumps to
+          // its new width, so the overlay arrives over the bar it is about to
+          // land. The day it belongs to is the other half, and that is
+          // settled above: `closed` is dropped as the day in view leaves it.
+          justClosed={
+            closed && fresh ? { id: closed.id, minutes: closed.minutes } : null
           }
         />
       )}
