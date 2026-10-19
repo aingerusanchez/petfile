@@ -393,6 +393,12 @@ export default function Home() {
    * committed; a train of taps can land before that. A ref flips at once.
    */
   const walkInFlight = useRef(false);
+  /**
+   * How many times a start or a stop has come back with an error. The goal
+   * block shakes the control on each bump; a counter because two failures in
+   * a row are two shakes.
+   */
+  const [failed, setFailed] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -684,6 +690,7 @@ export default function Home() {
         // one invisible until something else happens to trigger a read. It is
         // visible and deletable the moment the log says it exists.
         setAttempt((n) => n + 1);
+        setFailed((n) => n + 1);
         return;
       }
       // **The device's note is best-effort; the row is the fact.** A storage
@@ -743,6 +750,10 @@ export default function Home() {
       if (error) {
         // The walk stays running so the tutor can press stop again.
         toast.show({ variant: "error", message: error, persist: true });
+        // **Bumped here, in the run that clears `walkBusy`.** No `await`
+        // separates this from the `finally` below, so the shake and the
+        // control coming back from its spinner are one commit.
+        setFailed((n) => n + 1);
         return;
       }
       // Best-effort, as in `start`: if the flag outlives the walk, the row has
@@ -1018,6 +1029,7 @@ export default function Home() {
           justClosed={
             closed && fresh ? { id: closed.id, minutes: closed.minutes } : null
           }
+          failed={failed}
         />
       )}
 

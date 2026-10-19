@@ -1680,6 +1680,123 @@ test("shows the control working while the start is being written", async ({
   await page.unroute("**/rest/v1/pet_events*");
 });
 
+/**
+ * **A shake is asserted by catching it in flight, and that is the one place
+ * this file looks mid-animation on purpose.** The close is only ever checked
+ * settled, because it cannot be parked inside; the shake can be *caught*
+ * rather than parked, by polling the wrapper's computed transform on every
+ * frame from before the press. A nonzero horizontal translation is the shake,
+ * and zero is the control back at rest, which is what lets two failures in a
+ * row be told apart from one.
+ */
+function shakeTranslation(page: Page, moving: boolean) {
+  return page.waitForFunction(
+    (wantMoving) => {
+      const el = document.querySelector('[data-testid="home-goal-shake"]');
+      if (!el) return false;
+      const t = getComputedStyle(el).transform;
+      const x = t === "none" ? 0 : new DOMMatrix(t).m41;
+      return wantMoving ? Math.abs(x) > 0.01 : x === 0;
+    },
+    moving,
+    { polling: "raf", timeout: 5_000 },
+  );
+}
+
+test("shakes the control and keeps it pressable when a stop cannot be saved", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+
+  // The close fails at the transport, which is the one failure a tutor
+  // actually meets: a stop pressed where there is no signal. **Both verbs,
+  // because a stop inside the first minute is a delete, not an update** —
+  // `walkOutcome` discards it as a mis-tap and `deleteEvent` is a DELETE, so
+  // routing only the PATCH would let this stop succeed and leave the test
+  // waiting for an error that never comes.
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    ["PATCH", "DELETE"].includes(route.request().method())
+      ? route.abort()
+      : route.continue(),
+  );
+  const first = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await first;
+
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  // The walk is still running and the control is still a stop, because
+  // nothing was saved — and no close animation ran.
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  // The spinner is the real signal that the control came back: a web
+  // Pressable renders as a div, where `toBeEnabled` passes regardless.
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Terminar paseo",
+  );
+
+  // Settled, and then a second failure is a second shake: a counter, not a
+  // flag, so the second write is a change.
+  await shakeTranslation(page, false);
+  const second = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await second;
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+test("shakes the control when a start cannot be saved", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    route.request().method() === "POST" ? route.abort() : route.continue(),
+  );
+  const shook = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await shook;
+
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  // Nothing started: still an offer to start, and no walk in the measure.
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Empezar paseo",
+  );
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+test("mounts no shake for a tutor who asked for no animation", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    route.request().method() === "POST" ? route.abort() : route.continue(),
+  );
+  await page.getByTestId("home-goal-control").click();
+
+  // The failure is still said — in the toast, which is not motion — and the
+  // wrapper that would carry the shake is absent rather than still. The
+  // normal-motion test above is what proves this testID exists to be absent.
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-shake")).toHaveCount(0);
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
 test("does not let a walk in progress have its times changed", async ({
   page,
 }) => {

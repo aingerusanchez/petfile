@@ -111,6 +111,29 @@ const SWEEP_ALPHA_MET = 0.35;
  * same material.
  */
 const CLOSE_MS = 760;
+
+/**
+ * The shake a failed start or stop gives the control: how long it takes, how
+ * far it travels, and how many times it goes there and back.
+ *
+ * **4 dp is the ceiling, and it is chosen against the 48 dp the thumb is
+ * aiming at.** The control is `TOUCH_TARGET` tall and, at its narrowest, about
+ * that wide again; the shake moves the pill, and so the target the thumb is
+ * on, sideways while it is still pressed. At 4 dp the pill is never more than
+ * a twelfth of a 48 dp target off where the finger found it, so a second press
+ * a beat after the first still lands on it — which is the whole point, since
+ * the walk is still running and the next thing the tutor does is press stop
+ * again. A shake big enough to read from across the room would be one that
+ * moves the control out from under the retry. The amplitude decays to nothing,
+ * so the largest excursion is the first and the pill ends exactly where it
+ * began.
+ *
+ * **Three swings in 400 ms** reads as "no" rather than as a tremor, and ends
+ * before a tutor who looked away at the toast has looked back.
+ */
+const SHAKE_MS = 400;
+const SHAKE_DP = 4;
+const SHAKE_SWINGS = 3;
 const CLOSE_SWELL_MS = 120;
 const CLOSE_SWELL_SCALE = 1.75;
 const CLOSE_SHEEN_END_MS = 400;
@@ -216,6 +239,7 @@ export function GoalBlock({
   onStop,
   busy = false,
   justClosed = null,
+  failed = 0,
   testID,
 }: {
   walkedMinutes: number;
@@ -233,6 +257,12 @@ export function GoalBlock({
    * would swallow the second.
    */
   justClosed?: { id: string; minutes: number } | null;
+  /**
+   * Bumped each time a start or a stop came back with an error. A counter
+   * rather than a boolean, for the reason `justClosed` carries an id: two
+   * failures in a row are two shakes.
+   */
+  failed?: number;
   testID?: string;
 }) {
   const [now, setNow] = useState(() => new Date());
@@ -420,76 +450,81 @@ export function GoalBlock({
         </View>
 
         {control ? (
-          <Pressable
-            testID={testID ? `${testID}-control` : undefined}
-            onPress={control}
-            disabled={busy}
-            accessibilityRole="button"
-            accessibilityLabel={stopping ? "Terminar paseo" : "Empezar paseo"}
-            accessibilityState={{ disabled: busy, busy }}
-            // See Checkbox: the web renders the role and drops the state.
-            aria-busy={busy}
-            style={{ minHeight: TOUCH_TARGET }}
-            // **Outlined when idle, filled when running: the chosen one is the
-            // filled one.** The selected calendar day, the active tab and the
-            // chosen segment of `Segmented` already say it, and a walk in
-            // progress is an active state where an idle control is an offer.
-            // The border is there in both states, so the control never changes
-            // size when it fills. **`px-3` is a device measurement, not a
-            // taste:** at `font_scale` 1.3 the bare control already ended on
-            // the right margin, and `px-4` overflowed by about 20 dp and
-            // ellipsized the measure beside it. The radius is a literal for the
-            // reason the floating action's is: `rounded-full` is a `calc()`.
-            className={`shrink-0 flex-row items-center gap-2 rounded-[24px] border border-accent px-3 active:opacity-70 ${filled ? "bg-accent" : ""}`}
+          <Shake
+            failed={failed}
+            testID={testID ? `${testID}-shake` : undefined}
           >
-            {busy ? (
-              // **A spinner in the glyph's own 16 dp box, so the block does not
-              // shift** and the label stays "Paseo". The write can take
-              // seconds on a phone clinging to one bar of wifi in the
-              // doorway, and a control that is present but inert is what
-              // makes someone press it again. `ActivityIndicator`'s small size
-              // is 20 dp, hence the scale. Decoration to a reader: the
-              // button's own state says `busy`. **It is the one animation here
-              // that does not consult `useReducedMotion`, and that is a
-              // decision:** the glyph is swapped for the spinner, which a still
-              // screen shows, and the control is disabled and marked busy, so
-              // motion is not the only signal. `Button`'s loading state makes
-              // the same choice.
-              <View
-                testID={testID ? `${testID}-spinner` : undefined}
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                aria-hidden
-                style={{ width: GLYPH_SIZE, height: GLYPH_SIZE }}
-                className="items-center justify-center"
-              >
-                <ActivityIndicator
-                  size="small"
-                  color={glyph}
-                  style={{ transform: [{ scale: 0.8 }] }}
-                />
-              </View>
-            ) : stopping ? (
-              <Square
-                size={GLYPH_SIZE}
-                strokeWidth={2.5}
-                color={glyph}
-                fill={glyph}
-              />
-            ) : (
-              <Play
-                size={GLYPH_SIZE}
-                strokeWidth={2.5}
-                color={glyph}
-                fill={glyph}
-              />
-            )}
-            <Text
-              className={`font-semibold ${filled ? "text-on-accent" : "text-accent"}`}
+            <Pressable
+              testID={testID ? `${testID}-control` : undefined}
+              onPress={control}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={stopping ? "Terminar paseo" : "Empezar paseo"}
+              accessibilityState={{ disabled: busy, busy }}
+              // See Checkbox: the web renders the role and drops the state.
+              aria-busy={busy}
+              style={{ minHeight: TOUCH_TARGET }}
+              // **Outlined when idle, filled when running: the chosen one is the
+              // filled one.** The selected calendar day, the active tab and the
+              // chosen segment of `Segmented` already say it, and a walk in
+              // progress is an active state where an idle control is an offer.
+              // The border is there in both states, so the control never changes
+              // size when it fills. **`px-3` is a device measurement, not a
+              // taste:** at `font_scale` 1.3 the bare control already ended on
+              // the right margin, and `px-4` overflowed by about 20 dp and
+              // ellipsized the measure beside it. The radius is a literal for the
+              // reason the floating action's is: `rounded-full` is a `calc()`.
+              className={`shrink-0 flex-row items-center gap-2 rounded-[24px] border border-accent px-3 active:opacity-70 ${filled ? "bg-accent" : ""}`}
             >
-              Paseo
-            </Text>
-          </Pressable>
+              {busy ? (
+                // **A spinner in the glyph's own 16 dp box, so the block does not
+                // shift** and the label stays "Paseo". The write can take
+                // seconds on a phone clinging to one bar of wifi in the
+                // doorway, and a control that is present but inert is what
+                // makes someone press it again. `ActivityIndicator`'s small size
+                // is 20 dp, hence the scale. Decoration to a reader: the
+                // button's own state says `busy`. **It is the one animation here
+                // that does not consult `useReducedMotion`, and that is a
+                // decision:** the glyph is swapped for the spinner, which a still
+                // screen shows, and the control is disabled and marked busy, so
+                // motion is not the only signal. `Button`'s loading state makes
+                // the same choice.
+                <View
+                  testID={testID ? `${testID}-spinner` : undefined}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  aria-hidden
+                  style={{ width: GLYPH_SIZE, height: GLYPH_SIZE }}
+                  className="items-center justify-center"
+                >
+                  <ActivityIndicator
+                    size="small"
+                    color={glyph}
+                    style={{ transform: [{ scale: 0.8 }] }}
+                  />
+                </View>
+              ) : stopping ? (
+                <Square
+                  size={GLYPH_SIZE}
+                  strokeWidth={2.5}
+                  color={glyph}
+                  fill={glyph}
+                />
+              ) : (
+                <Play
+                  size={GLYPH_SIZE}
+                  strokeWidth={2.5}
+                  color={glyph}
+                  fill={glyph}
+                />
+              )}
+              <Text
+                className={`font-semibold ${filled ? "text-on-accent" : "text-accent"}`}
+              >
+                Paseo
+              </Text>
+            </Pressable>
+          </Shake>
         ) : null}
       </View>
 
@@ -586,6 +621,90 @@ export function GoalBlock({
         </Text>
       ) : null}
     </View>
+  );
+}
+
+/**
+ * Wraps the control and shakes it, once per bump of `failed`.
+ *
+ * **Under "remove animations" nothing animated is mounted**: this renders its
+ * children bare, with no wrapper, no shared value and no effect, the line
+ * `PulseDot`, `Sweep` and the close draw. The failure is still said — the
+ * toast is not motion and the control is back at rest with its label intact —
+ * so the shake is an addition to the message and never the only carrier of it.
+ * The live half is a component of its own so that its hooks are not called
+ * conditionally; a tutor who flips the preference mid-session remounts the
+ * control once, which costs nothing here because it holds no state.
+ *
+ * **A wrapper, not an animated `Pressable`.** The control takes its shape
+ * from a `className` and its height from a plain `style`, and a callback
+ * `style` — which animating the `Pressable` itself would tempt — is dropped
+ * entirely on native. `translateX` is paint, so the wrapper moves the pill
+ * without touching layout, and it carries the same `shrink-0` as the control
+ * so the row lays out as it did before.
+ */
+function Shake({
+  failed,
+  testID,
+  children,
+}: {
+  failed: number;
+  testID?: string;
+  children: React.ReactNode;
+}) {
+  const reduceMotion = useReducedMotion();
+  if (reduceMotion) return <>{children}</>;
+  return (
+    <ShakeLive failed={failed} testID={testID}>
+      {children}
+    </ShakeLive>
+  );
+}
+
+function ShakeLive({
+  failed,
+  testID,
+  children,
+}: {
+  failed: number;
+  testID?: string;
+  children: React.ReactNode;
+}) {
+  const phase = useSharedValue(0);
+  /**
+   * The bump this wrapper has already answered, **starting at whatever the
+   * counter is on mount.** The screen keeps the counter across the skeleton
+   * the day view shows while a day loads, so the block comes back with a
+   * count it did not see happen; comparing against zero would shake the
+   * control for a failure from minutes ago on every return.
+   */
+  const shaken = useRef(failed);
+
+  useEffect(() => {
+    if (failed === shaken.current) return;
+    shaken.current = failed;
+    // Rewound first, so a bump that lands mid-shake starts a whole one.
+    phase.value = 0;
+    phase.value = withTiming(1, { duration: SHAKE_MS, easing: Easing.linear });
+  }, [failed, phase]);
+
+  // A sine with a falling envelope: the first swing is the widest and the
+  // last is nothing, and at phase 1 both factors put it back at exactly 0.
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX:
+          SHAKE_DP *
+          (1 - phase.value) *
+          Math.sin(phase.value * SHAKE_SWINGS * 2 * Math.PI),
+      },
+    ],
+  }));
+
+  return (
+    <Animated.View testID={testID} style={style} className="shrink-0">
+      {children}
+    </Animated.View>
   );
 }
 
