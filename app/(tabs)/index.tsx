@@ -198,6 +198,8 @@ function shiftDays(day: Date, by: number): Date {
  * that read `events` would re-run on every render while the day waits.
  */
 const NO_EVENTS: PetEventRow[] = [];
+/** What the screen says when the account has no pet to show a day of. */
+const NO_PET = "Todavía no hay ninguna mascota";
 
 /**
  * Which tier of the goal a day's minutes have reached, on the bar's own
@@ -383,6 +385,11 @@ export default function Home() {
    * the two error branches that exist today.
    */
   const [petError, setPetError] = useState<string | null>(null);
+  /**
+   * The day the log has something to say about, rows or an error, or null.
+   * A ref because it is bookkeeping for one effect and nothing renders from it.
+   */
+  const loggedDay = useRef<string | null>(null);
   /** Not fatal: the header, the goal and the actions all still work. */
   const [logError, setLogError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -466,10 +473,26 @@ export default function Home() {
 
     getMyPet().then(async ({ pet: row, error: failure }) => {
       if (cancelled) return;
-      if (failure) return setPetError(failure);
-      if (!row) return setPetError("Todavía no hay ninguna mascota");
+      if (failure || !row) {
+        const unreadable = failure ?? NO_PET;
+        setPetError(unreadable);
+        // **A failed navigation still has to land somewhere visible.** With no
+        // pet the error takes the screen. With one already showing it does
+        // not — the gate below — so a day that could not be asked for would
+        // leave the log on its skeleton with no message and no way back.
+        // Hand it to the log, which is the part that could not be loaded.
+        // Only for a day the log has not loaded: a failed *action* reloads
+        // the day already on screen and must leave its rows alone.
+        if (loggedDay.current !== dayKey(day)) {
+          loggedDay.current = dayKey(day);
+          setLogError(unreadable);
+          setLog({ day: dayKey(day), attempt, events: [] });
+        }
+        return;
+      }
 
       setPet(row);
+      setPetError(null);
       const { events: rows, error: eventError } = await eventsForDay(
         row.id,
         day,
@@ -479,6 +502,7 @@ export default function Home() {
       // craft floor's rule is that one component's error must not block the
       // whole interface, and everything above the log comes from the pet.
       setLogError(eventError);
+      loggedDay.current = dayKey(day);
       setLog({ day: dayKey(day), attempt, events: rows ?? [] });
     });
 

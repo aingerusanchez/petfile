@@ -3193,6 +3193,87 @@ test("keeps the diary on screen when a walk cannot be saved offline", async ({
   await page.unroute(supabase);
 });
 
+/**
+ * **The other half of the rule: a failed *navigation* must still say so.**
+ * The gate above keeps the diary when an action fails, and it must not turn
+ * into silence for the arrows. Pressing ‹ offline asks for a new day, the pet
+ * read fails, and with a pet already loaded there is no error screen to show —
+ * so the failure belongs to the log, which is the part that could not be
+ * loaded. Without that the tutor sat on the skeleton with no message and no
+ * Reintentar, and it did not recover when the connection came back.
+ */
+test("says the day could not be loaded when ‹ is pressed offline, and recovers", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  // Four attempts, as above: the failure reaches the screen after the last.
+  let petReads = 0;
+  const petReadGaveUp = new Promise<void>((resolve) => {
+    page.on("requestfailed", (request) => {
+      if (/\/rest\/v1\/pets\b/.test(request.url()) && ++petReads === 4) {
+        resolve();
+      }
+    });
+  });
+
+  await page.getByTestId("home-prev-day").click();
+  await petReadGaveUp;
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  // The shell is fine: the header and the actions are still there.
+  await expect(page.getByTestId("home-title")).toBeVisible();
+  await expect(page.getByTestId("home-retry")).toHaveCount(0);
+
+  // And it comes back when the connection does.
+  await page.unroute(supabase);
+  await page.getByTestId("home-log-retry").click();
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await expect(page.getByTestId("home-title")).toBeVisible();
+});
+
+/**
+ * **A pet that never arrived still takes the whole screen.** With no pet there
+ * is no day to show, which is what the gate keeps. `app/index.tsx` reads the
+ * pet once before the tabs mount, so the first read is let through and every
+ * one after it — the home screen's own, with its retries — is cut.
+ */
+test("shows the connection error when the pet never loads, and recovers", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  let petReads = 0;
+  let failedReads = 0;
+  const supabase = /\/rest\/v1\/pets\b/;
+  await page.route(supabase, (route) =>
+    ++petReads === 1 ? route.continue() : route.abort(),
+  );
+  const gaveUp = new Promise<void>((resolve) => {
+    page.on("requestfailed", (request) => {
+      if (supabase.test(request.url()) && ++failedReads === 4) resolve();
+    });
+  });
+
+  await page.goto("/");
+  await gaveUp;
+  await expect(page.getByTestId("home-retry")).toBeVisible();
+  await expect(page.getByTestId("home-title")).toHaveCount(0);
+
+  await page.unroute(supabase);
+  await page.getByTestId("home-retry").click();
+  await expect(page.getByTestId("home-title")).toBeVisible();
+  await expect(page.getByTestId("home-retry")).toHaveCount(0);
+});
+
 test("mounts no shake for a tutor who asked for no animation", async ({
   page,
 }) => {
