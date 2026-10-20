@@ -3322,6 +3322,101 @@ test("keeps saying the day could not be loaded when only the log failed and Rein
 });
 
 /**
+ * **Going back to a day that loaded is still a navigation.** A loaded, ‹ to a
+ * day that fails, › back to the day that loaded — all offline. The log then
+ * holds the failed day's error, not the loaded day's rows, so the first day is
+ * not on screen either, and the screen has to say so. It sat on its skeleton,
+ * with no message and no Reintentar, because the guard remembered the first day
+ * as loaded and took the failure for a failed action.
+ */
+test("says the day could not be loaded going back offline too", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  const pets = /\/rest\/v1\/pets\b/;
+  await page.route(supabase, (route) => route.abort());
+  const out = failedReads(page, pets, 4);
+  await page.getByTestId("home-prev-day").click();
+  await out;
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+
+  const back = failedReads(page, pets, 4);
+  await page.getByTestId("home-next-day").click();
+  await back;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await expect(page.getByTestId("home-log-skeleton")).toHaveCount(0);
+  await page.unroute(supabase);
+});
+
+test("says the day could not be loaded going back offline, when the first failure was only the log", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const events = /\/rest\/v1\/pet_events\b/;
+  await page.route(events, (route) => route.abort());
+  const out = failedReads(page, events, 4);
+  await page.getByTestId("home-prev-day").click();
+  await out;
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  const back = failedReads(page, /\/rest\/v1\/pets\b/, 4);
+  await page.getByTestId("home-next-day").click();
+  await back;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-log-skeleton")).toHaveCount(0);
+  await page.unroute(supabase);
+  await page.unroute(events);
+});
+
+/**
+ * **The inverse risk: a day that really is empty stays empty.** Every guard
+ * above exists to stop a failure being shown as "nothing happened", and the
+ * guard must not overcorrect into never saying "nothing happened". A day
+ * that loaded with no rows, then a failed action reloading it offline, keeps
+ * its empty state: the rows it holds are real.
+ */
+test("keeps a genuinely empty day empty when an action fails offline", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  const gaveUp = failedReads(page, /\/rest\/v1\/pets\b/, 4);
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  await gaveUp;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await page.unroute(supabase);
+});
+
+/**
  * **A pet that never arrived still takes the whole screen.** With no pet there
  * is no day to show, which is what the gate keeps. `app/index.tsx` reads the
  * pet once before the tabs mount, so the first read is let through and every

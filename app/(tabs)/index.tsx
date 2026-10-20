@@ -371,6 +371,17 @@ export default function Home() {
     /** The `attempt` this read answered, so a stale log can be told apart. */
     attempt: number;
     events: PetEventRow[];
+    /**
+     * Why this day could not be read, or null when it could.
+     *
+     * **Part of the log, not a second state beside it.** Whether the log holds
+     * real rows for a day is one fact made of the day, the rows and this, and
+     * three bugs in a row came from keeping a copy of it in a ref that was
+     * updated at some of the places the log was written and not at others.
+     * With the error inside the object there is one write, and the guard in
+     * the pet effect reads the real thing.
+     */
+    error: string | null;
   } | null>(null);
   /**
    * Fatal: with no pet there is no day to show.
@@ -385,21 +396,6 @@ export default function Home() {
    * the two error branches that exist today.
    */
   const [petError, setPetError] = useState<string | null>(null);
-  /**
-   * The day whose rows the log actually holds, or null.
-   *
-   * **Set only by a read that succeeded, never by an error.** The guard that
-   * keeps a failed action from touching the day on screen asks "do we have
-   * real rows for this day?", and an error is the opposite answer. Recording
-   * the error here made a second failure — Reintentar pressed while still
-   * offline — look like a failed action, skip, and leave the log as an empty
-   * day: "Ese día no se apuntó nada", a claim about the dog from a read that
-   * failed. A ref because it is bookkeeping for one effect and nothing renders
-   * from it.
-   */
-  const loggedDay = useRef<string | null>(null);
-  /** Not fatal: the header, the goal and the actions all still work. */
-  const [logError, setLogError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [attempt, setAttempt] = useState(0);
   /** The walk this device has open, or null. Read once, then kept in step. */
@@ -489,12 +485,15 @@ export default function Home() {
         // not — the gate below — so a day that could not be asked for would
         // leave the log on its skeleton with no message and no way back.
         // Hand it to the log, which is the part that could not be loaded.
-        // Only for a day the log has not loaded: a failed *action* reloads
-        // the day already on screen and must leave its rows alone.
-        if (loggedDay.current !== dayKey(day)) {
-          setLogError(unreadable);
-          setLog({ day: dayKey(day), attempt, events: [] });
-        }
+        // **Unless the log already holds real rows for this very day:** then
+        // this was a failed *action* reloading what is on screen, and the rows
+        // are the best answer there is. Decided from the log itself, inside
+        // the updater, so it cannot disagree with what is on screen.
+        setLog((prev) =>
+          prev && prev.day === dayKey(day) && !prev.error
+            ? prev
+            : { day: dayKey(day), attempt, events: [], error: unreadable },
+        );
         return;
       }
 
@@ -508,9 +507,12 @@ export default function Home() {
       // A failed read of the log does not take the screen down with it: the
       // craft floor's rule is that one component's error must not block the
       // whole interface, and everything above the log comes from the pet.
-      setLogError(eventError);
-      if (!eventError) loggedDay.current = dayKey(day);
-      setLog({ day: dayKey(day), attempt, events: rows ?? [] });
+      setLog({
+        day: dayKey(day),
+        attempt,
+        events: rows ?? [],
+        error: eventError,
+      });
     });
 
     return () => {
@@ -637,7 +639,6 @@ export default function Home() {
    */
   const reload = useCallback(() => {
     setPetError(null);
-    setLogError(null);
     setAttempt((n) => n + 1);
     void readTreatments(() => false);
   }, [readTreatments]);
@@ -674,6 +675,8 @@ export default function Home() {
   // cannot sit after the early returns. Every one is safe before the pet loads.
   const loading = log === null || log.day !== dayKey(day);
   const events = loading ? NO_EVENTS : log.events;
+  /** Not fatal: the header, the goal and the actions all still work. */
+  const logError = loading ? null : log.error;
   /**
    * What Salud recorded on this day, which the diary only reads.
    *
