@@ -73,6 +73,7 @@ import {
   type EventKind,
   type PetEventRow,
 } from "../../lib/events";
+import { barProgress, barStateAt } from "../../lib/goalbar";
 import { getMyPet, type PetRow } from "../../lib/pets";
 import {
   describeTreatment,
@@ -197,6 +198,37 @@ function shiftDays(day: Date, by: number): Date {
  * that read `events` would re-run on every render while the day waits.
  */
 const NO_EVENTS: PetEventRow[] = [];
+
+/**
+ * Which tier of the goal a day's minutes have reached, on the bar's own
+ * scale: 0 below the goal, 1 at it, 2 at double.
+ *
+ * **Read off `lib/goalbar.ts` rather than compared against a number worked
+ * out here.** The bar, the calendar's miniature of it and the celebration all
+ * have to agree about where a tier begins, and two surfaces computing that by
+ * different arithmetic is exactly the defect this screen used to carry: a
+ * `walked >= goal` beside a bar whose own ground came from `barStateAt`. A
+ * wrong answer does not throw — it throws confetti at the wrong moment, or
+ * withholds it at the right one.
+ */
+function tierReached(minutes: number, goalMinutes: number | null): 0 | 1 | 2 {
+  const progress = barProgress(minutes, goalMinutes);
+  return progress === null ? 0 : barStateAt(progress).tier;
+}
+
+/**
+ * The tier that earns the confetti, and the only one: the top.
+ *
+ * **Tier 1 lost it on purpose.** The point of the two tiers is that reaching
+ * the goal becomes the everyday — most days clear it — and the everyday is
+ * not celebrated. Tier 1 keeps the ground turning Aqua, the label under the
+ * bar and the calendar's underline; the party is kept for the day that
+ * doubles it, which is the one worth marking on the calendar.
+ */
+const CELEBRATED_TIER = 2;
+
+/** What the top tier's confetti is made of: the tier's own colour. */
+const CELEBRATION_TONE = colors.accentFocus;
 
 /** What the sheet is open for: a new entry of a kind, or an existing one. */
 type Editing = { kind: EventKind; event: PetEventRow | null };
@@ -375,6 +407,8 @@ export default function Home() {
   const [closed, setClosed] = useState<{
     id: string;
     minutes: number;
+    /** The day's total before this walk was counted into it. */
+    recordedBefore: number;
     day: string;
   } | null>(null);
   // **Dropped the moment the day in view leaves it**, in React's own "adjust
@@ -609,7 +643,14 @@ export default function Home() {
   const dayTreatments = treatments ? treatmentsOn(treatments.rows, day) : [];
   const walked = walkedMinutes(events);
   const goal = pet?.exercise_goal_minutes ?? null;
-  const met = goal !== null && walked >= goal;
+  /**
+   * Whether the day has already had the one celebration it gets.
+   *
+   * It is the **top** tier, not the goal the tutor typed: see
+   * `CELEBRATED_TIER`. Both gates below read it, so a second walk on a day
+   * that already doubled stays quiet.
+   */
+  const celebrated = tierReached(walked, goal) === CELEBRATED_TIER;
   /**
    * Whether the rows on screen answer the *current* request.
    *
@@ -794,7 +835,18 @@ export default function Home() {
             ? 1
             : null;
       if (added !== null) {
-        setClosed({ id: runningWalk.id, minutes: added, day: dayKey(day) });
+        setClosed({
+          id: runningWalk.id,
+          minutes: added,
+          // **The total before this walk joined it**, which is what lets the
+          // bar draw the close without waiting for the reload: `walked`
+          // counts closed walks, and the one being announced is not among
+          // them yet. The block cannot work this out for itself — by the
+          // time it sees the close, whether its own total already contains
+          // these minutes depends on a request still in flight.
+          recordedBefore: walked,
+          day: dayKey(day),
+        });
       }
       setRunningId(null);
       setAttempt((n) => n + 1);
@@ -804,15 +856,17 @@ export default function Home() {
       // no old value to take out before the new one goes in. `isToday` is what
       // stops a walk closed after midnight throwing confetti over a day nobody
       // is looking at.
+      //
+      // **The threshold is the top tier now, and it is read off the bar's own
+      // scale.** A walk that merely reaches the goal turns the bar Aqua and
+      // says so under it, and that is all it gets: see `CELEBRATED_TIER`.
       if (
         outcome.action === "close" &&
         isToday &&
-        goal !== null &&
-        goal > 0 &&
-        !met &&
-        walked + outcome.minutes >= goal
+        !celebrated &&
+        tierReached(walked + outcome.minutes, goal) === CELEBRATED_TIER
       ) {
-        celebrate();
+        celebrate(CELEBRATION_TONE);
       }
     } finally {
       walkInFlight.current = false;
@@ -825,7 +879,7 @@ export default function Home() {
     celebrate,
     isToday,
     goal,
-    met,
+    celebrated,
     walked,
     day,
   ]);
@@ -1012,22 +1066,26 @@ export default function Home() {
           onStop={
             walkingSince || (isToday && runningId !== null) ? stop : undefined
           }
-          // **The close animates on the first render that can draw it, not on
-          // the tap.** `walkedMinutes` is the total of *closed* walks, and the
-          // walk just closed joins it only when the reload lands — until then
-          // `walked` is still the total from before it, and the animation
-          // would point at the previous walk's stretch and land the bar in the
-          // wrong tone. `fresh` says exactly "the rows on screen answer the
-          // current request", so it is open only once they do — which is also
-          // the frame the fill jumps to its new width, so the overlay arrives
-          // over the bar it is about to land on. **It is shut in the first
-          // place only because `stop` records the close and bumps `attempt`
-          // with no `await` between them**, which is a property of three
-          // adjacent lines over there, not of anything visible here. The day
-          // it belongs to is the other half, and that is settled above:
+          // **The close animates on the tap, and the gate that made it wait
+          // is gone.** It used to be held until `fresh` — "the rows on screen
+          // answer the current request" — because the animation was computed
+          // by *subtracting* the closed minutes from a total that might or
+          // might not already contain them, so it needed the reload to know
+          // which. Those 400 ms of waiting were the hole the tutor filmed:
+          // the live segment unmounts on the tap and the bar spent the gap
+          // telling the truth of a minute ago. The close now carries the
+          // total it started from, so both ends of the fill are known the
+          // moment the server says yes and nothing has to be waited for. The
+          // day it belongs to is still checked, and that is settled above:
           // `closed` is dropped as the day in view leaves it.
           justClosed={
-            closed && fresh ? { id: closed.id, minutes: closed.minutes } : null
+            closed
+              ? {
+                  id: closed.id,
+                  minutes: closed.minutes,
+                  recordedBefore: closed.recordedBefore,
+                }
+              : null
           }
           failed={failed}
         />
@@ -1206,8 +1264,8 @@ export default function Home() {
             // The arithmetic is exact rather than a re-sum: `walked` already
             // counts the entry being edited, so its old minutes come out
             // before the new ones go in. A non-walk contributes null on both
-            // sides and cannot cross anything. `!met` is what keeps a second
-            // walk on an already-finished day quiet.
+            // sides and cannot cross anything. `!celebrated` is what keeps a
+            // second walk on an already-doubled day quiet.
             //
             // **Only on the day you are in.** Backfilling a forgotten
             // Tuesday is bookkeeping, and a week of catch-up entries firing
@@ -1216,13 +1274,13 @@ export default function Home() {
             // nothing; that is the narrower mistake of the two.
             const crossed =
               isToday &&
-              goal !== null &&
-              goal > 0 &&
-              !met &&
-              walked -
-                (editing.event?.duration_minutes ?? 0) +
-                (walkMinutes ?? 0) >=
-                goal;
+              !celebrated &&
+              tierReached(
+                walked -
+                  (editing.event?.duration_minutes ?? 0) +
+                  (walkMinutes ?? 0),
+                goal,
+              ) === CELEBRATED_TIER;
 
             // A save on the running walk is a write the fetched row does not
             // show yet: see `writtenToId`.
@@ -1231,7 +1289,7 @@ export default function Home() {
             }
             setEditing(null);
             setAttempt((n) => n + 1);
-            if (crossed) celebrate();
+            if (crossed) celebrate(CELEBRATION_TONE);
           }}
           onFailed={(message) =>
             toast.show({ variant: "error", message, persist: true })

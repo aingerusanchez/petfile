@@ -542,7 +542,9 @@ export default function Profile() {
               {isBirthday ? (
                 <Pressable
                   testID="profile-birthday"
-                  onPress={celebrate}
+                  // Wrapped, not passed: `celebrate` takes an optional tone
+                  // and `onPress` hands it a gesture event.
+                  onPress={() => celebrate()}
                   accessibilityRole="button"
                   accessibilityLabel="Celebrarlo otra vez"
                   style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
