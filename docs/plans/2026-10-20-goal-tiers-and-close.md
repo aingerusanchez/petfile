@@ -295,7 +295,7 @@ git commit -m "feat(goal-bar): the ground is the tier reached, the fill is the w
 
 The live segment's right edge is **not** the fill's end — `running` is refreshed every `TICK_MS` while the end is `recordedBefore + closedMinutes` — so the fill travels to the true end, past or short of where the segment was painted.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Polled with `waitForFunction` at `raf`, the way `shakeTranslation` already does in this file; the settled state is asserted separately.
 
@@ -344,19 +344,19 @@ test("paints the end state at once for a tutor who asked for no animation", asyn
 
 Each must be verified red by disabling what it covers, and the red run reported.
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `npx playwright test e2e/home.spec.ts -g "fills from the tick|crosses the goal inside|crosses both tiers|already past the top|paints the end state"`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement the fill**
+- [x] **Step 3: Implement the fill**
 
-- [ ] **Step 4: Run the close specs and the bar specs**
+- [x] **Step 4: Run the close specs and the bar specs**
 
 Run: `npx playwright test e2e/home.spec.ts -g "close|fill|tick|goal|sweep|lap"`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/ui/GoalBlock.tsx e2e/home.spec.ts
@@ -393,7 +393,7 @@ The `fresh` gate goes: the fill no longer waits for the reload. What replaces it
 
 **No frame may show the bar in two minds, in width or in tone.**
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 test("holds the fill when the reload never comes", async ({ page }) => {
@@ -403,19 +403,19 @@ test("holds the fill when the reload never comes", async ({ page }) => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx playwright test e2e/home.spec.ts -g "reload never comes"`
 Expected: FAIL.
 
-- [ ] **Step 3: Carry `recordedBefore` out of `stop` and drop the gate**
+- [x] **Step 3: Carry `recordedBefore` out of `stop` and drop the gate**
 
-- [ ] **Step 4: Run the close and walk specs**
+- [x] **Step 4: Run the close and walk specs**
 
 Run: `npx playwright test e2e/home.spec.ts -g "reload never comes|close|fill|starts a walk|stop"`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "app/(tabs)/index.tsx" e2e/home.spec.ts
