@@ -709,6 +709,32 @@ export default function Home() {
    */
   const dayTreatments = treatments ? treatmentsOn(treatments.rows, day) : [];
   const walked = walkedMinutes(events);
+  /**
+   * The day's minutes **as the goal block is allowed to state them**, which is
+   * null when nobody knows.
+   *
+   * **A failed read is written into the log as no rows plus an error, and no
+   * rows is not zero minutes.** The log's own region has checked `error`
+   * before `events.length === 0` since the day it learned to; the measure
+   * above it was handed `walked` and counted the same empty array as a fact.
+   * It then said "0 min de 2h paseados" — in larger type and higher on the
+   * screen than the sentence that rule was written for, and on a close whose
+   * reload failed it said it directly above a bar painted past the goal.
+   * PRODUCT.md: an empty state may never stand in for a failed read, because
+   * zero minutes is a claim about the dog's day and an unread log is a claim
+   * about the network. **Nothing downstream of rows that could not be read
+   * may assert a number.**
+   *
+   * **Rows that did arrive outrank the error**, which is the failed-action
+   * keep: an action that failed over a diary already on screen leaves real
+   * rows and a message, and those rows are still the day's minutes.
+   *
+   * Only the block's own measure takes this. `walked` stays the rows' total
+   * everywhere it is arithmetic rather than a statement — the close's
+   * `recordedBefore`, the celebration's threshold — and both of those need a
+   * running row to reach them, which a day with no rows has not got.
+   */
+  const measured = logError !== null && events.length === 0 ? null : walked;
   const goal = pet?.exercise_goal_minutes ?? null;
   /**
    * Whether the day has already had the one celebration it gets.
@@ -1111,7 +1137,7 @@ export default function Home() {
       ) : (
         <GoalBlock
           testID="home-goal"
-          walkedMinutes={walked}
+          walkedMinutes={measured}
           goalMinutes={goal}
           durationFormat={settings.durationFormat}
           walkingSince={walkingSince}

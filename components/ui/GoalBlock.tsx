@@ -184,6 +184,15 @@ const TICK_RISE = 4;
 const GLYPH_SIZE = 16;
 
 /**
+ * What the measure says when the day's minutes could not be read.
+ *
+ * **Its whole job is to be neither a number nor a zero.** It is spoken in
+ * full by the measure's `accessibilityLabel`, because four words on one line
+ * beside the control cannot both fit and be unambiguous.
+ */
+const UNREAD = "Sin datos del día";
+
+/**
  * What the bar is painted in, by the tier the day has reached.
  *
  * **The ground is the tier reached and the fill is the way to the next**, so
@@ -390,7 +399,17 @@ export function GoalBlock({
   failed = 0,
   testID,
 }: {
-  walkedMinutes: number;
+  /**
+   * The minutes recorded on the day, or **null when they could not be read**.
+   *
+   * Null is not zero and the block may not round it down to one: a failed read
+   * arrives as no rows, and "nobody walked him" is a claim about the dog that
+   * a failed request is no evidence for (PRODUCT.md). On null the measure
+   * withholds the number, the fill is not painted and `Objetivo conseguido`
+   * is not said — **unless a close is being held**, which is a total the block
+   * does know, and then the measure reads that rather than nothing.
+   */
+  walkedMinutes: number | null;
   goalMinutes: number | null;
   durationFormat: DurationFormat;
   /** The walk in progress's start, or null when none is running. */
@@ -543,13 +562,19 @@ export function GoalBlock({
     }
   } else if (
     held !== null &&
-    (held.id !== closeId || walkedMinutes >= held.minutes)
+    (held.id !== closeId ||
+      (walkedMinutes !== null && walkedMinutes >= held.minutes))
   ) {
     // **Released by the data, and once.** The reload has landed and says at
     // least what the close said, so the hold has nothing left to add and the
     // bar reads the rows again — which also means a walk deleted a minute
     // later takes the bar down with it, rather than being propped up by a
     // close nobody can see any more.
+    //
+    // **Unread minutes release nothing.** Null is the one value that is not a
+    // smaller total, it is no total at all, and dropping the hold on it would
+    // throw away the only thing anybody knows about the day at the exact
+    // moment the rows stopped saying anything.
     setHeld(null);
   }
 
@@ -565,21 +590,33 @@ export function GoalBlock({
 
   const running = walkingSince ? elapsedMinutes(walkingSince, now) : 0;
   /**
-   * The recorded minutes as a place on the two-lap scale, and that place as
-   * something to draw. Null progress is "there is no bar" — no goal, or a
-   * goal of zero — and reads as the foot of the first lap so that nothing
-   * downstream has to repeat the check.
+   * **The day's recorded minutes as this block will speak them, once**: the
+   * rows', or the close's hold while it is ahead of them, or null when
+   * neither knows. Everything the block says about the day is read off this
+   * one number — the measure's words, the bar's width, the tone of its ground
+   * and whether `Objetivo conseguido` appears — so the two cannot disagree by
+   * construction rather than by discipline.
+   *
+   * That is the second half of the same defect. The bar already read the
+   * hold and the measure read the rows, so for the length of an ordinary
+   * close the width led and the number followed, and `Objetivo conseguido`
+   * could stand a few hundred milliseconds above a number that did not
+   * justify it. On a reload that never came the gap never closed.
    *
    * **The hold is in minutes, not in a place**, so a goal edited while it
    * stands is read on the new scale rather than pinning the bar to a
    * proportion of a goal that no longer exists.
    */
-  const fromRows = barProgress(walkedMinutes, goalMinutes);
-  const holding = held === null ? null : barProgress(held.minutes, goalMinutes);
-  const progress =
-    holding !== null && (fromRows === null || holding > fromRows)
-      ? holding
-      : fromRows;
+  const shown =
+    held !== null && (walkedMinutes === null || held.minutes > walkedMinutes)
+      ? held.minutes
+      : walkedMinutes;
+  /**
+   * That place on the two-lap scale. Null is "there is nothing to draw" — no
+   * goal, a goal of zero, or minutes nobody could read — and reads as the
+   * foot of the first lap so that nothing downstream has to repeat the check.
+   */
+  const progress = shown === null ? null : barProgress(shown, goalMinutes);
   const state: BarState =
     progress === null ? { tier: 0, fill: 0 } : barStateAt(progress);
   /**
@@ -640,10 +677,18 @@ export function GoalBlock({
    */
   const lap = LAPS[state.tier];
   const recorded = state.tier === 2 ? 0 : state.fill;
-  /** Where the walk in progress has carried the day, on the same scale. */
-  const liveAt = walkingSince
-    ? barProgress(walkedMinutes + running, goalMinutes)
-    : null;
+  /**
+   * Where the walk in progress has carried the day, on the same scale.
+   *
+   * **Added to `shown`, so the live segment starts where the recorded fill
+   * ends** rather than to the rows, which the fill is not always reading.
+   * And null when the day's minutes are unknown: a running walk's own length
+   * is known, but a total it is added to is not.
+   */
+  const liveAt =
+    walkingSince && shown !== null
+      ? barProgress(shown + running, goalMinutes)
+      : null;
   const live = liveAt === null ? null : barStateAt(liveAt);
   /** The live total has passed into a lap the recorded total has not reached. */
   const lapped = live !== null && state.tier < 2 && live.tier > state.tier;
@@ -678,23 +723,39 @@ export function GoalBlock({
           <Text
             testID={testID ? `${testID}-measure` : undefined}
             numberOfLines={1}
+            // **Shown short, spoken long**, the way the top tier's mark is.
+            // One line beside the control is no room for the sentence, and
+            // "Sin datos del día" could be read as a quiet way of saying the
+            // day holds nothing — which is the very reading this whole state
+            // exists to refuse. Aloud it says which of the two it means. The
+            // log's own region below carries the message and the Reintentar.
+            accessibilityLabel={
+              !walkingSince && shown === null
+                ? "No se han podido leer los paseos de este día"
+                : undefined
+            }
             className={`shrink font-semibold ${walkingSince ? "text-accent" : "text-text-primary"}`}
           >
             {walkingSince
               ? `De paseo · ${formatDuration(running, durationFormat)}`
-              : goalMinutes === null
-                ? // **No "hoy".** The block renders on every day now, and the
-                  // start is withheld on a past one — so paging back for a pet
-                  // with no goal put "30 min paseados hoy" under a header
-                  // reading "Ayer". That is the lie the log fixed once already
-                  // with its own title; the header names the day, and one place
-                  // saying it is enough.
-                  `${formatDuration(walkedMinutes, durationFormat)} paseados`
-                : // **The denominator is the top tier, not the goal the tutor
-                  // typed.** The bar runs to double and the measure has to
-                  // count against the same thing the bar draws, or "2h de 2h"
-                  // would sit under a bar that is half painted.
-                  `${formatDuration(walkedMinutes, durationFormat)} de ${formatDuration(topTierMinutes(goalMinutes), durationFormat)} paseados`}
+              : shown === null
+                ? // **The day's minutes could not be read, so no number is
+                  // stated.** Not "0 min", which is a claim about the dog, and
+                  // not the previous day's total either.
+                  UNREAD
+                : goalMinutes === null
+                  ? // **No "hoy".** The block renders on every day now, and the
+                    // start is withheld on a past one — so paging back for a pet
+                    // with no goal put "30 min paseados hoy" under a header
+                    // reading "Ayer". That is the lie the log fixed once already
+                    // with its own title; the header names the day, and one place
+                    // saying it is enough.
+                    `${formatDuration(shown, durationFormat)} paseados`
+                  : // **The denominator is the top tier, not the goal the tutor
+                    // typed.** The bar runs to double and the measure has to
+                    // count against the same thing the bar draws, or "2h de 2h"
+                    // would sit under a bar that is half painted.
+                    `${formatDuration(shown, durationFormat)} de ${formatDuration(topTierMinutes(goalMinutes), durationFormat)} paseados`}
           </Text>
         </View>
 

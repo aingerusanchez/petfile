@@ -2692,7 +2692,88 @@ test("holds the fill when the reload never comes", async ({ page }) => {
     62,
     120,
   );
+  // **And the measure says the same number the bar is painted at.** The rows
+  // never came, so the only minutes anybody knows are the ones the close
+  // carried — the line above the bar reads them too, rather than counting a
+  // log it could not read and announcing nought.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    /^1h [12]m de 4h paseados$/,
+  );
   await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **A close that commits onto a reload that never answers, and the two halves
+ * of the block must agree.** This is the shape the household actually meets:
+ * the phone drops the house wifi on the stairs, the `PATCH` gets through and
+ * the pet read does not. The bar holds what the close carried — that part was
+ * already right — and the measure used to count an empty log and state
+ * "0 min de 2h paseados" directly above a bar painted past the goal and a
+ * label reading "Objetivo conseguido". A tutor cannot tell which half is real,
+ * and the one they read every day is the number.
+ *
+ * PRODUCT.md's rule is the same one the log's own region obeys: an empty state
+ * may never stand in for a failed read. Zero minutes is a claim about the dog's
+ * day; an unread log is a claim about the network.
+ */
+test("keeps the measure and the bar agreeing when a close lands and the reload does not", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 10 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "ten minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 55 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // Only the pet read is cut, so the walk really is closed on the server and
+  // it is the reload that cannot confirm it.
+  const pets = /\/rest\/v1\/pets\b/;
+  await page.route(pets, (route) => route.abort());
+  const gaveUp = failedReads(page, pets, 4);
+  await page.getByTestId("home-goal-control").click();
+  await gaveUp;
+  await page.waitForTimeout(750);
+
+  // The read failed and says so, and the day is not reported as empty.
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-empty")).toHaveCount(0);
+
+  // 65 of 60 is five minutes into lap two: an Aqua ground under a short
+  // violet fill, which is the close the bar is holding.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect.poll(() => groundColour(page)).toBe(colors.accent);
+  expectMinutes(
+    (await widthOf(page, "home-goal-bar")) /
+      (await widthOf(page, "home-goal-ground")),
+    5,
+    6,
+    60,
+  );
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Objetivo conseguido",
+  );
+  // The line that used to contradict both of them.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    /^1h [56]m de 2h paseados$/,
+  );
+
+  await page.unroute(pets);
 });
 
 test("lands a close with no animation at all for a tutor who asked for none", async ({
@@ -3312,6 +3393,12 @@ test("says the day could not be loaded when ‹ is pressed offline, and recovers
 
   await expect(page.getByTestId("home-log-error")).toBeVisible();
   await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  // **And the measure withholds the number rather than inventing one.** With
+  // no close to lean on there is no total anybody knows, so the one line of
+  // the block that states minutes says it could not read them.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "Sin datos del día",
+  );
   // The shell is fine: the header and the actions are still there.
   await expect(page.getByTestId("home-title")).toBeVisible();
   await expect(page.getByTestId("home-retry")).toHaveCount(0);
@@ -3499,6 +3586,11 @@ test("offers Reintentar when a walk was started and the reload cannot confirm it
   await expect(page.getByTestId("home-log-error")).toBeVisible();
   await expect(page.getByTestId("home-log-retry")).toBeVisible();
   await expect(page.getByTestId("home-title")).toBeVisible();
+  // A start adds no minutes, so there is nothing held and nothing known: the
+  // measure says so instead of reporting a day with no walks in it.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "Sin datos del día",
+  );
 
   // And the way out works: the walk the server holds comes back, running.
   await page.unroute(pets);
