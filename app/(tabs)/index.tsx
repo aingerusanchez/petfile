@@ -386,8 +386,16 @@ export default function Home() {
    */
   const [petError, setPetError] = useState<string | null>(null);
   /**
-   * The day the log has something to say about, rows or an error, or null.
-   * A ref because it is bookkeeping for one effect and nothing renders from it.
+   * The day whose rows the log actually holds, or null.
+   *
+   * **Set only by a read that succeeded, never by an error.** The guard that
+   * keeps a failed action from touching the day on screen asks "do we have
+   * real rows for this day?", and an error is the opposite answer. Recording
+   * the error here made a second failure — Reintentar pressed while still
+   * offline — look like a failed action, skip, and leave the log as an empty
+   * day: "Ese día no se apuntó nada", a claim about the dog from a read that
+   * failed. A ref because it is bookkeeping for one effect and nothing renders
+   * from it.
    */
   const loggedDay = useRef<string | null>(null);
   /** Not fatal: the header, the goal and the actions all still work. */
@@ -484,7 +492,6 @@ export default function Home() {
         // Only for a day the log has not loaded: a failed *action* reloads
         // the day already on screen and must leave its rows alone.
         if (loggedDay.current !== dayKey(day)) {
-          loggedDay.current = dayKey(day);
           setLogError(unreadable);
           setLog({ day: dayKey(day), attempt, events: [] });
         }
@@ -502,7 +509,7 @@ export default function Home() {
       // craft floor's rule is that one component's error must not block the
       // whole interface, and everything above the log comes from the pet.
       setLogError(eventError);
-      loggedDay.current = dayKey(day);
+      if (!eventError) loggedDay.current = dayKey(day);
       setLog({ day: dayKey(day), attempt, events: rows ?? [] });
     });
 

@@ -3240,6 +3240,88 @@ test("says the day could not be loaded when ‹ is pressed offline, and recovers
 });
 
 /**
+ * Resolves when `count` requests matching `url` have failed from now on.
+ *
+ * postgrest-js retries a failed GET three times, so a read reports its failure
+ * to the screen only on the fourth. Register it before the press that causes
+ * the read.
+ */
+function failedReads(page: Page, url: RegExp, count: number) {
+  let seen = 0;
+  return new Promise<void>((resolve) => {
+    page.on("requestfailed", (request) => {
+      if (url.test(request.url()) && ++seen === count) resolve();
+    });
+  });
+}
+
+/**
+ * **A retry that fails again is still a failure, never an empty day.** The
+ * empty state says "Ese día no se apuntó nada", which is a claim about the
+ * dog: nobody walked him. A network read that failed is not evidence of that.
+ * Pressing Reintentar offline used to land on exactly that sentence, because
+ * the failed day was remembered as one the log had something to say about, and
+ * the second failure was then skipped as if it were a failed action.
+ */
+test("keeps saying the day could not be loaded when Reintentar fails too", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  const pets = /\/rest\/v1\/pets\b/;
+  const first = failedReads(page, pets, 4);
+  await page.getByTestId("home-prev-day").click();
+  await first;
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+
+  const second = failedReads(page, pets, 4);
+  await page.getByTestId("home-log-retry").click();
+  await second;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-empty")).toHaveCount(0);
+  await page.unroute(supabase);
+});
+
+test("keeps saying the day could not be loaded when only the log failed and Reintentar fails too", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  // First only the log: the pet reads, the day's rows do not.
+  const events = /\/rest\/v1\/pet_events\b/;
+  await page.route(events, (route) => route.abort());
+  const first = failedReads(page, events, 4);
+  await page.getByTestId("home-prev-day").click();
+  await first;
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+
+  // Then the pet too, as when the signal drops entirely before the retry.
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  const second = failedReads(page, /\/rest\/v1\/pets\b/, 4);
+  await page.getByTestId("home-log-retry").click();
+  await second;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-empty")).toHaveCount(0);
+  await page.unroute(supabase);
+  await page.unroute(events);
+});
+
+/**
  * **A pet that never arrived still takes the whole screen.** With no pet there
  * is no day to show, which is what the gate keeps. `app/index.tsx` reads the
  * pet once before the tabs mount, so the first read is let through and every
