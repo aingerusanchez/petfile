@@ -88,8 +88,8 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 
 | Capa            | Tecnología                               | Versión                  |
 | --------------- | ---------------------------------------- | ------------------------ |
-| Framework       | Expo                                     | ~57.0.19                 |
-| Routing         | Expo Router                              | ~57.0.18                 |
+| Framework       | Expo                                     | ~57.0.21                 |
+| Routing         | Expo Router                              | ~57.0.20                 |
 | UI              | React Native                             | 0.86.3                   |
 | UI              | React                                    | 19.2.3                   |
 | Lenguaje        | TypeScript                               | ~6.0.3                   |
