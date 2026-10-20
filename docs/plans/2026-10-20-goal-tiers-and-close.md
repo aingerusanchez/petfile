@@ -193,7 +193,7 @@ git commit -m "feat(goal-bar): one scale for both tiers, and a close that adds i
 
 Within the current lap the saved minutes stay a tone above the ones accumulating, with the tick between them, exactly as now. Lap two's pair is `accentFocus` and a live tone a step below it; add that one colour to `tokens.ts` and `global.css` beside its siblings. `met` keeps its meaning — the recorded minutes alone cover Tier 1 — and gains `metX2` for the top.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ts
 test("turns Aqua at the goal and starts the second lap over it", async ({
@@ -251,21 +251,21 @@ test("draws no bar at all for a pet with no goal, as before", async ({
 
 `groundColour` and `fillColour` are helpers in this file's style, reading `getComputedStyle` off the bar's own testIDs; give the ground and the fill distinct testIDs so they can be read apart.
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `npx playwright test e2e/home.spec.ts -g "second lap|exactly at the goal|past double|goal is edited"`
 Expected: FAIL — the bar has one tone.
 
-- [ ] **Step 3: Implement the ground-and-fill rendering in `GoalBlock`**
+- [x] **Step 3: Implement the ground-and-fill rendering in `GoalBlock`**
 
 The measure's denominator becomes the top tier. `"Objetivo conseguido"` stays where it is and `"Objetivo conseguido x2"` joins it at the top tier.
 
-- [ ] **Step 4: Run them, and the existing bar specs with them**
+- [x] **Step 4: Run them, and the existing bar specs with them**
 
 Run: `npx playwright test e2e/home.spec.ts -g "second lap|exactly at the goal|past double|goal is edited|goal|tick|sweep"`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/ui/GoalBlock.tsx components/ui/tokens.ts global.css e2e/home.spec.ts
