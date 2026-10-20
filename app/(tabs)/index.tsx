@@ -257,9 +257,9 @@ type Editing = { kind: EventKind; event: PetEventRow | null };
  * So the two states are the same **weight** and differ only in **hue** — Mist
  * Light 11.48:1 and Aqua Glaciar 10.03:1 on the bar's Fjord Slate track — and
  * the hue is the whole message: the measure is neutral while it is being read,
- * and the secondary accent is the conclusion. Ice Blue Glacial stays out of it,
- * so the primary accent still means "this is the one thing to do here", and on
- * this screen the one thing is the floating action. Success Green keeps the
+ * and the everyday accent is the conclusion. The scarce accent is not an action
+ * on this bar — it is the tier above that conclusion — and the floating action
+ * is still the one thing to do on this screen. Success Green keeps the
  * meaning it has everywhere else — a toast, the confetti — which is a **moment
  * that just happened**, never a state sitting on the screen.
  */

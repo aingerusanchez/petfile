@@ -323,8 +323,9 @@ function lapFillAt(
  * see where one stopped and the other began — DESIGN.md already records a
  * 1.64:1 element as one that "did not read as a measure of anything". **A
  * different colour is ruled out, by measurement rather than taste:** this bar
- * speaks two tones only (Mist while it is read, Aqua as the conclusion),
- * Aurora Boreal is reserved to three places, and every other tonal step in
+ * speaks one pair of tones per lap (the saved one and the live one), Aurora
+ * Boreal is spoken for on this very bar — it is the top tier — and every
+ * other tonal step in
  * the palette lands in the same 1.16–1.71:1 band that already failed here and
  * forced the chips to carry a weight change instead of a fill. **Nor can any
  * treatment of the segment do it:** against a 3 h goal on a 327 dp bar it is
@@ -1041,7 +1042,7 @@ function ShakeLive({
  * that grew with the ring would spend it.
  *
  * **Aqua Glaciar only.** The dot is the measure's own colour while walking, so
- * it spends nothing new; Aurora Boreal stays on the three places it already is.
+ * it spends nothing new, and Aurora Boreal on this bar means the top tier.
  *
  * **Under "remove animations" the dot holds at full opacity and the ripple is
  * not rendered at all** — the static case being the one that has to be more

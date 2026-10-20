@@ -2,7 +2,15 @@
 
 Status: **agreed 2026-10-20**, in conversation with the tutor. Third draft: a
 builder check found the first unbuildable, and the second was settled on an
-artboard. Not yet planned.
+artboard. **Built and shipped in v0.15.0.**
+
+Three things the tutor changed while the work ran are **recorded here in
+retrospect**, on 2026-10-21, rather than edited in as they were decided: the
+document was what the tasks were being built against, so amending it mid-flight
+would have moved the target under them. They are marked where they appear —
+the confetti moving entirely to Tier 2, the live fill lapping while the ground
+waits for the close, and the floor under the goal that the tiers made
+necessary.
 
 Written in English to match PRODUCT.md, DESIGN.md and AGENTS.md. The app's own
 copy stays Spanish.
@@ -61,7 +69,9 @@ tone it will keep — then continues to the stretch's true end.
 - **Not reaching the next tier:** the converted stretch lands in the saved tone
   and stops. Where a tick was drawn, it has nothing left to separate and goes.
 - **Reaching the next tier:** the same conversion, and on arrival the whole lap
-  transitions to that tier's tone, with the confetti.
+  transitions to that tier's tone — with the confetti when the tier reached is
+  the top one, and nothing else when it is the first (amended 2026-10-21; see
+  "What is left to the builder").
 
 The swell goes. The sheen goes with it: it existed to light the swollen stretch,
 and a directional conversion is its own emphasis.
@@ -114,9 +124,9 @@ be visible. Two halves, and the first draft stated only one:
   is a deliberate silence, not an oversight.
 - **The reload fails.** The fill has animated to a value the data never
   confirms. It must hold at its end state rather than snapping back, and the
-  failure is the toast's job, not the bar's. This is the path PRODUCT.md already
-  records as open — a failed action must not take the diary away — and whichever
-  lands first, the other must not reintroduce the snap.
+  failure is the toast's job, not the bar's. This is the path PRODUCT.md
+  records as "a failed action must not take the diary away", which shipped in
+  the same version — and neither half reintroduced the snap.
 - **Reduced motion.** "Absent" here means the bar is painted at the fill's **end
   state immediately on the stop** — no animation and no hole. Reverting to
   today's behaviour would restore the 400 ms gap for exactly the tutors who
@@ -249,10 +259,20 @@ saved violet and a live violet a step below it.
 
 The first draft left these undefined and a builder could not have proceeded.
 
-- **Crossing Tier 1 during a walk.** The live minutes carry the bar to the end
-  of lap one and it completes, turning Aqua, with the confetti — mid-walk, as it
-  already does today. The bar then starts lap two and the live segment continues
-  on it. The in-progress tone is unchanged on both laps.
+- **Crossing Tier 1 during a walk — the fill laps and the ground does not**
+  (amended 2026-10-21). The live minutes carry the fill to the end of lap one,
+  it completes in the live tone, and a second band starts again from the left
+  edge over it in the next lap's live tone. **The ground stays at the tier the
+  _recorded_ minutes reached and waits for the stop**, so nothing turns Aqua
+  mid-walk and no confetti falls there. The asymmetry is the rule rather than a
+  compromise, and the tutor's own argument for it is the reason to keep it: **a
+  bar lapping in grey is itself the signal that something has not been saved**,
+  so a walk left running by mistake can never disguise itself as a finished
+  day. It is also what makes the close a moment at all — a bar that had already
+  turned Aqua during the walk would leave the stop with nothing to say. `met`
+  has always excluded the running walk; this states it rather than changing it.
+  The visible consequence the tutor should expect: a long walk past the goal
+  sits on a full grey bar until it is stopped, and the tier reveal is the stop.
 - **Opening a walk already past Tier 1.** The bar is on lap two: its ground is
   the empty track again, its fill is the lap-two minutes. Lap one's completion
   is no longer on the bar — it is in the measure's words and in the calendar's
@@ -260,11 +280,11 @@ The first draft left these undefined and a builder could not have proceeded.
 - **A close that crosses a lap boundary.** **One animation, whose origin is the
   tick, even though it changes tier on the way.** The fill leaves the tick and
   converts what is left of lap one; on reaching the right edge the whole bar
-  turns Aqua and the confetti falls, once; the same fill then continues from the
-  left edge in violet over that Aqua, to wherever the walk ended. Not two
-  animations in sequence — one gesture that changes colour as it passes a
-  threshold. A walk long enough to cross both tiers does it twice, by the same
-  rule.
+  turns Aqua; the same fill then continues from the left edge in violet over
+  that Aqua, to wherever the walk ended. Not two animations in sequence — one
+  gesture that changes colour as it passes a threshold. A walk long enough to
+  cross both tiers does it twice, by the same rule, and the confetti falls
+  **once**, at the top, however many thresholds the one gesture crossed.
 - **The tick on lap two.** The tick marks the saved/live junction, which exists
   on either lap and is drawn by the same rule it has now. It does **not** mark
   the lap boundary; the first draft claimed it did and the code refuses to draw
@@ -335,10 +355,30 @@ in the same commit.
 ## What is left to the builder
 
 The mechanism of the handover. Where lap state lives. How the live segment is
-held through the close. The confetti's threshold is **Tier 1 only** — PRODUCT.md
-already records the effect as near wearing out at eighteen times a month, and
-the tutor's complaint in Part A was loudness; Tier 2 gets the colour and nothing
-else. All the platform constraints in AGENTS.md.
+held through the close. All the platform constraints in AGENTS.md.
+
+**The confetti's threshold is Tier 2 only, and the fall is violet** (amended
+2026-10-21; the draft had said Tier 1 only, with Tier 2 getting the colour and
+nothing else). The tutor's reasoning turns the draft's around: the whole point
+of two tiers is that Tier 1 becomes the everyday, and the everyday is not
+celebrated — which is also the answer to the worry PRODUCT.md already recorded,
+that the effect was near wearing out at eighteen times a month. Tier 1 keeps
+the ground turning Aqua, the label and the calendar's underline, and loses
+nothing else. The fall takes the tier's own colour rather than the mixed
+palette, by The Shared Mark Rule: that tier has a colour of its own on both
+surfaces. The effect's existing conditions are unchanged — it degrades to
+nothing under "remove animations", and it is hosted above the navigator.
+**The changelog has to say that the first Tier 1 day after this ships will feel
+like something broke**, because it will.
+
+**A floor under the goal, which this design created the need for** (added
+2026-10-21). Tier 2 being double makes a low goal a back door to the top one: a
+15-minute goal puts the top at 30, reached before lunch every day, and the
+celebration that was just moved up there to keep it scarce would be an everyday
+event again. The goal is therefore at least 30 minutes, or absent — and not
+grandfathered, so a stored goal under the floor fails validation on the next
+save with the field to fix on the same screen. See PRODUCT.md for the other
+half of the reason, which is about who the app is for.
 
 ---
 
@@ -348,6 +388,10 @@ else. All the platform constraints in AGENTS.md.
    conseguido"_; Tier 2 is _"Objetivo conseguido x2"_, which leans on Tier 2
    being defined as double. The tutor marked it as for now, so it is the
    placeholder a better phrase would replace, not a decision to defend.
+   **Amended 2026-10-21, after hearing it:** TalkBack reads the written form
+   as "equis dos", which is nothing. The short form stays on screen, where it
+   is read rather than heard, and the spoken name is "doble objetivo diario
+   conseguido" — on the day bar's label and in the calendar's legend alike.
 2. ~~The café outing.~~ **Answered, and the tutor's practice is cleaner than
    the design's suggestion.** The weekday outing is under five minutes each way
    and is not logged at all. At the weekend, when the bar is in another village

@@ -28,8 +28,8 @@ const STAGGER_MS = 700;
 const CONFETTI = [
   colors.accent,
   // **Aurora Boreal is in here because this is what it is for.** The two
-  // moments that throw confetti are a goal met and a birthday, and the
-  // birthday is one of the three places the scarce accent is spent at all.
+  // moments that throw confetti are a birthday and a day that doubled the
+  // goal, and both are places the scarce accent is spent at all.
   colors.accentFocus,
   colors.success,
   colors.textPrimary,
