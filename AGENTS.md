@@ -54,6 +54,7 @@ pnpm format             # prettier --write . (the pre-commit hook does this for 
 pnpm format:check       # prettier --check .
 pnpm lint               # eslint . — flat config on eslint-config-expo, plus this project's invariants
 pnpm lint:fix           # eslint . --fix
+pnpm typecheck          # tsc --noEmit — ESLint does not check types; this does
 ```
 
 ## Linting
@@ -71,6 +72,7 @@ Two more are errors rather than Expo's default warnings, because they catch defe
 ## Definition of done
 
 - `pnpm lint` passes.
+- `pnpm typecheck` passes. **ESLint does not check types**, so with `strict` on and "no `any`" as a rule, leaving the type checker outside the gate means the one tool that enforces half of those rules runs only when somebody remembers — and on the branch that added this line it caught a null-narrowing error the linter was never going to see.
 - `pnpm test` passes.
 - `pnpm test:e2e` passes.
 - No new raw hex colours; only Nordic Ice tokens.
