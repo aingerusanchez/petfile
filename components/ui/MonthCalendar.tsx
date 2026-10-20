@@ -281,8 +281,11 @@ export function MonthCalendar({
                   ? "toca la vacuna"
                   : null,
               logged ? null : "sin registros",
+              // Spoken, so it is words and not "x2": the tutor heard TalkBack
+              // read it as "equis dos" and chose this phrase. The legend
+              // beside the grid still *shows* "x2", which fits there.
               doubled
-                ? "objetivo conseguido x2"
+                ? "doble objetivo diario conseguido"
                 : met
                   ? "objetivo conseguido"
                   : logged
@@ -583,6 +586,7 @@ export function MonthCalendar({
                 testID="calendar-legend-goal-x2"
                 className="h-[4px] w-[16px] rounded-xl bg-accent-focus"
                 label="Objetivo conseguido x2"
+                spoken="doble objetivo diario conseguido"
               />
             </>
           )}
@@ -653,10 +657,13 @@ export function MonthCalendar({
 function Legend({
   className,
   label,
+  spoken,
   testID,
 }: {
   className: string;
   label: string;
+  /** What a screen reader says when it differs from what is shown. */
+  spoken?: string;
   testID?: string;
 }) {
   return (
@@ -668,7 +675,12 @@ function Legend({
     // translation away from clipping.
     <View className="max-w-full flex-row items-center gap-2">
       <View testID={testID} className={`shrink-0 ${className}`} />
-      <Text className="shrink text-xs text-text-tertiary">{label}</Text>
+      <Text
+        accessibilityLabel={spoken}
+        className="shrink text-xs text-text-tertiary"
+      >
+        {label}
+      </Text>
     </View>
   );
 }

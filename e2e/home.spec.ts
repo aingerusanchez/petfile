@@ -793,6 +793,11 @@ test("throws confetti for the walk that doubles the goal, and only that one", as
   await expect(page.getByTestId("home-goal-met")).toHaveText(
     "Objetivo conseguido",
   );
+  // Tier 1 is read as it is written: no spoken form of its own.
+  await expect(page.getByTestId("home-goal-met")).not.toHaveAttribute(
+    "aria-label",
+    /.+/,
+  );
   await expect(page.getByTestId("celebration")).toBeHidden();
 
   // Most of the way through lap two, still nothing.
@@ -989,8 +994,12 @@ test("marks a double day in the accent and an ordinary one in Aqua", async ({
   // Said in the day view's own words, so the mark is not colour alone — and
   // the top tier is called what the day view calls it.
   await expect(barIn(page, "13, objetivo conseguido")).toBeVisible();
-  await expect(barIn(page, "14, objetivo conseguido x2")).toBeVisible();
-  await expect(barIn(page, "15, objetivo conseguido x2")).toBeVisible();
+  await expect(
+    barIn(page, "14, doble objetivo diario conseguido"),
+  ).toBeVisible();
+  await expect(
+    barIn(page, "15, doble objetivo diario conseguido"),
+  ).toBeVisible();
   await expect(barIn(page, "16, objetivo conseguido")).toBeVisible();
   await expect(
     page
@@ -1005,16 +1014,16 @@ test("marks a double day in the accent and an ordinary one in Aqua", async ({
   expect(await backgroundOf(barIn(page, "13, objetivo conseguido"))).toBe(
     colors.accent,
   );
-  expect(await backgroundOf(barIn(page, "14, objetivo conseguido x2"))).toBe(
-    colors.accentFocus,
-  );
+  expect(
+    await backgroundOf(barIn(page, "14, doble objetivo diario conseguido")),
+  ).toBe(colors.accentFocus);
   // Exactly the goal is Tier 1, not short of it: the twin of the 240 day.
   expect(await backgroundOf(barIn(page, "16, objetivo conseguido"))).toBe(
     colors.accent,
   );
-  expect(await backgroundOf(barIn(page, "15, objetivo conseguido x2"))).toBe(
-    colors.accentFocus,
-  );
+  expect(
+    await backgroundOf(barIn(page, "15, doble objetivo diario conseguido")),
+  ).toBe(colors.accentFocus);
 
   // The legend names both, in the same words and the same colours, so neither
   // swatch is something to guess at.
@@ -1026,6 +1035,77 @@ test("marks a double day in the accent and an ordinary one in Aqua", async ({
   expect(await backgroundOf(page.getByTestId("calendar-legend-goal-x2"))).toBe(
     colors.accentFocus,
   );
+});
+
+test("reads the top tier as words and still shows the short form", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **Both halves in one test, because the defect would be changing one and
+  // not the other.** "Objetivo conseguido x2" is what fits under the bar and
+  // in a legend; "doble objetivo diario conseguido" is what the mark means
+  // when it is said aloud, where "equis dos" means nothing. A test that only
+  // looked for the spoken form would stay green if the visible text had been
+  // replaced with it, and a test that only looked for the visible one is the
+  // test that already existed.
+  //
+  // Goal 60: today is 130 minutes (doubled), and last month's 13th is 70
+  // (Tier 1) beside its 14th at 130 (Tier 2). The pet is born on New Year's
+  // Day so no cake lands on a seeded day.
+  const earlier = new Date();
+  earlier.setHours(0, 1, 0, 0);
+  await resetE2EPets();
+  const petId = await seedE2EPet({
+    birth_date: "2025-01-01",
+    exercise_goal_minutes: 60,
+  });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 130 },
+    { kind: "walk", occurredAt: lastMonthAt(13), durationMinutes: 70 },
+    { kind: "walk", occurredAt: lastMonthAt(14), durationMinutes: 130 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // The bar's label: shown short, spoken long.
+  const met = page.getByTestId("home-goal-met");
+  await expect(met).toHaveText("Objetivo conseguido x2");
+  await expect(met).toHaveAttribute(
+    "aria-label",
+    "doble objetivo diario conseguido",
+  );
+
+  await openLastMonth(page);
+  const calendar = page.getByTestId("home-calendar");
+
+  // The cell: said long, and nothing in the calendar says "x2" to a reader.
+  await expect(
+    calendar.getByLabel("14, doble objetivo diario conseguido", {
+      exact: true,
+    }),
+  ).not.toHaveCount(0);
+  await expect(calendar.getByLabel(/x2/i)).toHaveCount(0);
+
+  // The legend: shown short, spoken long.
+  await expect(
+    calendar.getByText("Objetivo conseguido x2", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    calendar.getByLabel("doble objetivo diario conseguido", { exact: true }),
+  ).toBeVisible();
+
+  // Tier 1 is unchanged, seen and heard: no spoken form of its own.
+  await expect(
+    calendar.getByLabel("13, objetivo conseguido", { exact: true }),
+  ).not.toHaveCount(0);
+  await expect(
+    calendar.getByText("Objetivo conseguido", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    calendar.getByText("Objetivo conseguido", { exact: true }),
+  ).not.toHaveAttribute("aria-label", /.+/);
 });
 
 test("a birthday that is also a double day reads as both", async ({ page }) => {
@@ -1051,7 +1131,7 @@ test("a birthday that is also a double day reads as both", async ({ page }) => {
   await openLastMonth(page);
 
   // One cell, both facts, in words.
-  const label = "14, cumple 2 años, objetivo conseguido x2";
+  const label = "14, cumple 2 años, doble objetivo diario conseguido";
   const bar = barIn(page, label);
   await expect(bar).toBeVisible();
   expect(await backgroundOf(bar)).toBe(colors.accentFocus);

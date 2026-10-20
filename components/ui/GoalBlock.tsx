@@ -916,8 +916,17 @@ export function GoalBlock({
         // It wears the tier's own colour, because The Shared Mark Rule says a
         // mark stands for its record wherever it appears — and at the top
         // tier the bar under it is Aurora Boreal, not Aqua.
+        //
+        // **Shown short, spoken long.** "x2" fits under the bar and a screen
+        // reader says "equis dos", which is not what the mark means; the
+        // tutor heard it and asked for "doble objetivo diario conseguido"
+        // aloud while the text stays as it is. Only the top tier needs it:
+        // Tier 1's words are already the ones to hear.
         <Text
           testID={testID ? `${testID}-met` : undefined}
+          accessibilityLabel={
+            metX2 ? "doble objetivo diario conseguido" : undefined
+          }
           className={`mt-2 font-semibold text-xs ${metX2 ? "text-accent-focus" : "text-accent"}`}
         >
           {metX2 ? "Objetivo conseguido x2" : "Objetivo conseguido"}
