@@ -907,6 +907,162 @@ test("carries the marks with it when the month is paged", async ({ page }) => {
   ).toBeVisible();
 });
 
+/**
+ * Last month's `day`th at 10:00, where any hour has already happened.
+ *
+ * The calendar specs below seed a month other than the current one, so the
+ * dates they need exist whatever day it is today — a spec that seeded
+ * "yesterday" would fall into the previous month on the 1st.
+ */
+function lastMonthAt(day: number): Date {
+  const at = new Date();
+  at.setDate(1);
+  at.setMonth(at.getMonth() - 1);
+  at.setDate(day);
+  at.setHours(10, 0, 0, 0);
+  return at;
+}
+
+/** Opens the month calendar and pages back to the month `lastMonthAt` seeds. */
+async function openLastMonth(page: Page) {
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("home-calendar")).toBeVisible();
+  // The sheet fades in, and a tap on the month arrow during that fade is
+  // swallowed — see the paging spec above.
+  await page.waitForTimeout(600);
+  await page.getByTestId("btn-prev").click();
+}
+
+/** The goal bar inside the cell the calendar labels exactly `label`. */
+function barIn(page: Page, label: string) {
+  return page
+    .getByTestId("home-calendar")
+    .getByLabel(label, { exact: true })
+    .first()
+    .getByTestId("calendar-mark-goal");
+}
+
+async function backgroundOf(locator: ReturnType<Page["getByTestId"]>) {
+  return hexOf(
+    await locator.evaluate((el) => getComputedStyle(el).backgroundColor),
+  );
+}
+
+test("marks a double day in the accent and an ordinary one in Aqua", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // Against a 120 goal: one minute short, the goal and a little over, exactly
+  // double, and well past it. The two boundaries are the days that tell a
+  // `>=` from a `>` — and the day view says the same about each of them.
+  //
+  // **The pet is born on the 1st of January, not on its default.** The default
+  // birth date is the 14th of September, and a month that has a birthday in it
+  // draws a cake on that day — one of the four days seeded here, in the one
+  // month of the year this spec would otherwise run in.
+  await resetE2EPets();
+  const petId = await seedE2EPet({
+    birth_date: "2025-01-01",
+    exercise_goal_minutes: 120,
+  });
+  await seedE2EEvents(
+    petId,
+    [
+      [12, 119],
+      [13, 130],
+      [14, 240],
+      [15, 260],
+    ].map(([day, minutes]) => ({
+      kind: "walk" as const,
+      occurredAt: lastMonthAt(day),
+      durationMinutes: minutes,
+    })),
+  );
+
+  await seedSession(page);
+  await page.goto("/");
+  await openLastMonth(page);
+
+  // Said in the day view's own words, so the mark is not colour alone — and
+  // the top tier is called what the day view calls it.
+  await expect(barIn(page, "13, objetivo conseguido")).toBeVisible();
+  await expect(barIn(page, "14, objetivo conseguido x2")).toBeVisible();
+  await expect(barIn(page, "15, objetivo conseguido x2")).toBeVisible();
+  await expect(
+    page
+      .getByTestId("home-calendar")
+      .getByLabel("12, objetivo sin conseguir", { exact: true })
+      .first(),
+  ).toBeVisible();
+  await expect(barIn(page, "12, objetivo sin conseguir")).toHaveCount(0);
+
+  // The Shared Mark Rule: Aqua for the goal, Aurora Boreal for double — the
+  // two colours the day view's bar wears for the same two states.
+  expect(await backgroundOf(barIn(page, "13, objetivo conseguido"))).toBe(
+    colors.accent,
+  );
+  expect(await backgroundOf(barIn(page, "14, objetivo conseguido x2"))).toBe(
+    colors.accentFocus,
+  );
+  expect(await backgroundOf(barIn(page, "15, objetivo conseguido x2"))).toBe(
+    colors.accentFocus,
+  );
+
+  // The legend names both, in the same words and the same colours, so neither
+  // swatch is something to guess at.
+  const legend = page.getByTestId("home-calendar");
+  await expect(legend).toContainText("Objetivo conseguido x2");
+  expect(await backgroundOf(page.getByTestId("calendar-legend-goal"))).toBe(
+    colors.accent,
+  );
+  expect(await backgroundOf(page.getByTestId("calendar-legend-goal-x2"))).toBe(
+    colors.accentFocus,
+  );
+});
+
+test("a birthday that is also a double day reads as both", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // Both marks are Aurora Boreal, which is the point of The Shared Mark Rule
+  // and the reason to look: the cake is a watermark behind the number and the
+  // bar sits under it, and what keeps them two things is that they never
+  // share a pixel.
+  const day = lastMonthAt(14);
+  const iso = `${day.getFullYear() - 2}-${String(day.getMonth() + 1).padStart(2, "0")}-14`;
+  await resetE2EPets();
+  const petId = await seedE2EPet({
+    birth_date: iso,
+    exercise_goal_minutes: 120,
+  });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: day, durationMinutes: 260 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await openLastMonth(page);
+
+  // One cell, both facts, in words.
+  const label = "14, cumple 2 años, objetivo conseguido x2";
+  const bar = barIn(page, label);
+  await expect(bar).toBeVisible();
+  expect(await backgroundOf(bar)).toBe(colors.accentFocus);
+  await expect(page.getByTestId("calendar-mark-birthday")).toHaveCount(1);
+
+  // The cake's drawn box ends where the bar's begins. Its base line sits a
+  // few dp above that edge, so there is clear ground between the two — and
+  // this is the line that moves if the cake is ever made larger.
+  const cake = await page
+    .getByTestId("calendar-mark-birthday")
+    .locator("svg")
+    .boundingBox();
+  const under = await bar.boundingBox();
+  expect(cake).not.toBeNull();
+  expect(under).not.toBeNull();
+  expect(cake!.y + cake!.height).toBeLessThanOrEqual(under!.y + 0.5);
+});
+
 test("waits in the shape of the log, not on the day before it", async ({
   page,
 }) => {
