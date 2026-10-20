@@ -358,6 +358,8 @@ else. All the platform constraints in AGENTS.md.
    September were never 3 h of walking.
 3. ~~Scope.~~ **Answered: together with the walk timer**, because it is the same
    bar, the same animations and the same styles.
-4. **On lap two, what does the measure read?** Still open: the day's total
-   against the top tier ("3h de 4h"), which is what the artboard assumes, or
-   what is left of this lap.
+4. ~~On lap two, what does the measure read?~~ **Answered: the day's total
+   against the top tier** — "3h de 4h" — which is what the artboard assumes and
+   what the measure already does against a single goal.
+
+All four are answered. The design is agreed and ready to plan.
