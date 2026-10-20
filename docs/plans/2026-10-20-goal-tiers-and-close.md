@@ -559,6 +559,76 @@ git commit -m "fix(home): tabular figures, so the log's titles share an edge"
 
 ---
 
+### Task 7b: TalkBack says the whole thing
+
+**Files:**
+
+- Modify: `components/ui/GoalBlock.tsx`, `components/ui/MonthCalendar.tsx`
+- Test: `e2e/home.spec.ts`, `e2e/diary-treatments.spec.ts` if its label assertion moves
+
+The tutor's call, after hearing it read aloud: **"Objetivo conseguido x2" stays on
+screen and TalkBack says "doble objetivo diario conseguido".** The visible text has
+to fit under the bar and inside a calendar cell; the spoken one does not, and "equis
+dos" is not what the mark means.
+
+Only the top tier changes. Tier 1 is "Objetivo conseguido" seen and heard.
+
+The four sites, and which way each goes:
+
+- `components/ui/GoalBlock.tsx:923` — visible text under the bar. **Keep the text**,
+  give the node an `accessibilityLabel`.
+- `components/ui/MonthCalendar.tsx:285` — already accessible-only, composed into the
+  cell's name. **Change the string.**
+- `components/ui/MonthCalendar.tsx:585` — the legend's fourth entry, visible. **Keep
+  the text**, add the spoken form. Check whether `Legend` can carry one without a
+  new prop before adding one.
+- `MonthCalendar.tsx:205`'s comment gives a worked example of a composed name;
+  update it if the change makes it wrong.
+
+**No Label-in-Name conflict**, and the check was made: that rule binds controls, and
+the only control here is the calendar's day cell, whose visible text is the number —
+still the first thing in its name. The bar's label and the legend are static text.
+
+About 25 e2e assertions mention these strings. The cell-name ones must move with the
+string; the visible-text ones must not.
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+test("reads the top tier as words and still shows the short form", async ({
+  page,
+}) => {
+  // A doubled day: the cell's accessible name contains "doble objetivo diario
+  // conseguido" and not "x2", while the legend and the bar's label still
+  // *display* "Objetivo conseguido x2". Both halves in one test, because the
+  // defect would be changing one and not the other.
+});
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `npx playwright test e2e/home.spec.ts -g "reads the top tier as words"`
+Expected: FAIL.
+
+- [ ] **Step 3: Split the seen form from the spoken one**
+
+- [ ] **Step 4: Run every spec that names these strings**
+
+Run: `npx playwright test e2e/home.spec.ts e2e/diary-treatments.spec.ts -g "objetivo|conseguido|calendar|legend"`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add components/ui/GoalBlock.tsx components/ui/MonthCalendar.tsx e2e/
+git commit -m "feat(a11y): the top tier is read as words, not as equis dos"
+```
+
+**Heard, not read.** The point of this task is what a screen reader says, so the
+device pass has to listen to it rather than inspect it.
+
+---
+
 ### Task 8: Ship it
 
 **Files:**
