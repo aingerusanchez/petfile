@@ -1,61 +1,96 @@
 /**
- * Which of three things the goal bar does when a walk is stopped and the
- * server confirms it.
+ * The goal bar as one number, and what the close of a walk does to it.
  *
- * **Lives in `lib/` for the reason `markdown.ts` does.** The animation says one
- * sentence — "this much has just been saved" — and which stretch of the bar
- * that points at, and whether the bar ends Aqua, are comparisons against a
- * goal. A wrong one does not throw: it paints the bar as met when it is not,
- * or the other way round, and tells the tutor the day's goal was reached when
- * it was not. A pure function takes six cases in a few milliseconds; the
- * component that animates the result cannot.
+ * **Lives in `lib/` for the reason `markdown.ts` does.** The bar says two
+ * things at once — which tier of the goal the day has reached, and how far it
+ * is toward the next — and the animation that runs when a walk is saved says a
+ * third: "this much has just been saved". Every one of those is a comparison
+ * against a goal. A wrong case does not throw: it paints the day's effort at
+ * the wrong tier or in the wrong colour, and tells the tutor a goal was
+ * reached when it was not, or the other way round. A pure function takes these
+ * cases in a few milliseconds; the component that animates the result cannot.
  *
- * **`walkedMinutes` already includes the walk just closed**, because it is the
- * total of closed walks and this one has become closed. What was recorded
- * *before* it is therefore `walkedMinutes - closedMinutes`, and that is where
- * the stretch starts.
+ * **The scale is one number, and that is the whole design.** The integer part
+ * is the tier reached and the fraction is progress through it: `0.5` is halfway
+ * to the goal, `1` is the goal, `1.5` is halfway through the second lap, `2` is
+ * double. Tier 2 is computed as double tier 1 — there is no second goal stored.
+ * Because a position anywhere on the bar is one scalar, a close that crosses a
+ * tier is one interpolation between two of them and needs no special case: the
+ * animation walks from `from` to `to` and `barStateAt` says what each frame
+ * looks like.
  *
- * Three cases:
- *
- * - `land` — the walk added a stretch of bar, so the stretch is the thing to
- *   point at. `met` says the bar ends Aqua, which is also the signal that what
- *   sits before `start` has to travel from the recorded grey rather than
- *   staying put.
- * - `swell` — the bar was already full before this walk. "This much has just
- *   been saved" has no stretch to point at: the minutes it added fall past the
- *   bar's edge and cannot be drawn, so only the thickness beat plays.
- * - `none` — there is no bar at all (no goal, or a goal of zero), or the walk
- *   added nothing, so nothing was saved and nothing is said.
+ * **`closeMotion` takes `recordedBefore` and adds.** The caller holds the total
+ * from *before* the walk closed — the value the component already has while the
+ * server reload is in flight. The previous contract took the total *after* the
+ * close and subtracted the closed minutes to find where the stretch began, and
+ * that was a real defect: depending on whether the reload had landed yet, that
+ * total might or might not already include those minutes, so the stretch began
+ * at the wrong place. The pre-close total is the one number the
+ * caller is certain about, so the minutes are added to it, never subtracted
+ * from a total that may contain them.
  */
-export type CloseMotion =
-  | { kind: "none" }
-  | { kind: "swell" }
-  | { kind: "land"; stretch: { start: number; end: number }; met: boolean };
 
-/** A percentage of the bar, held to the bar: a walk past the goal stops at its edge. */
-function onBar(percent: number): number {
-  return Math.min(100, Math.max(0, percent));
+/** The bar stops at two laps; a day past double cannot be shown further. */
+const TOP_TIER = 2;
+
+/**
+ * The bar as one number: the integer part is the tier reached, the fraction
+ * is progress through it. Null when there is no bar to draw.
+ */
+export function barProgress(
+  walkedMinutes: number,
+  goalMinutes: number | null,
+): number | null {
+  if (goalMinutes === null || goalMinutes <= 0) return null;
+  return Math.min(TOP_TIER, Math.max(0, walkedMinutes / goalMinutes));
 }
 
+export type BarState = { tier: 0 | 1 | 2; fill: number };
+
+/**
+ * Any point of that scale as something to draw: a ground and a 0–100 fill.
+ *
+ * An exact tier sits at the foot of its own lap (`1` is tier 1, fill 0), not at
+ * the head of the last — the ground is the tier reached, and the goal has been
+ * reached. The top is the one exception: there is no third lap to start, so `2`
+ * is tier 2 with the fill full.
+ */
+export function barStateAt(progress: number): BarState {
+  const held = Math.min(TOP_TIER, Math.max(0, progress));
+  if (held >= TOP_TIER) return { tier: TOP_TIER, fill: 100 };
+  const tier = Math.floor(held) as 0 | 1;
+  return { tier, fill: (held - tier) * 100 };
+}
+
+/**
+ * - `fill` — the walk added a stretch of bar: animate from `from` to `to` on
+ *   the scale above. It may cross a tier, or both; nothing special is needed.
+ * - `none` — there is no bar (no goal, or a goal of zero), the walk added
+ *   nothing, or the day was already past the top tier, where the minutes it
+ *   added fall off the end of the bar and there is no stretch to point at.
+ */
+export type CloseMotion =
+  { kind: "none" } | { kind: "fill"; from: number; to: number };
+
+/**
+ * `recordedBefore` is the total *before* this walk closed — the value the
+ * component already holds while the reload is in flight. The minutes are
+ * added to it, never subtracted from a total that may or may not include
+ * them yet.
+ */
 export function closeMotion(input: {
-  walkedMinutes: number;
+  recordedBefore: number;
   closedMinutes: number;
   goalMinutes: number | null;
 }): CloseMotion {
-  const { walkedMinutes, closedMinutes, goalMinutes } = input;
+  const { recordedBefore, closedMinutes, goalMinutes } = input;
 
-  if (goalMinutes === null || goalMinutes <= 0) return { kind: "none" };
   if (closedMinutes <= 0) return { kind: "none" };
 
-  const before = walkedMinutes - closedMinutes;
-  if (before >= goalMinutes) return { kind: "swell" };
+  const from = barProgress(recordedBefore, goalMinutes);
+  const to = barProgress(recordedBefore + closedMinutes, goalMinutes);
+  if (from === null || to === null) return { kind: "none" };
+  if (from >= TOP_TIER) return { kind: "none" };
 
-  return {
-    kind: "land",
-    stretch: {
-      start: onBar((before / goalMinutes) * 100),
-      end: onBar((walkedMinutes / goalMinutes) * 100),
-    },
-    met: walkedMinutes >= goalMinutes,
-  };
+  return { kind: "fill", from, to };
 }

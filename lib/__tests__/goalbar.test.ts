@@ -1,58 +1,67 @@
-import { closeMotion } from "../goalbar";
+import { barProgress, barStateAt, closeMotion } from "../goalbar";
+
+describe("barProgress", () => {
+  it("is the fraction of the goal below it", () => {
+    expect(barProgress(60, 120)).toBeCloseTo(0.5);
+  });
+  it("is exactly 1 at the goal", () => {
+    expect(barProgress(120, 120)).toBe(1);
+  });
+  it("counts the second lap as the fraction past the goal", () => {
+    expect(barProgress(180, 120)).toBeCloseTo(1.5);
+  });
+  it("stops at 2 — a day past double cannot be shown further", () => {
+    expect(barProgress(600, 120)).toBe(2);
+  });
+  it("has no bar without a goal", () => {
+    expect(barProgress(60, null)).toBeNull();
+    expect(barProgress(60, 0)).toBeNull();
+  });
+});
+
+describe("barStateAt", () => {
+  it("reads a ground and a fill", () => {
+    expect(barStateAt(0.5)).toEqual({ tier: 0, fill: 50 });
+    expect(barStateAt(1.25)).toEqual({ tier: 1, fill: 25 });
+  });
+  it("puts an exact tier at the foot of its own lap, not the head of the last", () => {
+    expect(barStateAt(1)).toEqual({ tier: 1, fill: 0 });
+  });
+  it("fills the top tier rather than starting a third lap", () => {
+    expect(barStateAt(2)).toEqual({ tier: 2, fill: 100 });
+  });
+});
 
 describe("closeMotion", () => {
-  it("lands the stretch the walk just added", () => {
+  it("fills from where the saved minutes stopped to where they now stop", () => {
     expect(
-      closeMotion({ walkedMinutes: 60, closedMinutes: 20, goalMinutes: 180 }),
-    ).toEqual({
-      kind: "land",
-      stretch: { start: (40 / 180) * 100, end: (60 / 180) * 100 },
-      met: false,
-    });
+      closeMotion({ recordedBefore: 60, closedMinutes: 30, goalMinutes: 120 }),
+    ).toEqual({ kind: "fill", from: 0.5, to: 0.75 });
   });
-
-  it("says the bar lands Aqua when the walk reached the goal", () => {
-    const motion = closeMotion({
-      walkedMinutes: 185,
-      closedMinutes: 30,
-      goalMinutes: 180,
+  it("crosses a tier inside one fill", () => {
+    const m = closeMotion({
+      recordedBefore: 90,
+      closedMinutes: 60,
+      goalMinutes: 120,
     });
-    expect(motion).toMatchObject({ kind: "land", met: true });
+    expect(m).toEqual({ kind: "fill", from: 0.75, to: 1.25 });
   });
-
-  it("stops the stretch at the bar's edge rather than past it", () => {
-    const motion = closeMotion({
-      walkedMinutes: 300,
-      closedMinutes: 200,
-      goalMinutes: 180,
-    });
-    expect(motion).toEqual({
-      kind: "land",
-      stretch: { start: (100 / 180) * 100, end: 100 },
-      met: true,
-    });
-  });
-
-  it("keeps the swell and drops the rest when the goal was already met", () => {
-    // 200 recorded before this walk, against a 180 goal: the bar was full and
-    // Aqua when it started, and the minutes it added cannot be shown.
+  it("crosses both tiers inside one fill", () => {
     expect(
-      closeMotion({ walkedMinutes: 230, closedMinutes: 30, goalMinutes: 180 }),
-    ).toEqual({ kind: "swell" });
+      closeMotion({ recordedBefore: 60, closedMinutes: 240, goalMinutes: 120 }),
+    ).toEqual({ kind: "fill", from: 0.5, to: 2 });
   });
-
-  it("does nothing without a bar to animate", () => {
+  it("says nothing on a day already past the top tier", () => {
     expect(
-      closeMotion({ walkedMinutes: 30, closedMinutes: 30, goalMinutes: null }),
-    ).toEqual({ kind: "none" });
-    expect(
-      closeMotion({ walkedMinutes: 30, closedMinutes: 30, goalMinutes: 0 }),
+      closeMotion({ recordedBefore: 300, closedMinutes: 40, goalMinutes: 120 }),
     ).toEqual({ kind: "none" });
   });
-
-  it("does nothing for a walk that added no minutes", () => {
+  it("says nothing without a goal, and nothing for a walk that added nothing", () => {
     expect(
-      closeMotion({ walkedMinutes: 60, closedMinutes: 0, goalMinutes: 180 }),
+      closeMotion({ recordedBefore: 60, closedMinutes: 30, goalMinutes: null }),
+    ).toEqual({ kind: "none" });
+    expect(
+      closeMotion({ recordedBefore: 60, closedMinutes: 0, goalMinutes: 120 }),
     ).toEqual({ kind: "none" });
   });
 });
