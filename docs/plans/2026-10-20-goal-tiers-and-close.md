@@ -78,7 +78,7 @@ A wrong case here does not throw: it paints the day's effort at the wrong tier, 
   }): CloseMotion;
   ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ts
 describe("barProgress", () => {
@@ -148,21 +148,21 @@ describe("closeMotion", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `npx jest lib/__tests__/goalbar.test.ts`
 Expected: FAIL — `barProgress` is not exported.
 
-- [ ] **Step 3: Implement the three in `lib/goalbar.ts`**
+- [x] **Step 3: Implement the three in `lib/goalbar.ts`**
 
 Keep the module's block comment and rewrite it for the new contract: say that the scale is one number so a tier crossing needs no special case, and say — because it is the defect this inverts — that `recordedBefore` is the pre-close total and the minutes are _added_, where the previous contract subtracted from a total that might already contain them.
 
-- [ ] **Step 4: Run to verify they pass**
+- [x] **Step 4: Run to verify they pass**
 
 Run: `npx jest lib/__tests__/goalbar.test.ts`
 Expected: PASS, 14 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/goalbar.ts lib/__tests__/goalbar.test.ts
