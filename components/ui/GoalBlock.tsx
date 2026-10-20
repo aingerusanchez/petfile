@@ -487,8 +487,11 @@ export function GoalBlock({
    * **State, because the overlay has to be absent and not transparent.** The
    * commitment under "remove animations" is that nothing animated exists, and
    * an always-mounted overlay held at zero opacity is still there — a reader
-   * meets it, and the e2e suite's `toHaveCount(0)` would be a lie. The swell
-   * needs no state: it is a shared value on a track that is always mounted.
+   * meets it, and the e2e suite's `toHaveCount(0)` would be a lie. The other
+   * animations here need no state of their own, because their element is
+   * mounted whatever they are doing — the dot and the sweep are drawn by a
+   * shared value on a node that is already there. The close is the one that
+   * has to come and go.
    */
   const [closing, setClosing] = useState<ClosePaint | null>(null);
   /**
@@ -1188,15 +1191,17 @@ function PulseDot({ testID }: { testID?: string }) {
  * opacity, so `tone` stays a token.
  *
  * **It centres itself on the box it is put in**, rather than filling it: the
- * sweep's clip and the close's sheen are both 4 dp, so `top: "50%"` with a
- * half-height negative margin lands at zero in both and keeps working if
- * either box ever changes height. It needs the parent to have a definite
- * height — both callers give it one with `top-0 bottom-0` inside a box that
- * has one.
+ * sweep's clip is 4 dp, so `top: "50%"` with a half-height negative margin
+ * lands at zero and keeps working if that box ever changes height. It needs
+ * the parent to have a definite height — `Sweep` gives it one with
+ * `top-0 bottom-0` inside a box that has one.
  *
- * **No animation and no horizontal position**, on purpose: `Sweep` loops it
- * across the track, and the close's sheen puts it on a short stretch with a
- * motion of its own. The gradient's id comes from `useId`, because SVG ids are
+ * **No animation and no horizontal position**, on purpose: `Sweep` is the one
+ * caller and it loops the band across the track itself. The close used to be
+ * a second caller — it put a sheen on a short stretch with a motion of its
+ * own — and neither the sheen nor that caller exists any more; a band that
+ * placed or moved itself would have had to be undone for the one that is
+ * left. The gradient's id comes from `useId`, because SVG ids are
  * global to the document on the web and two bands of different tone must not
  * resolve to the same `<linearGradient>`.
  */

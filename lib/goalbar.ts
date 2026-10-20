@@ -14,8 +14,11 @@
  * is the tier reached and the fraction is progress through it: `0.5` is halfway
  * to the goal, `1` is the goal, `1.5` is halfway through the second lap, `2` is
  * double. Tier 2 is computed as double tier 1 — there is no second goal stored.
- * `topTierMinutes` is the one place that ratio lives: the measure's denominator
- * and the calendar's tiers call it, and nothing else multiplies a goal by two.
+ * **`TOP_TIER` is the one place that ratio lives**, and every surface reaches
+ * it through this module rather than multiplying a goal of its own: the
+ * calendar and the bar through `barProgress`/`barStateAt`, and the measure's
+ * denominator through `topTierMinutes`, whose only caller that is. Nothing
+ * outside this file doubles a goal.
  * Because a position anywhere on the bar is one scalar, a close that crosses a
  * tier is one interpolation between two of them and needs no special case: the
  * animation walks from `from` to `to` and `barStateAt` says what each frame
