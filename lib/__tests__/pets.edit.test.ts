@@ -1,6 +1,7 @@
 import {
   isMixedShown,
   MAX_EXERCISE_GOAL_MINUTES,
+  MIN_EXERCISE_GOAL_MINUTES,
   petEditFromRow,
   validatePetDraft,
   withMixed,
@@ -115,6 +116,35 @@ describe("validatePetDraft, on the profile's extra field", () => {
         validatePetDraft({ ...edit, exerciseGoalMinutes: goal }),
       ).toHaveProperty("exerciseGoalMinutes", "¿Cuántos minutos al día?");
     }
+  });
+
+  it("rejects a goal under the floor", () => {
+    // 29, and the bottom of the range with it: the floor is a message about
+    // the number, not the "¿Cuántos minutos?" a non-number gets.
+    for (const goal of [1, 15, MIN_EXERCISE_GOAL_MINUTES - 1]) {
+      expect(
+        validatePetDraft({ ...edit, exerciseGoalMinutes: goal })
+          .exerciseGoalMinutes,
+      ).toBe(`Al menos ${MIN_EXERCISE_GOAL_MINUTES} minutos`);
+    }
+  });
+
+  it("accepts a goal exactly at the floor", () => {
+    // The boundary, in the direction the message is about: "at least" lets 30
+    // through.
+    expect(MIN_EXERCISE_GOAL_MINUTES).toBe(30);
+    expect(
+      validatePetDraft({
+        ...edit,
+        exerciseGoalMinutes: MIN_EXERCISE_GOAL_MINUTES,
+      }),
+    ).toEqual({});
+  });
+
+  it("still accepts no goal at all, because no goal is a real answer", () => {
+    expect(validatePetDraft({ ...edit, exerciseGoalMinutes: null })).toEqual(
+      {},
+    );
   });
 
   it("caps a mistyped goal", () => {

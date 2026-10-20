@@ -2414,22 +2414,25 @@ test("crosses both tiers in one close and still celebrates once", async ({
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
-  // 10 min recorded against a 20-minute goal and a walk of 31 on top: 41 of
-  // 40 is past double, so the one gesture passes both tiers. A small goal is
-  // what keeps the live walk inside the half-hour a suite can reach back.
+  // 15 min recorded against a 30-minute goal and a walk of 46 on top: 61 of
+  // 60 is past double, so the one gesture passes both tiers. 30 is the floor a
+  // goal can have, so the tiers cannot be made closer than this; the recorded
+  // walk is half the goal to keep lap one starting where it always did, and the
+  // live walk is what has to grow — which costs the first 47 minutes of the
+  // day, when 46 minutes ago is still yesterday.
   const now = new Date();
   const earlier = new Date(now);
   earlier.setHours(0, 1, 0, 0);
-  const running = new Date(now.getTime() - 31 * 60_000);
+  const running = new Date(now.getTime() - 46 * 60_000);
   test.skip(
     running.getDate() !== now.getDate() || running <= earlier,
-    "31 minutes ago is still yesterday, or before the recorded walk",
+    "46 minutes ago is still yesterday, or before the recorded walk",
   );
 
   await resetE2EPets();
-  const petId = await seedE2EPet({ exercise_goal_minutes: 20 });
+  const petId = await seedE2EPet({ exercise_goal_minutes: 30 });
   await seedE2EEvents(petId, [
-    { kind: "walk", occurredAt: earlier, durationMinutes: 10 },
+    { kind: "walk", occurredAt: earlier, durationMinutes: 15 },
   ]);
   await seedRunningWalk(page, petId, running);
 
@@ -2470,16 +2473,17 @@ test("says nothing when the day is already past the top tier", async ({
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
-  // 45 min recorded against a 20-minute goal is already past double, so the
-  // minutes this walk adds fall off the end of the bar. The silence is
-  // deliberate: the day is already said.
+  // 65 min recorded against a 30-minute goal is already past double (60), so
+  // the minutes this walk adds fall off the end of the bar. The silence is
+  // deliberate: the day is already said. (The goal cannot go under 30, and 45
+  // would sit between the tiers, which is a different test.)
   const { earlier, running } = tickMoments();
   test.skip(earlier === null, "the first minutes of the day have no room");
 
   await resetE2EPets();
-  const petId = await seedE2EPet({ exercise_goal_minutes: 20 });
+  const petId = await seedE2EPet({ exercise_goal_minutes: 30 });
   await seedE2EEvents(petId, [
-    { kind: "walk", occurredAt: earlier!, durationMinutes: 45 },
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 65 },
   ]);
   await seedRunningWalk(page, petId, running);
 
