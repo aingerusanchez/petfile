@@ -25,6 +25,7 @@ import {
   barProgress,
   barStateAt,
   closeMotion,
+  topTierMinutes,
 } from "../../lib/goalbar";
 import type { DurationFormat } from "../../lib/settings";
 import { elapsedMinutes } from "../../lib/walk";
@@ -635,7 +636,7 @@ export function GoalBlock({
                   // typed.** The bar runs to double and the measure has to
                   // count against the same thing the bar draws, or "2h de 2h"
                   // would sit under a bar that is half painted.
-                  `${formatDuration(walkedMinutes, durationFormat)} de ${formatDuration(goalMinutes * 2, durationFormat)} paseados`}
+                  `${formatDuration(walkedMinutes, durationFormat)} de ${formatDuration(topTierMinutes(goalMinutes), durationFormat)} paseados`}
           </Text>
         </View>
 

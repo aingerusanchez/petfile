@@ -1388,7 +1388,7 @@ test("moves the tick as more is recorded, and leaves the layout alone", async ({
   expect(walking!.y).toBeCloseTo(idle!.y, 0);
 });
 
-test("draws no tick when the goal is already met, walking or not", async ({
+test("draws no tick on a day exactly at the goal, where lap two has recorded nothing yet", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -1406,8 +1406,11 @@ test("draws no tick when the goal is already met, walking or not", async ({
   await seedSession(page);
   await page.goto("/");
 
-  // The bar is full and Aqua and the walk is running; there is no segment, so
-  // a mark at the right end would separate the recorded minutes from nothing.
+  // 60 of 60 is the foot of lap two: the ground is Aqua and the recorded fill
+  // over it is empty, with a walk running. The tick marks where recorded
+  // minutes end, and on an empty fill that is the left edge, separating nothing
+  // from the walk — so it is withheld because nothing is recorded on this lap,
+  // not because the goal is met. One minute further and it does draw.
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
   await expect(page.getByTestId("home-goal-met")).toBeVisible();
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
@@ -1654,6 +1657,32 @@ test("a day past double is violet throughout", async ({ page }) => {
   );
   expect(await groundColour(page)).toBe(colors.accentFocus);
   // There is no third lap to start, so nothing is painted over the violet.
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Objetivo conseguido x2",
+  );
+});
+
+test("a day at exactly double is violet throughout, with nothing over it", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  const { earlier } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  // 240 of 120: the top of the scale, the other half of the wrap rule that
+  // 120 of 120 pins at the bottom. There is no third lap, so the fill is
+  // suppressed rather than full.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 240 },
+  ]);
+  await seedSession(page);
+  await page.goto("/");
+
+  await expect(page.getByTestId("home-goal-measure")).toContainText("4h de 4h");
+  expect(await groundColour(page)).toBe(colors.accentFocus);
   expect(await widthOf(page, "home-goal-bar")).toBe(0);
   await expect(page.getByTestId("home-goal-met")).toHaveText(
     "Objetivo conseguido x2",

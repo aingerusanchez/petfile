@@ -72,7 +72,8 @@ test("carries the duration format into the day and the file", async ({
   await expect(page.getByTestId("profile-goal-value")).toHaveText("90 min");
 
   await page.goto("/");
-  await expect(page.getByTestId("home-goal")).toContainText("de 90 min");
+  // The right-hand side of the measure is the top tier, double the 90 typed.
+  await expect(page.getByTestId("home-goal")).toContainText("de 180 min");
 });
 
 test("keeps the preference across a reload", async ({ page }) => {

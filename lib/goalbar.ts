@@ -14,6 +14,8 @@
  * is the tier reached and the fraction is progress through it: `0.5` is halfway
  * to the goal, `1` is the goal, `1.5` is halfway through the second lap, `2` is
  * double. Tier 2 is computed as double tier 1 — there is no second goal stored.
+ * `topTierMinutes` is the one place that ratio lives: the measure's denominator
+ * and the calendar's tiers call it, and nothing else multiplies a goal by two.
  * Because a position anywhere on the bar is one scalar, a close that crosses a
  * tier is one interpolation between two of them and needs no special case: the
  * animation walks from `from` to `to` and `barStateAt` says what each frame
@@ -32,6 +34,14 @@
 
 /** The bar stops at two laps; a day past double cannot be shown further. */
 const TOP_TIER = 2;
+
+/**
+ * The minutes at the top of the bar: the goal, once per lap. The measure counts
+ * against this, and so must anything else that reads the top tier.
+ */
+export function topTierMinutes(goalMinutes: number): number {
+  return goalMinutes * TOP_TIER;
+}
 
 /**
  * The bar as one number: the integer part is the tier reached, the fraction
