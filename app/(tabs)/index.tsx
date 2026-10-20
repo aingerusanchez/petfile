@@ -370,7 +370,18 @@ export default function Home() {
     attempt: number;
     events: PetEventRow[];
   } | null>(null);
-  /** Fatal: with no pet there is no day to show. */
+  /**
+   * Fatal: with no pet there is no day to show.
+   *
+   * **Only while there is nothing on screen.** A failed *action* is not a
+   * failed *navigation*: a walk that cannot be saved offline bumps `attempt`,
+   * the refetch includes the pet read, and that fails offline too — about
+   * seven seconds later, after the pet read's own retries, which used to
+   * replace a diary the tutor was looking at with the connection error. The
+   * error takes the screen only where there is no pet already showing, so
+   * this holds for every present and future caller of the reload and not just
+   * the two error branches that exist today.
+   */
   const [petError, setPetError] = useState<string | null>(null);
   /** Not fatal: the header, the goal and the actions all still work. */
   const [logError, setLogError] = useState<string | null>(null);
@@ -884,7 +895,7 @@ export default function Home() {
     day,
   ]);
 
-  if (petError) {
+  if (petError && !pet) {
     return (
       <Screen center edges={["top"]}>
         <Text

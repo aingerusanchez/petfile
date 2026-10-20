@@ -3127,6 +3127,72 @@ test("shakes the control when a start cannot be saved", async ({ page }) => {
   await page.unroute("**/rest/v1/pet_events*");
 });
 
+/**
+ * **A failed action is not a failed navigation.** Found on a phone in
+ * airplane mode: the toast and the shake were right, and about seven seconds
+ * later the whole diary was replaced by the connection error, because the
+ * failure bumps `attempt` and the refetch includes the pet read, which fails
+ * offline too.
+ *
+ * **This cuts every Supabase route, not the write.** The specs around it abort
+ * one verb on `pet_events`, so the pet read always survived and the screen
+ * could never fall over — which is exactly why none of them saw this.
+ */
+test("keeps the diary on screen when a walk cannot be saved offline", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const { earlier } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "meal", occurredAt: earlier!, what: "Pienso" },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  const entries = page.locator('[data-testid^="home-entry-"]');
+  await expect(entries).toHaveCount(1);
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  // Every route, so the refetch the failure triggers cannot read the pet.
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  // **The read is retried, which is where the seven seconds come from.**
+  // postgrest-js retries a failed GET three times, after 1, 2 and 4 seconds,
+  // so the pet read reports its failure to the screen only once the fourth
+  // attempt has failed. Waiting for the first one would end the test before
+  // the old defect had happened.
+  let petReads = 0;
+  const petReadGaveUp = new Promise<void>((resolve) => {
+    page.on("requestfailed", (request) => {
+      if (/\/rest\/v1\/pets\b/.test(request.url()) && ++petReads === 4) {
+        resolve();
+      }
+    });
+  });
+
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+
+  // The pet read was attempted again and gave up — the moment the old screen
+  // fell over — and a beat later is when its state would have committed.
+  await petReadGaveUp;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-retry")).toHaveCount(0);
+  await expect(page.getByTestId("home-title")).toBeVisible();
+  await expect(entries).toHaveCount(1);
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Empezar paseo",
+  );
+  await page.unroute(supabase);
+});
+
 test("mounts no shake for a tutor who asked for no animation", async ({
   page,
 }) => {
