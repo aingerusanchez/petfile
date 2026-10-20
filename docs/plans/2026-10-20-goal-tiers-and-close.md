@@ -629,6 +629,87 @@ device pass has to listen to it rather than inspect it.
 
 ---
 
+### Task 7c: The daily goal has a floor
+
+**Files:**
+
+- Modify: `lib/pets.ts`, `e2e/home.spec.ts` (two fixtures), `README.md`
+- Test: `lib/__tests__/pets.test.ts`
+
+**The tutor's rule: a daily goal is at least 30 minutes, or there is no goal at all.**
+
+Two reasons, and the second is the one this branch created:
+
+- **30 minutes is the floor of who this app is for.** It is what a dog with bad legs
+  or a very old dog can still do. Below that, somebody is not keeping a walk diary.
+- **With two tiers, a low goal is a back door to the top one.** A 15-minute goal puts
+  Tier 2 at 30 — reached before lunch, every day. The confetti was just moved to Tier 2
+  _because_ Tier 1 became the everyday; a goal with no floor would hand the everyday
+  straight back to it. The top tier has to stay exceptional, or at most a free day that
+  reads as different from the norm.
+
+**`null` is untouched.** No goal is TIER 0 — the storm, the illness, the rest day —
+and the floor applies only to a goal that is set.
+
+**No grandfathering.** A stored row below the floor should fail validation like any
+other, so the profile says so and the field to fix is on the same screen. A stricter
+rule that quietly tolerates its own old violations is a rule nobody can reason about.
+
+- [ ] **Step 1: Write the failing tests**
+
+```ts
+// lib/__tests__/pets.test.ts — against validatePetDraft, which both forms call
+it("rejects a goal under the floor", () => {
+  // 29 → errors.exerciseGoalMinutes
+});
+it("accepts a goal exactly at the floor", () => {
+  // 30 → no error. The boundary, in the direction the message is about.
+});
+it("still accepts no goal at all", () => {
+  // null → no error, because TIER 0 is a real answer.
+});
+```
+
+- [ ] **Step 2: Run to verify they fail**
+
+Run: `pnpm test -- pets`
+Expected: FAIL on 29 and on 30's message.
+
+- [ ] **Step 3: Add `MIN_EXERCISE_GOAL_MINUTES`**
+
+Export it beside `MAX_EXERCISE_GOAL_MINUTES` and build the message from it, the way
+the ceiling's already is. Keep the voice: `Como mucho 300 minutos` has a twin, not a
+cousin. Put the _reason_ in the comment beside it — the existing one earns its keep by
+explaining that five hours means a mistyped number rather than an Iditarod team, and
+the floor's own reason is the tier arithmetic above, which no reader will infer.
+
+- [ ] **Step 4: Rescale the two fixtures that seed 20**
+
+`e2e/home.spec.ts:2430` and `:2480` seed `exercise_goal_minutes: 20` to make lapping
+easy to reach. They will not fail — fixtures write straight to the database and never
+meet the validator — but they would encode a pet the app can no longer produce, and a
+spec should exercise a state a tutor can actually be in. Rescale both and keep what
+each one tests; the 45-minute walk must still lap.
+
+- [ ] **Step 5: README**
+
+It states the goal's range. The maintenance table in AGENTS.md makes this mandatory,
+not optional.
+
+- [ ] **Step 6: Run everything**
+
+Run: `pnpm lint && pnpm test && npx tsc --noEmit`, then the full `e2e/home.spec.ts`
+and `e2e/settings.spec.ts`.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add lib/pets.ts lib/__tests__/pets.test.ts e2e/home.spec.ts README.md
+git commit -m "feat(pets): a daily goal is at least half an hour, or none at all"
+```
+
+---
+
 ### Task 8: Ship it
 
 **Files:**
