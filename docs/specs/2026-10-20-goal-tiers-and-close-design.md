@@ -1,7 +1,8 @@
 # The goal's two tiers, and the close that lands on it — design
 
-Status: drafted 2026-10-20, in conversation with the tutor. Second draft, after
-a builder check found the first unbuildable. Not yet agreed.
+Status: **agreed 2026-10-20**, in conversation with the tutor. Third draft: a
+builder check found the first unbuildable, and the second was settled on an
+artboard. Not yet planned.
 
 Written in English to match PRODUCT.md, DESIGN.md and AGENTS.md. The app's own
 copy stays Spanish.
@@ -212,22 +213,37 @@ set it is not.
 
 ## How the bar reads
 
-**Two laps on one track.**
+**The ground is the highest tier reached; the fill is progress toward the next.**
 
-Lap one is Tier 1. The bar fills with the day's minutes and completes at the
-floor, turning Aqua exactly as it does today. An ordinary day fills the bar;
-nothing about an ordinary day reads as falling short.
+- Below Tier 1: empty track, Mist filling.
+- At Tier 1: **the whole bar turns Aqua**, as it does today, and violet begins
+  to fill over it.
+- At Tier 2: the whole bar turns violet.
 
-Lap two is Tier 1 → Tier 2, drawn over the same track, starting empty. It
-appears only on days that pass the floor and completes a few times a month, in
-Aurora Boreal.
+The bar is cumulative and there is only ever one of it: each lap paints over
+the one below, so a day on lap two still shows that lap one was completed.
 
-The first draft recommended this over a single Tier-2-wide bar with Tier 1
-marked on it, arguing that a single bar would stop at two thirds on a normal
-day and so teach the tutor to stop reading it. That argument was derived from
-numbers the draft had invented. **With the tutor's numbers the case is stronger
-and different:** at 2 h and 4 h the laps are equal, so the bar is not a
-progress bar that gives up but a measure that goes round twice.
+**This was settled on an artboard against the tutor's own first description**,
+which was the same idea read literally: Mist fills lap one, and _then_ Aqua
+begins to paint over it progressively. The fissure is in one column, and it is
+the commonest day there is — a day that reaches Tier 1 and stops shows the bar
+**entirely Mist and not a trace of Aqua**. Aqua is currently the whole signal
+for "met", on the bar and in the calendar's miniature of it, so eighteen days a
+month would be marked in the colour that today means _not_ met. The tutor's
+words on choosing otherwise: _"no quiero perder el hito de objetivo conseguido
+y que cambie a Aqua para ilustrarlo."_
+
+**The trade the tutor accepted, in their own framing.** Aqua now appears on
+every ordinary day rather than being saved for the moment of arriving. What
+stays rare is the violet, and that is where the surprise was always meant to
+live: the first mountain day after this ships is _"un día que anotar en el
+calendario"_ — in consonance with the birthday's own empty state.
+
+**Saved and in-progress stay distinguished on every lap.** Within the current
+lap's fill, the saved minutes are a tone lighter than the ones accumulating,
+with the tick between them — exactly as now. The tiers are orthogonal to that;
+all that changes is which pair of tones the lap wears. Lap two's pair is a
+saved violet and a live violet a step below it.
 
 ### What the bar shows, case by case
 
@@ -241,9 +257,14 @@ The first draft left these undefined and a builder could not have proceeded.
   the empty track again, its fill is the lap-two minutes. Lap one's completion
   is no longer on the bar — it is in the measure's words and in the calendar's
   mark.
-- **A close that crosses a lap boundary.** One animation: the fill converts to
-  the end of lap one, the lap turns, and the fill continues on lap two from
-  zero. One confetti, at the crossing, not two.
+- **A close that crosses a lap boundary.** **One animation, whose origin is the
+  tick, even though it changes tier on the way.** The fill leaves the tick and
+  converts what is left of lap one; on reaching the right edge the whole bar
+  turns Aqua and the confetti falls, once; the same fill then continues from the
+  left edge in violet over that Aqua, to wherever the walk ended. Not two
+  animations in sequence — one gesture that changes colour as it passes a
+  threshold. A walk long enough to cross both tiers does it twice, by the same
+  rule.
 - **The tick on lap two.** The tick marks the saved/live junction, which exists
   on either lap and is drawn by the same rule it has now. It does **not** mark
   the lap boundary; the first draft claimed it did and the code refuses to draw
@@ -323,13 +344,20 @@ else. All the platform constraints in AGENTS.md.
 
 ## Questions for the tutor
 
-1. **The Spanish.** Nothing can be built until the tiers have names. The measure,
-   the "Objetivo conseguido" label, the calendar legend and the day cell's
-   accessible name must all use one vocabulary. What does a Tier 2 day say?
-2. **On lap two, what does the measure read?** The day's total ("4h 10m de 4h"),
-   or what is left of lap two? Today it reads the total against the goal.
-3. **The café outing** — log the transit and leave out the breakfast, or keep
-   leaving the whole thing out? It moves about 20 minutes a day.
-4. **Scope.** With Tier 2 computed there is no migration, so this is smaller than
-   it was: the bar, the calendar, and `closeMotion`. Does it still go in its own
-   branch after the walk-timer merges, or together?
+1. ~~The Spanish.~~ **Answered, provisionally:** Tier 1 keeps _"Objetivo
+   conseguido"_; Tier 2 is _"Objetivo conseguido x2"_, which leans on Tier 2
+   being defined as double. The tutor marked it as for now, so it is the
+   placeholder a better phrase would replace, not a decision to defend.
+2. ~~The café outing.~~ **Answered, and the tutor's practice is cleaner than
+   the design's suggestion.** The weekday outing is under five minutes each way
+   and is not logged at all. At the weekend, when the bar is in another village
+   and each leg is over ten minutes, the two legs are logged as **two separate
+   walks** — rather than one walk with the sitting subtracted. That also closes
+   the September arithmetic: what stopped being counted was not thirty minutes
+   of walking but a whole outing of which most was a dog lying still. The 3 h of
+   September were never 3 h of walking.
+3. ~~Scope.~~ **Answered: together with the walk timer**, because it is the same
+   bar, the same animations and the same styles.
+4. **On lap two, what does the measure read?** Still open: the day's total
+   against the top tier ("3h de 4h"), which is what the artboard assumes, or
+   what is left of this lap.
