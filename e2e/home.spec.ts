@@ -954,12 +954,13 @@ test("marks a double day in the accent and an ordinary one in Aqua", async ({
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   // Against a 120 goal: one minute short, the goal and a little over, exactly
-  // double, and well past it. The two boundaries are the days that tell a
-  // `>=` from a `>` — and the day view says the same about each of them.
+  // the goal, exactly double, and well past it. The two exact days are the
+  // boundaries, the ones that tell a `>=` from a `>` — and the day view says
+  // the same about each of them.
   //
   // **The pet is born on the 1st of January, not on its default.** The default
   // birth date is the 14th of September, and a month that has a birthday in it
-  // draws a cake on that day — one of the four days seeded here, in the one
+  // draws a cake on that day — one of the five days seeded here, in the one
   // month of the year this spec would otherwise run in.
   await resetE2EPets();
   const petId = await seedE2EPet({
@@ -973,6 +974,7 @@ test("marks a double day in the accent and an ordinary one in Aqua", async ({
       [13, 130],
       [14, 240],
       [15, 260],
+      [16, 120],
     ].map(([day, minutes]) => ({
       kind: "walk" as const,
       occurredAt: lastMonthAt(day),
@@ -989,6 +991,7 @@ test("marks a double day in the accent and an ordinary one in Aqua", async ({
   await expect(barIn(page, "13, objetivo conseguido")).toBeVisible();
   await expect(barIn(page, "14, objetivo conseguido x2")).toBeVisible();
   await expect(barIn(page, "15, objetivo conseguido x2")).toBeVisible();
+  await expect(barIn(page, "16, objetivo conseguido")).toBeVisible();
   await expect(
     page
       .getByTestId("home-calendar")
@@ -1004,6 +1007,10 @@ test("marks a double day in the accent and an ordinary one in Aqua", async ({
   );
   expect(await backgroundOf(barIn(page, "14, objetivo conseguido x2"))).toBe(
     colors.accentFocus,
+  );
+  // Exactly the goal is Tier 1, not short of it: the twin of the 240 day.
+  expect(await backgroundOf(barIn(page, "16, objetivo conseguido"))).toBe(
+    colors.accent,
   );
   expect(await backgroundOf(barIn(page, "15, objetivo conseguido x2"))).toBe(
     colors.accentFocus,
