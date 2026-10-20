@@ -577,6 +577,33 @@ The ground is the tier reached and the fill is the way to the next; Aqua stays "
 
 The goal bar's animations and the failed-action rule. That section's own rule: an item leaves when it ships and the changelog entry is the exit.
 
+- [ ] **Step 3b: The three things the amendments left stale**
+
+The tutor changed two things after the spec was written, and the implementation
+removed a third. All three are now documented wrongly somewhere:
+
+- **`DESIGN.md` still describes the close's swell and its sheen.** Both are
+  gone — the fill from the tick replaced them. Delete, do not soften.
+- **The confetti is Tier 2's alone, and violet.** Tier 1 lost it on purpose:
+  the point of two tiers is that reaching the goal becomes the everyday, and
+  the everyday is not celebrated. This is the answer to `PRODUCT.md`'s own
+  recorded worry that the effect was wearing out at eighteen times a month —
+  say so there, because the worry and its fix belong in the same place.
+- **The live fill laps while the ground waits for the close.** The spec does
+  not mention it. Record the reason as well as the rule: a bar lapping in grey
+  is the signal that something has not been saved, so a walk left running
+  cannot disguise itself as a finished day.
+
+`docs/specs/2026-10-20-goal-tiers-and-close-design.md` was deliberately not
+edited while tasks ran against it. Bring it into line here, marked as recorded
+in retrospect.
+
+- [ ] **Step 3c: Warn the reader about the quiet day**
+
+The changelog entry must say plainly that **the first day you reach the goal
+after this build, there will be no confetti where there used to be.** It is
+the intended change and it will feel like a regression for a day.
+
 - [ ] **Step 4: Verify everything**
 
 Run: `pnpm lint && pnpm test && pnpm test:e2e`, then `npx expo prebuild -p android && pnpm android:apk`. Without the prebuild `android/app/build.gradle` keeps the last version name and the APK lies about which build it is.
