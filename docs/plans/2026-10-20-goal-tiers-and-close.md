@@ -435,7 +435,7 @@ The day's bar under the number is the day view's bar in miniature and must stay 
 
 The legend gains a fourth entry in a row that already wraps at a large font scale; check it at `font_scale` 1.45, which is where the tutor runs their phone's maximum.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 test("marks a double day in the accent and an ordinary one in Aqua", async ({
@@ -446,19 +446,19 @@ test("marks a double day in the accent and an ordinary one in Aqua", async ({
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx playwright test e2e/home.spec.ts -g "marks a double day"`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement the mark and the legend entry**
+- [x] **Step 3: Implement the mark and the legend entry**
 
-- [ ] **Step 4: Run the calendar specs**
+- [x] **Step 4: Run the calendar specs**
 
 Run: `npx playwright test e2e/home.spec.ts -g "calendar|marks a double day|birthday"`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/ui/MonthCalendar.tsx e2e/home.spec.ts
