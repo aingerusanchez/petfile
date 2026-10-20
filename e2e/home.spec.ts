@@ -1826,9 +1826,11 @@ test("laps the live segment past the floor, and leaves the ground alone", async 
   expect(await widthOf(page, "home-goal-bar")).toBeCloseTo(bar * 0.5, 0);
   expect(await colourOf(page, "home-goal-live")).toBe(colors.textTertiary);
   expect(await widthOf(page, "home-goal-live")).toBeCloseTo(bar * 0.5, 0);
-  // …and a second band is drawn from the left edge in the next lap's.
+  // …and a second band is drawn from the left edge in the next lap's. Its
+  // width is the one reading here that moves with the clock: 75 of 60 is a
+  // quarter of lap two, and a setup that crossed a minute makes it 76.
   expect(await colourOf(page, "home-goal-lap")).toBe(colors.accentFocusDim);
-  expect(await widthOf(page, "home-goal-lap")).toBeCloseTo(bar * 0.25, 0);
+  expectMinutes((await widthOf(page, "home-goal-lap")) / bar, 15, 16, 60);
   const left = await page.getByTestId("home-goal-ground").boundingBox();
   const band = await page.getByTestId("home-goal-lap").boundingBox();
   expect(band!.x).toBeCloseTo(left!.x, 0);
@@ -2179,6 +2181,71 @@ test("crosses the goal inside one fill, with no confetti", async ({ page }) => {
   await expect(page.getByTestId("celebration")).toBeHidden();
 });
 
+test("converts a lapped walk without dropping its second band", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // 50 min recorded against a 60-minute goal and a walk of 30 on top: the
+  // live segment has lapped, so before the stop the left third of the bar is
+  // wearing lap two's live violet over a lap one that is otherwise Mist.
+  //
+  // **The painted width is blind to this.** It is the whole bar before the
+  // stop and the whole bar throughout the close, so the no-shrink spec cannot
+  // see a band inside the paint reverting to the tone underneath it. A point
+  // can: sampled at 15% of the bar, the close may hand it from lap two's live
+  // violet to lap two's saved violet and to nothing else. A frame of Mist
+  // there is the lapped band having been dropped for the first slice of the
+  // animation — the smaller version of exactly the backwards step this whole
+  // gesture exists to remove.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 30 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "30 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 50 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  // The lapped band is there before the stop, and reaches past the point
+  // this spec watches.
+  expect(await colourOf(page, "home-goal-lap")).toBe(colors.accentFocusDim);
+  expect(
+    (await widthOf(page, "home-goal-lap")) /
+      (await widthOf(page, "home-goal-ground")),
+  ).toBeGreaterThan(0.25);
+
+  const sampling = barFrames(page, 3_000, "", 0.15);
+  await page.getByTestId("home-goal-control").click();
+  const { frames } = await sampling;
+
+  // Violet throughout — the live one while the band is still unconverted, the
+  // saved one once the fill has passed. Never the tone of the lap underneath.
+  const violets: string[] = [colors.accentFocusDim, colors.accentFocus];
+  const strangers = frames.filter((f) => !violets.includes(f.tone));
+  expect(strangers.map((f) => f.tone)).toEqual([]);
+
+  // And it did convert: both tones appear, so the point was handed over
+  // rather than simply left alone.
+  expect(frames.some((f) => f.tone === colors.accentFocusDim)).toBe(true);
+  expect(frames.some((f) => f.tone === colors.accentFocus)).toBe(true);
+
+  // It settles on lap two, a third of the way along, over an Aqua ground.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect.poll(() => groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+});
+
 test("crosses both tiers in one close and still celebrates once", async ({
   page,
 }) => {
@@ -2363,7 +2430,7 @@ test("holds the fill when the reload never comes", async ({ page }) => {
   const { bar, frames } = await sampling;
   const at = frames[0].painted;
 
-  expect(at / bar).toBeCloseTo(0.508, 2);
+  expectMinutes(at / bar, 61, 62, 120);
   expect(Math.min(...frames.map((f) => f.painted))).toBeGreaterThanOrEqual(
     at - 0.5,
   );
@@ -2371,10 +2438,13 @@ test("holds the fill when the reload never comes", async ({ page }) => {
   // And it is still there once everything has settled: 61 of 120, drawn
   // from numbers the close carried rather than from rows that never came.
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
-  expect(
+  expectMinutes(
     (await widthOf(page, "home-goal-bar")) /
       (await widthOf(page, "home-goal-ground")),
-  ).toBeCloseTo(0.508, 2);
+    61,
+    62,
+    120,
+  );
   await page.unroute("**/rest/v1/pet_events*");
 });
 
@@ -2431,16 +2501,27 @@ test("lands a close with no animation at all for a tutor who asked for none", as
  * has got to once the painted width is already the whole bar. It reads −1 on
  * a frame where that element is not mounted.
  *
+ * **`at` is a point on the bar, as a share of its width, and `tone` is the
+ * colour painted there** — the topmost band covering it, ticks excluded. The
+ * painted width is blind to anything that happens *inside* the paint, which
+ * is exactly where a lapped close could drop a band and step backwards
+ * without the bar getting any shorter. A point reads what an eye reads.
+ *
  * The first frame is sampled before the promise yields, so a caller can check
  * it began before the press rather than after it — a sampler that started
  * late would see no drop and pass for the wrong reason.
  */
-function barFrames(page: Page, ms: number, probe = "") {
+function barFrames(page: Page, ms: number, probe = "", at = -1) {
   return page.evaluate(
-    ([sampleMs, track, watched]) =>
+    ([sampleMs, track, watched, point]) =>
       new Promise<{
         bar: number;
-        frames: { painted: number; ground: string; probe: number }[];
+        frames: {
+          painted: number;
+          ground: string;
+          probe: number;
+          tone: string;
+        }[];
       }>((resolve) => {
         const hex = (css: string): string => {
           const rgba = (css.match(/[\d.]+/g) ?? []).map(Number);
@@ -2459,31 +2540,45 @@ function barFrames(page: Page, ms: number, probe = "") {
             ? document.querySelector(`[data-testid="${watched}"]`)
             : null;
           const measured = seen ? seen.getBoundingClientRect().width : -1;
-          if (!bar) return { painted: 0, ground: "", probe: measured };
+          if (!bar)
+            return { painted: 0, ground: "", probe: measured, tone: "" };
           const close = document.querySelector(
             '[data-testid="home-goal-close"]',
           );
           const nodes: Element[] = [bar, ...bar.querySelectorAll("*")];
           if (close) nodes.push(...close.querySelectorAll("*"));
           const left = bar.getBoundingClientRect().left;
+          const spot =
+            point >= 0 ? left + point * bar.getBoundingClientRect().width : NaN;
           let painted = 0;
           let ground = "";
+          let tone = "";
           for (const el of nodes) {
             const style = getComputedStyle(el);
             if (Number(style.opacity) === 0) continue;
-            const tone = hex(style.backgroundColor);
-            if (tone === "") continue;
+            const painting = hex(style.backgroundColor);
+            if (painting === "") continue;
             const box = el.getBoundingClientRect();
             const id = el.getAttribute("data-testid") ?? "";
             // The grounds are the only full-width layers, and the last one
             // drawn is the one the eye sees.
             if (id === "home-goal-ground" || id.endsWith("-ground")) {
-              if (box.width > 0) ground = tone;
+              if (box.width > 0) ground = painting;
             }
-            if (tone === track) continue;
+            // A tick is 2 dp of furniture standing over the bands rather than
+            // one of them, so it is not what is painted at a point.
+            if (
+              !id.endsWith("-tick") &&
+              box.width > 0 &&
+              box.left <= spot &&
+              box.right >= spot
+            ) {
+              tone = painting;
+            }
+            if (painting === track) continue;
             painted = Math.max(painted, box.right - left);
           }
-          return { painted, ground, probe: measured };
+          return { painted, ground, probe: measured, tone };
         };
         const frames = [sample()];
         const began = performance.now();
@@ -2503,7 +2598,80 @@ function barFrames(page: Page, ms: number, probe = "") {
         };
         requestAnimationFrame(step);
       }),
-    [ms, colors.surface, probe] as const,
+    [ms, colors.surface, probe, at] as const,
+  );
+}
+
+/**
+ * Asserts a share of the bar is worth somewhere between `low` and `high`
+ * minutes of `goal`.
+ *
+ * **A span of whole minutes is the only promise this suite can make.** A walk
+ * seeded at `now − 31 min` is 31 minutes old until a full 60 s has passed
+ * between the seeding and the measurement, and then it is 32; a cold run is
+ * not bounded, and the component's own clock is refreshed only every 30 s, so
+ * the close can record a minute more than the segment was painted at. One
+ * minute of a two-hour goal moves the ratio by 0.0083, where
+ * `toBeCloseTo(…, 2)` admits 0.005 — the class of half-the-day failure this
+ * file's header is about. The 0.002 either side is for sub-pixel layout, not
+ * for time.
+ */
+function expectMinutes(share: number, low: number, high: number, goal: number) {
+  expect(share).toBeGreaterThan(low / goal - 0.002);
+  expect(share).toBeLessThan(high / goal + 0.002);
+}
+
+/**
+ * Samples the close's tick against the leading edge of the fill it is
+ * supposed to be riding, on every frame for `ms`. Frames where either is
+ * absent are skipped, so the length of the result is how long the close was
+ * drawing a tick at all.
+ */
+function tickFrames(page: Page, ms: number) {
+  return page.evaluate(
+    ([sampleMs]) =>
+      new Promise<{ bar: number; frames: { tick: number; edge: number }[] }>(
+        (resolve) => {
+          const sample = () => {
+            const bar = document.querySelector(
+              '[data-testid="home-goal-ground"]',
+            );
+            const tick = document.querySelector(
+              '[data-testid="home-goal-close-tick"]',
+            );
+            const fill = document.querySelector(
+              '[data-testid="home-goal-close-lap-0-fill"]',
+            );
+            if (!bar || !tick || !fill) return null;
+            const left = bar.getBoundingClientRect().left;
+            const mark = tick.getBoundingClientRect();
+            const edge = fill.getBoundingClientRect().right;
+            return {
+              tick: mark.left + mark.width / 2 - left,
+              edge: edge - left,
+            };
+          };
+          const frames: { tick: number; edge: number }[] = [];
+          const began = performance.now();
+          const step = () => {
+            const got = sample();
+            if (got !== null) frames.push(got);
+            if (performance.now() - began >= sampleMs) {
+              resolve({
+                bar:
+                  document
+                    .querySelector('[data-testid="home-goal-ground"]')
+                    ?.getBoundingClientRect().width ?? 0,
+                frames,
+              });
+              return;
+            }
+            requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        },
+      ),
+    [ms] as const,
   );
 }
 
@@ -2585,7 +2753,7 @@ test("fills from the tick without the bar ever shrinking", async ({ page }) => {
   // The sampler was running before the press: 61 of 120 minutes is half the
   // bar, and 30 of 120 — the recorded fill alone — is a quarter. Without this
   // a sampler that started late would measure the hole as its own baseline.
-  expect(at / bar).toBeCloseTo(0.508, 2);
+  expectMinutes(at / bar, 61, 62, 120);
 
   // And the bar never lost the walk.
   expect(Math.min(...frames.map((f) => f.painted))).toBeGreaterThanOrEqual(
@@ -2593,14 +2761,71 @@ test("fills from the tick without the bar ever shrinking", async ({ page }) => {
   );
 
   // It settles where the data says, with the live marks gone.
-  await expect(page.getByTestId("home-goal")).toContainText("1h 1m de 4h");
+  await expect(page.getByTestId("home-goal")).toHaveText(/1h [12]m de 4h/);
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
-  expect(
+  expectMinutes(
     (await widthOf(page, "home-goal-bar")) /
       (await widthOf(page, "home-goal-ground")),
-  ).toBeCloseTo(0.508, 2);
+    61,
+    62,
+    120,
+  );
+});
+
+test("rides the tick on the fill's leading edge while the close converts", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // The same close as above — 30 recorded and a walk of 31 against a
+  // 120-minute goal, inside one lap. During the conversion the fill's leading
+  // edge *is* the saved/live boundary, which is the one thing the tick has
+  // ever marked, so it travels with it from the junction to the end. Nothing
+  // else in the file would notice the mark being pinned to a constant or
+  // deleted outright, and the headline spec above is named after it.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  const sampling = tickFrames(page, 3_000);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+
+  // It was drawn for the length of the close, not for a frame of it.
+  expect(frames.length).toBeGreaterThan(10);
+
+  // **On the edge, every frame.** A tick a pixel off the boundary is a tick
+  // marking something else.
+  const adrift = frames.filter((f) => Math.abs(f.tick - f.edge) > 1);
+  expect(adrift.map((f) => [f.tick, f.edge])).toEqual([]);
+
+  // **And it travelled.** Wiring its position to a constant would satisfy
+  // everything above.
+  const places = frames.map((f) => f.tick);
+  expectMinutes(Math.min(...places) / bar, 30, 31, 120);
+  expectMinutes(Math.max(...places) / bar, 61, 62, 120);
+
+  // It goes with the overlay, leaving a bar with nothing left to separate.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
 });
 
 test("shows the control working while the start is being written", async ({

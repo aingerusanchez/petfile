@@ -243,6 +243,17 @@ type ClosePaint = {
 /**
  * What one lap of a close shows at `t`, 0–100 of the bar.
  *
+ * **Clamped at both ends, and the lower clamp is load-bearing.** Before a
+ * lap's own slice opens this reads its *start* fill — which for every lap
+ * after the first is zero — so that lap's held band already spans the whole
+ * of itself from the first frame of the close. That is what carries a lapped
+ * walk's second band through the slice belonging to the lap underneath it:
+ * the band is not withheld and then introduced, it is there from the start
+ * and the fill eats into it when its turn comes. A guard that zeroed the band
+ * until its lap opened would reinstate, inside the close, the backwards step
+ * the close exists to remove — and `converts a lapped walk without dropping
+ * its second band` is the spec that fails if anybody adds one.
+ *
  * A lap with no length — the empty lap a close landing exactly on a tier
  * opens — reads its end value the instant it is reached, rather than dividing
  * by a zero-length slice.
@@ -1415,7 +1426,12 @@ function CloseLanding({ laps, testID }: { laps: CloseLap[]; testID?: string }) {
  *
  * The ground is first so the two bands sit over it, and the laps are rendered
  * in order so each lap's ground covers the one below — which is the tier
- * turning, drawn.
+ * turning, drawn. **The order is also what holds a lapped walk's second
+ * band**: a later lap's held band is painted over an earlier lap's fill, so
+ * at `t = 0` the overlay is the live rendering exactly — this lap's saved
+ * fill, this lap's live remainder, and the next lap's band over the left of
+ * both. Its ground is zero-width until its slice opens, so it covers nothing
+ * it should not.
  */
 function CloseLapPaint({
   lap,
