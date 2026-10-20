@@ -3387,6 +3387,49 @@ test("says the day could not be loaded going back offline, when the first failur
 });
 
 /**
+ * **An action that succeeded and a reload that could not confirm it is not a
+ * failed action.** The diary is kept when the *action* fails; here the write
+ * landed — the walk exists on the server — and the screen is waiting on a read
+ * that will not answer. Keeping the old rows left a diary with no walk in it
+ * and the control disabled over a spinner, with no message and no Reintentar:
+ * the tutor could not stop a walk the screen did not know it had started.
+ * Only the pet read is cut, so the start itself succeeds.
+ */
+test("offers Reintentar when a walk was started and the reload cannot confirm it", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const pets = /\/rest\/v1\/pets\b/;
+  await page.route(pets, (route) => route.abort());
+  const gaveUp = failedReads(page, pets, 4);
+  await page.getByTestId("home-goal-control").click();
+  await gaveUp;
+  await page.waitForTimeout(750);
+
+  // Said, with a way out — not a spinner that never ends.
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await expect(page.getByTestId("home-title")).toBeVisible();
+
+  // And the way out works: the walk the server holds comes back, running.
+  await page.unroute(pets);
+  await page.getByTestId("home-log-retry").click();
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Terminar paseo",
+  );
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(1);
+});
+
+/**
  * **The inverse risk: a day that really is empty stays empty.** Every guard
  * above exists to stop a failure being shown as "nothing happened", and the
  * guard must not overcorrect into never saying "nothing happened". A day

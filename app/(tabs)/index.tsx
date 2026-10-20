@@ -450,6 +450,21 @@ export default function Home() {
    */
   const walkInFlight = useRef(false);
   /**
+   * Set by the one reload that follows an action which *failed*, and consumed
+   * by the pet effect when it runs.
+   *
+   * **The distinction three rounds kept missing.** The diary is kept when an
+   * action failed: a failed *action* must not take it away. It is not kept
+   * when the action succeeded and the reload could not confirm it — the write
+   * landed, the screen is waiting on a read that will not answer, and the
+   * old rows do not show what was written. Silence is the one thing that
+   * state must not offer; a walk that cannot be stopped is a wrong duration
+   * in the record. So the keep path is opt-in, from the single place that
+   * reloads after a failure (a start that errored), and every other reload —
+   * a successful start or stop, a saved sheet, Reintentar — shows the error.
+   */
+  const keepDiaryOnFailedRead = useRef(false);
+  /**
    * How many times a start or a stop has come back with an error. The goal
    * block shakes the control on each bump; a counter because two failures in
    * a row are two shakes.
@@ -474,6 +489,10 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
+    // Taken at the start of the run, so it belongs to this run and to no
+    // other: the reload a failed action asked for, and nothing later.
+    const afterFailedAction = keepDiaryOnFailedRead.current;
+    keepDiaryOnFailedRead.current = false;
 
     getMyPet().then(async ({ pet: row, error: failure }) => {
       if (cancelled) return;
@@ -485,12 +504,15 @@ export default function Home() {
         // not — the gate below — so a day that could not be asked for would
         // leave the log on its skeleton with no message and no way back.
         // Hand it to the log, which is the part that could not be loaded.
-        // **Unless the log already holds real rows for this very day:** then
-        // this was a failed *action* reloading what is on screen, and the rows
-        // are the best answer there is. Decided from the log itself, inside
-        // the updater, so it cannot disagree with what is on screen.
+        // **Unless an action failed and the log holds real rows for this very
+        // day:** then this is a failed *action* reloading what is on screen,
+        // and the rows are the best answer there is. Both halves matter. The
+        // row check is decided from the log itself, inside the updater, so it
+        // cannot disagree with what is on screen; the action check is what
+        // stops a *successful* write whose reload failed from keeping rows
+        // that do not show it — see `keepDiaryOnFailedRead`.
         setLog((prev) =>
-          prev && prev.day === dayKey(day) && !prev.error
+          afterFailedAction && prev && prev.day === dayKey(day) && !prev.error
             ? prev
             : { day: dayKey(day), attempt, events: [], error: unreadable },
         );
@@ -775,6 +797,7 @@ export default function Home() {
         // presses start again, and now there are two open walks — the first
         // one invisible until something else happens to trigger a read. It is
         // visible and deletable the moment the log says it exists.
+        keepDiaryOnFailedRead.current = true;
         setAttempt((n) => n + 1);
         setFailed((n) => n + 1);
         return;
