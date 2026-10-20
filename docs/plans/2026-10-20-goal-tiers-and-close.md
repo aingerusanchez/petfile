@@ -592,7 +592,7 @@ still the first thing in its name. The bar's label and the legend are static tex
 About 25 e2e assertions mention these strings. The cell-name ones must move with the
 string; the visible-text ones must not.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 test("reads the top tier as words and still shows the short form", async ({
@@ -605,19 +605,19 @@ test("reads the top tier as words and still shows the short form", async ({
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx playwright test e2e/home.spec.ts -g "reads the top tier as words"`
 Expected: FAIL.
 
-- [ ] **Step 3: Split the seen form from the spoken one**
+- [x] **Step 3: Split the seen form from the spoken one**
 
-- [ ] **Step 4: Run every spec that names these strings**
+- [x] **Step 4: Run every spec that names these strings**
 
 Run: `npx playwright test e2e/home.spec.ts e2e/diary-treatments.spec.ts -g "objetivo|conseguido|calendar|legend"`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/ui/GoalBlock.tsx components/ui/MonthCalendar.tsx e2e/
@@ -655,7 +655,7 @@ and the floor applies only to a goal that is set.
 other, so the profile says so and the field to fix is on the same screen. A stricter
 rule that quietly tolerates its own old violations is a rule nobody can reason about.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ts
 // lib/__tests__/pets.test.ts — against validatePetDraft, which both forms call
@@ -670,12 +670,12 @@ it("still accepts no goal at all", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `pnpm test -- pets`
 Expected: FAIL on 29 and on 30's message.
 
-- [ ] **Step 3: Add `MIN_EXERCISE_GOAL_MINUTES`**
+- [x] **Step 3: Add `MIN_EXERCISE_GOAL_MINUTES`**
 
 Export it beside `MAX_EXERCISE_GOAL_MINUTES` and build the message from it, the way
 the ceiling's already is. Keep the voice: `Como mucho 300 minutos` has a twin, not a
@@ -683,7 +683,7 @@ cousin. Put the _reason_ in the comment beside it — the existing one earns its
 explaining that five hours means a mistyped number rather than an Iditarod team, and
 the floor's own reason is the tier arithmetic above, which no reader will infer.
 
-- [ ] **Step 4: Rescale the two fixtures that seed 20**
+- [x] **Step 4: Rescale the two fixtures that seed 20**
 
 `e2e/home.spec.ts:2430` and `:2480` seed `exercise_goal_minutes: 20` to make lapping
 easy to reach. They will not fail — fixtures write straight to the database and never
@@ -691,17 +691,17 @@ meet the validator — but they would encode a pet the app can no longer produce
 spec should exercise a state a tutor can actually be in. Rescale both and keep what
 each one tests; the 45-minute walk must still lap.
 
-- [ ] **Step 5: README**
+- [x] **Step 5: README**
 
 It states the goal's range. The maintenance table in AGENTS.md makes this mandatory,
 not optional.
 
-- [ ] **Step 6: Run everything**
+- [x] **Step 6: Run everything**
 
 Run: `pnpm lint && pnpm test && npx tsc --noEmit`, then the full `e2e/home.spec.ts`
 and `e2e/settings.spec.ts`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add lib/pets.ts lib/__tests__/pets.test.ts e2e/home.spec.ts README.md
