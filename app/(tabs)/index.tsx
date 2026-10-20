@@ -1450,13 +1450,21 @@ function Entry({
       {/* **Sized to its content, not to a number.** A fixed 80dp was measured
           wrong in both directions: 27dp of slack for "09:00" and too narrow
           for "12:05 p.m." at font_scale 1.3, where five characters already
-          take 53dp. Sizing to the content keeps every row in one format
-          aligned — 24-hour times are all five characters — and grows with the
-          font scale for free. The cost is a character of rag in 12-hour mode,
-          between "9:15 a.m." and "12:05 p.m.", which is cheaper than a
-          clipped time. */}
+          take 53dp. Sizing to the content grows with the font scale for free.
+          **It only keeps the titles aligned because the figures are
+          tabular.** "24-hour times are all five characters" was the original
+          justification and it is true of the count and false of the width:
+          Outfit's digits are proportional, so "09:40", with no narrow 1 in
+          it, was the widest of three measured on the device and pushed its
+          title right. `tabular-nums` gives every digit one width, so every
+          24-hour time is one width as well as one length. The cost is a
+          character of rag in 12-hour mode, between "9:15 a.m." and
+          "12:05 p.m.", which is cheaper than a clipped time. */}
       <View className="shrink-0 items-start gap-1">
-        <Text className={running ? "text-accent" : "text-text-tertiary"}>
+        <Text
+          className={running ? "text-accent" : "text-text-tertiary"}
+          style={{ fontVariant: ["tabular-nums"] }}
+        >
           {time}
         </Text>
         {Icon ? (

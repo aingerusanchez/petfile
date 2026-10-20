@@ -3818,3 +3818,56 @@ test("keeps a minute the clock has no number for", async ({ page }) => {
   await page.getByTestId("timepicker-confirm").click();
   await expect(page.getByTestId("entry-time")).toHaveValue("09:47");
 });
+
+/**
+ * **Five characters is not five widths.** Outfit's digits are proportional, so
+ * the time column sized to its content was wider for `09:40` — no narrow `1`
+ * in it — than for `10:20` or `13:51`, and pushed its title right. Measured on
+ * the device: titles at x=288, 280 and 280. The hours are yesterday's, so the
+ * spec holds at any hour it runs.
+ */
+test("starts every entry's title at the same place whatever the hour", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const at = (hours: number, minutes: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    d.setHours(hours, minutes, 0, 0);
+    return d;
+  };
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: at(9, 40), durationMinutes: 20 },
+    { kind: "walk", occurredAt: at(10, 20), durationMinutes: 20 },
+    { kind: "walk", occurredAt: at(13, 51), durationMinutes: 20 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+
+  const entries = page.locator('[data-testid^="home-entry-"]');
+  await expect(entries).toHaveCount(3);
+  // The read side is 24-hour by default, which is what makes the three times
+  // the ones named above rather than whatever the locale would print.
+  await expect(entries.nth(0)).toContainText("09:40");
+  await expect(entries.nth(1)).toContainText("10:20");
+  await expect(entries.nth(2)).toContainText("13:51");
+
+  const xs: number[] = [];
+  for (let i = 0; i < 3; i++) {
+    const box = await entries
+      .nth(i)
+      .getByText("Paseo", { exact: true })
+      .boundingBox();
+    expect(box, `entry ${i}'s title should be drawn`).not.toBeNull();
+    xs.push(box!.x);
+  }
+  expect(
+    Math.max(...xs) - Math.min(...xs),
+    `titles start at ${xs.join(", ")}`,
+  ).toBeLessThan(0.5);
+});
