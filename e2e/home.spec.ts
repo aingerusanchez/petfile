@@ -753,13 +753,22 @@ test("opens the calendar from the date and says what each day carried", async ({
   await expect(page.getByTestId("home-title")).toHaveText("Ayer");
 });
 
-test("throws confetti for the walk that reaches the goal, and only that one", async ({
+/**
+ * **The confetti belongs to the top tier, and to nothing else.**
+ *
+ * It used to fire at the goal. The two tiers moved it: Tier 1 is what an
+ * ordinary day reaches — most days clear it — and the everyday is not
+ * celebrated. A goal met turns the bar Aqua and says so under it; the party
+ * is kept for the day that doubles it, which is the one worth marking on the
+ * calendar.
+ */
+test("throws confetti for the walk that doubles the goal, and only that one", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   // Each walk below ends at a "now" this test owns and begins that many
-  // minutes before it, so the first is 45 minutes long and has to be today.
+  // minutes before it, so the longest is 45 minutes and has to be today.
   const now = new Date();
   test.skip(
     new Date(now.getTime() - 45 * 60_000).getDate() !== now.getDate(),
@@ -777,11 +786,29 @@ test("throws confetti for the walk that reaches the goal, and only that one", as
   await expect(page.getByTestId("home-goal")).toContainText("45 min");
   await expect(page.getByTestId("celebration")).toBeHidden();
 
-  // The walk that crosses it.
+  // The walk that reaches the goal. The bar says so and nothing falls.
   await add(page, "walk");
   await typeWalk(page, now, 15);
   await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Objetivo conseguido",
+  );
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  // Most of the way through lap two, still nothing.
+  await add(page, "walk");
+  await typeWalk(page, now, 45);
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1h 45m de 2h");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  // And the walk that doubles it.
+  await add(page, "walk");
+  await typeWalk(page, now, 15);
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Objetivo conseguido x2",
+  );
   await expect(page.getByTestId("celebration")).toBeVisible();
 
   // It reads as decoration, not as content: nothing to announce, nothing to
@@ -795,15 +822,15 @@ test("throws confetti for the walk that reaches the goal, and only that one", as
   await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
   await expect(page.getByTestId("celebration")).toBeHidden();
 
-  // A second walk on a day already won does not celebrate again.
+  // A further walk on a day already doubled does not celebrate again.
   await add(page, "walk");
   await typeWalk(page, now, 15);
   await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("home-goal")).toContainText("1h 15m");
+  await expect(page.getByTestId("home-goal")).toContainText("2h 15m");
   await expect(page.getByTestId("celebration")).toBeHidden();
 });
 
-test("does not celebrate a goal reached on a day that has passed", async ({
+test("does not celebrate a day that has passed, however far it got", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -812,15 +839,23 @@ test("does not celebrate a goal reached on a day that has passed", async ({
   await page.goto("/");
 
   await page.getByTestId("home-prev-day").click();
-  await add(page, "walk");
-  // An hour on yesterday, where any time of day has already happened.
-  await page.getByTestId("entry-from").fill("09:00");
-  await page.getByTestId("entry-to").fill("10:00");
-  await page.getByTestId("entry-save").click();
+  // Two hours on yesterday, where any time of day has already happened —
+  // double the 60-minute goal, so it reaches the one tier that celebrates.
+  for (const [from, to] of [
+    ["09:00", "10:00"],
+    ["10:00", "11:00"],
+  ]) {
+    await add(page, "walk");
+    await page.getByTestId("entry-from").fill(from);
+    await page.getByTestId("entry-to").fill(to);
+    await page.getByTestId("entry-save").click();
+  }
 
-  // Yesterday's goal is met, and filling in a day that has gone is
-  // bookkeeping rather than an achievement.
-  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  // Yesterday is doubled, and filling in a day that has gone is bookkeeping
+  // rather than an achievement.
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Objetivo conseguido x2",
+  );
   await expect(page.getByTestId("celebration")).toBeHidden();
 });
 
@@ -1555,9 +1590,14 @@ async function groundColour(page: Page): Promise<string> {
 }
 
 async function fillColour(page: Page): Promise<string> {
+  return colourOf(page, "home-goal-bar");
+}
+
+/** The background any one part of the bar is drawn in, as a hex string. */
+async function colourOf(page: Page, id: string): Promise<string> {
   return hexOf(
     await page
-      .getByTestId("home-goal-bar")
+      .getByTestId(id)
       .evaluate((el) => getComputedStyle(el).backgroundColor),
   );
 }
@@ -1746,6 +1786,59 @@ test("re-reads every tier when the goal is edited under a running walk", async (
   await expect(page.getByTestId("home-goal")).toContainText("de 10h");
 });
 
+test("laps the live segment past the floor, and leaves the ground alone", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // 30 min recorded against a 60-minute goal and a walk 45 minutes old: 75 of
+  // 60 is a quarter of the way into lap two, while the *recorded* total is
+  // still only half of lap one.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 45 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "45 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // **The ground is the tier the recorded minutes reached, and only a real
+  // stop turns it.** That asymmetry is the feature: a bar lapping in grey is
+  // itself the signal that something has not been saved, so a walk left
+  // running by mistake can never pass for a finished day.
+  expect(await groundColour(page)).toBe(colors.surface);
+  await expect(page.getByTestId("home-goal-met")).toHaveCount(0);
+
+  const bar = await widthOf(page, "home-goal-ground");
+  // Lap one is completed in its own live tone, from the saved edge…
+  expect(await widthOf(page, "home-goal-bar")).toBeCloseTo(bar * 0.5, 0);
+  expect(await colourOf(page, "home-goal-live")).toBe(colors.textTertiary);
+  expect(await widthOf(page, "home-goal-live")).toBeCloseTo(bar * 0.5, 0);
+  // …and a second band is drawn from the left edge in the next lap's.
+  expect(await colourOf(page, "home-goal-lap")).toBe(colors.accentFocusDim);
+  expect(await widthOf(page, "home-goal-lap")).toBeCloseTo(bar * 0.25, 0);
+  const left = await page.getByTestId("home-goal-ground").boundingBox();
+  const band = await page.getByTestId("home-goal-lap").boundingBox();
+  expect(band!.x).toBeCloseTo(left!.x, 0);
+
+  // The tick does not move with it: it still marks the saved/live boundary,
+  // which is where the recorded minutes stop.
+  const tick = await page.getByTestId("home-goal-tick").boundingBox();
+  expect(tick!.x + tick!.width / 2).toBeCloseTo(left!.x + bar * 0.5, 0);
+});
+
 test("draws no bar at all for a pet with no goal, as before", async ({
   page,
 }) => {
@@ -1830,22 +1923,23 @@ test("lands the minute a walk that was written on recorded", async ({
   // Stopped inside the first minute, but written on — so the row is closed at
   // the one minute the column accepts rather than deleted, and that minute is
   // what the close animates.
-  await page.getByTestId("home-goal-control").click();
-
+  //
   // **The one assertion in this file that catches the close in the air, and
   // it is here because nothing else in the suite would notice the whole
   // animation being deleted.** Every other close spec asserts an absence,
   // which an unbuilt overlay satisfies exactly as well as a settled one.
   //
-  // It is not a race in disguise. The measure cannot say "1 min" until the
-  // day's rows have come back, and that is the same frame the overlay mounts
-  // on — the animation waits for the reload for the reason the call site in
-  // the day view explains. So this begins polling before there is anything
-  // to find and has the whole 760 ms to find it.
-  await expect(page.getByTestId("home-goal")).toContainText("1 min de 2h");
-  await expect(page.getByTestId("home-goal-close")).toBeAttached();
+  // **Armed before the tap, because the overlay no longer waits for the
+  // reload.** It mounts on the stop and is gone 760 ms later, so a settled
+  // assertion afterwards could retry straight past it.
+  const mounted = page.waitForSelector('[data-testid="home-goal-close"]', {
+    state: "attached",
+  });
+  await page.getByTestId("home-goal-control").click();
+  await mounted;
 
   // And then it goes, leaving the fill holding the tone it already had.
+  await expect(page.getByTestId("home-goal")).toContainText("1 min de 2h");
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
 });
@@ -1944,230 +2038,29 @@ test("settles twice when two walks are closed in succession", async ({
     await page.getByTestId("entry-note").fill(`Paseo ${total}`);
     await page.getByTestId("entry-save").click();
     await expect(page.getByTestId("entry-title")).toHaveCount(0);
+    // Armed before the tap: the overlay mounts on the stop now, so it has to
+    // be waited for from before there is anything to wait for.
+    const mounted = page.waitForSelector('[data-testid="home-goal-close"]', {
+      state: "attached",
+    });
     await page.getByTestId("home-goal-control").click();
+    // The overlay is mounted for this close, so it was one — and it goes.
+    await mounted;
     await expect(page.getByTestId("home-goal")).toContainText(
       `${total} min de 2h`,
     );
-    // The overlay is mounted for this close, so it was one — and it goes.
-    await expect(page.getByTestId("home-goal-close")).toBeAttached();
     await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
     await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
   }
 });
 
 /**
- * "rgb(r, g, b)" for a token, the form `getComputedStyle` reports a colour in.
- * The suite reads the palette from `tokens.ts` rather than retyping it.
- */
-function rgbOf(hex: string): [number, number, number] {
-  const n = parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-/**
- * Resolves once the close overlay's first two layers are each partway between
- * the tone they leave and the tone they land in.
- *
- * **"Travelled", not "arrived".** The settled state is where the bar would
- * be with no animation at all, so it cannot tell a colour that moved from one
- * that was simply set. A reading that is neither endpoint can only come from
- * the interpolation. Polled on every frame from before the press, the way
- * `shakeTranslation` is, because the 360 ms landing cannot be parked inside.
- *
- * The layers are the whole-bar one (Mist → Aqua) and the new stretch
- * (Ash → Aqua); a close that did not reach the goal has no first one, which
- * is the case the first layer's presence is here to distinguish.
- */
-function closeColoursInFlight(page: Page) {
-  const from = [colors.textSecondary, colors.textTertiary].map(rgbOf);
-  const to = rgbOf(colors.accent);
-  return page.waitForFunction(
-    ([starts, end]) => {
-      const overlay = document.querySelector('[data-testid="home-goal-close"]');
-      // The whole-bar layer and the stretch. The sheen is the stretch's child
-      // now, so it is no longer a third child of the overlay.
-      if (!overlay || overlay.children.length < 2) return false;
-      return starts.every((start, i) => {
-        const css = getComputedStyle(overlay.children[i]).backgroundColor;
-        const c = (css.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
-        if (c.length < 3) return false;
-        const apart = (a: number[], b: number[]) =>
-          Math.max(...a.map((v, k) => Math.abs(v - b[k]))) > 4;
-        return apart(c, start) && apart(c, end);
-      });
-    },
-    [from, to] as const,
-    { polling: "raf", timeout: 5_000 },
-  );
-}
-
-test("takes the whole bar to Aqua, travelling there, when a close reaches the goal", async ({
-  page,
-}) => {
-  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
-
-  // 30 minutes recorded from one minute past midnight, and a walk begun 31
-  // minutes ago to be stopped against a 60-minute goal: 61, which is met. It
-  // needs both on today and the live one after the recorded one.
-  const now = new Date();
-  const earlier = new Date(now);
-  earlier.setHours(0, 1, 0, 0);
-  const running = new Date(now.getTime() - 31 * 60_000);
-  test.skip(
-    running.getDate() !== now.getDate() || running <= earlier,
-    "31 minutes ago is still yesterday, or before the recorded walk",
-  );
-
-  await resetE2EPets();
-  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
-  await seedE2EEvents(petId, [
-    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
-  ]);
-  await seedRunningWalk(page, petId, running);
-
-  await seedSession(page);
-  await page.goto("/");
-  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
-  // Before the stop the recorded half is Mist on an empty track: the goal is
-  // not met yet, so the day is on lap one.
-  await expect.poll(() => fillColour(page)).toBe(colors.textSecondary);
-  expect(await groundColour(page)).toBe(colors.surface);
-
-  const travelled = closeColoursInFlight(page);
-  await page.getByTestId("home-goal-control").click();
-  await travelled;
-
-  // And it comes to rest Aqua, with the conclusion said under the bar.
-  //
-  // **Read off the ground, which is where "the whole bar" now lives.** 61 of
-  // 60 is a minute into lap two, so the fill is a violet sliver and the Aqua
-  // is underneath it — the thing this test has always been about.
-  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
-  await expect(page.getByTestId("home-goal")).toContainText(
-    "Objetivo conseguido",
-  );
-  await expect.poll(() => groundColour(page)).toBe(colors.accent);
-});
-
-/**
- * Resolves on the vertical scale of an element, polled on every frame:
- * `"swollen"` once it is above rest, `"rest"` once it is exactly 1 again.
- *
- * Two elements can carry the swell and which one does is the whole point:
- * the **track** — the bar's parent, which has no testID of its own because
- * nothing else needs to find it — when the close has no stretch to point at,
- * and the close's **stretch overlay** every other time, so that the loudest
- * beat lands on the same minutes the sheen and the colour do.
- */
-function verticalScale(
-  page: Page,
-  which: "track" | "stretch",
-  state: "swollen" | "rest",
-) {
-  return page.waitForFunction(
-    ([want, target]) => {
-      const el =
-        target === "track"
-          ? document.querySelector('[data-testid="home-goal-bar"]')
-              ?.parentElement
-          : document.querySelector('[data-testid="home-goal-close-stretch"]');
-      if (!el) return false;
-      const t = getComputedStyle(el).transform;
-      const y = t === "none" ? 1 : new DOMMatrix(t).m22;
-      return want === "swollen" ? y > 1.05 : y === 1;
-    },
-    [state, which] as const,
-    { polling: "raf", timeout: 5_000 },
-  );
-}
-
-/**
- * Resolves on the first frame where the stretch is swollen **and the sheen is
- * exactly as thick as it is**, read from the two boxes' own rectangles.
- *
- * The sheen used to be the stretch's sibling in a clip of 4 dp, so it crossed a
- * stretch of 7 and left a rim of it unlit above and below; as the stretch's
- * child it inherits the swell. Drawn thickness is the thing worth pinning,
- * because a sheen that is only *mounted* in the right place says nothing about
- * whether it covers what it crosses. The sheen's timing is not what this reads:
- * it is true on any frame the stretch is swollen, whenever the band passes.
- */
-function sheenAsThickAsStretch(page: Page) {
-  return page.waitForFunction(
-    () => {
-      const stretch = document.querySelector(
-        '[data-testid="home-goal-close-stretch"]',
-      );
-      const sheen = document.querySelector(
-        '[data-testid="home-goal-close-sheen"]',
-      );
-      if (!stretch || !sheen) return false;
-      const t = getComputedStyle(stretch).transform;
-      const y = t === "none" ? 1 : new DOMMatrix(t).m22;
-      if (y <= 1.05) return false;
-      const lit = sheen.getBoundingClientRect().height;
-      const swollen = stretch.getBoundingClientRect().height;
-      return swollen > 4.2 && Math.abs(lit - swollen) < 0.1;
-    },
-    undefined,
-    { polling: "raf", timeout: 5_000 },
-  );
-}
-
-/** The track's vertical scale right now, with no waiting and no retry. */
-function trackScaleNow(page: Page) {
-  return page.getByTestId("home-goal-bar").evaluate((bar: Element) => {
-    const t = getComputedStyle(bar.parentElement as Element).transform;
-    return t === "none" ? 1 : new DOMMatrix(t).m22;
-  });
-}
-
-test("swells the minutes a walk just saved, and not the whole bar", async ({
-  page,
-}) => {
-  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
-
-  await seedSession(page);
-  await page.goto("/");
-  await page.getByTestId("home-goal-control").click();
-  const row = page.locator('[data-testid^="home-entry-"]').first();
-  await expect(row).toContainText("En marcha");
-  await row.click();
-  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
-  await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("entry-title")).toHaveCount(0);
-
-  // At rest before the press, so "swollen" can only be the close's doing.
-  await verticalScale(page, "track", "rest");
-  const swollen = verticalScale(page, "stretch", "swollen");
-  const lit = sheenAsThickAsStretch(page);
-  await page.getByTestId("home-goal-control").click();
-  await swollen;
-  // **The sheen swells with the stretch it crosses.** Not just the stretch.
-  await lit;
-
-  // **And the track is not swelling with it.** Read in the same breath as
-  // the stretch's peak rather than after the close, because the thing this
-  // pins is where the beat points, and the bar comes to rest either way.
-  expect(await trackScaleNow(page)).toBe(1);
-
-  // And it all goes, leaving a bar of the thickness it started at: one left
-  // thicker would be a different bar.
-  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
-  await verticalScale(page, "track", "rest");
-  await expect(page.getByTestId("home-goal")).toContainText("1 min de 2h");
-});
-
-/**
  * **The close that used to be about the whole bar, and now lands on lap two.**
  *
  * 60 min recorded against a 60 min goal, and a walk of two minutes on top. On
- * a bar that ended at the goal these minutes fell past its edge: there was no
- * stretch to point at, so the whole track thickened and nothing was drawn.
- * With a second lap above the goal they have somewhere to go — the stretch
- * starts at the foot of lap two, over an Aqua ground, and lands in violet.
- * The swell on the track is gone with the case that needed it, which is why
- * this reads the track's scale and expects it to have stayed at rest.
+ * a bar that ended at the goal these minutes fell past its edge; with a second
+ * lap above it they have somewhere to go — the fill starts at the foot of lap
+ * two, over an Aqua ground, and converts in violet.
  */
 test("lands a close on the second lap, over a bar that is already Aqua", async ({
   page,
@@ -2189,17 +2082,300 @@ test("lands a close on the second lap, over a bar that is already Aqua", async (
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
   expect(await groundColour(page)).toBe(colors.accent);
 
-  const swollen = verticalScale(page, "stretch", "swollen");
+  // Two minutes of a 60-minute goal is 3.3% of the bar, so the conversion is
+  // caught somewhere inside that — travelled, not simply set.
+  const travelled = widthInFlight(
+    page,
+    "home-goal-close-lap-1-fill",
+    0.004,
+    0.03,
+  );
   await page.getByTestId("home-goal-control").click();
-  await swollen;
-
-  // The stretch is what moves; the track never does any more.
-  expect(await trackScaleNow(page)).toBe(1);
+  await travelled;
 
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
   // And the bar is still Aqua underneath, with lap two's violet over it.
   expect(await groundColour(page)).toBe(colors.accent);
   expect(await fillColour(page)).toBe(colors.accentFocus);
+});
+
+/**
+ * **The two halves of the handover, read off one sampler.**
+ *
+ * 30 min recorded and a walk of 31 against a 60-minute goal: 61 of 60 crosses
+ * the goal inside the one fill. What this pins is that the bar is never in two
+ * minds — not in width, which the no-shrink spec above owns, and not in tone:
+ * the ground may not turn Aqua until the fill has arrived there, and with the
+ * reload no longer gated it lands somewhere inside these 760 ms and would turn
+ * it early for anyone who fixed only the width.
+ *
+ * **And nothing is celebrated.** Tier 1 is the everyday now — most days clear
+ * it — and the everyday is not celebrated. The ground turning and the label
+ * under the bar are the whole of what a goal met gets.
+ */
+test("crosses the goal inside one fill, with no confetti", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  // Before the stop the day is on lap one: the empty track under a Mist fill.
+  await expect.poll(() => groundColour(page)).toBe(colors.surface);
+  expect(await fillColour(page)).toBe(colors.textSecondary);
+
+  const sampling = barFrames(page, 3_000, "home-goal-close-lap-0-fill");
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+
+  // **The bar is painted across its whole width from before the press**, and
+  // that is not what is being watched here: the live segment had already
+  // lapped, so the painted width cannot say where the conversion has got to.
+  // The lap's own fill can.
+  expect(Math.min(...frames.map((f) => f.painted))).toBeCloseTo(bar, 0);
+
+  // It travelled: lap one's fill is caught at readings that are neither where
+  // it began (half the bar) nor where it ends (all of it).
+  const converting = frames.filter((f) => f.probe >= 0 && f.probe < bar - 0.5);
+  expect(converting.filter((f) => f.probe > bar * 0.55).length).toBeGreaterThan(
+    3,
+  );
+
+  // **And no frame turned the ground before the fill got there.** Every frame
+  // with the conversion still under way is wearing the empty track, not Aqua
+  // — which is the half of the handover a builder who fixed only the width
+  // would ship, since the reload lands somewhere inside these 760 ms.
+  expect(converting.map((f) => f.ground)).toEqual(
+    converting.map(() => colors.surface),
+  );
+  expect(frames[frames.length - 1].ground).toBe(colors.accent);
+
+  // It comes to rest Aqua, with a minute of lap two in violet over it, and
+  // the conclusion said under the bar.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Objetivo conseguido",
+  );
+  await expect.poll(() => groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+  expect(await widthOf(page, "home-goal-bar")).toBeGreaterThan(0);
+
+  // The everyday is not celebrated.
+  await expect(page.getByTestId("celebration")).toBeHidden();
+});
+
+test("crosses both tiers in one close and still celebrates once", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // 10 min recorded against a 20-minute goal and a walk of 31 on top: 41 of
+  // 40 is past double, so the one gesture passes both tiers. A small goal is
+  // what keeps the live walk inside the half-hour a suite can reach back.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 20 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 10 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  // Lap one converts and hands over to lap two inside the same gesture.
+  const lapOne = widthInFlight(page, "home-goal-close-lap-0-fill", 0.55, 0.95);
+  const lapTwo = widthInFlight(page, "home-goal-close-lap-1-fill", 0.1, 0.9);
+  await page.getByTestId("home-goal-control").click();
+  await lapOne;
+  await lapTwo;
+
+  // The bar ends violet throughout, with nothing over it, and says so.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect.poll(() => groundColour(page)).toBe(colors.accentFocus);
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Objetivo conseguido x2",
+  );
+
+  // **Once, at the second tier and not at the first.** Two crossings in one
+  // animation is still one day doubled.
+  await expect(page.getByTestId("celebration")).toBeVisible();
+  await expect(page.getByTestId("celebration")).toHaveCount(0);
+  await expect(
+    page.waitForSelector('[data-testid="celebration"]', {
+      state: "attached",
+      timeout: 2_000,
+    }),
+  ).rejects.toThrow();
+});
+
+test("says nothing when the day is already past the top tier", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // 45 min recorded against a 20-minute goal is already past double, so the
+  // minutes this walk adds fall off the end of the bar. The silence is
+  // deliberate: the day is already said.
+  const { earlier, running } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 20 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 45 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  expect(await groundColour(page)).toBe(colors.accentFocus);
+
+  const sampling = barFrames(page, 2_500);
+  const never = neverCloses(page);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+  await never;
+
+  // No overlay mounted, and the bar did not flicker: every frame is the same
+  // violet across the same full width.
+  expect(frames.map((f) => f.ground)).toEqual(
+    frames.map(() => colors.accentFocus),
+  );
+  expect(Math.min(...frames.map((f) => f.painted))).toBeCloseTo(bar, 0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Objetivo conseguido x2",
+  );
+});
+
+test("paints the end state at once for a tutor who asked for no animation", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // The same tier-crossing close as above, with motion off: "absent" has to
+  // mean the bar is painted at the fill's end state on the stop, not that the
+  // 400 ms hole comes back for exactly the tutors who asked for less movement.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  const sampling = barFrames(page, 2_500);
+  const never = neverCloses(page);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+  await never;
+
+  // No overlay was ever mounted, and the bar never lost the walk on the way
+  // to its end state.
+  expect(Math.min(...frames.map((f) => f.painted))).toBeGreaterThanOrEqual(
+    frames[0].painted - 0.5,
+  );
+  expect(frames[frames.length - 1].painted).toBeCloseTo(bar, 0);
+
+  // The right ground as well as the right width: 61 of 60 is a minute into
+  // lap two, so the bar is Aqua with a violet sliver over it.
+  await expect.poll(() => groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Objetivo conseguido",
+  );
+});
+
+test("holds the fill when the reload never comes", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // The close succeeds and every read after it fails. The fill has animated
+  // to a value the data never confirms, and it must hold there rather than
+  // snapping back to the width from before the walk: a failed action must not
+  // take the diary away, and saying so is the toast's job, not the bar's.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // Only the reads are cut: the PATCH that closes the walk goes through.
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    route.request().method() === "GET" ? route.abort() : route.continue(),
+  );
+
+  const sampling = barFrames(page, 3_000);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+  const at = frames[0].painted;
+
+  expect(at / bar).toBeCloseTo(0.508, 2);
+  expect(Math.min(...frames.map((f) => f.painted))).toBeGreaterThanOrEqual(
+    at - 0.5,
+  );
+
+  // And it is still there once everything has settled: 61 of 120, drawn
+  // from numbers the close carried rather than from rows that never came.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  expect(
+    (await widthOf(page, "home-goal-bar")) /
+      (await widthOf(page, "home-goal-ground")),
+  ).toBeCloseTo(0.508, 2);
+  await page.unroute("**/rest/v1/pet_events*");
 });
 
 test("lands a close with no animation at all for a tutor who asked for none", async ({
@@ -2231,6 +2407,200 @@ test("lands a close with no animation at all for a tutor who asked for none", as
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-bar")).toBeVisible();
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+});
+
+/**
+ * Samples the bar on every frame for `ms`, starting now: how far right it is
+ * painted, and what colour it is wearing while it is.
+ *
+ * **"Painted" is everything on the bar that is not the empty track**, which is
+ * the only definition that survives a tier crossing: at the goal the ground
+ * itself turns Aqua and carries the whole width, so a measure that looked only
+ * at the fills would read a bar that had just become whole as a bar that had
+ * emptied. Transparent boxes — the sweep's clips, the close overlay's
+ * wrapper — contribute nothing, and neither does a ground still in the
+ * track's own colour.
+ *
+ * **`ground` is the topmost ground actually drawn**, the real one or the lap
+ * the close has reached, so the pair answers the two halves of the handover
+ * in one reading: a frame whose ground has turned while the painted width is
+ * still short of the bar is a bar in two minds about its tone.
+ *
+ * `probe` is one more element to measure on every frame — a lap of the close
+ * overlay, whose own width is the only thing that says where the conversion
+ * has got to once the painted width is already the whole bar. It reads −1 on
+ * a frame where that element is not mounted.
+ *
+ * The first frame is sampled before the promise yields, so a caller can check
+ * it began before the press rather than after it — a sampler that started
+ * late would see no drop and pass for the wrong reason.
+ */
+function barFrames(page: Page, ms: number, probe = "") {
+  return page.evaluate(
+    ([sampleMs, track, watched]) =>
+      new Promise<{
+        bar: number;
+        frames: { painted: number; ground: string; probe: number }[];
+      }>((resolve) => {
+        const hex = (css: string): string => {
+          const rgba = (css.match(/[\d.]+/g) ?? []).map(Number);
+          if (rgba.length < 3) return "";
+          if (rgba.length > 3 && rgba[3] === 0) return "";
+          return `#${rgba
+            .slice(0, 3)
+            .map((v) => v.toString(16).padStart(2, "0"))
+            .join("")}`.toUpperCase();
+        };
+        const sample = () => {
+          const bar = document.querySelector(
+            '[data-testid="home-goal-ground"]',
+          );
+          const seen = watched
+            ? document.querySelector(`[data-testid="${watched}"]`)
+            : null;
+          const measured = seen ? seen.getBoundingClientRect().width : -1;
+          if (!bar) return { painted: 0, ground: "", probe: measured };
+          const close = document.querySelector(
+            '[data-testid="home-goal-close"]',
+          );
+          const nodes: Element[] = [bar, ...bar.querySelectorAll("*")];
+          if (close) nodes.push(...close.querySelectorAll("*"));
+          const left = bar.getBoundingClientRect().left;
+          let painted = 0;
+          let ground = "";
+          for (const el of nodes) {
+            const style = getComputedStyle(el);
+            if (Number(style.opacity) === 0) continue;
+            const tone = hex(style.backgroundColor);
+            if (tone === "") continue;
+            const box = el.getBoundingClientRect();
+            const id = el.getAttribute("data-testid") ?? "";
+            // The grounds are the only full-width layers, and the last one
+            // drawn is the one the eye sees.
+            if (id === "home-goal-ground" || id.endsWith("-ground")) {
+              if (box.width > 0) ground = tone;
+            }
+            if (tone === track) continue;
+            painted = Math.max(painted, box.right - left);
+          }
+          return { painted, ground, probe: measured };
+        };
+        const frames = [sample()];
+        const began = performance.now();
+        const step = () => {
+          frames.push(sample());
+          if (performance.now() - began >= sampleMs) {
+            resolve({
+              bar:
+                document
+                  .querySelector('[data-testid="home-goal-ground"]')
+                  ?.getBoundingClientRect().width ?? 0,
+              frames,
+            });
+            return;
+          }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }),
+    [ms, colors.surface, probe] as const,
+  );
+}
+
+/**
+ * Resolves on the first frame where an element covers a share of the bar
+ * strictly inside `(low, high)` — travelled, not arrived.
+ *
+ * The settled state is where the bar would be with no animation at all, so it
+ * cannot tell a width that moved from one that was simply set. A reading that
+ * is neither endpoint can only come from the interpolation. Polled on every
+ * frame from before the press, the way `shakeTranslation` is, because the
+ * close cannot be parked inside.
+ */
+function widthInFlight(page: Page, id: string, low: number, high: number) {
+  return page.waitForFunction(
+    ([target, lo, hi]) => {
+      const el = document.querySelector(`[data-testid="${target}"]`);
+      const bar = document.querySelector('[data-testid="home-goal-ground"]');
+      if (!el || !bar) return false;
+      const width = bar.getBoundingClientRect().width;
+      if (width === 0) return false;
+      const share = el.getBoundingClientRect().width / width;
+      return share > lo && share < hi;
+    },
+    [id, low, high] as const,
+    { polling: "raf", timeout: 5_000 },
+  );
+}
+
+/** The close overlay, which must never be attached at all. */
+function neverCloses(page: Page) {
+  return expect(
+    page.waitForSelector('[data-testid="home-goal-close"]', {
+      state: "attached",
+      timeout: 2_000,
+    }),
+  ).rejects.toThrow();
+}
+
+test("fills from the tick without the bar ever shrinking", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **The defect this whole task replaces, and the one assertion that pins
+  // it.** Measured on the tutor's video: the bar painted to x=403 while the
+  // walk ran, dropped to x=207 for about 400 ms as the live segment unmounted
+  // ahead of the reload, and only then grew back. Nothing else in the suite
+  // notices that hole, because every other close spec asserts where the bar
+  // comes to rest.
+  //
+  // 30 min recorded and a walk of 31 against a 120-minute goal: 61 of 120 is
+  // half of lap one, so the close lands inside the lap it started on and the
+  // ground never turns. A crossing close is the next test's business.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(page.getByTestId("home-goal-tick")).toBeVisible();
+
+  const sampling = barFrames(page, 3_000);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+  const at = frames[0].painted;
+
+  // The sampler was running before the press: 61 of 120 minutes is half the
+  // bar, and 30 of 120 — the recorded fill alone — is a quarter. Without this
+  // a sampler that started late would measure the hole as its own baseline.
+  expect(at / bar).toBeCloseTo(0.508, 2);
+
+  // And the bar never lost the walk.
+  expect(Math.min(...frames.map((f) => f.painted))).toBeGreaterThanOrEqual(
+    at - 0.5,
+  );
+
+  // It settles where the data says, with the live marks gone.
+  await expect(page.getByTestId("home-goal")).toContainText("1h 1m de 4h");
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  expect(
+    (await widthOf(page, "home-goal-bar")) /
+      (await widthOf(page, "home-goal-ground")),
+  ).toBeCloseTo(0.508, 2);
 });
 
 test("shows the control working while the start is being written", async ({

@@ -1,4 +1,4 @@
-import { barProgress, barStateAt, closeMotion } from "../goalbar";
+import { barProgress, barStateAt, closeLaps, closeMotion } from "../goalbar";
 
 describe("barProgress", () => {
   it("is the fraction of the goal below it", () => {
@@ -63,5 +63,45 @@ describe("closeMotion", () => {
     expect(
       closeMotion({ recordedBefore: 60, closedMinutes: 0, goalMinutes: 120 }),
     ).toEqual({ kind: "none" });
+  });
+});
+
+describe("closeLaps", () => {
+  it("is one lap when the close stays inside the one it began on", () => {
+    expect(closeLaps(0.25, 0.75)).toEqual([
+      { tier: 0, at: [0, 1], fill: [25, 75] },
+    ]);
+  });
+  it("hands the second lap the rest of the close when one tier is crossed", () => {
+    expect(closeLaps(0.75, 1.25)).toEqual([
+      { tier: 0, at: [0, 0.5], fill: [75, 100] },
+      { tier: 1, at: [0.5, 1], fill: [0, 25] },
+    ]);
+  });
+  it("opens the next lap empty when the close lands exactly on a tier", () => {
+    // The "foot of its own lap" rule, drawn: the ground turns on the last
+    // frame and the lap it opens has nothing in it yet.
+    expect(closeLaps(0.5, 1)).toEqual([
+      { tier: 0, at: [0, 1], fill: [50, 100] },
+      { tier: 1, at: [1, 1], fill: [0, 0] },
+    ]);
+  });
+  it("crosses both tiers in one close, in order", () => {
+    expect(closeLaps(0.5, 2)).toEqual([
+      { tier: 0, at: [0, 1 / 3], fill: [50, 100] },
+      { tier: 1, at: [1 / 3, 1], fill: [0, 100] },
+      { tier: 2, at: [1, 1], fill: [0, 0] },
+    ]);
+  });
+  it("paints nothing over the top tier, where the ground is the whole sentence", () => {
+    const laps = closeLaps(1.5, 2);
+    expect(laps[laps.length - 1]).toEqual({
+      tier: 2,
+      at: [1, 1],
+      fill: [0, 0],
+    });
+  });
+  it("clamps a close that reaches past the top of the scale", () => {
+    expect(closeLaps(1.5, 3)).toEqual(closeLaps(1.5, 2));
   });
 });

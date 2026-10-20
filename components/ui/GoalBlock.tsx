@@ -9,21 +9,21 @@ import {
 } from "react-native";
 import Animated, {
   Easing,
-  interpolateColor,
+  type SharedValue,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withDelay,
   withRepeat,
-  withSequence,
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { formatDuration } from "../../lib/duration";
 import {
   type BarState,
+  type CloseLap,
   barProgress,
   barStateAt,
+  closeLaps,
   closeMotion,
   topTierMinutes,
 } from "../../lib/goalbar";
@@ -115,57 +115,27 @@ const SWEEP_ALPHA_MET = 0.35;
 const BAND_HEIGHT = 4;
 
 /**
- * The close, in four beats: how long the whole thing lasts, and where each
- * beat lands inside it.
+ * How long the close takes: one conversion, from the junction to the end of
+ * the minutes just saved.
  *
- * **Task 3 rebuilds all of this**, and what is here is today's close kept
- * working against two laps rather than one. The one case that has already
- * gone is the close with no stretch to point at: with a second lap above the
- * goal, a walk closing on a met day lands on lap two, and a day past double
- * says nothing at all — so the swell that used to thicken the whole track has
- * nothing left to belong to, and the track is a plain `View` again.
+ * **The swell and the sheen are gone, and so is the stumble they followed.**
+ * Frames from the tutor's video: the bar painted to x=403 while the walk ran,
+ * dropped to x=207 for about 400 ms as the live segment unmounted ahead of the
+ * reload, then grew back and swelled. The word for the beat was _tosca_, and
+ * it fitted the sequence more than the beat — a square widening arriving after
+ * a hole. Nothing is thickened now and nothing crosses: the live segment is
+ * **held painted** and the fill converts it left to right, so the frame the
+ * tutor complained about stops existing rather than being decorated.
  *
- * **One sentence — "this much has just been saved" — said four ways.** The
- * stretch the walk added thickens, a pale band crosses it, that stretch
- * travels from the in-progress tone to the tone it will keep, and it settles
- * back to its 4 dp. Before this, stopping a walk changed the segment
- * to a slightly lighter grey and took the tick away: the most significant
- * event of the dog's day, and the least visible thing the app did.
+ * **One interpolation, whatever it crosses.** `closeLaps` cuts the stretch at
+ * the tier boundaries and every lap reads the same shared value, so a close
+ * that turns the bar Aqua on the way is one gesture that changes colour as it
+ * passes a threshold, not two animations in sequence.
  *
- * **The beats are cumulative instants, not durations.** The swell is up by
- * `CLOSE_SWELL_MS`, the sheen has finished crossing by `CLOSE_SHEEN_END_MS`,
- * and everything has landed at `CLOSE_MS`. The swell's return is not a beat of
- * its own: it eases back over the rest of the close, under the sheen and the
- * colour, so the bar settles once rather than twice.
- *
- * **1.75 on a 4 dp track is 7 dp**, which is the thickest the bar gets. Never
- * `scaleY` on the wrapper: the tick is the wrapper's other child and would
- * scale with it, and a 12 dp tick at 1.75 is a 21 dp spike.
- *
- * **The swell lands on the stretch, not on the whole bar.** It used to
- * thicken the entire track while the sheen and the colour landing pointed
- * only at the minutes the walk added, so the loudest of the three beats
- * contradicted the sentence the other two spoke. It is `scaleY` on
- * `CloseLanding`'s stretch overlay, and all three beats act on the same
- * place.
- *
- * **Known and accepted:** a one-minute close against a 3 h goal leaves a
- * stretch about 3.6 dp wide, and a swell on 3.6 dp is barely anything. A real
- * walk's stretch is 45–73 dp. A minute does not earn a fanfare.
- *
- * **The sheen is the close's own band, not the running sweep.** `SWEEP_WIDTH`
- * crosses the whole track forever; this one crosses a stretch that can be 3 dp
- * wide, once. Same width and nearly the same alpha, so the two read as the
- * same material. **It is a child of the stretch, so it swells with it**: a 4 dp
- * band across a 7 dp stretch would leave a rim of uncovered stretch above and
- * below it, and the sheen is meant to be lighting the thing that is swelling.
+ * 760 ms is what it was: long enough to read as a movement on a stretch 3 dp
+ * wide, short enough that the next tap is never waiting on it.
  */
 const CLOSE_MS = 760;
-const CLOSE_SWELL_MS = 120;
-const CLOSE_SWELL_SCALE = 1.75;
-const CLOSE_SHEEN_END_MS = 400;
-const CLOSE_SHEEN_WIDTH = 70;
-const CLOSE_SHEEN_ALPHA = 0.55;
 
 /**
  * The shake a failed start or stop gives the control: how long it takes, how
@@ -229,58 +199,66 @@ const GLYPH_SIZE = 16;
  * between them — the tiers are orthogonal to that, and all that changes is
  * which pair the lap wears.
  *
- * **Two spellings of the same colour, and they must agree.** The three fills
- * are `View`s, so they take a `className` and the value lives in
- * `global.css`; the close interpolates between tones in a worklet, which is a
- * React Native prop and takes the value from `tokens.ts`. They are written on
- * adjacent lines here for the one reason that nothing else can check them.
+ * **One spelling of each colour, and the close uses the same one.** Every
+ * layer here and in the close is a `View` taking a `className`, so the value
+ * lives in `global.css` and nothing else. This table used to carry a second,
+ * `tokens.ts` copy of each tone for the close to interpolate between in a
+ * worklet; the close no longer travels through a colour — what travels is
+ * which of these layers is covering the pixel — so the copy went with it, and
+ * with it the one place these two spellings could drift apart.
  */
 const LAPS = [
   {
     ground: "bg-surface",
     saved: "bg-text-secondary",
     live: "bg-text-tertiary",
-    groundTone: colors.surface,
-    savedTone: colors.textSecondary,
-    liveTone: colors.textTertiary,
   },
   {
     ground: "bg-accent",
     saved: "bg-accent-focus",
     live: "bg-accent-focus-dim",
-    groundTone: colors.accent,
-    savedTone: colors.accentFocus,
-    liveTone: colors.accentFocusDim,
   },
   {
     ground: "bg-accent-focus",
     saved: "bg-accent-focus",
     live: "bg-accent-focus",
-    groundTone: colors.accentFocus,
-    savedTone: colors.accentFocus,
-    liveTone: colors.accentFocus,
   },
 ] as const;
 
 /**
- * A close as something to draw: the stretch the walk added, in percentages of
- * the bar's own width, and the tones the two overlays travel between.
+ * A close as something to draw: the laps it crosses, decided once.
  *
- * The tones are carried rather than derived in the component because a close
- * may change tier on the way, and which lap's pair applies is decided once,
- * from `closeMotion`'s own two endpoints, rather than from props that move
- * underneath the animation while it runs.
+ * **Decided once, from `closeMotion`'s own two endpoints**, rather than read
+ * from props as it runs: the reload lands somewhere inside these 760 ms and
+ * moves `walkedMinutes` underneath, and an animation that re-read the laps
+ * would change its mind about which ground it was heading for mid-gesture.
+ * The id is carried so a second close inside the window is a new animation
+ * rather than a reconciliation into the first one's shared value.
  */
 type ClosePaint = {
   id: string;
-  stretch: { start: number; end: number };
-  /** The tone the stretch leaves — the lap's in-progress tone. */
-  from: string;
-  /** The tone it lands in. */
-  to: string;
-  /** The rest of the bar, when the close crossed a tier and took it along. */
-  before: { from: string; to: string } | null;
+  laps: CloseLap[];
 };
+
+/**
+ * What one lap of a close shows at `t`, 0–100 of the bar.
+ *
+ * A lap with no length — the empty lap a close landing exactly on a tier
+ * opens — reads its end value the instant it is reached, rather than dividing
+ * by a zero-length slice.
+ */
+function lapFillAt(
+  t: number,
+  at0: number,
+  at1: number,
+  from: number,
+  to: number,
+): number {
+  "worklet";
+  if (t <= at0) return from;
+  if (t >= at1) return to;
+  return from + (to - from) * ((t - at0) / (at1 - at0));
+}
 
 /**
  * The day's walking, and the control that starts and stops it.
@@ -311,6 +289,15 @@ type ClosePaint = {
  * shows what is merely happening. That holds on either lap; only the pair of
  * tones changes.
  *
+ * **The segment laps and the ground does not.** A walk long enough to carry
+ * the day past the floor completes its lap in that lap's live tone and starts
+ * a second band from the left edge in the next lap's, over the one it just
+ * finished — while the ground stays at the tier the *recorded* minutes
+ * reached and waits for the stop. The asymmetry is the point rather than a
+ * compromise: a bar lapping in grey is itself the signal that something has
+ * not been saved, so a walk left running by mistake can never disguise itself
+ * as a finished day. Only a real stop turns the ground.
+ *
  * **The segment is static, and a dot says "still going".** It used to breathe,
  * and measured against a 3 h goal on a 327 dp bar it is 3.6 dp wide at two
  * minutes and 38 at twenty-one: there is no animation to be had in 3.6 dp, so
@@ -340,15 +327,20 @@ type ClosePaint = {
  * drag. A 2 dp line is not a handle: on a track it reads as a point of
  * reference, which is what it is. Do not round it off.
  *
- * **The tick does not animate.** The dot before the measure pulses and the
- * band crosses the track, and both say the same thing: the walk is live. The
- * tick answers a different question — how much of this is already recorded —
- * and a pulse on it would say "live" a third time. It is the one fixed mark
- * among the moving ones, which is what lets it be read as a measurement. It
- * draws only while a walk runs and only
- * where there is a bar, **not before anything is recorded on the current
- * lap** — there is no junction to mark, and the line would hang off the bar's
- * left edge.
+ * **The tick does not pulse.** The dot before the measure does, and the band
+ * crosses the track, and both say the same thing: the walk is live. The tick
+ * answers a different question — how much of this is already recorded — and a
+ * pulse on it would say "live" a third time. It is the one fixed mark among
+ * the moving ones, which is what lets it be read as a measurement. It draws
+ * only while a walk runs and only where there is a bar, **not before anything
+ * is recorded on the current lap** — there is no junction to mark, and the
+ * line would hang off the bar's left edge. **It does not move when the
+ * segment laps**, either: it marks the saved/live boundary, and that is still
+ * where the recorded minutes stop.
+ *
+ * **The one time it travels is the close**, where the fill's leading edge
+ * *is* that boundary for 760 ms. That tick is `CloseLanding`'s own, because
+ * this one is gone with the walk by then; the rule it follows is the same.
  *
  * **That one rule now covers the case "the goal is met" used to need its own
  * clause for.** A day exactly on the goal is the foot of lap two with an
@@ -362,11 +354,12 @@ type ClosePaint = {
  * **The close is the one moment this block speaks, and `justClosed` is how it
  * is told.** Which of three things it then does is `closeMotion`'s decision,
  * not this component's: a wrong one does not throw, it paints the bar as met
- * when it is not. The caller is responsible for one thing the prop cannot
- * express — that `walkedMinutes` already counts the walk being announced. It
- * is the total of *closed* walks, so it does, but only once the day's rows
- * have been read again; handing this over before that points the animation at
- * the previous walk's stretch.
+ * when it is not. **It no longer waits for the reload to be told**, which is
+ * what the prop's `recordedBefore` buys: both ends of the fill are known the
+ * moment the server accepts, so the bar is never left telling the truth of a
+ * minute ago while a request is in flight. The caller owes exactly two
+ * things — the total from before the walk joined it, and dropping the close
+ * as the day in view leaves it.
  *
  * **The block renders with no goal too.** `exercise_goal_minutes` is nullable
  * and the activity question is optional, so gating the whole block on a goal
@@ -398,8 +391,20 @@ export function GoalBlock({
    * The walk just closed, or null. The id is what makes it fire once: two
    * walks of the same length are a different animation, and a value check
    * would swallow the second.
+   *
+   * **`recordedBefore` is the total at the moment the server accepted**, and
+   * it is what makes the fill computable before the reload lands. The caller
+   * holds it; this block cannot work it out, because `walkedMinutes` either
+   * does or does not already contain the minutes being announced depending on
+   * whether the day's rows have come back, and subtracting them from a total
+   * that may already lack them is the stale-total defect `closeMotion`'s
+   * contract was inverted to remove.
    */
-  justClosed?: { id: string; minutes: number } | null;
+  justClosed?: {
+    id: string;
+    minutes: number;
+    recordedBefore: number;
+  } | null;
   /**
    * Bumped each time a start or a stop came back with an error. A counter
    * rather than a boolean, for the reason `justClosed` carries an id: two
@@ -455,95 +460,96 @@ export function GoalBlock({
    * needs no state: it is a shared value on a track that is always mounted.
    */
   const [closing, setClosing] = useState<ClosePaint | null>(null);
-  /** The last close this block has seen, so a re-render does not replay it. */
-  const playedClose = useRef<string | null>(null);
-  /** The timer that takes the overlay away again, so it can be re-armed. */
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   /**
-   * The recorded total as it stood before the walk that is now closing.
+   * Where the bar is held while the close's own numbers are ahead of the data.
    *
-   * **`closeMotion` adds to this; it never subtracts from the total it is
-   * handed.** `walkedMinutes` is the sum of *closed* walks, so by the time a
-   * close is announced it already contains the minutes being announced —
-   * taking them back out again is only correct if the reload has landed, and
-   * that is precisely the stale-total defect the contract was inverted to
-   * remove. The one number nothing can make stale is the total this block was
-   * holding while the walk was still running, so that is what is remembered,
-   * written on every render where a walk is live and read once when it ends.
+   * **The fill no longer waits for the reload, so something has to hold its
+   * end.** `closeMotion` knows where the bar lands the moment the server
+   * accepts; `walkedMinutes` learns it when the day's rows come back, which
+   * may be after the animation has finished, or never. Holding the total the
+   * close ended on is what makes the handover invisible in both directions: a
+   * slower reload moves nothing on arrival, a faster one does not restart the
+   * fill, and a reload that fails leaves the bar where the fill left it
+   * rather than snapping back — the failure is the toast's job, not the
+   * bar's.
    */
-  const recordedBefore = useRef(walkedMinutes);
-
-  useEffect(() => {
-    if (since === null) return;
-    recordedBefore.current = walkedMinutes;
-  }, [since, walkedMinutes]);
+  const [held, setHeld] = useState<{ id: string; minutes: number } | null>(
+    null,
+  );
+  /** The close this block has already answered, so a re-render does not replay it. */
+  const [answered, setAnswered] = useState<string | null>(null);
 
   // Primitives rather than the object: the prop is rebuilt by the caller on
-  // every render, and an effect depending on its identity would fire forever.
+  // every render, and anything depending on its identity would fire forever.
   const closeId = justClosed?.id ?? null;
   const closeMinutes = justClosed?.minutes ?? 0;
+  const closeRecordedBefore = justClosed?.recordedBefore ?? 0;
 
-  useEffect(() => {
-    if (closeId === null || closeId === playedClose.current) return;
-    // Marked seen before the reduced-motion check, so that a close which
-    // plays nothing is still a close this block has seen. `useReducedMotion`
-    // is a constant read once at module load (Reanimated 4.5.1: "Changing
-    // the reduced motion system setting doesn't cause your components to
-    // rerender"), so the preference cannot change under this effect and the
-    // order does not decide whether a skipped close is owed later; it only
-    // keeps the bookkeeping the same on both branches.
-    playedClose.current = closeId;
-    if (reduceMotion) return;
-    const motion = closeMotion({
-      recordedBefore: recordedBefore.current,
-      closedMinutes: closeMinutes,
-      goalMinutes,
-    });
+  /**
+   * **Answered during the render the close arrives on, not from an effect.**
+   *
+   * This is React's own "adjust state when a prop changes", the shape the day
+   * view already uses to drop a close as the day leaves it — and here it is
+   * the whole point rather than a style. The frame the stop commits on is the
+   * frame `walkingSince` goes null and the live segment unmounts; an effect,
+   * or a zero-delay timeout out of one, lands a paint or two later, and those
+   * are exactly the frames the bar used to spend showing the truth of a minute
+   * ago. Setting the hold and mounting the overlay in the same render means
+   * there is no frame between the two.
+   */
+  if (closeId !== answered) {
+    setAnswered(closeId);
+    const motion =
+      closeId === null
+        ? null
+        : closeMotion({
+            recordedBefore: closeRecordedBefore,
+            closedMinutes: closeMinutes,
+            goalMinutes,
+          });
     // Nothing to say: the walk added no minutes, there is no bar, or the day
     // was already past the top tier, where the minutes it added fall off the
     // end of the bar. That last one is a deliberate silence — the day is
-    // already said.
-    if (motion.kind === "none") return;
-    // **The two ends of the scale, read as something to draw.** One
-    // interpolation may cross a tier: the stretch then runs to the end of the
-    // lap it began on and the whole of that lap arrives in the new tier's
-    // ground tone, which is the "before" layer. Within one lap there is no
-    // such layer and the stretch simply lands in that lap's saved tone.
-    const wasAt = barStateAt(motion.from);
-    const endsAt = barStateAt(motion.to);
-    const crossed = endsAt.tier > wasAt.tier;
-    const paint: ClosePaint = {
-      id: closeId,
-      stretch: { start: wasAt.fill, end: crossed ? 100 : endsAt.fill },
-      from: LAPS[wasAt.tier].liveTone,
-      to: crossed ? LAPS[endsAt.tier].groundTone : LAPS[wasAt.tier].savedTone,
-      before: crossed
-        ? {
-            from: LAPS[wasAt.tier].savedTone,
-            to: LAPS[endsAt.tier].groundTone,
-          }
-        : null,
-    };
-    // **The overlay is mounted from a timer and not from here.** A `setState`
-    // in an effect body is what `react-hooks/set-state-in-effect` exists to
-    // report, and the zero-delay timeout is the shape this file already uses
-    // for it a few lines up. Nothing is cancelled when the deps change, so
-    // the timers are held in a ref rather than in the effect's cleanup, which
-    // would take the animation away mid-beat.
-    if (closeTimer.current !== null) clearTimeout(closeTimer.current);
-    setTimeout(() => setClosing(paint), 0);
-    closeTimer.current = setTimeout(() => setClosing(null), CLOSE_MS);
-  }, [closeId, closeMinutes, reduceMotion, goalMinutes]);
+    // already said — and it is also why nothing is held: the bar is already
+    // where the close would have put it.
+    if (closeId === null || motion === null || motion.kind === "none") {
+      setHeld(null);
+      setClosing(null);
+    } else {
+      setHeld({ id: closeId, minutes: closeRecordedBefore + closeMinutes });
+      // **Under "remove animations" the hold is the whole close.** The bar is
+      // painted at the fill's end state on the stop, with no overlay ever
+      // mounted — reverting to a wait for the reload would restore the hole
+      // for exactly the tutors who asked for less movement. `useReducedMotion`
+      // is a constant read once at module load (Reanimated 4.5.1), so this
+      // cannot flip under a mounted close.
+      setClosing(
+        reduceMotion
+          ? null
+          : { id: closeId, laps: closeLaps(motion.from, motion.to) },
+      );
+    }
+  } else if (
+    held !== null &&
+    (held.id !== closeId || walkedMinutes >= held.minutes)
+  ) {
+    // **Released by the data, and once.** The reload has landed and says at
+    // least what the close said, so the hold has nothing left to add and the
+    // bar reads the rows again — which also means a walk deleted a minute
+    // later takes the bar down with it, rather than being propped up by a
+    // close nobody can see any more.
+    setHeld(null);
+  }
 
-  // Only on the way out: a close in flight when the screen goes would
-  // otherwise set state on a component that has gone.
-  useEffect(
-    () => () => {
-      if (closeTimer.current !== null) clearTimeout(closeTimer.current);
-    },
-    [],
-  );
+  useEffect(() => {
+    if (closing === null) return;
+    // **Keyed on the close itself, so a re-render cannot cut the animation
+    // short.** `closing` changes only when a close begins or ends, so the
+    // cleanup only ever cancels a window that a newer close has taken over,
+    // or one the screen is leaving mid-beat.
+    const timer = setTimeout(() => setClosing(null), CLOSE_MS);
+    return () => clearTimeout(timer);
+  }, [closing]);
 
   const running = walkingSince ? elapsedMinutes(walkingSince, now) : 0;
   /**
@@ -551,8 +557,17 @@ export function GoalBlock({
    * something to draw. Null progress is "there is no bar" — no goal, or a
    * goal of zero — and reads as the foot of the first lap so that nothing
    * downstream has to repeat the check.
+   *
+   * **The hold is in minutes, not in a place**, so a goal edited while it
+   * stands is read on the new scale rather than pinning the bar to a
+   * proportion of a goal that no longer exists.
    */
-  const progress = barProgress(walkedMinutes, goalMinutes);
+  const fromRows = barProgress(walkedMinutes, goalMinutes);
+  const holding = held === null ? null : barProgress(held.minutes, goalMinutes);
+  const progress =
+    holding !== null && (fromRows === null || holding > fromRows)
+      ? holding
+      : fromRows;
   const state: BarState =
     progress === null ? { tier: 0, fill: 0 } : barStateAt(progress);
   /**
@@ -593,20 +608,51 @@ export function GoalBlock({
   const glyph = filled ? colors.onAccent : colors.accent;
 
   /**
-   * The two fills, as percentages of the bar, **within the current lap**.
+   * The fills, as percentages of the bar, **within the current lap**.
    *
    * **Nothing is painted over the top tier.** `barStateAt` reports a full
    * fill there, because the scale has nowhere further to go, but there is no
-   * third lap to draw: the ground is the whole bar and both fills are
-   * nothing. A walk running on such a day adds minutes that cannot be shown,
-   * which is the same silence the close keeps.
+   * third lap to draw: the ground is the whole bar and every fill is nothing.
+   * A walk running on such a day adds minutes that cannot be shown, which is
+   * the same silence the close keeps.
+   *
+   * **The live segment laps and the ground does not, and that asymmetry is
+   * the feature.** The ground is the tier the *recorded* minutes reached and
+   * only a real stop turns it; the fill follows the live total, so a walk that
+   * carries the day past the floor completes its lap in that lap's live tone
+   * and starts a second band from the left edge in the next lap's. A band over
+   * a completed one is what says "there is more here than the ground admits" —
+   * so a bar lapping in grey is itself the signal that something has not been
+   * saved, and a walk left running by mistake can never disguise itself as a
+   * finished day.
    */
   const lap = LAPS[state.tier];
   const recorded = state.tier === 2 ? 0 : state.fill;
+  /** Where the walk in progress has carried the day, on the same scale. */
+  const liveAt = walkingSince
+    ? barProgress(walkedMinutes + running, goalMinutes)
+    : null;
+  const live = liveAt === null ? null : barStateAt(liveAt);
+  /** The live total has passed into a lap the recorded total has not reached. */
+  const lapped = live !== null && state.tier < 2 && live.tier > state.tier;
   const inProgress =
-    state.tier === 2 || goalMinutes === null || goalMinutes === 0
+    state.tier === 2 || live === null
       ? 0
-      : Math.min(100 - recorded, (running / goalMinutes) * 100);
+      : lapped
+        ? 100 - recorded
+        : Math.max(0, live.fill - recorded);
+  /**
+   * The band over the completed lap: the next lap's live tone, from the left
+   * edge. Capped at one lap ahead — past the top there is nothing further to
+   * show, which is the same cap the recorded fill keeps.
+   */
+  const overLap = LAPS[Math.min(state.tier + 1, 2)];
+  const lapping =
+    live !== null && lapped
+      ? live.tier > state.tier + 1
+        ? 100
+        : live.fill
+      : 0;
 
   return (
     <View testID={testID} className="mb-8">
@@ -755,11 +801,26 @@ export function GoalBlock({
               // "De paseo". See the block's comment for why the pulse moved to
               // the dot.
               <View
+                testID={testID ? `${testID}-live` : undefined}
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
                 aria-hidden
                 style={{ width: `${inProgress}%` }}
                 className={`h-[4px] ${lap.live}`}
+              />
+            ) : null}
+            {lapping > 0 ? (
+              // **Absolutely placed, so it starts at the bar's left edge
+              // rather than after the two fills in the row.** It is the
+              // second lap of a walk still running, drawn over a lap the
+              // ground has not admitted to yet.
+              <View
+                testID={testID ? `${testID}-lap` : undefined}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                aria-hidden
+                style={{ width: `${lapping}%` }}
+                className={`absolute top-0 bottom-0 left-0 ${overLap.live}`}
               />
             ) : null}
             {/* **Inside the track, so its rounded `overflow-hidden` is the
@@ -779,28 +840,24 @@ export function GoalBlock({
               />
             ) : null}
           </View>
-          {/* **The close is the track's sibling, not its child, because the
-              swollen stretch is thicker than the bar.** The track keeps the
-              `overflow-hidden` its fills and the sweep need, and that would
-              cut a 7 dp stretch down to 4 dp. Out here it is clipped by
-              nothing, the way the swell on the track already was. The cost,
-              accepted: the close's overlays do not inherit the track's
-              `rounded-xl`, so for 760 ms the bar's two extreme ends are square
-              rather than carrying their 2 dp cap. */}
+          {/* **The close is the track's sibling, not its child, because it
+              carries the tick.** The track keeps the `overflow-hidden` its
+              fills and the sweep need, and a 12 dp mark standing 4 dp proud of
+              a 4 dp track would be cut to the track. Out here it is clipped by
+              nothing. The cost, accepted: the close's overlays do not inherit
+              the track's `rounded-xl`, so for 760 ms the bar's two extreme
+              ends are square rather than carrying their 2 dp cap. */}
           {closing !== null ? (
             <CloseLanding
               // Keyed by the close, not by the position: a second close
               // inside the 760 ms of the first reconciles into this same
-              // element, and without a new key `landed` would still be 1
-              // from the first animation, so the second would paint its
-              // geometry already at its destination tone with no travel.
-              // Reasoned from how React reconciles, not reproduced — it
-              // needs two server round trips inside the window.
+              // element, and without a new key the shared value would still
+              // be at 1 from the first animation, so the second would paint
+              // itself already arrived with no travel. Reasoned from how
+              // React reconciles, not reproduced — it needs two server round
+              // trips inside the window.
               key={closing.id}
-              stretch={closing.stretch}
-              from={closing.from}
-              to={closing.to}
-              before={closing.before}
+              laps={closing.laps}
               testID={testID ? `${testID}-close` : undefined}
             />
           ) : null}
@@ -1237,107 +1294,80 @@ function Sweep({
 }
 
 /**
- * The three beats of a close that has a stretch to point at: the stretch
- * swelling, the sheen across it, the stretch arriving at the tone it will
- * keep, and — when the goal was reached — the rest of the bar coming with it.
+ * The close: the live segment held painted, and a fill converting it left to
+ * right until the bar says what the day now says.
  *
- * **All three act on the stretch, which is the whole reason the swell lives
- * here.** It used to be `scaleY` on the track, so the loudest beat pointed at
- * the entire bar while the two quiet ones pointed at the minutes just saved —
- * the sentence said two different things at once. With two laps there is no
- * longer any close that thickens the whole track: every close with minutes to
- * show has a stretch somewhere, and one with none says nothing.
+ * **The fill does not grow into empty track, and that is the whole point.** A
+ * fill that started at the junction over a bar that had already dropped the
+ * walk would open on exactly the frame the tutor's video shows as "the bar has
+ * lost the walk". What is on screen when the stop lands is held — every band of
+ * it, lapped or not — and the conversion travels along it. The frame stops
+ * existing rather than being decorated.
  *
- * **A component rather than three branches inside the block**, so the whole
- * close is mounted and unmounted as one thing: `testID` marks this wrapper,
- * and its absence is the settled state the e2e suite asserts.
+ * **One shared value, one lap each.** `closeLaps` cut the stretch at the tier
+ * boundaries, so each lap owns a slice of the animation and draws three
+ * things from the same number: the ground it lands the bar on, the stretch of
+ * itself not yet converted (the lap's in-progress tone, held), and the fill
+ * that is converting it (the lap's saved tone, from the lap's left edge). A
+ * lap's ground arrives the instant its slice opens and covers everything
+ * below, so crossing a tier turns the bar and restarts the fill at zero inside
+ * one gesture — no special case, and no frame where the bar is two-tone.
  *
- * **It starts from the lap's in-progress tone because that is where the eye
- * already is.** The in-progress segment is drawn in exactly that tone while
- * the walk runs, and the frame the overlay mounts on is the frame the segment
- * goes and the recorded fill grows to take its place. So the overlay opens as
- * a continuation of the segment rather than as a new object, and then travels
- * to the tone the fill underneath is already holding. **Which tone that is
- * depends on the lap**, so the four of them are handed over as props rather
- * than named here: the caller reads them off `closeMotion`'s own two
- * endpoints, once, so a reload landing mid-animation cannot move them.
+ * **Every lap has a ground, including the one the close began on.** The bar
+ * underneath is already painted at the close's end state, because the fill no
+ * longer waits for the reload; without a ground of its own the first lap would
+ * let the destination's colour show through from the first frame, which is the
+ * half of the handover a builder who fixed only the width would ship.
  *
- * **Which is also why nothing jumps when it is taken away.** The fill beneath
- * was given its destination tone by props the moment the day's rows landed;
- * the overlay only hides it for 760 ms and arrives at the same colour. There
- * is no frame where the bar changes when the overlay unmounts — the one risk
- * being that it is removed early, which is why the timer that removes it is
- * never cancelled by a re-render.
+ * **The tick rides the fill's leading edge**, because during the conversion
+ * that edge *is* the saved/live boundary. It is the close's own element rather
+ * than the bar's: the bar's tick is drawn only while a walk runs, and the walk
+ * has ended. A new lap has nothing saved on it, so the mark is withheld at
+ * zero and reappears as the fill advances — which is the same rule the bar's
+ * own tick follows, not a second one.
  *
- * **When the close crosses a tier the whole lap comes with it, not just the
- * new stretch**, so a second overlay (`before`) covers everything to the left
- * and travels from that lap's saved tone to the new tier's ground. Without it
- * the bar would land two-tone for the length of the animation and then snap.
- * Within one lap there is no such layer and `before` is null.
+ * **Nothing jumps when it is taken away.** The bar beneath is held at the
+ * close's end for as long as the data is short of it, and the last frame of
+ * every lap is exactly that — so the overlay unmounts onto the picture it was
+ * already painting.
  *
  * Decoration to a reader: `Objetivo conseguido` appears under the bar in the
  * same breath, and the measure says the new total.
  */
-function CloseLanding({
-  stretch,
-  from,
-  to,
-  before,
-  testID,
-}: {
-  stretch: { start: number; end: number };
-  /** The tone the stretch leaves: the lap's own in-progress tone. */
-  from: string;
-  /** The tone it lands in. */
-  to: string;
-  /**
-   * The rest of the bar, when the close crossed a tier and took the whole lap
-   * into the new tier's ground with it. Null within one lap.
-   */
-  before: { from: string; to: string } | null;
-  testID?: string;
-}) {
-  const landed = useSharedValue(0);
-  const swell = useSharedValue(1);
+function CloseLanding({ laps, testID }: { laps: CloseLap[]; testID?: string }) {
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    landed.value = withDelay(
-      CLOSE_SHEEN_END_MS,
-      withTiming(1, {
-        duration: CLOSE_MS - CLOSE_SHEEN_END_MS,
-        easing: Easing.inOut(Easing.quad),
-      }),
-    );
-    // The first beat, and the only one of the three that used to point
-    // somewhere else. It ends at exactly `CLOSE_MS`, which is the frame this
-    // overlay is taken away on, so the stretch is back at 4 dp before the
-    // fill beneath it is uncovered.
-    swell.value = withSequence(
-      withTiming(CLOSE_SWELL_SCALE, {
-        duration: CLOSE_SWELL_MS,
-        easing: Easing.out(Easing.quad),
-      }),
-      withTiming(1, {
-        duration: CLOSE_MS - CLOSE_SWELL_MS,
-        easing: Easing.inOut(Easing.quad),
-      }),
-    );
-  }, [landed, swell]);
+    progress.value = withTiming(1, {
+      duration: CLOSE_MS,
+      easing: Easing.inOut(Easing.quad),
+    });
+  }, [progress]);
 
-  const stretchStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(landed.value, [0, 1], [from, to]),
-    transform: [{ scaleY: swell.value }],
-  }));
+  // Flattened for the worklet below, which walks them on every frame: the
+  // bounds are plain numbers and the laps never change under a mounted close.
+  const bounds = laps.map((lap) => [
+    lap.at[0],
+    lap.at[1],
+    lap.fill[0],
+    lap.fill[1],
+  ]);
 
-  // Computed whether or not it is drawn: a hook cannot be conditional, and
-  // the layer itself is. The fallback is never painted.
-  const beforeStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      landed.value,
-      [0, 1],
-      [before?.from ?? from, before?.to ?? to],
-    ),
-  }));
+  const tickStyle = useAnimatedStyle(() => {
+    let drawn = 0;
+    for (let i = 0; i < bounds.length; i++) {
+      const lap = bounds[i];
+      if (progress.value >= lap[0]) {
+        drawn = lapFillAt(progress.value, lap[0], lap[1], lap[2], lap[3]);
+      }
+    }
+    return {
+      left: `${drawn}%`,
+      // Nothing recorded on this lap is nothing to separate, which is the
+      // bar's own rule for the mark: see the block's comment.
+      opacity: drawn > 0 ? 1 : 0,
+    };
+  });
 
   return (
     <View
@@ -1347,98 +1377,92 @@ function CloseLanding({
       aria-hidden
       className="absolute inset-0"
     >
-      {before !== null ? (
-        <Animated.View
-          style={[{ left: 0, width: `${stretch.start}%` }, beforeStyle]}
-          className="absolute top-0 bottom-0"
+      {laps.map((lap) => (
+        <CloseLapPaint
+          key={lap.tier}
+          lap={lap}
+          progress={progress}
+          testID={testID ? `${testID}-lap-${lap.tier}` : undefined}
         />
-      ) : null}
+      ))}
       <Animated.View
-        testID={testID ? `${testID}-stretch` : undefined}
+        testID={testID ? `${testID}-tick` : undefined}
         style={[
           {
-            left: `${stretch.start}%`,
-            width: `${stretch.end - stretch.start}%`,
+            marginLeft: -TICK_WIDTH / 2,
+            top: -TICK_RISE,
+            width: TICK_WIDTH,
+            height: TICK_HEIGHT,
           },
-          stretchStyle,
+          tickStyle,
         ]}
-        className="absolute top-0 bottom-0"
-      >
-        {/* **Inside the stretch, so the sheen swells with it.** As the
-            stretch's sibling it stayed 4 dp while the stretch it was lighting
-            went to 7, and crossed a lozenge leaving an unlit rim above and
-            below. The scale is on this element, and a transform reaches its
-            children. The sheen's own timing is untouched. */}
-        <CloseSheen testID={testID ? `${testID}-sheen` : undefined} />
-      </Animated.View>
+        className="absolute rounded-[1px] bg-text-primary"
+      />
     </View>
   );
 }
 
 /**
- * The pale band that crosses the stretch a walk just added, once.
+ * One lap of a close: its ground, the part of it not yet converted, and the
+ * fill converting it.
  *
- * **`Band` and not `Sweep`.** The sweep loops across the whole track for as
- * long as a walk runs, which is the right shape for "live" and the wrong one
- * for a single event; this crosses the stretch and is gone. It is clipped to
- * the stretch rather than drawn over the whole bar because the sentence is
- * "*this much* has just been saved", and a band over the whole track would
- * point at all of it.
+ * **Three layers and no colour animation.** The tones are the lap's own, from
+ * `LAPS`, and they never travel — what moves is which of them is covering the
+ * pixel, which is what "converted left to right" means. That also keeps the
+ * two spellings of each colour honest: these are the `className` halves, the
+ * same ones the settled bar wears, so the overlay cannot land a shade off
+ * what it uncovers.
  *
- * **It is a child of the stretch and fills it** (`inset-0`), which is what
- * makes it swell with it. The swell is a `scaleY` on the stretch, and when
- * this was the stretch's sibling in a 4 dp clip of its own it crossed a 7 dp
- * stretch and left a rim of it unlit above and below. Its clip is now the
- * stretch's own box, scaled along with it, so the sheen is exactly as thick as
- * the thing it lights at every frame of the swell and can paint nowhere the
- * stretch is not. Nothing about *when* it runs changes: the translation is
- * its own shared value.
- *
- * **The stretch's width has to be measured.** `Band` is drawn in dp and a
- * translation cannot be a percentage, so the width comes from `onLayout` on
- * the clip, the same way `Sweep` reads the track's. `onLayout` reports the
- * unscaled box, and the scale is vertical only, so the width is still right.
- * The stretch can be 3 dp wide against a long goal, in which case the band is
- * a flash rather than a crossing — which is the honest picture of two minutes
- * against three hours.
+ * The ground is first so the two bands sit over it, and the laps are rendered
+ * in order so each lap's ground covers the one below — which is the tier
+ * turning, drawn.
  */
-function CloseSheen({ testID }: { testID?: string }) {
-  const [width, setWidth] = useState(0);
-  const x = useSharedValue(-CLOSE_SHEEN_WIDTH);
+function CloseLapPaint({
+  lap,
+  progress,
+  testID,
+}: {
+  lap: CloseLap;
+  progress: SharedValue<number>;
+  testID?: string;
+}) {
+  const tones = LAPS[lap.tier];
+  const [opens, closes] = lap.at;
+  const [from, to] = lap.fill;
 
-  useEffect(() => {
-    if (width === 0) return;
-    x.value = withDelay(
-      CLOSE_SWELL_MS,
-      withTiming(width, {
-        duration: CLOSE_SHEEN_END_MS - CLOSE_SWELL_MS,
-        easing: Easing.linear,
-      }),
-    );
-  }, [width, x]);
-
-  const bandStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: x.value }],
+  const groundStyle = useAnimatedStyle(() => ({
+    width: progress.value >= opens ? "100%" : "0%",
   }));
 
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${lapFillAt(progress.value, opens, closes, from, to)}%`,
+  }));
+
+  // The stretch of this lap the fill has not reached yet, held in the tone the
+  // walk was painting it in. It is empty at the end of the lap's slice, so the
+  // overlay never has to take anything away.
+  const heldStyle = useAnimatedStyle(() => {
+    const drawn = lapFillAt(progress.value, opens, closes, from, to);
+    return { left: `${drawn}%`, width: `${Math.max(0, to - drawn)}%` };
+  });
+
   return (
-    <View
-      testID={testID}
-      onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
-      className="absolute inset-0 overflow-hidden"
-    >
-      {width > 0 ? (
-        <Animated.View
-          style={[{ width: CLOSE_SHEEN_WIDTH }, bandStyle]}
-          className="absolute top-0 bottom-0 left-0"
-        >
-          <Band
-            width={CLOSE_SHEEN_WIDTH}
-            tone={colors.textPrimary}
-            alpha={CLOSE_SHEEN_ALPHA}
-          />
-        </Animated.View>
-      ) : null}
-    </View>
+    <>
+      <Animated.View
+        testID={testID ? `${testID}-ground` : undefined}
+        style={groundStyle}
+        className={`absolute top-0 bottom-0 left-0 ${tones.ground}`}
+      />
+      <Animated.View
+        testID={testID ? `${testID}-held` : undefined}
+        style={heldStyle}
+        className={`absolute top-0 bottom-0 ${tones.live}`}
+      />
+      <Animated.View
+        testID={testID ? `${testID}-fill` : undefined}
+        style={fillStyle}
+        className={`absolute top-0 bottom-0 left-0 ${tones.saved}`}
+      />
+    </>
   );
 }

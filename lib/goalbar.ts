@@ -104,3 +104,63 @@ export function closeMotion(input: {
 
   return { kind: "fill", from, to };
 }
+
+/**
+ * One lap of the bar as the close travels across it: when it is converted,
+ * and what its fill reads at the two ends of that stretch.
+ *
+ * **A close is one interpolation, and this is how a component draws it
+ * without doing tier arithmetic of its own.** The scale is continuous and the
+ * bar is not: at every integer the ground turns and the fill wraps to zero, so
+ * a single animated number cannot be turned into a width without knowing where
+ * those boundaries fall. Cutting the stretch into laps here puts the whole of
+ * that knowledge beside `barStateAt`, which is the same reason the scale lives
+ * in this file at all — a lap boundary computed a second way is a bar that
+ * turns colour at a place the measure disagrees with.
+ *
+ * `at` is the slice of the close this lap owns, 0–1 of the whole animation, so
+ * one shared value drives every lap. `fill` is that lap's own fill at those
+ * two instants, 0–100 of the bar's width. The last lap of a close that reaches
+ * the very top reads `[0, 0]`: there is no third lap to paint, so the ground
+ * is the whole sentence — the same silence `barStateAt` keeps there.
+ */
+export type CloseLap = {
+  tier: 0 | 1 | 2;
+  at: [number, number];
+  fill: [number, number];
+};
+
+/** Where a point of the scale sits inside one lap, 0–100, clamped to it. */
+function lapFill(progress: number, tier: number): number {
+  return Math.min(100, Math.max(0, (progress - tier) * 100));
+}
+
+/**
+ * The laps a close crosses, in the order it crosses them, from the two ends
+ * `closeMotion` returns.
+ *
+ * A close inside one lap is one entry. A close that lands exactly on a tier
+ * gets a second, zero-length entry — the lap it opens with an empty fill,
+ * which is the "foot of its own lap" rule `barStateAt` states, drawn.
+ */
+export function closeLaps(from: number, to: number): CloseLap[] {
+  const start = Math.min(TOP_TIER, Math.max(0, from));
+  const end = Math.min(TOP_TIER, Math.max(start, to));
+  const span = end - start;
+  const laps: CloseLap[] = [];
+  for (
+    let tier = barStateAt(start).tier;
+    tier <= barStateAt(end).tier;
+    tier++
+  ) {
+    const opens = Math.max(start, tier);
+    const closes = Math.min(end, tier + 1);
+    laps.push({
+      tier: tier as 0 | 1 | 2,
+      at:
+        span === 0 ? [0, 0] : [(opens - start) / span, (closes - start) / span],
+      fill: [lapFill(opens, tier), lapFill(closes, tier)],
+    });
+  }
+  return laps;
+}
