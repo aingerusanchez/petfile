@@ -480,7 +480,7 @@ Recorded in `PRODUCT.md` under **Decided, Not Yet Built**, found on the device i
 
 The e2e suite cannot see this today because it aborts only the write route, so the pet read survives and the screen never falls over. **The new test must cut every route**, not one.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 test("keeps the diary on screen when a walk cannot be saved offline", async ({
@@ -493,19 +493,19 @@ test("keeps the diary on screen when a walk cannot be saved offline", async ({
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx playwright test e2e/home.spec.ts -g "cannot be saved offline"`
 Expected: FAIL — the error view replaces the diary.
 
-- [ ] **Step 3: Gate `petError` on having nothing to show**
+- [x] **Step 3: Gate `petError` on having nothing to show**
 
-- [ ] **Step 4: Run it with the error-path specs**
+- [x] **Step 4: Run it with the error-path specs**
 
 Run: `npx playwright test e2e/home.spec.ts -g "cannot be saved offline|error|Reintentar|shake"`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "app/(tabs)/index.tsx" e2e/home.spec.ts
@@ -527,7 +527,7 @@ The fix is `fontVariant: ["tabular-nums"]` on the time's `Text`, which makes the
 
 **Verify on the device**, not only in the browser: if Outfit ships no `tnum` table the prop changes nothing, and that cannot be seen from the web target.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 test("starts every entry's title at the same place whatever the hour", async ({
@@ -538,19 +538,19 @@ test("starts every entry's title at the same place whatever the hour", async ({
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx playwright test e2e/home.spec.ts -g "same place whatever the hour"`
 Expected: FAIL — the three differ.
 
-- [ ] **Step 3: Set the figures tabular, and correct the comment's premise**
+- [x] **Step 3: Set the figures tabular, and correct the comment's premise**
 
-- [ ] **Step 4: Run it**
+- [x] **Step 4: Run it**
 
 Run: `npx playwright test e2e/home.spec.ts -g "same place whatever the hour|log|entry"`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "app/(tabs)/index.tsx" e2e/home.spec.ts
