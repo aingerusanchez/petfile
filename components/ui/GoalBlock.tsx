@@ -20,7 +20,12 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { formatDuration } from "../../lib/duration";
-import { type CloseMotion, closeMotion } from "../../lib/goalbar";
+import {
+  type BarState,
+  barProgress,
+  barStateAt,
+  closeMotion,
+} from "../../lib/goalbar";
 import type { DurationFormat } from "../../lib/settings";
 import { elapsedMinutes } from "../../lib/walk";
 import { Text } from "./Text";
@@ -85,7 +90,10 @@ const RIPPLE_ALPHA = 0.6;
  * `SWEEP_ALPHA_MET` — predicted 205 − 0.35 × (205 − 12) = **137**, a fall of
  * −68 — and right of it, over the dark track and the in-progress segment, it
  * is `textPrimary` at `SWEEP_ALPHA` exactly as before. Once the goal is met
- * the bar is one ground again (Aqua) and there is one dark band.
+ * there is one dark band over the whole bar, and that survived the tiers for
+ * a reason rather than by accident: lap two is violet on an Aqua ground, and
+ * both of those are lighter than the dark track the pale band was made for.
+ * A single dark band is the opposite tone of everything it crosses there.
  *
  * **It was briefly a wave, 10 dp tall and lens-shaped, and that is gone.**
  * Height reads whatever colour it crosses, so it was built as a second answer
@@ -109,11 +117,17 @@ const BAND_HEIGHT = 4;
  * The close, in four beats: how long the whole thing lasts, and where each
  * beat lands inside it.
  *
+ * **Task 3 rebuilds all of this**, and what is here is today's close kept
+ * working against two laps rather than one. The one case that has already
+ * gone is the close with no stretch to point at: with a second lap above the
+ * goal, a walk closing on a met day lands on lap two, and a day past double
+ * says nothing at all — so the swell that used to thicken the whole track has
+ * nothing left to belong to, and the track is a plain `View` again.
+ *
  * **One sentence — "this much has just been saved" — said four ways.** The
  * stretch the walk added thickens, a pale band crosses it, that stretch
- * travels from the in-progress grey to the tone it will keep, and it settles
- * back to its 4 dp. (Where there is no stretch to point at, the whole track is
- * what thickens; see below.) Before this, stopping a walk changed the segment
+ * travels from the in-progress tone to the tone it will keep, and it settles
+ * back to its 4 dp. Before this, stopping a walk changed the segment
  * to a slightly lighter grey and took the tick away: the most significant
  * event of the dog's day, and the least visible thing the app did.
  *
@@ -127,14 +141,12 @@ const BAND_HEIGHT = 4;
  * `scaleY` on the wrapper: the tick is the wrapper's other child and would
  * scale with it, and a 12 dp tick at 1.75 is a 21 dp spike.
  *
- * **The swell lands on the stretch, not on the whole bar — except when there
- * is no stretch.** It used to thicken the entire track while the sheen and the
- * colour landing pointed only at the minutes the walk added, so the loudest of
- * the three beats contradicted the sentence the other two spoke. In the `land`
- * case it is `scaleY` on `CloseLanding`'s stretch overlay, and all three beats
- * then act on the same place. In the `swell` case — the goal was already met
- * before this walk, so there is no stretch to point at — it stays on the track,
- * because there the message really is about the whole thing.
+ * **The swell lands on the stretch, not on the whole bar.** It used to
+ * thicken the entire track while the sheen and the colour landing pointed
+ * only at the minutes the walk added, so the loudest of the three beats
+ * contradicted the sentence the other two spoke. It is `scaleY` on
+ * `CloseLanding`'s stretch overlay, and all three beats act on the same
+ * place.
  *
  * **Known and accepted:** a one-minute close against a 3 h goal leaves a
  * stretch about 3.6 dp wide, and a swell on 3.6 dp is barely anything. A real
@@ -201,17 +213,102 @@ const TICK_RISE = 4;
 const GLYPH_SIZE = 16;
 
 /**
+ * What the bar is painted in, by the tier the day has reached.
+ *
+ * **The ground is the tier reached and the fill is the way to the next**, so
+ * one row of this table is read at a time: `ground` is the whole track once
+ * that tier is behind the day, and `saved` / `live` are the lap drawn over
+ * it. A day below the goal is row 0 — the empty track with Mist filling it,
+ * which is the bar exactly as it was before there were tiers. A day that has
+ * reached the goal is row 1: the whole bar Aqua, with Aurora Boreal filling
+ * over it. A day past double is row 2, violet throughout, and its `saved` and
+ * `live` are never drawn because there is no third lap to start.
+ *
+ * **Saved and in-progress stay a tone apart on every lap**, with the tick
+ * between them — the tiers are orthogonal to that, and all that changes is
+ * which pair the lap wears.
+ *
+ * **Two spellings of the same colour, and they must agree.** The three fills
+ * are `View`s, so they take a `className` and the value lives in
+ * `global.css`; the close interpolates between tones in a worklet, which is a
+ * React Native prop and takes the value from `tokens.ts`. They are written on
+ * adjacent lines here for the one reason that nothing else can check them.
+ */
+const LAPS = [
+  {
+    ground: "bg-surface",
+    saved: "bg-text-secondary",
+    live: "bg-text-tertiary",
+    groundTone: colors.surface,
+    savedTone: colors.textSecondary,
+    liveTone: colors.textTertiary,
+  },
+  {
+    ground: "bg-accent",
+    saved: "bg-accent-focus",
+    live: "bg-accent-focus-dim",
+    groundTone: colors.accent,
+    savedTone: colors.accentFocus,
+    liveTone: colors.accentFocusDim,
+  },
+  {
+    ground: "bg-accent-focus",
+    saved: "bg-accent-focus",
+    live: "bg-accent-focus",
+    groundTone: colors.accentFocus,
+    savedTone: colors.accentFocus,
+    liveTone: colors.accentFocus,
+  },
+] as const;
+
+/**
+ * A close as something to draw: the stretch the walk added, in percentages of
+ * the bar's own width, and the tones the two overlays travel between.
+ *
+ * The tones are carried rather than derived in the component because a close
+ * may change tier on the way, and which lap's pair applies is decided once,
+ * from `closeMotion`'s own two endpoints, rather than from props that move
+ * underneath the animation while it runs.
+ */
+type ClosePaint = {
+  id: string;
+  stretch: { start: number; end: number };
+  /** The tone the stretch leaves — the lap's in-progress tone. */
+  from: string;
+  /** The tone it lands in. */
+  to: string;
+  /** The rest of the bar, when the close crossed a tier and took it along. */
+  before: { from: string; to: string } | null;
+};
+
+/**
  * The day's walking, and the control that starts and stops it.
  *
  * **The only place on this screen that already talks about walks**, which is
  * why it gains the control by changing state rather than by growing one.
  * Nothing floats: the floating action keeps the corner it has.
  *
- * **The bar stays Mist while walking.** Aqua on this fill means "goal met" and
- * nothing else (DESIGN.md), so the state change is carried by the text. The
- * minutes of the walk in progress are not stored, so they are a dimmer segment
- * at the head of the fill rather than part of it — the measure keeps measuring
- * what is recorded, and the segment shows what is merely happening.
+ * **The ground is the tier the day reached, and the fill is the way to the
+ * next.** The goal has two tiers: the one the tutor set, and double it,
+ * derived rather than stored. Below the goal the bar is the empty track with
+ * Mist filling it, which is what it always was; at the goal the whole bar
+ * turns Aqua and Aurora Boreal begins to fill over it; past double the whole
+ * bar is Aurora Boreal and there is nothing left to fill. `LAPS` is the
+ * table, and the measure counts against the **top** tier — "3h de 4h" on a
+ * 2 h goal.
+ *
+ * **A day landing exactly on the goal has an empty fill, and that is the
+ * rule rather than a rounding slip.** It is the foot of lap two, not the head
+ * of lap one: at the goal the whole bar is already Aqua, so there is nothing
+ * left for a lap-one fill to say.
+ *
+ * **The bar's fill stays Mist while walking on lap one.** Aqua on the
+ * *ground* is what means "goal met" (DESIGN.md), so a walk in progress still
+ * changes nothing but the text. The minutes of the walk in progress are not
+ * stored, so they are a dimmer segment at the head of the fill rather than
+ * part of it — the measure keeps measuring what is recorded, and the segment
+ * shows what is merely happening. That holds on either lap; only the pair of
+ * tones changes.
  *
  * **The segment is static, and a dot says "still going".** It used to breathe,
  * and measured against a 3 h goal on a 327 dp bar it is 3.6 dp wide at two
@@ -248,11 +345,18 @@ const GLYPH_SIZE = 16;
  * and a pulse on it would say "live" a third time. It is the one fixed mark
  * among the moving ones, which is what lets it be read as a measurement. It
  * draws only while a walk runs and only
- * where there is a bar, **not before anything is recorded** — there is no
- * junction to mark, and the line would hang off the bar's left edge — and
- * **not once the goal is met**: the bar is then full and Aqua and there is no
- * segment, so a mark at its right end would separate the recorded minutes from
- * nothing and read as a cap on the bar.
+ * where there is a bar, **not before anything is recorded on the current
+ * lap** — there is no junction to mark, and the line would hang off the bar's
+ * left edge.
+ *
+ * **That one rule now covers the case "the goal is met" used to need its own
+ * clause for.** A day exactly on the goal is the foot of lap two with an
+ * empty fill, so there is nothing recorded on the lap and no tick — the bar
+ * is whole and Aqua and a mark at either end would separate the recorded
+ * minutes from nothing. A day *past* the goal with a walk running does have a
+ * junction on lap two, and the tick marks it by the same rule it always had;
+ * the first draft of the tiers claimed the tick moved to the lap boundary,
+ * and it does not. Past double there is no fill at all, so again no tick.
  *
  * **The close is the one moment this block speaks, and `justClosed` is how it
  * is told.** Which of three things it then does is `closeMotion`'s decision,
@@ -349,14 +453,30 @@ export function GoalBlock({
    * meets it, and the e2e suite's `toHaveCount(0)` would be a lie. The swell
    * needs no state: it is a shared value on a track that is always mounted.
    */
-  const [closing, setClosing] = useState<(CloseMotion & { id: string }) | null>(
-    null,
-  );
+  const [closing, setClosing] = useState<ClosePaint | null>(null);
   /** The last close this block has seen, so a re-render does not replay it. */
   const playedClose = useRef<string | null>(null);
   /** The timer that takes the overlay away again, so it can be re-armed. */
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const trackScale = useSharedValue(1);
+
+  /**
+   * The recorded total as it stood before the walk that is now closing.
+   *
+   * **`closeMotion` adds to this; it never subtracts from the total it is
+   * handed.** `walkedMinutes` is the sum of *closed* walks, so by the time a
+   * close is announced it already contains the minutes being announced —
+   * taking them back out again is only correct if the reload has landed, and
+   * that is precisely the stale-total defect the contract was inverted to
+   * remove. The one number nothing can make stale is the total this block was
+   * holding while the walk was still running, so that is what is remembered,
+   * written on every render where a walk is live and read once when it ends.
+   */
+  const recordedBefore = useRef(walkedMinutes);
+
+  useEffect(() => {
+    if (since === null) return;
+    recordedBefore.current = walkedMinutes;
+  }, [since, walkedMinutes]);
 
   // Primitives rather than the object: the prop is rebuilt by the caller on
   // every render, and an effect depending on its identity would fire forever.
@@ -375,48 +495,45 @@ export function GoalBlock({
     playedClose.current = closeId;
     if (reduceMotion) return;
     const motion = closeMotion({
-      walkedMinutes,
+      recordedBefore: recordedBefore.current,
       closedMinutes: closeMinutes,
       goalMinutes,
     });
+    // Nothing to say: the walk added no minutes, there is no bar, or the day
+    // was already past the top tier, where the minutes it added fall off the
+    // end of the bar. That last one is a deliberate silence — the day is
+    // already said.
     if (motion.kind === "none") return;
-    // The bar was already full before this walk, so the minutes it added fall
-    // past the bar's edge: there is no stretch to sheen or to land, and the
-    // thickness is the whole sentence — so the whole bar is what thickens.
-    // Everywhere else the swell belongs to the stretch and `CloseLanding`
-    // runs it; see the close's comment for why the loudest beat may not point
-    // somewhere the other two do not.
-    if (motion.kind === "swell") {
-      trackScale.value = withSequence(
-        withTiming(CLOSE_SWELL_SCALE, {
-          duration: CLOSE_SWELL_MS,
-          easing: Easing.out(Easing.quad),
-        }),
-        withTiming(1, {
-          duration: CLOSE_MS - CLOSE_SWELL_MS,
-          easing: Easing.inOut(Easing.quad),
-        }),
-      );
-      return;
-    }
+    // **The two ends of the scale, read as something to draw.** One
+    // interpolation may cross a tier: the stretch then runs to the end of the
+    // lap it began on and the whole of that lap arrives in the new tier's
+    // ground tone, which is the "before" layer. Within one lap there is no
+    // such layer and the stretch simply lands in that lap's saved tone.
+    const wasAt = barStateAt(motion.from);
+    const endsAt = barStateAt(motion.to);
+    const crossed = endsAt.tier > wasAt.tier;
+    const paint: ClosePaint = {
+      id: closeId,
+      stretch: { start: wasAt.fill, end: crossed ? 100 : endsAt.fill },
+      from: LAPS[wasAt.tier].liveTone,
+      to: crossed ? LAPS[endsAt.tier].groundTone : LAPS[wasAt.tier].savedTone,
+      before: crossed
+        ? {
+            from: LAPS[wasAt.tier].savedTone,
+            to: LAPS[endsAt.tier].groundTone,
+          }
+        : null,
+    };
     // **The overlay is mounted from a timer and not from here.** A `setState`
     // in an effect body is what `react-hooks/set-state-in-effect` exists to
     // report, and the zero-delay timeout is the shape this file already uses
-    // for it a few lines up. Nothing is cancelled when the deps change —
-    // `walkedMinutes` moves under a running close every time the other phone
-    // writes something — so the timers are held in a ref rather than in the
-    // effect's cleanup, which would take the animation away mid-beat.
+    // for it a few lines up. Nothing is cancelled when the deps change, so
+    // the timers are held in a ref rather than in the effect's cleanup, which
+    // would take the animation away mid-beat.
     if (closeTimer.current !== null) clearTimeout(closeTimer.current);
-    setTimeout(() => setClosing({ ...motion, id: closeId }), 0);
+    setTimeout(() => setClosing(paint), 0);
     closeTimer.current = setTimeout(() => setClosing(null), CLOSE_MS);
-  }, [
-    closeId,
-    closeMinutes,
-    reduceMotion,
-    walkedMinutes,
-    goalMinutes,
-    trackScale,
-  ]);
+  }, [closeId, closeMinutes, reduceMotion, goalMinutes]);
 
   // Only on the way out: a close in flight when the screen goes would
   // otherwise set state on a component that has gone.
@@ -427,12 +544,25 @@ export function GoalBlock({
     [],
   );
 
-  const trackStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleY: trackScale.value }],
-  }));
-
   const running = walkingSince ? elapsedMinutes(walkingSince, now) : 0;
-  const met = goalMinutes !== null && walkedMinutes >= goalMinutes;
+  /**
+   * The recorded minutes as a place on the two-lap scale, and that place as
+   * something to draw. Null progress is "there is no bar" — no goal, or a
+   * goal of zero — and reads as the foot of the first lap so that nothing
+   * downstream has to repeat the check.
+   */
+  const progress = barProgress(walkedMinutes, goalMinutes);
+  const state: BarState =
+    progress === null ? { tier: 0, fill: 0 } : barStateAt(progress);
+  /**
+   * **`met` still means the recorded minutes alone cover the goal** — the
+   * walk in progress is excluded, here and everywhere that leans on it,
+   * including the celebration. `metX2` is the same claim about the top tier.
+   * Both are read off the scale rather than recomputed from the minutes, so
+   * the words under the bar and the colour of the bar cannot disagree.
+   */
+  const met = progress !== null && state.tier >= 1;
+  const metX2 = progress !== null && state.tier === 2;
   /**
    * **The control is a stop as soon as the caller has one, not as soon as the
    * row has arrived.** A start writes the row and asks for a reload, and
@@ -461,12 +591,19 @@ export function GoalBlock({
   // transport control is a solid shape by convention.
   const glyph = filled ? colors.onAccent : colors.accent;
 
-  const recorded =
-    goalMinutes === null || goalMinutes === 0
-      ? 0
-      : Math.min(100, (walkedMinutes / goalMinutes) * 100);
+  /**
+   * The two fills, as percentages of the bar, **within the current lap**.
+   *
+   * **Nothing is painted over the top tier.** `barStateAt` reports a full
+   * fill there, because the scale has nowhere further to go, but there is no
+   * third lap to draw: the ground is the whole bar and both fills are
+   * nothing. A walk running on such a day adds minutes that cannot be shown,
+   * which is the same silence the close keeps.
+   */
+  const lap = LAPS[state.tier];
+  const recorded = state.tier === 2 ? 0 : state.fill;
   const inProgress =
-    goalMinutes === null || goalMinutes === 0
+    state.tier === 2 || goalMinutes === null || goalMinutes === 0
       ? 0
       : Math.min(100 - recorded, (running / goalMinutes) * 100);
 
@@ -494,7 +631,11 @@ export function GoalBlock({
                   // with its own title; the header names the day, and one place
                   // saying it is enough.
                   `${formatDuration(walkedMinutes, durationFormat)} paseados`
-                : `${formatDuration(walkedMinutes, durationFormat)} de ${formatDuration(goalMinutes, durationFormat)} paseados`}
+                : // **The denominator is the top tier, not the goal the tutor
+                  // typed.** The bar runs to double and the measure has to
+                  // count against the same thing the bar draws, or "2h de 2h"
+                  // would sit under a bar that is half painted.
+                  `${formatDuration(walkedMinutes, durationFormat)} de ${formatDuration(goalMinutes * 2, durationFormat)} paseados`}
           </Text>
         </View>
 
@@ -586,19 +727,27 @@ export function GoalBlock({
           {/* `h-[4px]`, not `h-1`: the calendar draws this bar in miniature
               and sizes it in literal pixels, and 0.25rem resolves to 3.38dp
               on native. */}
-          {/* The track and not the wrapper carries the one swell that is
-              about the whole bar, for the reason the wrapper exists: the tick
-              is the wrapper's other child, and a 12 dp mark at 1.75 would be
-              a 21 dp spike. The scale is paint, so the thickened bar
-              overflows the 4 dp wrapper without moving anything under it. */}
-          <Animated.View
-            style={trackStyle}
-            className="h-[4px] flex-row overflow-hidden rounded-xl bg-surface"
+          {/* **The track is the ground, which is the tier the day reached.**
+              It used to be the empty track and nothing else; now it is Aqua
+              on a day that met the goal and Aurora Boreal on one past double,
+              with the lap above it drawn over the top. A `testID` of its own,
+              because the ground and the fill are the two halves of the
+              sentence and nothing can tell them apart from the outside
+              otherwise.
+
+              **A plain `View` again.** It carried the one swell that was
+              about the whole bar — the close with no stretch to point at —
+              and with two laps there is no such close: a walk closing on a
+              met day lands on lap two, and a day past double says nothing at
+              all. Nothing was left for the shared value to do. */}
+          <View
+            testID={testID ? `${testID}-ground` : undefined}
+            className={`h-[4px] flex-row overflow-hidden rounded-xl ${lap.ground}`}
           >
             <View
               testID={testID ? `${testID}-bar` : undefined}
               style={{ width: `${recorded}%` }}
-              className={`h-[4px] ${met ? "bg-accent" : "bg-text-secondary"}`}
+              className={`h-[4px] ${lap.saved}`}
             />
             {inProgress > 0 ? (
               // Static, and hidden from a reader: the measure already says
@@ -609,7 +758,7 @@ export function GoalBlock({
                 importantForAccessibility="no-hide-descendants"
                 aria-hidden
                 style={{ width: `${inProgress}%` }}
-                className="h-[4px] bg-text-tertiary"
+                className={`h-[4px] ${lap.live}`}
               />
             ) : null}
             {/* **Inside the track, so its rounded `overflow-hidden` is the
@@ -628,7 +777,7 @@ export function GoalBlock({
                 testID={testID ? `${testID}-sweep` : undefined}
               />
             ) : null}
-          </Animated.View>
+          </View>
           {/* **The close is the track's sibling, not its child, because the
               swollen stretch is thicker than the bar.** The track keeps the
               `overflow-hidden` its fills and the sweep need, and that would
@@ -637,7 +786,7 @@ export function GoalBlock({
               accepted: the close's overlays do not inherit the track's
               `rounded-xl`, so for 760 ms the bar's two extreme ends are square
               rather than carrying their 2 dp cap. */}
-          {closing !== null && closing.kind === "land" ? (
+          {closing !== null ? (
             <CloseLanding
               // Keyed by the close, not by the position: a second close
               // inside the 760 ms of the first reconciles into this same
@@ -648,23 +797,26 @@ export function GoalBlock({
               // needs two server round trips inside the window.
               key={closing.id}
               stretch={closing.stretch}
-              met={closing.met}
+              from={closing.from}
+              to={closing.to}
+              before={closing.before}
               testID={testID ? `${testID}-close` : undefined}
             />
           ) : null}
-          {walkingSince && recorded > 0 && !met ? (
+          {walkingSince && recorded > 0 ? (
             // Hidden from a reader the way the dot is: the measure says what
             // the walk is, and a line has nothing to announce. Positioned from
             // the same percentage the recorded fill is drawn at, so the two
             // cannot disagree.
             //
-            // **Not drawn at zero recorded**: nothing recorded is nothing to
-            // separate the walk from, and at zero the tick sat 1 dp outside the
-            // track — the centring offset is unclamped. Zero is the only place
-            // that is exactly true: at a very small positive proportion the
-            // tick still hangs out by under 1 dp, which it accepts. The right
-            // edge never arises: `recorded` reaches 100 only when the goal is
-            // met, and then the tick is not drawn.
+            // **Not drawn at zero recorded**: nothing recorded on this lap is
+            // nothing to separate the walk from, and at zero the tick sat 1 dp
+            // outside the track — the centring offset is unclamped. Zero is
+            // the only place that is exactly true: at a very small positive
+            // proportion the tick still hangs out by under 1 dp, which it
+            // accepts. The right edge never arises: a lap's fill wraps to zero
+            // at the tier rather than reaching 100, and past the top tier
+            // there is no fill at all.
             <View
               testID={testID ? `${testID}-tick` : undefined}
               accessibilityElementsHidden
@@ -688,11 +840,18 @@ export function GoalBlock({
           that sits beside the measure on a past day and under the bar on today
           is two layouts for one sentence. One home, every day. */}
       {met ? (
+        // **"x2" is a placeholder the tutor marked as provisional**, leaning
+        // on the top tier being defined as double. It is not a phrase to
+        // defend; a better one replaces it without touching anything else.
+        //
+        // It wears the tier's own colour, because The Shared Mark Rule says a
+        // mark stands for its record wherever it appears — and at the top
+        // tier the bar under it is Aurora Boreal, not Aqua.
         <Text
           testID={testID ? `${testID}-met` : undefined}
-          className="mt-2 font-semibold text-xs text-accent"
+          className={`mt-2 font-semibold text-xs ${metX2 ? "text-accent-focus" : "text-accent"}`}
         >
-          Objetivo conseguido
+          {metX2 ? "Objetivo conseguido x2" : "Objetivo conseguido"}
         </Text>
       ) : null}
     </View>
@@ -961,8 +1120,10 @@ function Band({
  * in-progress segment, it is light. Both halves read one shared value, and the
  * right-hand one's translation is offset by the junction's own pixel position,
  * so the crossing is continuous: the two clips are a window onto one band, not
- * two bands taking turns. Once the goal is met there is one ground and one
- * band again.
+ * two bands taking turns. Once the goal is met the junction is forced to the
+ * left edge and one dark band crosses everything — on lap two the Aqua ground
+ * and the violet fills over it are all lighter than the dark track the pale
+ * band answers, so the dark one is the opposite tone of the whole bar.
  *
  * **Lives inside the track**, as the last child of its `overflow-hidden`
  * `rounded-xl` box, so the bar's own rounded ends clip the band exactly as
@@ -1082,20 +1243,23 @@ function Sweep({
  * **All three act on the stretch, which is the whole reason the swell lives
  * here.** It used to be `scaleY` on the track, so the loudest beat pointed at
  * the entire bar while the two quiet ones pointed at the minutes just saved —
- * the sentence said two different things at once. The only close that still
- * thickens the whole track is the one with no stretch to point at, and that
- * one never reaches this component.
+ * the sentence said two different things at once. With two laps there is no
+ * longer any close that thickens the whole track: every close with minutes to
+ * show has a stretch somewhere, and one with none says nothing.
  *
  * **A component rather than three branches inside the block**, so the whole
  * close is mounted and unmounted as one thing: `testID` marks this wrapper,
  * and its absence is the settled state the e2e suite asserts.
  *
- * **It starts from `colors.textTertiary` because that is where the eye already
- * is.** The in-progress segment is drawn in exactly that tone while the walk
- * runs, and the frame the overlay mounts on is the frame the segment goes and
- * the recorded fill grows to take its place. So the overlay opens as a
- * continuation of the segment rather than as a new object, and then travels
- * to the tone the fill underneath is already holding.
+ * **It starts from the lap's in-progress tone because that is where the eye
+ * already is.** The in-progress segment is drawn in exactly that tone while
+ * the walk runs, and the frame the overlay mounts on is the frame the segment
+ * goes and the recorded fill grows to take its place. So the overlay opens as
+ * a continuation of the segment rather than as a new object, and then travels
+ * to the tone the fill underneath is already holding. **Which tone that is
+ * depends on the lap**, so the four of them are handed over as props rather
+ * than named here: the caller reads them off `closeMotion`'s own two
+ * endpoints, once, so a reload landing mid-animation cannot move them.
  *
  * **Which is also why nothing jumps when it is taken away.** The fill beneath
  * was given its destination tone by props the moment the day's rows landed;
@@ -1104,21 +1268,32 @@ function Sweep({
  * being that it is removed early, which is why the timer that removes it is
  * never cancelled by a re-render.
  *
- * **When the goal was met the whole bar turns Aqua, not just the new
- * stretch**, so a second overlay covers everything before it and travels Mist
- * → Aqua. Without it the bar would land two-tone for the length of the
- * animation and then snap.
+ * **When the close crosses a tier the whole lap comes with it, not just the
+ * new stretch**, so a second overlay (`before`) covers everything to the left
+ * and travels from that lap's saved tone to the new tier's ground. Without it
+ * the bar would land two-tone for the length of the animation and then snap.
+ * Within one lap there is no such layer and `before` is null.
  *
  * Decoration to a reader: `Objetivo conseguido` appears under the bar in the
  * same breath, and the measure says the new total.
  */
 function CloseLanding({
   stretch,
-  met,
+  from,
+  to,
+  before,
   testID,
 }: {
   stretch: { start: number; end: number };
-  met: boolean;
+  /** The tone the stretch leaves: the lap's own in-progress tone. */
+  from: string;
+  /** The tone it lands in. */
+  to: string;
+  /**
+   * The rest of the bar, when the close crossed a tier and took the whole lap
+   * into the new tier's ground with it. Null within one lap.
+   */
+  before: { from: string; to: string } | null;
   testID?: string;
 }) {
   const landed = useSharedValue(0);
@@ -1149,19 +1324,17 @@ function CloseLanding({
   }, [landed, swell]);
 
   const stretchStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      landed.value,
-      [0, 1],
-      [colors.textTertiary, met ? colors.accent : colors.textSecondary],
-    ),
+    backgroundColor: interpolateColor(landed.value, [0, 1], [from, to]),
     transform: [{ scaleY: swell.value }],
   }));
 
+  // Computed whether or not it is drawn: a hook cannot be conditional, and
+  // the layer itself is. The fallback is never painted.
   const beforeStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
       landed.value,
       [0, 1],
-      [colors.textSecondary, colors.accent],
+      [before?.from ?? from, before?.to ?? to],
     ),
   }));
 
@@ -1173,7 +1346,7 @@ function CloseLanding({
       aria-hidden
       className="absolute inset-0"
     >
-      {met ? (
+      {before !== null ? (
         <Animated.View
           style={[{ left: 0, width: `${stretch.start}%` }, beforeStyle]}
           className="absolute top-0 bottom-0"
