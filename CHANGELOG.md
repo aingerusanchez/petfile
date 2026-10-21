@@ -18,6 +18,47 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.16.0] — 2026-10-21
+
+### Cambiado
+
+- **El control del paseo dice que está guardando, con todas las letras.**
+  Mientras se escribía el paseo solo cambiaba el icono por una ruleta y la
+  palabra se quedaba en "Paseo", para que el control no cambiase de ancho y el
+  bloque no se moviera. Está mal por una regla que esta misma app aplica en
+  todas partes: **un icono nunca es una razón**. Una ruleta sin palabra dice
+  que algo pasa, no qué pasa, y el momento en que hace falta saberlo es justo
+  ese —el móvil agarrado a una raya de wifi en el portal, el paseo tardando
+  segundos en guardarse y la mano a punto de volver a pulsar—. Ahora pone
+  **"Guardando…"** mientras escribe y vuelve a "Paseo" en cuanto el servidor
+  contesta. **Lo que cuesta, medido y aceptado a sabiendas:** con el tamaño de
+  letra al 130% el control ya llega al margen derecho —por eso su separación
+  interior es estrecha—, así que desde ahí la medida de al lado ("1h 20m de 2h
+  paseados") empieza a perder el final en puntos suspensivos, y al 200% pierde
+  bastante. A tamaños grandes hay que decidir qué tiene que seguir leyéndose y
+  qué es prescindible, y lo recortado sigue entero por el otro camino: el
+  lector de pantalla lee la medida completa, puntos suspensivos o no, y el
+  nombre del botón sigue siendo "Empezar paseo" / "Terminar paseo".
+
+### Arreglado
+
+- **Reintentar acusa la pulsación.** Dejaba el error en pantalla y no hacía
+  nada visible hasta que la lectura contestaba: sin cobertura eso son unos
+  **siete segundos** pulsando un botón que no contesta, que es exactamente
+  como se pulsa tres veces seguidas. El botón de esta app sabe hacer el ciclo
+  entero desde hace versiones —ruleta, bloqueo contra la segunda pulsación,
+  resultado y vuelta al reposo— y este no entraba nunca, porque el ciclo lo
+  enciende una promesa y la recarga no devolvía ninguna. Ahora devuelve una
+  que se resuelve cuando el día ha contestado. Si la segunda lectura también
+  falla, el botón termina en **"Sigue sin cargar"** y vuelve a "Reintentar":
+  el motivo lo cuenta la frase que hay justo encima, y esa frase la reescribe
+  la misma lectura, así que es la de ahora y no la de antes.
+- **Y la pantalla de error conserva su mensaje mientras reintenta.** Al pulsar
+  se borraba el error antes de empezar a leer, con lo que la pantalla entera
+  se cambiaba por la ruleta de carga: el botón desaparecía antes de poder
+  decir que estaba trabajando y se llevaba por delante la frase que explicaba
+  qué había pasado. El mensaje se queda hasta que una lectura lo sustituye.
+
 ## [v0.15.0] — 2026-10-21
 
 ### Nuevo
