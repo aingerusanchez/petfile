@@ -3340,6 +3340,40 @@ test("does not stack a second toast for the same failure", async ({ page }) => {
 });
 
 /**
+ * **The region and the toast are two different failures and must not read as
+ * one.** In the same screenshot the log said "Parece que no hay conexión" and
+ * so did the toast: a day that could not be *read* and a walk that could not
+ * be *started*, wearing the same sentence.
+ */
+test("says what failed, so the log and the toast are not the same sentence", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  // Only the day's entries are cut, so the pet still arrives and the diary
+  // stays on screen with the log's own region inside it — the screenshot.
+  await page.route("**/rest/v1/pet_events*", (route) => route.abort());
+  await page.reload();
+  // Generous: `supabase-js` retries an aborted read three times before the
+  // failure reaches the screen, which is seconds rather than a frame.
+  const region = page.getByTestId("home-log-error");
+  await expect(region).toBeVisible({ timeout: 20_000 });
+  await expect(region).toContainText("leer el día");
+
+  await page.getByTestId("home-goal-control").click();
+  const toast = page.getByTestId("toast-error");
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText("empezar el paseo");
+  await expect(toast).not.toContainText("leer el día");
+  // And the region is still about the read, not about the press.
+  await expect(region).toContainText("leer el día");
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
  * **A failed action is not a failed navigation.** Found on a phone in
  * airplane mode: the toast and the shake were right, and about seven seconds
  * later the whole diary was replaced by the connection error, because the

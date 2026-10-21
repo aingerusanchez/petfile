@@ -87,10 +87,12 @@ describe("createPet", () => {
     const result = await createPet(draft);
 
     // The raw message names neither the problem nor the recovery for a tutor;
-    // it goes to the console instead.
+    // it goes to the console instead. The sentence names what failed, which
+    // is what keeps it apart from every other failure a tutor can be holding
+    // at the same moment.
     expect(result.petId).toBeNull();
     expect(result.error).toBe(
-      "Algo ha ido mal por nuestro lado. Vuelve a intentarlo.",
+      "Algo ha ido mal por nuestro lado al registrar la ficha. Vuelve a intentarlo.",
     );
   });
 
@@ -102,7 +104,7 @@ describe("createPet", () => {
     const result = await createPet(draft);
 
     expect(result.error).toBe(
-      "Parece que no hay conexión. Inténtalo otra vez cuando vuelva.",
+      "No hay conexión para registrar la ficha. Inténtalo otra vez cuando vuelva.",
     );
   });
   it('records a typed "Mestizo" as the mixed flag, not as a breed', async () => {
