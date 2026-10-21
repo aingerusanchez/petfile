@@ -2121,19 +2121,22 @@ test("draws no bar at all for a pet with no goal, as before", async ({
  * Playwright cannot be parked inside it: this file's own header records that
  * `page.clock.setFixedTime` stops Reanimated dead and `install` + `resume`
  * keeps the day view from rendering at all. So what these pin is where the
- * bar comes to rest — the overlay gone, the live marks gone, the fill holding
- * the tone and the thickness its props give it. The overlay carries
- * `home-goal-close`, so `toHaveCount(0)` is the settled state.
+ * bar comes to rest — the overlay gone, the live marks gone, and the fill
+ * holding the tone its props give it. The overlay carries `home-goal-close`,
+ * so `toHaveCount(0)` is the settled state.
  *
- * Three of them stop inside the first minute, which deletes the row as a
- * mis-tap, so they pin the other half of the rule too: a close that added no
- * minutes says nothing. The fourth writes on the walk first, which closes it
- * at one minute instead, and is the one that actually travels the four beats.
+ * The first of them stops inside the first minute, which deletes the row as a
+ * mis-tap, so it pins the other half of the rule too: a close that added no
+ * minutes says nothing. The rest write on the walk before stopping it, which
+ * closes it at the one minute the column accepts, so each of those is a real
+ * close.
  *
- * The exceptions poll `getComputedStyle` on every frame the way
- * `shakeTranslation` does, and are what keep the drawing from being deletable
- * in silence: the colour landing (`closeColoursInFlight`) and the swell
- * (`trackScale`). The sheen is still not covered.
+ * Where a spec has to see the overlay rather than its absence it arms
+ * `page.waitForSelector` before the tap — a settled assertion would retry
+ * straight past the 760 ms. What keeps the drawing itself from being
+ * deletable in silence is further down the file: `barFrames`, `tickFrames`
+ * and `widthInFlight` sample the bar on every frame, the way
+ * `shakeTranslation` does.
  */
 test("lands a closed walk in the recorded tone, and clears the live segment", async ({
   page,
