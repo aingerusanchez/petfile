@@ -178,8 +178,9 @@ const TICK_RISE = 4;
  * of the box the spinner stands in for them in while the write is in flight.
  *
  * **One name for all three, because they were three literals.** Change the
- * icons and leave the spinner's box alone, and the control changes width while
- * it is busy — the shift the spinner's box exists to prevent.
+ * icons and leave the spinner's box alone, and the glyph changes width as it
+ * is swapped — on top of the width the word itself changes by while the write
+ * is in flight, which is a decision and is written up at the label.
  */
 const GLYPH_SIZE = 16;
 
@@ -790,18 +791,17 @@ export function GoalBlock({
               className={`shrink-0 flex-row items-center gap-2 rounded-[24px] border border-accent px-3 active:opacity-70 ${filled ? "bg-accent" : ""}`}
             >
               {busy ? (
-                // **A spinner in the glyph's own 16 dp box, so the block does not
-                // shift** and the label stays "Paseo". The write can take
-                // seconds on a phone clinging to one bar of wifi in the
-                // doorway, and a control that is present but inert is what
-                // makes someone press it again. `ActivityIndicator`'s small size
-                // is 20 dp, hence the scale. Decoration to a reader: the
-                // button's own state says `busy`. **It is the one animation here
-                // that does not consult `useReducedMotion`, and that is a
-                // decision:** the glyph is swapped for the spinner, which a still
-                // screen shows, and the control is disabled and marked busy, so
-                // motion is not the only signal. `Button`'s loading state makes
-                // the same choice.
+                // **A spinner in the glyph's own 16 dp box**, so the glyph half
+                // of the control keeps its width. The write can take seconds on
+                // a phone clinging to one bar of wifi in the doorway, and a
+                // control that is present but inert is what makes someone press
+                // it again. `ActivityIndicator`'s small size is 20 dp, hence the
+                // scale. Decoration to a reader: the button's own state says
+                // `busy`. **It is the one animation here that does not consult
+                // `useReducedMotion`, and that is a decision:** the glyph is
+                // swapped for the spinner, which a still screen shows, and the
+                // control is disabled and marked busy, so motion is not the only
+                // signal. `Button`'s loading state makes the same choice.
                 <View
                   testID={testID ? `${testID}-spinner` : undefined}
                   accessibilityElementsHidden
@@ -831,10 +831,38 @@ export function GoalBlock({
                   fill={glyph}
                 />
               )}
+              {/* **The word says what the control is doing, and the block
+                  shifts by the difference.** It used to stay "Paseo"
+                  throughout, so that the control could not change width while
+                  it was busy, with the spinner carrying the whole message —
+                  and PRODUCT.md (2026-10-21) decided against it: any button
+                  whose action waits on the server changes its icon *and* its
+                  label while it waits. A spinner alone is a glyph, and this
+                  app's own rule is that an icon is never a reason.
+
+                  **The cost was measured and accepted.** At `font_scale` 1.3
+                  the control already ends on the right margin, which is why
+                  its padding is `px-3`; "Guardando…" is wider than "Paseo", so
+                  from somewhere around that scale the measure beside it loses
+                  its tail to an ellipsis, and at 200% it loses a good deal of
+                  it. The tutor's call, knowingly: at a large font scale you
+                  have to decide what must stay readable and what is
+                  expendable, and as long as accessibility gives a second route
+                  to the thing that was cut, losing part of the measure is the
+                  cheaper half. The second route is real — the measure is one
+                  `Text` node whose full string is what a reader announces,
+                  ellipsis or no ellipsis.
+
+                  **The accessible name does not change with it.** It stays
+                  "Empezar paseo" / "Terminar paseo", because the control is
+                  still that control and `aria-busy` is what says it is
+                  working; renaming it mid-flight would describe a button that
+                  is not there. `Button` makes the same split for its own
+                  loading phase. */}
               <Text
                 className={`font-semibold ${filled ? "text-on-accent" : "text-accent"}`}
               >
-                Paseo
+                {busy ? "Guardando…" : "Paseo"}
               </Text>
             </Pressable>
           </Shake>

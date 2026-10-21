@@ -3182,13 +3182,15 @@ test("shows the control working while the start is being written", async ({
 
   await page.getByTestId("home-goal-control").click();
 
-  // The control stays where it was, says it is working, and cannot be pressed
-  // again: a control that is present but inert is how a walk gets started
-  // twice. The label is the same word throughout.
+  // The control says what it is doing and cannot be pressed again: a control
+  // that is present but inert is how a walk gets started twice. **The word
+  // changes with the state** — the block shifts by the difference and that was
+  // accepted, see the control's own docblock — and the accessible name does
+  // not, because `aria-busy` is what says it is working to a reader.
   const control = page.getByTestId("home-goal-control");
   await expect(page.getByTestId("home-goal-spinner")).toBeVisible();
   await expect(control).toBeDisabled();
-  await expect(control).toContainText("Paseo");
+  await expect(control).toContainText("Guardando…");
   await expect(control).toHaveAttribute("aria-label", "Empezar paseo");
   // Nothing is running until the write lands.
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
@@ -3197,6 +3199,9 @@ test("shows the control working while the start is being written", async ({
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
   await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
   await expect(control).toBeEnabled();
+  // And back to the resting word on the answer.
+  await expect(control).toContainText("Paseo");
+  await expect(control).not.toContainText("Guardando…");
   await expect(control).toHaveAttribute("aria-label", "Terminar paseo");
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
   await page.unroute("**/rest/v1/pet_events*");
