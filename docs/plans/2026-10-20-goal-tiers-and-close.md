@@ -716,19 +716,19 @@ git commit -m "feat(pets): a daily goal is at least half an hour, or none at all
 
 - Modify: `package.json`, `CHANGELOG.md`, `DESIGN.md`, `PRODUCT.md`, `README.md` if the maintenance table says so
 
-- [ ] **Step 1: Bump to `0.15.0` and write the entry**
+- [x] **Step 1: Bump to `0.15.0` and write the entry**
 
 One version for the branch, carrying both rounds of motion and everything here. The voice of the other entries: what changed and why the old thing was wrong, with the measurements. The ones that belong: the band over the recorded fill lifting the channel by 20 where the dark track got 123; the bar shrinking for 400 ms before the old close; 09:40 being the widest of three five-character times.
 
-- [ ] **Step 2: Record the rules in `DESIGN.md`**
+- [x] **Step 2: Record the rules in `DESIGN.md`**
 
 The ground is the tier reached and the fill is the way to the next; Aqua stays "met" and the accent is the top tier on both surfaces, which is The Shared Mark Rule and not an exception to the Scarce Accent Rule — **and note that violet on this bar was tried and rejected once before, for the everyday met state at eighteen days a month, which is why the frequency is the whole argument.**
 
-- [ ] **Step 3: Move the two entries out of `PRODUCT.md`'s Decided, Not Yet Built**
+- [x] **Step 3: Move the two entries out of `PRODUCT.md`'s Decided, Not Yet Built**
 
 The goal bar's animations and the failed-action rule. That section's own rule: an item leaves when it ships and the changelog entry is the exit.
 
-- [ ] **Step 3b: The three things the amendments left stale**
+- [x] **Step 3b: The three things the amendments left stale**
 
 The tutor changed two things after the spec was written, and the implementation
 removed a third. All three are now documented wrongly somewhere:
@@ -749,7 +749,7 @@ removed a third. All three are now documented wrongly somewhere:
 edited while tasks ran against it. Bring it into line here, marked as recorded
 in retrospect.
 
-- [ ] **Step 3c: Warn the reader about the quiet day**
+- [x] **Step 3c: Warn the reader about the quiet day**
 
 The changelog entry must say plainly that **the first day you reach the goal
 after this build, there will be no confetti where there used to be.** It is
@@ -759,7 +759,7 @@ the intended change and it will feel like a regression for a day.
 
 Run: `pnpm lint && pnpm test && pnpm test:e2e`, then `npx expo prebuild -p android && pnpm android:apk`. Without the prebuild `android/app/build.gradle` keeps the last version name and the APK lies about which build it is.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add package.json CHANGELOG.md DESIGN.md PRODUCT.md lib/changelog.generated.ts
