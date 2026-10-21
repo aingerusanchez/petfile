@@ -18,6 +18,42 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.17.0] — 2026-10-21
+
+### Arreglado
+
+- **El mismo error ya no se apila dos veces.** Una foto del móvil sin
+  cobertura: dos avisos idénticos, uno encima de otro, tapando el diario del
+  que hablaban, y la misma frase una tercera vez en el registro. **Que el
+  aviso se quede hasta que lo cierres no cambia**: un error que merece leerse
+  merece seguir ahí. Lo que se va es el montón. Un aviso cuyo **tipo y texto**
+  coinciden con uno que ya está en pantalla no añade otro: el que hay se queda
+  donde está y le aparece un **"×2"**, y si era de los que se van solos
+  vuelve a empezar su cuenta atrás. Es lo más discreto que todavía contesta a
+  la segunda pulsación —el botón ya ha dado su sacudida y la frase no ha
+  cambiado—, y no vuelve a entrar en pantalla ni se mueve al final de la pila:
+  lo primero se leería como un mensaje nuevo y lo segundo sacaría el botón de
+  cerrar de debajo del dedo.
+- **Cada fallo dice de qué va.** En esa misma foto el registro y el aviso
+  decían exactamente lo mismo —"Parece que no hay conexión. Inténtalo otra vez
+  cuando vuelva."— para dos cosas distintas: **el día no se pudo leer**, que
+  es un estado con su propio Reintentar, y **el paseo no se pudo empezar**,
+  que es algo que pasó una vez. Nada en pantalla permitía distinguirlas. La
+  app ya sabía desde dónde se la llamaba y solo lo usaba para el registro
+  técnico de la consola. Ahora la frase lo dice: "No hay conexión para empezar
+  el paseo", "...para leer el día", "Algo ha ido mal por nuestro lado al
+  guardar el peso". Donde no se puede nombrar con honestidad —elegir o
+  recortar una foto no toca la red— la frase se queda genérica a propósito.
+- **Y el error del registro se lee.** Las tres líneas iban enteras en rojo de
+  error: medido sobre el fondo del diario, **5,01:1** —pasa el mínimo por los
+  pelos y no llega al nivel exigente— frente a los **17,21:1** del texto
+  normal. Era el texto con menos contraste de la pantalla, y es un párrafo que
+  se encuentra cada vez que sales de casa y el móvil se suelta del wifi. El
+  aviso flotante llevaba años haciéndolo bien: **icono rojo, texto normal**.
+  Ahora el registro tiene esa misma forma. **El color no cambia** —el rojo
+  significa "la app ha fallado", y quedarse sin conexión lo es—; cambia el
+  peso. El icono, además, es lo que deja de confiar el aviso solo al color.
+
 ## [v0.16.0] — 2026-10-21
 
 ### Cambiado
