@@ -119,6 +119,7 @@ components/ui/            → primitivos del sistema de diseño que componen las
   Chip.tsx                → chip selector + ChipGroup (fila de selección única)
   Group.tsx               → sección de formulario con contorno hairline
   Toast.tsx               → mensaje transitorio; ToastProvider lo monta sobre el navegador
+  ErrorNote.tsx           → un fallo dicho donde pasó: marca roja, frase neutra
   Celebration.tsx         → confeti de un disparo; CelebrationProvider lo monta sobre el navegador
   Checkbox.tsx            → flag booleano voluntario, sin marcar por defecto
   DateField.tsx           → fecha + picker propio (mes+año si es aproximada)
@@ -140,6 +141,7 @@ lib/                      → lógica de dominio y acceso a datos
   pets.ts                 → validación, creación, edición y borrado de la mascota
   photos.ts               → foto de la mascota: elegir, subir y firmar la URL de lectura
   failures.ts             → tope de espera de cada petición y su mensaje en la voz de la app
+  toasts.ts               → qué hace que dos avisos sean el mismo, y qué hace una repetición
   dates.ts                → conversión entre el ISO del wire y el DD/MM/AAAA de la UI
   age.ts                  → la edad a partir de la fecha de nacimiento y su etapa de vida
   framing.ts              → las cuentas del recorte del avatar

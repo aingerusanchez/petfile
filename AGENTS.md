@@ -104,6 +104,7 @@ components/ui/            → the design-system primitives every screen composes
   Chip.tsx                → selector chip + ChipGroup (exclusive single-select row)
   Group.tsx               → hairline-outlined form section
   Toast.tsx               → transient message; ToastProvider hosts it above the navigator
+  ErrorNote.tsx           → a failure said where it happened: red mark, neutral sentence
   Celebration.tsx         → one-shot confetti; CelebrationProvider hosts it above the navigator
   Checkbox.tsx            → voluntary boolean flag, unchecked by default
   DateField.tsx           → date display + in-house picker (month+year when approximate)
@@ -124,6 +125,7 @@ lib/                      → domain logic and data access
   pets.ts                 → pet validation, create, edit and delete
   photos.ts               → the pet's photo: pick, upload, and sign a read URL
   failures.ts             → the timeout on every request, and its message in the app's voice
+  toasts.ts               → what makes two toasts the same toast, and what a repeat does
   dates.ts                → the ISO/DD-MM-AAAA conversion at the edge
   clock.ts                → where a time sits on a clock face, and back again
   age.ts                  → the age from a birth date, and the life stage it lands in
