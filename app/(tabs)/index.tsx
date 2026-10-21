@@ -470,6 +470,62 @@ export default function Home() {
    * a row are two shakes.
    */
   const [failed, setFailed] = useState(0);
+  /**
+   * The press `reload` has not answered yet: one resolver, or nothing.
+   *
+   * **`Reintentar` runs the button's loading cycle, and the cycle is a
+   * promise.** `reload` works by bumping `attempt`, which an effect consumes;
+   * the answer therefore has to travel from that effect back to the press,
+   * and a ref is the only thing both can reach.
+   *
+   * **Matched by identity, not by the attempt number.** The obvious key is
+   * "the attempt this resolver was created for", and it cannot be written
+   * honestly: `setAttempt((n) => n + 1)` is the only bump that is guaranteed
+   * to change the value, and it does not report the number it produced.
+   * Reading `attempt` from the press's own closure instead would be a copy of
+   * state that is correct until a start, a stop or a sheet save bumps it
+   * between the last commit and the press — at which point `setAttempt(n + 1)`
+   * writes the value that is already there, the effect does not re-run, and
+   * the button spins for ever. So the record itself is the key: `reload`
+   * stores it and *then* bumps, the effect claims whatever it finds at the
+   * top of its run, and only the run that found this very record may answer
+   * it. A run already in flight claimed null or an older record and cancels
+   * itself the moment `attempt` moves.
+   *
+   * Three ways it could be left dangling, all closed: a press that supersedes
+   * another answers the older one `false` on the spot; a run cancelled by a
+   * day change leaves the record in the ref for the run that replaces it; and
+   * unmount settles whatever is left — `Button` ignores it, because it checks
+   * `alive` before touching state, but a promise nobody can ever settle is
+   * not a thing to leave behind.
+   */
+  const awaitingReload = useRef<{ settle: (loaded: boolean) => void } | null>(
+    null,
+  );
+  /**
+   * Hands a waiting press its answer, once, and only from the run that
+   * claimed it.
+   *
+   * `loaded` is what the button shows: the check when the day came back, the
+   * alert when it did not.
+   */
+  const answerReload = useCallback(
+    (
+      answering: { settle: (loaded: boolean) => void } | null,
+      loaded: boolean,
+    ) => {
+      if (!answering || awaitingReload.current !== answering) return;
+      awaitingReload.current = null;
+      answering.settle(loaded);
+    },
+    [],
+  );
+  useEffect(() => {
+    return () => {
+      awaitingReload.current?.settle(false);
+      awaitingReload.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -493,6 +549,11 @@ export default function Home() {
     // other: the reload a failed action asked for, and nothing later.
     const afterFailedAction = keepDiaryOnFailedRead.current;
     keepDiaryOnFailedRead.current = false;
+    // **Claimed here, synchronously, for the same reason.** `reload` stores
+    // its resolver and only then bumps `attempt`, so this run — the first one
+    // to start after the press — is the one that owes it an answer. See
+    // `awaitingReload`.
+    const answering = awaitingReload.current;
 
     getMyPet().then(async ({ pet: row, error: failure }) => {
       if (cancelled) return;
@@ -516,6 +577,7 @@ export default function Home() {
             ? prev
             : { day: dayKey(day), attempt, events: [], error: unreadable },
         );
+        answerReload(answering, false);
         return;
       }
 
@@ -535,12 +597,16 @@ export default function Home() {
         events: rows ?? [],
         error: eventError,
       });
+      // **The day is the pet and its rows**, so a press is answered yes only
+      // when both came back. A failed log read is still a failure to the
+      // button, because the error it was pressed over is still on screen.
+      answerReload(answering, eventError === null);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [day, attempt]);
+  }, [day, attempt, answerReload]);
 
   /**
    * Lazily, and only while the calendar is open: most visits to the diary
@@ -658,11 +724,36 @@ export default function Home() {
    *
    * It is defined here rather than above because it calls `readTreatments`,
    * which needs the pet's id; nothing between the two uses it.
+   *
+   * **It resolves when the day has answered**, true when it loaded and false
+   * when it did not, because that is what makes `Button` run its loading
+   * cycle: the cycle is engaged by a promise and nothing else. Returning
+   * `void` is what left both Reintentar mute — offline, seven seconds of a
+   * press with nothing to show for it (PRODUCT.md, 2026-10-21). The treatments
+   * ride along and are deliberately not part of the answer: a failed
+   * treatments read draws nothing at all, so it is not a failure the button
+   * can honestly report.
+   *
+   * **The message is not cleared on the way in.** It used to be, and on the
+   * screen-wide error that swapped the whole screen for the full-screen
+   * spinner the instant the button was pressed — the button was gone before
+   * it could say it was working, and the sentence saying what had happened
+   * went with it. The pet read clears it on success and writes it again on
+   * failure, which is the only place that knows.
    */
   const reload = useCallback(() => {
-    setPetError(null);
-    setAttempt((n) => n + 1);
     void readTreatments(() => false);
+    // The resolver goes in **before** the bump: the effect run that the bump
+    // causes claims it on the way past. See `awaitingReload`.
+    const superseded = awaitingReload.current;
+    const settled = new Promise<boolean>((resolve) => {
+      awaitingReload.current = { settle: resolve };
+    });
+    // A press this one has taken the read away from: nothing will answer it
+    // now, and a promise that never settles is a button that spins for ever.
+    superseded?.settle(false);
+    setAttempt((n) => n + 1);
+    return settled;
   }, [readTreatments]);
 
   /**
@@ -987,7 +1078,16 @@ export default function Home() {
         >
           {petError}
         </Text>
-        <Button testID="home-retry" label="Reintentar" onPress={reload} />
+        {/* **The result label is short and says only that the press did not
+            work**, because the sentence above it already says why — and it is
+            rewritten by the very read this button is waiting on, so by the
+            time the alert shows, the reason on screen is the current one. */}
+        <Button
+          testID="home-retry"
+          label="Reintentar"
+          errorLabel="Sigue sin cargar"
+          onPress={reload}
+        />
       </Screen>
     );
   }
@@ -1255,6 +1355,9 @@ export default function Home() {
             <Button
               testID="home-log-retry"
               label="Reintentar"
+              // See the screen's own Reintentar above: the reason is the line
+              // of text directly over this button.
+              errorLabel="Sigue sin cargar"
               onPress={reload}
             />
           </View>

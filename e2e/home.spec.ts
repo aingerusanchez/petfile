@@ -3501,6 +3501,305 @@ test("keeps saying the day could not be loaded when only the log failed and Rein
 });
 
 /**
+ * Makes every GET of `url` answer 500, and resolves nothing: the caller
+ * un-routes it.
+ *
+ * **Refused rather than aborted.** A 500 is an answer, so the read fails at
+ * once; an aborted one goes through postgrest's three retries first, and the
+ * branch under test is the same either way. Only GETs, so a write still lands.
+ */
+async function refuseReads(page: Page, url: string) {
+  await page.route(url, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "e2e: this cannot be read" }),
+    });
+  });
+}
+
+/**
+ * **A button that waits on the server says it is waiting.** PRODUCT.md,
+ * 2026-10-21: Reintentar left the error on screen and did nothing visible
+ * until the read answered — offline that is about seven seconds of pressing a
+ * button that never acknowledges the press. `Button` has owned the whole
+ * cycle for a while and this one never entered it, because the cycle is
+ * engaged by a promise and `reload` returned `void`.
+ */
+test("the log's Reintentar says it is working while the day is read again", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  // A day that could not be read, which is what puts the Reintentar up.
+  const events = "**/rest/v1/pet_events*";
+  await refuseReads(page, events);
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await page.unroute(events);
+
+  // **Park the pet read, so the busy state is a state and not a flicker** —
+  // the same trick the start's spinner is caught with. The read the retry
+  // waits on starts with the pet.
+  const pets = "**/rest/v1/pets*";
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(pets, async (route) => {
+    await held;
+    await route.continue();
+  });
+
+  const retry = page.getByTestId("home-log-retry");
+  await retry.click();
+
+  await expect(page.getByTestId("home-log-retry-loading")).toBeVisible();
+  await expect(retry).toBeDisabled();
+  await expect(retry).toHaveAttribute("aria-busy", "true");
+  // And the message stays up: the day is still the day that could not be
+  // read until an answer replaces it.
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+
+  release();
+  // The day loaded, so the error region and its button go with it.
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await expect(page.getByTestId("home-log-retry")).toHaveCount(0);
+  await expect(page.getByTestId("home-log-skeleton")).toHaveCount(0);
+  await page.unroute(pets);
+});
+
+/**
+ * **A retry that fails again ends on the failure**, rather than returning to
+ * rest as if nothing had been pressed. The last beat of the cycle is what
+ * tells the tutor the press was heard and did not work; the sentence above
+ * the button says why, and the button comes back to Reintentar so the next
+ * press is there when the signal is.
+ */
+test("the log's Reintentar ends on the error when the day fails again", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const events = "**/rest/v1/pet_events*";
+  await refuseReads(page, events);
+  await page.getByTestId("home-prev-day").click();
+  const retry = page.getByTestId("home-log-retry");
+  await expect(retry).toBeVisible();
+
+  await retry.click();
+
+  await expect(page.getByTestId("home-log-retry-error")).toBeVisible();
+  await expect(retry).toContainText("Sigue sin cargar");
+  // …and back to rest, pressable again, over a day that still says it could
+  // not be read. Never the empty state: that is a claim about the dog.
+  await expect(retry).toContainText("Reintentar");
+  await expect(retry).toBeEnabled();
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-empty")).toHaveCount(0);
+  await page.unroute(events);
+});
+
+/**
+ * **The effect that answers a retry runs for four other reasons**, and the
+ * press must come back to rest whichever of them gets there first. This is
+ * the one that can overtake it while the button is still on screen: a walk
+ * started mid-retry writes its row and asks for the same day again, which
+ * cancels the read the press was waiting on. The record is claimed by the run
+ * that replaces it, so the answer arrives; keying it to the attempt number it
+ * was created for is what would have left it spinning for ever.
+ */
+test("a Reintentar the walk's own reload overtakes still comes back to rest", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  // Today's log unreadable — ‹ and back — so the error, its Reintentar and
+  // the walk control are all on screen at once. Only reads are refused, so
+  // the walk below is still written.
+  const events = "**/rest/v1/pet_events*";
+  await refuseReads(page, events);
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await page.getByTestId("home-next-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
+  const retry = page.getByTestId("home-log-retry");
+  await expect(retry).toBeVisible();
+
+  // **Both halves are parked, and the order is the whole test.** The walk's
+  // write has to land *while* the retry's read is still out, or its bump
+  // arrives after the answer and overtakes nothing — which is what the first
+  // draft of this test measured, passing against an implementation that
+  // cannot do what it says.
+  const pets = "**/rest/v1/pets*";
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(pets, async (route) => {
+    await held;
+    await route.continue();
+  });
+  let releaseWrite = () => {};
+  const write = new Promise<void>((resolve) => {
+    releaseWrite = resolve;
+  });
+  await page.route(events, async (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "e2e: this cannot be read" }),
+      });
+    }
+    await write;
+    await route.continue();
+  });
+
+  await retry.click();
+  await expect(page.getByTestId("home-log-retry-loading")).toBeVisible();
+
+  // The walk goes in while the retry is still waiting, and asks for the same
+  // day again on its way out.
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-spinner")).toBeVisible();
+  // The walk's own reload is the second read of the pet: waiting for it is
+  // what says the bump has landed and the press's read has been cancelled.
+  // (The control's spinner is no use here — it spans the gap between the
+  // write and the row arriving, which in this test it never does.)
+  const walksReload = page.waitForRequest(
+    (request) =>
+      request.method() === "GET" && request.url().includes("/rest/v1/pets"),
+  );
+  releaseWrite();
+  await walksReload;
+
+  release();
+  // The day still cannot be read, so the press ends on the alert — and then
+  // back on Reintentar, which is the part that would never have come.
+  await expect(page.getByTestId("home-log-retry-error")).toBeVisible();
+  await expect(retry).toContainText("Reintentar");
+  await expect(retry).toBeEnabled();
+  await page.unroute(pets);
+  await page.unroute(events);
+});
+
+/**
+ * **And the press can outlive the button.** Pressing ‹ while the retry is
+ * waiting takes the whole error region off screen — the new day is loading,
+ * so there is nothing to retry — and the read still answers afterwards, into
+ * a resolver whose button is gone. Nothing may throw, and the day that was
+ * asked for has to arrive.
+ */
+test("a Reintentar whose button is gone before the day answers throws nothing", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const thrown: string[] = [];
+  page.on("pageerror", (error) => thrown.push(error.message));
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const events = "**/rest/v1/pet_events*";
+  await refuseReads(page, events);
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await page.unroute(events);
+
+  const pets = "**/rest/v1/pets*";
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(pets, async (route) => {
+    await held;
+    await route.continue();
+  });
+
+  await page.getByTestId("home-log-retry").click();
+  await expect(page.getByTestId("home-log-retry-loading")).toBeVisible();
+  // Two days back: the region the button lives in goes with the day.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-log-retry")).toHaveCount(0);
+
+  release();
+  await expect(page.getByTestId("home-log-skeleton")).toHaveCount(0);
+  await expect(page.getByTestId("home-title")).toBeVisible();
+  expect(thrown).toEqual([]);
+  await page.unroute(pets);
+});
+
+/**
+ * **The same press on the screen's own Reintentar**, where there is no pet and
+ * the failure has the whole screen. It used to clear the message on the way
+ * into the read, so the screen swapped itself for the full-screen spinner —
+ * an acknowledgement of a sort, and one that threw away the sentence saying
+ * what had happened and where it happened. The message stays and the button
+ * says it is working.
+ */
+test("the screen's Reintentar says it is working, with the message still up", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  // The diary mounted on its own, with no pet: the root's own check is not in
+  // the way, so the first pet read this screen makes is the one that fails.
+  const pets = "**/rest/v1/pets*";
+  let reads = 0;
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(pets, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    if (++reads === 1) {
+      return route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "e2e: the pet cannot be read" }),
+      });
+    }
+    await held;
+    await route.continue();
+  });
+  await page.goto("/(tabs)");
+
+  const retry = page.getByTestId("home-retry");
+  await expect(retry).toBeVisible();
+  const message = page.getByText("Algo ha ido mal por nuestro lado");
+  await expect(message).toBeVisible();
+
+  await retry.click();
+  await expect(page.getByTestId("home-retry-loading")).toBeVisible();
+  await expect(message).toBeVisible();
+
+  release();
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+  await expect(page.getByTestId("home-retry")).toHaveCount(0);
+  await page.unroute(pets);
+});
+
+/**
  * **Going back to a day that loaded is still a navigation.** A loaded, ‹ to a
  * day that fails, › back to the day that loaded — all offline. The log then
  * holds the failed day's error, not the loaded day's rows, so the first day is
