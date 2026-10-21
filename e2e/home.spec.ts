@@ -3374,6 +3374,41 @@ test("says what failed, so the log and the toast are not the same sentence", asy
 });
 
 /**
+ * **Red is the marker, not the reading.** The region drew its whole paragraph
+ * in Error Red, which measures 5.01:1 on the diary's ground against
+ * `text-primary`'s 17.21:1 — the lowest-contrast text on a screen a tutor
+ * meets every time they leave the house. The toast had the right shape all
+ * along: a red icon beside a neutral sentence.
+ */
+test("reads the log's failure in primary text, with red only as its mark", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  await page.route("**/rest/v1/pet_events*", (route) => route.abort());
+  await page.reload();
+  // See above: the retries make this seconds, not a frame.
+  await expect(page.getByTestId("home-log-error")).toBeVisible({
+    timeout: 20_000,
+  });
+
+  const message = page.getByTestId("home-log-note-message");
+  await expect(message).toBeVisible();
+  const colour = hexOf(
+    await message.evaluate((el) => getComputedStyle(el).color),
+  );
+  expect(colour).toBe(colors.textPrimary.toUpperCase());
+  expect(colour).not.toBe(colors.error.toUpperCase());
+  // The severity is still said without colour: the same alert glyph the
+  // toast wears.
+  await expect(page.getByTestId("home-log-note").locator("svg")).toHaveCount(1);
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
  * **A failed action is not a failed navigation.** Found on a phone in
  * airplane mode: the toast and the shake were right, and about seven seconds
  * later the whole diary was replaced by the connection error, because the

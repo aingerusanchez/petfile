@@ -15,6 +15,7 @@ import { AppState, Pressable, View } from "react-native";
 import {
   Button,
   colors,
+  ErrorNote,
   Fab,
   FAB_CLEARANCE,
   GoalBlock,
@@ -1072,12 +1073,7 @@ export default function Home() {
   if (petError && !pet) {
     return (
       <Screen center edges={["top"]}>
-        <Text
-          accessibilityLiveRegion="polite"
-          className="mb-5 text-center text-error"
-        >
-          {petError}
-        </Text>
+        <ErrorNote testID="home-pet-note" message={petError} />
         {/* **The result label is short and says only that the press did not
             work**, because the sentence above it already says why — and it is
             rewritten by the very read this button is waiting on, so by the
@@ -1348,9 +1344,7 @@ export default function Home() {
         </Group>
       ) : logError ? (
         <Group testID="home-log-error">
-          <Text accessibilityLiveRegion="polite" className="mb-5 text-error">
-            {logError}
-          </Text>
+          <ErrorNote testID="home-log-note" message={logError} />
           <View className="mb-5">
             <Button
               testID="home-log-retry"
