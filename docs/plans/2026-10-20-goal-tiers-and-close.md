@@ -290,7 +290,7 @@ git commit -m "feat(goal-bar): the ground is the tier reached, the fill is the w
 
 - The **live segment is held painted** and the fill converts it left to right. It does not grow into empty track: a fill that started at the junction would open on the frame the tutor's video shows as _"the bar has lost the walk"_, and the whole point is that that frame stops existing.
 - The **tick rides the fill's leading edge**, because during the conversion that edge _is_ the saved/live boundary. Its existing predicate still governs it, which is what makes a tier crossing need no special case: the new lap has nothing saved, so no tick, and it reappears as the fill advances.
-- **Crossing a tier** turns the ground and restarts the fill at zero, inside the same animation. The confetti fires **once**, at the first crossing of Tier 1 and nowhere else.
+- **Crossing a tier** turns the ground and restarts the fill at zero, inside the same animation. The confetti fires **once**, at the first crossing of Tier 1 and nowhere else. _(Amended mid-flight: the tutor moved the fall to **Tier 2**, and Tier 1 lost it on purpose — see Step 3b below, which is the ruling. A plan is a record of what was planned, so the line stays as it was written rather than being quietly corrected.)_
 - The **swell and the sheen go**, with their constants.
 
 The live segment's right edge is **not** the fill's end — `running` is refreshed every `TICK_MS` while the end is `recordedBefore + closedMinutes` — so the fill travels to the true end, past or short of where the segment was painted.
