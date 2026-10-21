@@ -6,8 +6,10 @@ Lo que ha cambiado en cada versión, en el orden en que pasó.
      existir en cuanto la versión llegue a v1.0.0. -->
 
 Mientras el MVP no esté montado la versión se queda en `0.x`, para que llegar
-a `1.0.0` signifique algo: todas las pantallas en pie, y de momento falta
-Salud como mínimo. `versionCode` se deriva de aquí
+a `1.0.0` signifique algo. Lo que falta ya no son pantallas: falta que la app
+sirva a la casa entera —compartir la ficha con el segundo tutor— y falta
+publicarla en una pista de prueba interna con una clave de firma de verdad.
+Publicar es lo que la convierte en 1.0.0. `versionCode` se deriva de aquí
 (`major * 10000 + minor * 100 + patch`), así que sube sola y de forma monótona
 hasta el 1.0.0 — pero **bajar la versión a mano obliga a desinstalar**, porque
 Android rechaza la instalación.
@@ -15,6 +17,179 @@ Android rechaza la instalación.
 Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
+
+## [v0.15.0] — 2026-10-21
+
+### Nuevo
+
+- **El objetivo diario tiene dos niveles, y la barra pinta el que se alcanzó.**
+  Un objetivo se vuelve difícil cuando cambia el que mide, no solo cuando está
+  mal puesto: en septiembre la salida al café de las once contaba como paseo y
+  desde que no cuenta faltan los veinte o treinta minutos de ir y volver que
+  hacían la diferencia. Así que
+  la pregunta no era si 3 h eran muchas, sino cuánto vale un día normal medido
+  como se mide ahora. **El primer nivel es el objetivo que hay puesto; el
+  segundo es el doble**, y no se configura: sale del mismo número, no hay un
+  campo nuevo que rellenar, y es lo que hace que las dos vueltas de la barra
+  midan lo mismo. Un día por debajo del primero es un día por debajo de lo
+  habitual —una tormenta, una cojera, un día de reposo— y eso no es una
+  regañina: el porqué lo cuenta el propio día, con su vacuna, su medicación o
+  su incidencia al lado. El primero es lo que había que hacer. El segundo es un
+  día excepcional: la montaña, o una ciudad entera a pie.
+- **El suelo de la barra es el nivel alcanzado y el relleno es el camino al
+  siguiente.** Por debajo del objetivo, la pista vacía con el relleno en gris
+  —la barra exactamente como era—; al llegar al objetivo **toda la barra** pasa
+  a Aqua y el violeta empieza a rellenar encima; pasado el doble la barra
+  entera es violeta y ya no queda nada que rellenar. La medida cuenta contra el
+  techo: con un objetivo de 2 h pone "3h de 4h". Se probó antes la lectura
+  literal —el gris llena la primera vuelta y el Aqua la va pintando encima— y
+  se rompe en el día más común que hay: un día que llega al objetivo y se queda
+  ahí saldría **entero en gris**, y el Aqua es justo lo que significa
+  "conseguido" en la barra y en el calendario. Lo que se paga a cambio, y se
+  aceptó sabiéndolo: el Aqua deja de ser el momento de llegar y pasa a ser
+  cualquier día corriente. Lo raro es el violeta, que es donde estaba la
+  sorpresa desde el principio.
+- **El confeti se muda entero al nivel de arriba, y cae en violeta.** **El
+  primer día que cumplas el objetivo después de instalar esto no va a caer
+  confeti donde antes caía**, y durante un día eso se va a leer como que algo
+  se ha roto. No lo está: es el cambio. El sentido de los dos niveles es que
+  llegar al objetivo pase a ser lo de todos los días, y lo de todos los días no
+  se celebra —dieciocho fiestas al mes no son una fiesta—. Cumplir el objetivo
+  conserva lo que ya tenía: la barra entera en Aqua, el rótulo debajo y la
+  marca del calendario. La fiesta se guarda para el día que lo dobla. Cae **una
+  sola vez** aunque el paseo cruce los dos niveles de una vez, y cae del color
+  del nivel que celebra en vez de la mezcla de siempre, porque ese nivel ya
+  tiene color propio en la barra y en el calendario. El cumpleaños conserva la
+  mezcla: un cumpleaños no es un nivel.
+- **Un día que dobla el objetivo se marca en el calendario**, con la misma
+  barrita de 16 dp que ya marcaba el objetivo cumplido y en el mismo violeta
+  que lleva la barra ese día: una marca que vale por un registro lleva su color
+  en las dos pantallas, o es una segunda cosa que aprenderse. La leyenda gana
+  su cuarta entrada, "Objetivo conseguido x2". La colisión con el cumpleaños se
+  comprobó en vez de suponerse: la tarta es una marca de agua al 60% centrada
+  en el número y su base termina unos 3 dp por encima de la tira, así que son
+  dos formas distintas en dos sitios distintos —32 dp tenues detrás del número
+  contra una pastilla sólida de 16 × 4 dp debajo— el día del año en que coinciden.
+- **El lector de pantalla dice "doble objetivo diario conseguido".** En la
+  pantalla pone "Objetivo conseguido x2", que es corto y se entiende de un
+  vistazo; en voz alta TalkBack leía "equis dos", que no se entiende de
+  ninguna. Se cambia lo que se oye y se deja lo que se ve, en el rótulo de la
+  barra y en la leyenda del calendario.
+- **Mientras un paseo corre, el relleno da la vuelta y el suelo no.** Un paseo
+  que cruza el objetivo completa su vuelta en el tono del paseo en curso y
+  empieza otra banda desde el borde izquierdo, encima de la que acaba de
+  terminar — pero el suelo se queda en el nivel que marcan los minutos
+  **guardados** y espera a que pares. La asimetría es el mensaje y no un
+  apaño: **una barra dando vueltas en gris es la señal de que algo no se ha
+  guardado**, así que un paseo que se quedó abierto por olvido no puede
+  disfrazarse de día terminado. Solo parar de verdad cambia el suelo.
+
+### Cambiado
+
+- **Parar un paseo ya no encoge la barra antes de cerrarla.** En el vídeo del
+  paseo: la barra pintada hasta x=403 mientras el paseo corría, **x=207 durante
+  unos 400 ms** y de vuelta a x=405 ya en el tono de lo guardado — en el
+  navegador, los mismos 625,77 px cayendo a 308. El hueco era un desajuste de
+  tiempos: al parar, el tramo en curso desaparecía de inmediato y los minutos
+  cerrados no llegaban hasta que contestaba el servidor, así que durante esos
+  400 ms la barra contaba la verdad de hacía un minuto. **Ahora el tramo que ya
+  está pintado se queda y un relleno lo convierte de izquierda a derecha**,
+  desde la marca de la unión hasta donde acabó el paseo, en el tono que la
+  barra va a conservar. El fotograma del que se quejaba el vídeo deja de
+  existir en vez de taparse con una animación. **La marca de la unión viaja con
+  el borde del relleno** durante esos 760 ms, porque durante la conversión esa
+  frontera se está moviendo de verdad: es el relleno. **El engorde de 4 a 7 dp
+  y el destello se van**, los dos: existían para iluminar un tramo que se
+  ensanchaba, y una conversión que avanza en un sentido ya es su propio
+  énfasis. Si el paseo cruza un nivel, el gesto es uno solo y cambia de color
+  al pasar en vez de ser dos animaciones seguidas. **Lo que no tiene nada que decir no se
+  anima**: un paseo descartado no añadió nada, y un día que ya estaba por
+  encima del techo no tiene tramo que enseñar —el día ya está dicho—. Con las
+  animaciones del sistema quitadas la barra se pinta directamente en su estado
+  final, que es lo que hay que hacer: volver al comportamiento de antes
+  devolvería los 400 ms de hueco justo a quien ha pedido menos movimiento.
+- **El objetivo diario es de media hora como mínimo, o no hay objetivo.** Media
+  hora es el suelo de a quién sirve esta app: es lo que puede hacer un perro
+  con las patas mal o uno muy mayor, y por debajo de eso nadie lleva un diario
+  de paseos. Y con dos niveles un objetivo bajo es una puerta trasera al de
+  arriba: 15 minutos pondrían el techo en 30, alcanzado antes de comer todos
+  los días, y el confeti que acaba de mudarse ahí para que fuera raro volvería
+  a ser cosa diaria. **No hay excepción para lo que ya estaba guardado**: un
+  objetivo por debajo del suelo falla la validación como cualquier otro error,
+  y el perfil lo dice con el campo que hay que corregir en la misma pantalla.
+  Una regla que tolera en silencio sus propias infracciones viejas es una regla
+  con la que no se puede contar. No tener objetivo sigue siendo una respuesta
+  válida, y la que corresponde al día de descanso.
+
+### Arreglado
+
+- **Una acción que falla ya no se lleva el diario por delante.** Medido con el
+  móvil en modo avión: pulsar el control del paseo sacaba el aviso y sacudía el
+  botón, que es lo correcto — y **unos siete segundos después** la pantalla
+  entera se convertía en "Parece que no hay conexión". Los siete segundos son
+  la librería de datos reintentando la lectura tres veces, al segundo, a los
+  dos y a los cuatro. Es el caso más probable que hay: el móvil se queda sin el
+  WiFi de casa en cuanto sales por la puerta, o al subir las escaleras de
+  vuelta, que es justo cuando se pulsa ese botón. **Lo
+  que ya estaba cargado sigue siendo verdad**, así que se queda en pantalla y
+  el fallo lo cuenta el aviso. Lo que no se puede leer lo dice ahora la parte
+  que no se pudo leer, con su propio Reintentar, en vez de tapar el día entero.
+- **Un reintento que vuelve a fallar sigue siendo un error, no un día vacío.**
+  Pulsar Reintentar sin conexión dejaba en pantalla "Ese día no se apuntó
+  nada", que es una afirmación sobre el día del perro: dice que nadie lo paseó.
+  Una app que existe para llevar el diario de un perro no puede decir eso
+  porque le haya fallado una lectura — un error siempre es mejor que una
+  respuesta equivocada dicha con seguridad.
+- **Si la acción salió bien y la recarga no lo puede confirmar, se dice.**
+  Empezar un paseo con la escritura aceptada y la recarga cortada dejaba el
+  paseo corriendo en el servidor, el diario con cero entradas y el botón
+  bloqueado en "Terminar paseo" sin aviso ninguno: no había forma de pararlo.
+  La regla, que es la que se les escapó a los tres arreglos anteriores: **si
+  falló la acción, el diario se queda; si la acción salió bien y la recarga no
+  la pudo confirmar, sale el error.**
+- **La medida del objetivo ya no dice un número que no sabe.** Una lectura que
+  falla llega como cero filas y un error, y la parte del registro mira el error
+  antes que las filas desde el primero de estos arreglos. La línea de encima
+  no: contaba las filas y punto, así que un día que no se pudo leer salía como
+  **"0 min de 2h paseados"**, en letra más grande y más arriba en la pantalla
+  que la frase por la que se escribió esa regla. Medido con el fallo más
+  probable que hay: parar un paseo con la escritura aceptada y la lectura
+  cortada dejaba la barra pintada en 65 de 120 y "Objetivo conseguido" debajo
+  —que es lo que de verdad se había guardado— y justo encima esa línea diciendo
+  que el perro no había paseado nada. Quien lo lee no tiene forma de saber cuál
+  de las dos mitades es la buena, y la que se lee todos los días es el número:
+  lo más probable es volver a apuntar el paseo a mano y duplicarlo en el único
+  sitio que existe para tener razón sobre un animal. **Ahora "no se sabe" es un
+  estado distinto de cero**: la medida pone "Sin datos del día" —y en voz alta
+  lo dice entero—, el relleno no se pinta y no se dice "Objetivo conseguido",
+  mientras el control y la cuenta del paseo en curso se quedan donde estaban.
+  Si acaba de guardarse un cierre, esos minutos sí se saben y son los que se
+  leen. Las filas que sí llegaron siguen mandando sobre el error, que es lo que
+  hace que una acción fallida conserve el diario. Y de paso se va el desfase
+  del cierre normal: la barra y las palabras leen un solo número, así que el
+  rótulo ya no puede aparecer unas décimas antes que la cifra que lo justifica.
+- **Las horas del registro son tabulares, así que los títulos comparten
+  borde.** La columna se ajusta a su contenido y la justificación original era
+  que todas las horas de 24 h tienen cinco caracteres — cierto del número de
+  caracteres y falso del ancho: los dígitos de Outfit son proporcionales, y
+  "09:40", sin ningún 1 estrecho, resultó ser la más ancha de tres medidas en
+  el móvil y empujaba su título **2,5 dp** a la derecha. Al 170% de tamaño de
+  letra eso son unos 15 dp. Con las cifras tabulares cada dígito ocupa lo
+  mismo, así que todas las horas ocupan lo mismo.
+
+### Lo que sigue fuera
+
+Dos cosas conocidas y dejadas así a propósito. **Reintentar no dice nada
+mientras lo intenta**: el error se queda en pantalla hasta que la lectura
+contesta. Y **tras un paseo que empezó bien y cuya recarga falló, el control
+conserva su ruedecita** junto al Reintentar que sí se ve: soltarlo ofrecería un
+"parar" que no puede parar nada, porque parar necesita la fila que nunca llegó.
+Un botón que miente es peor que un botón que espera.
+
+Todo lo visual de esta versión se decidió sobre una mesa de diseño y **está
+pendiente de verse en el móvil**: los dos violetas uno contra otro, la barrita
+del nivel de arriba sobre fondo Aqua, el cierre cruzando un nivel y la leyenda
+del calendario con su cuarta entrada a tamaño de letra grande.
 
 ## [v0.14.0] — 2026-10-19
 
