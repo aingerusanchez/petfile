@@ -120,8 +120,29 @@ here when it ships, and its changelog entry is the exit — so a line that has
 been here for weeks is either forgotten or secretly deferred, and both are
 worth noticing.
 
-Empty, as of v0.15.0. An empty list here is the healthy state, not a gap:
-everything decided has shipped.
+**Every asynchronous button says it is working.** Decided 2026-10-21, after
+v0.15.0 left `Reintentar` mute: it keeps the error on screen until the read
+answers, which offline is about seven seconds of pressing a button that does
+not acknowledge the press. The rule is general, not a patch on that one
+control — **any button whose action waits on the server changes its icon and
+its label while it waits**, and changes them back on the answer:
+
+- `[STOP] Paseo` → `[LOADING] Guardando…` → `[PLAY] Paseo`
+- `[NETWORK-OFF] Reintentar` → `[SPINNER] Reconectando…` → on a second
+  failure, back to `[NETWORK-OFF] Reintentar` **plus a toast saying why**.
+
+The toast carries the reason, not just the fact: "no hay conexión para guardar
+el paseo" is what lets a tutor decide to wait rather than press again.
+
+**A walk whose stop could not be saved stays stoppable.** Decided 2026-10-21.
+v0.15.0 leaves the control spinning beside a visible `Reintentar`, because
+releasing it would offer a stop that cannot act without the row. That is
+defensible and it is not the answer: **the tutor must be able to retry**, and
+when the retry fails the toast must say the connection is the reason. The
+tutor can then wait for coverage and stop the walk properly — and when they
+do, **the end time should be correctable**, because the walk really ended when
+they pressed the first time, not when the network came back. The correction is
+the part that needs designing; the retry and the toast do not.
 
 ## Brand Commitments
 
