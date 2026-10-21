@@ -89,6 +89,13 @@ const VARIANTS: Record<
 type ToastProps = ToastOptions & {
   onDismiss: () => void;
   testID?: string;
+  /**
+   * How many times this exact failure has happened while it was on screen.
+   *
+   * Set by the host, never by a caller: two shows of the same variant and the
+   * same message are one toast. See `lib/toasts.ts`.
+   */
+  repeats?: number;
 };
 
 /**
@@ -103,6 +110,11 @@ type ToastProps = ToastOptions & {
  * over exactly its `duration`, so "this is about to go away" is visible rather
  * than a surprise. A persistent toast has no bar at all and offers a dismiss
  * control instead.
+ *
+ * **A repeat is counted, not stacked.** The same failure happening again
+ * while this toast is up adds a count beside the message and restarts the
+ * countdown; it does not re-enter and it does not add a second toast. See
+ * `lib/toasts.ts` for what "the same failure" means.
  */
 export function Toast({
   variant,
@@ -112,6 +124,7 @@ export function Toast({
   action,
   onDismiss,
   testID,
+  repeats = 1,
 }: ToastProps) {
   const spec = VARIANTS[variant];
   const Icon = spec.icon;
@@ -120,13 +133,18 @@ export function Toast({
 
   useEffect(() => {
     if (persist) return;
+    // **Back to full first.** On a repeat this runs with the bar part-drained,
+    // and animating to 0 from there would give the second occurrence less
+    // time than the first — a countdown that lies in the one direction that
+    // costs the tutor the message.
+    progress.value = 1;
     progress.value = withTiming(0, {
       duration,
       easing: Easing.linear,
     });
     const timer = setTimeout(onDismiss, duration);
     return () => clearTimeout(timer);
-  }, [persist, duration, onDismiss, progress]);
+  }, [persist, duration, onDismiss, progress, repeats]);
 
   const barStyle = useAnimatedStyle(() => ({
     width: `${progress.value * 100}%`,
@@ -139,7 +157,14 @@ export function Toast({
       // A persistent toast is assertive: the user has to deal with it. An
       // auto-hiding one is polite, so it never interrupts what is being read.
       accessibilityLiveRegion={persist ? "assertive" : "polite"}
-      accessibilityLabel={`${spec.role}: ${message}`}
+      // The count is spoken rather than left as a glyph: "×2" is punctuation
+      // to a screen reader, and the fact it carries is the whole reason it is
+      // drawn.
+      accessibilityLabel={
+        repeats > 1
+          ? `${spec.role}: ${message} (${repeats} veces)`
+          : `${spec.role}: ${message}`
+      }
       entering={reduceMotion ? FadeIn : SlideInDown.duration(240)}
       exiting={reduceMotion ? FadeOut : SlideOutDown.duration(180)}
       className={`overflow-hidden rounded-xl border bg-elevated ${spec.border}`}
@@ -147,6 +172,22 @@ export function Toast({
       <View className="flex-row items-start gap-3 p-4">
         <Icon size={20} color={spec.color} strokeWidth={2.5} />
         <Text className="flex-1 text-text-primary">{message}</Text>
+
+        {/* **Two glyphs rather than a second toast.** The tutor pressed again
+            and it failed again, which they are owed; the control they pressed
+            has already shaken, so this only has to be unambiguous, not loud.
+            `text-secondary` and not `text-tertiary`: this is the quiet half
+            of a message, not a hint, and the screen this shipped on was being
+            fixed for exactly that mistake. Tabular figures so the count can
+            grow without the row twitching. */}
+        {repeats > 1 ? (
+          <Text
+            testID={testID ? `${testID}-repeats` : undefined}
+            className="font-semibold text-text-secondary tabular-nums"
+          >
+            {`×${repeats}`}
+          </Text>
+        ) : null}
 
         {action ? (
           <Pressable

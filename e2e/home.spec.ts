@@ -3301,6 +3301,45 @@ test("shakes the control when a start cannot be saved", async ({ page }) => {
 });
 
 /**
+ * **Two presses of a failing control are one error, not two walls of red.**
+ * From a screenshot of the tutor's phone offline: two identical toasts
+ * stacked over the diary, one per press, saying the same sentence twice. The
+ * second press still has to be acknowledged — it is counted on the toast
+ * already on screen.
+ */
+test("does not stack a second toast for the same failure", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    route.request().method() === "POST" ? route.abort() : route.continue(),
+  );
+
+  const first = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await first;
+  const toast = page.getByTestId("toast-error");
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText("empezar el paseo");
+  await expect(page.getByTestId("toast-error-repeats")).toHaveCount(0);
+
+  // The control is back at rest, so this is a second press and not a double
+  // one — the same test the shake spec uses to tell two failures apart.
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await shakeTranslation(page, false);
+  const second = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await second;
+
+  // One toast, and it says the second press failed too.
+  await expect(page.getByTestId("toast-error")).toHaveCount(1);
+  await expect(page.getByTestId("toast-error-repeats")).toHaveText("×2");
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
  * **A failed action is not a failed navigation.** Found on a phone in
  * airplane mode: the toast and the shake were right, and about seven seconds
  * later the whole diary was replaced by the connection error, because the
