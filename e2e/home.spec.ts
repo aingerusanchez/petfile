@@ -5383,3 +5383,86 @@ test("starts every entry's title at the same place whatever the hour", async ({
     `titles start at ${xs.join(", ")}`,
   ).toBeLessThan(0.5);
 });
+
+/**
+ * The app goes away and comes back.
+ *
+ * `AppState` on the web target is `document.visibilityState` plus the
+ * `visibilitychange` event — that is all react-native-web's `AppState` reads —
+ * and Playwright cannot truly background a tab, so the property is overridden
+ * and the event dispatched by hand. Hidden first and visible after, because
+ * the handler acts on the arrival and the departure is what makes it one.
+ */
+async function comeBackToTheApp(page: Page) {
+  await page.evaluate(() => {
+    const show = (state: string) => {
+      Object.defineProperty(document, "visibilityState", {
+        value: state,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+    show("hidden");
+    show("visible");
+  });
+}
+
+test("re-reads the day when the app comes back to the foreground", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+
+  // The other tutor's phone writes while this one has the app in the
+  // background. The seed in the middle is what makes this test say anything:
+  // without it a re-read and a screen that did nothing look identical.
+  await seedE2EEvents(petId, [
+    { kind: "meal", occurredAt: new Date(), what: "Pienso del otro móvil" },
+  ]);
+
+  // And nothing on this screen has changed, which is the whole bug: a stale
+  // diary looks exactly like one that is up to date.
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+
+  await comeBackToTheApp(page);
+
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Pienso del otro móvil",
+  );
+});
+
+test("stays on the day it was left on when the app comes back", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(10, 0, 0, 0);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+  // The read of yesterday has answered before the other phone writes, or the
+  // seed would race it and the assertion below would pass without a re-read.
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+
+  await seedE2EEvents(petId, [
+    { kind: "meal", occurredAt: yesterday, what: "Pienso de ayer" },
+  ]);
+  await comeBackToTheApp(page);
+
+  // A re-read, not a navigation: somebody who left the app reading yesterday
+  // comes back to yesterday, with yesterday's entries read again.
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+  await expect(page.getByTestId("home-log")).toContainText("Pienso de ayer");
+});

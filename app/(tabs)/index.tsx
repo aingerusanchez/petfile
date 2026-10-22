@@ -410,6 +410,22 @@ export default function Home() {
   const [petError, setPetError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [attempt, setAttempt] = useState(0);
+  /**
+   * Read the day again, saying nothing about it.
+   *
+   * One bump of `attempt`, which is the pet, the day's rows and — while it is
+   * open — the calendar's window. **Not `reload`**, deliberately: `reload`
+   * also claims the promise a Reintentar is waiting on, and a re-read that
+   * nobody pressed must not settle somebody's press. The effect run this
+   * causes inherits a resolver still outstanding and answers it, which is the
+   * existing arrangement for a reload overtaking a press.
+   *
+   * **It is the shape the other triggers will reuse.** The queued walk stop
+   * needs the same moment — see `docs/plans/2026-10-22-parada-sin-cobertura.md`
+   * — so coming back to the app is one named thing to hang it off rather than
+   * a `setAttempt` buried in a listener.
+   */
+  const reread = useCallback(() => setAttempt((n) => n + 1), []);
   /** The walk this device has open, or null. Read once, then kept in step. */
   const [runningId, setRunningId] = useState<string | null>(null);
   /**
@@ -690,9 +706,29 @@ export default function Home() {
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state !== "active") return;
+      // **Coming back to the app reads the day again, every time.**
+      //
+      // This used to happen only when the date had turned, because "a
+      // `setToday` on every foreground would refetch the day for nothing".
+      // That sentence is true of a diary with one reader and false of this
+      // one: the ficha is kept by two tutors with a phone each, so the
+      // moment this app spends in the background is precisely the moment the
+      // other phone may have written the meal. The two of them found it in
+      // use, which is how it got measured at all.
+      //
+      // **A stale diary looks exactly like a current one**: no gap, no mark,
+      // nothing to arouse suspicion. That is why this exists and the pull
+      // gesture is not enough on its own — nobody pulls down on a day they
+      // have no reason to doubt.
+      //
+      // Silent on purpose: the rows stay up while the read runs (the log's
+      // waiting state keys on the day, not on the attempt), because a
+      // skeleton every time the app came forward would be worse than the bug.
+      reread();
       const now = new Date();
-      // Only when the date actually turned: a `setToday` on every foreground
-      // would refetch the day for nothing.
+      // The date turning is a second, rarer thing, and it moves the boundary
+      // rather than the data: `today` caps the forward arrow and the
+      // calendar.
       if (daysAgo(now, today) === 0) return;
       setToday(now);
       // **The day on screen follows only if it was the old today.** Somebody
@@ -706,7 +742,7 @@ export default function Home() {
       if (daysAgo(day, today) === 0 && !runningId) setDay(now);
     });
     return () => sub.remove();
-  }, [today, day, runningId]);
+  }, [today, day, runningId, reread]);
 
   // Hoisted above the early returns, because the birthday effect below is a
   // hook and cannot sit after them. `birthdayOn` takes a null birth date, so
