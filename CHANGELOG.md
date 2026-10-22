@@ -18,6 +18,48 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.22.0] — 2026-10-22
+
+### Arreglado
+
+- **Volver a la app relee el día.** Dos tutores, dos teléfonos, un diario: uno
+  apuntaba la comida y el otro abría su móvil —que llevaba la app en segundo
+  plano— y veía el día **sin esa comida**, sin nada que le dijera que estaba
+  mirando algo viejo. Lo contó quien lo sufrió: «hemos detectado diarios no
+  sincronizados algunos días porque la app ya estaba abierta en segundo plano».
+  El manejador de `AppState` solo releía cuando la fecha había cambiado, y el
+  comentario que lo justificaba decía que hacerlo siempre «volvería a leer el
+  día para nada». Esa frase es cierta en una app de un solo usuario y falsa en
+  cuanto son dos: volver del segundo plano es precisamente el momento en que el
+  otro teléfono ha podido escribir. No cambió el código, cambió que la ficha la
+  llevan dos personas — y ya había una incoherencia que lo delataba, porque los
+  tratamientos sí se releían al volver al foco y las entradas del día no.
+  **Lo que no cambia: la pantalla no se mueve de día sola.** Quien dejó la app
+  leyendo el martes vuelve al martes, y nunca se arrastra al tutor fuera del día
+  donde tiene un paseo abierto: esto es una relectura, no una navegación.
+  **Silenciosa a propósito** —las filas se quedan en pantalla mientras se lee—,
+  porque un esqueleto cada vez que la app vuelve al frente sería peor que el
+  fallo. Una lectura que falle se comporta como cualquier otra: el registro
+  tiene su mensaje y su Reintentar.
+
+### Nuevo
+
+- **Tirar del diario hacia abajo lo vuelve a leer.** El gesto que todo el mundo
+  conoce, para cuando el otro tutor dice «ya lo he apuntado» y se quiere ver ya,
+  sin cambiar de día ni cerrar la app. Relee todo lo que la pantalla lee —la
+  ficha, el día y los tratamientos—, que es exactamente lo que hace Reintentar,
+  y el indicador se queda hasta que el día contesta.
+  **No sustituye a la relectura al volver, y por eso llegan juntos:** no se
+  puede tirar hacia abajo de lo que no sabes que está viejo. Un diario
+  desactualizado se ve igual que uno al día —no hay hueco, no hay marca, nada
+  que haga sospechar—, así que el gesto sirve para cuando ya sospechas y la
+  relectura existe para los días en que no. **Solo lo lleva el diario**, que es
+  donde está el problema medido; Salud y la ficha no.
+  **El gesto no está medido en el teléfono.** Es el control nativo de la
+  plataforma y la suite lo prueba en el navegador, donde react-native-web lo
+  dibuja pero no lo ejecuta: lo que allí se comprueba es que está puesto en el
+  diario y en ninguna otra pantalla.
+
 ## [v0.21.0] — 2026-10-22
 
 ### Cambiado
