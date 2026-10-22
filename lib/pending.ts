@@ -100,6 +100,51 @@ export function withoutStop(queue: PendingStop[], id: string): PendingStop[] {
   return queue.filter((stop) => stop.id !== id);
 }
 
+/**
+ * The day's rows, as much of them as this file needs: whether a walk exists
+ * and whether it already has a length.
+ *
+ * Structural rather than `PetEventRow`, so the queue stays a module about the
+ * phone and knows nothing about the shape of a row.
+ */
+export type DayRow = { id: string; duration_minutes: number | null };
+
+/**
+ * The queued stops the day in view has to account for.
+ *
+ * **The queue cannot answer this on its own.** It is a fact about the phone
+ * and carries no day: added whole, last night's pending walk would land on
+ * whatever day the arrows reach. The day's rows are what say which stops are
+ * this day's, because a queued stop is always an intent over a row that
+ * already exists on the server.
+ *
+ * **A row that already has a length is not one of them, and that is the two
+ * tutor case.** Tutor A presses stop on the hill with no signal and the walk
+ * is queued; tutor B closes the same walk from their own phone; the row comes
+ * back carrying the length. `walkedMinutes` counts it from the row, and
+ * counting the queued stop beside it would read 90 min in 2 paseos for one
+ * walk — on the one line of the screen whose whole job is a single honest
+ * total. Whichever close landed first wins, which is the only rule that needs
+ * no guessing.
+ *
+ * A row that has gone — deleted on the other phone — is not one either: there
+ * is no walk left to count. **The test is the same for a delete**, which
+ * costs nothing: a delete contributes neither minutes nor a walk, so the only
+ * thing this decides for it is nothing at all.
+ *
+ * It is here rather than in the screen for the reason the crop maths is: a
+ * wrong answer does not throw. It counts the dog's minutes twice, or counts
+ * them on a day he was not walked.
+ */
+export function pendingForDay(
+  queue: PendingStop[],
+  rows: DayRow[],
+): PendingStop[] {
+  return queue.filter((stop) =>
+    rows.some((row) => row.id === stop.id && row.duration_minutes === null),
+  );
+}
+
 /** Minutes the server has not heard about yet. A delete contributes none. */
 export function pendingMinutes(queue: PendingStop[]): number {
   return queue.reduce(

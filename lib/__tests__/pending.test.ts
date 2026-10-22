@@ -1,6 +1,7 @@
 import {
   enqueueStop,
   parsePending,
+  pendingForDay,
   pendingMinutes,
   pendingWalks,
   serialisePending,
@@ -121,5 +122,66 @@ describe("pendingMinutes and pendingWalks", () => {
   it("is nothing for an empty queue", () => {
     expect(pendingMinutes([])).toBe(0);
     expect(pendingWalks([])).toBe(0);
+  });
+});
+
+/**
+ * **The day's rows are what say which pending stops are this day's**, and the
+ * queue cannot say it on its own: it is a fact about the phone, it holds no
+ * day, and a wrong answer here does not throw — it counts the dog's minutes
+ * twice, or on the wrong day.
+ */
+describe("pendingForDay", () => {
+  const open = (id: string) => ({ id, duration_minutes: null });
+
+  it("keeps a stop whose walk is open on this day", () => {
+    expect(pendingForDay([close("a", 30)], [open("a")])).toEqual([
+      close("a", 30),
+    ]);
+  });
+
+  it("leaves out a stop whose walk is not on this day", () => {
+    // Pressed last night, and the arrows are on another day: its minutes
+    // belong to the day its row is on, not to the one being looked at.
+    expect(pendingForDay([close("a", 30)], [open("b")])).toEqual([]);
+  });
+
+  it("leaves out a stop whose walk already has a length", () => {
+    // The other tutor closed the same walk from their own phone, so the row
+    // carries the length and the day's rows already count it. Counting the
+    // pending stop as well would read 90 min in 2 paseos for one walk.
+    expect(
+      pendingForDay([close("a", 45)], [{ id: "a", duration_minutes: 45 }]),
+    ).toEqual([]);
+  });
+
+  it("leaves out a stop whose row has gone", () => {
+    // Deleted on the other phone: there is no walk left to count.
+    expect(pendingForDay([close("a", 30)], [])).toEqual([]);
+  });
+
+  it("takes each stop on its own", () => {
+    const queue = [close("a", 30), close("b", 12), remove("c")];
+    const rows = [
+      open("a"),
+      { id: "b", duration_minutes: 12 },
+      open("c"),
+      open("d"),
+    ];
+    expect(pendingForDay(queue, rows)).toEqual([close("a", 30), remove("c")]);
+  });
+
+  it("is what the day's two halves are counted from", () => {
+    const queue = [close("a", 30), close("b", 12), remove("c")];
+    const rows = [open("a"), { id: "b", duration_minutes: 12 }, open("c")];
+    const here = pendingForDay(queue, rows);
+    expect(pendingMinutes(here)).toBe(30);
+    expect(pendingWalks(here)).toBe(1);
+  });
+
+  it("does not change the queue it was given", () => {
+    const before = [close("a", 30)];
+    pendingForDay(before, []);
+    expect(before).toEqual([close("a", 30)]);
   });
 });

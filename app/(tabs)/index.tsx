@@ -89,6 +89,7 @@ import { useSettings, type DurationFormat } from "../../lib/settings";
 import {
   enqueueStop,
   parsePending,
+  pendingForDay,
   pendingMinutes,
   pendingWalks,
   serialisePending,
@@ -837,20 +838,15 @@ export default function Home() {
    */
   const dayTreatments = treatments ? treatmentsOn(treatments.rows, day) : [];
   /**
-   * The queued stops that belong to **this** day.
+   * The queued stops the day in view has to account for — matched against
+   * its rows, because the queue carries no day of its own and a walk the
+   * other tutor has already closed must not be counted twice.
    *
-   * **Matched against the day's rows rather than counted whole.** The queue
-   * is a fact about the phone and carries no day of its own, so adding it
-   * entire would put last night's pending walk onto whatever day the arrows
-   * land on. A row that already has a length is left out too: the other
-   * tutor closed the same walk, the total already contains it, and ours
-   * would be a second copy of one walk.
+   * **The matching is in `lib/pending.ts` and unit-tested**, for the reason
+   * the whole of that module is: a wrong answer does not throw, it counts
+   * the dog's minutes twice.
    */
-  const pendingHere = pending.filter((stop) =>
-    events.some(
-      (event) => event.id === stop.id && event.duration_minutes === null,
-    ),
-  );
+  const pendingHere = pendingForDay(pending, events);
   /**
    * The day's minutes, **the stops still waiting to be uploaded included**.
    *
