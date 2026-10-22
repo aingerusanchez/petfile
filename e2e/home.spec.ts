@@ -1978,20 +1978,29 @@ test("a day at exactly double is violet throughout, with nothing over it", async
 });
 
 /**
- * Samples the bar's two tones on every frame for `ms`, with the clock.
+ * Samples the bar's two tones and the wipe crossing it, on every frame for
+ * `ms`, with the clock.
  *
  * **The crossing is the one thing on this bar that cannot be asserted
- * settled.** Before and after are the same picture whether the two
- * substitutions landed together or a beat apart, so what has to be caught is
- * the frame in between — the ground already turned and the fill not yet. The
- * timestamps come from the page's own clock rather than from Playwright's,
- * because the gap being measured is shorter than a round trip.
+ * settled.** Before and after are the same picture whether the new ground was
+ * substituted on one frame or wiped across the bar, so what has to be caught
+ * is the middle — the wipe part-way over a bar still wearing the lap it is
+ * leaving. `turn` is the wipe's own width as a share of the track, and −1 on a
+ * frame where it is not mounted. The timestamps come from the page's own clock
+ * rather than from Playwright's, because what is being measured is shorter
+ * than a round trip.
  */
 function toneFrames(page: Page, ms: number) {
   return page.evaluate(
     ([sampleMs]) =>
       new Promise<
-        { t: number; ground: string; fill: string; closing: boolean }[]
+        {
+          t: number;
+          ground: string;
+          fill: string;
+          turn: number;
+          closing: boolean;
+        }[]
       >((resolve) => {
         const hex = (css: string): string => {
           const rgb = (css.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
@@ -2004,10 +2013,20 @@ function toneFrames(page: Page, ms: number) {
           const el = document.querySelector(`[data-testid="${id}"]`);
           return el ? hex(getComputedStyle(el).backgroundColor) : "";
         };
+        const share = (id: string) => {
+          const el = document.querySelector(`[data-testid="${id}"]`);
+          const track = document.querySelector(
+            '[data-testid="home-goal-ground"]',
+          );
+          if (!el || !track) return -1;
+          const width = track.getBoundingClientRect().width;
+          return width === 0 ? -1 : el.getBoundingClientRect().width / width;
+        };
         const frames: {
           t: number;
           ground: string;
           fill: string;
+          turn: number;
           closing: boolean;
         }[] = [];
         const began = performance.now();
@@ -2016,6 +2035,7 @@ function toneFrames(page: Page, ms: number) {
             t: performance.now() - began,
             ground: tone("home-goal-ground"),
             fill: tone("home-goal-bar"),
+            turn: share("home-goal-turn"),
             closing:
               document.querySelector('[data-testid="home-goal-close"]') !==
               null,
@@ -2033,17 +2053,22 @@ function toneFrames(page: Page, ms: number) {
 }
 
 /**
- * **Two substitutions on one frame read as a cut, and that was the defect.**
+ * **Crossing the goal is a pulse that fills the bar with its new ground, left
+ * to right.**
  *
- * Crossing the goal turns the ground (the empty track to Aqua) and changes
- * the fill's hue (Mist to Aurora Boreal). Each is legible on its own; landing
- * together they stop reading as one bar changing and start reading as a
- * different bar. The close covers its own crossing — the tutor called that
- * animation genial — so the crossing this watches is one the close is not
- * covering: a walk written through the sheet, where nothing is drawn over the
- * bar at all.
+ * Two substitutions on one frame read as a cut — the ground gains colour (the
+ * empty track to Aqua) and the fill changes hue (Mist to Aurora Boreal) — and
+ * v0.18.0 answered that by staggering them 150 ms apart. v0.20.0 replaces the
+ * stagger with the gesture: the new ground wipes across the picture the bar
+ * had, and the lap underneath — ground and fill together — is substituted
+ * when the wipe has arrived. One mechanism for one moment, whatever moved the
+ * day over the line.
+ *
+ * The close covers its own crossing — it paints the whole bar for 760 ms — so
+ * the crossing this watches is one nothing is drawn over: a walk written
+ * through the sheet.
  */
-test("turns the ground a beat before the fill when the goal is crossed", async ({
+test("wipes the new ground across the bar when the goal is crossed", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -2079,26 +2104,89 @@ test("turns the ground a beat before the fill when the goal is crossed", async (
   // Nothing was drawn over the bar: this is the bare crossing, not the close.
   expect(frames.filter((f) => f.closing).length).toBe(0);
 
-  const turned = frames.findIndex((f) => f.ground === colors.accent);
-  const followed = frames.findIndex((f) => f.fill === colors.accentFocus);
-  expect(turned, "the ground should reach Aqua").toBeGreaterThanOrEqual(0);
-  expect(followed, "the fill should reach Aurora Boreal").toBeGreaterThan(
-    turned,
+  // **It travelled, which is what tells a wipe from a substitution.** The
+  // settled bar is the same picture either way; a width that is neither
+  // nothing nor the whole track can only come from the interpolation.
+  const wiping = frames.filter((f) => f.turn >= 0);
+  expect(wiping.length, "the wipe should be mounted").toBeGreaterThan(5);
+  expect(
+    wiping.filter((f) => f.turn > 0.1 && f.turn < 0.9).length,
+    "the wipe should be caught part-way across",
+  ).toBeGreaterThan(3);
+
+  // **And the bar underneath is held at the lap it is leaving, every frame of
+  // it.** The ground and the fill are two halves of one picture, so a frame
+  // where one has turned and the other has not is the cut this replaces.
+  expect(wiping.map((f) => f.ground)).toEqual(wiping.map(() => colors.surface));
+  expect(wiping.map((f) => f.fill)).toEqual(
+    wiping.map(() => colors.textSecondary),
   );
 
-  // **The frame in between is the whole spec.** On the frame the ground turns
-  // the fill is still wearing lap one's Mist, and it keeps wearing it for
-  // about 150 ms — long enough to be read as a consequence of the ground
-  // turning rather than as part of the same cut.
-  expect(frames[turned].fill).toBe(colors.textSecondary);
-  const gap = frames[followed].t - frames[turned].t;
-  expect(gap).toBeGreaterThan(80);
-  expect(gap).toBeLessThan(500);
+  // The substitution lands when the wipe has arrived, not before it and not
+  // half a second after: 620 ms, with a frame of slack either side.
+  const turned = frames.findIndex((f) => f.ground === colors.accent);
+  expect(turned, "the ground should reach Aqua").toBeGreaterThan(0);
+  expect(frames[turned].fill).toBe(colors.accentFocus);
+  expect(frames[turned].turn).toBe(-1);
+  const crossing = frames[turned].t - wiping[0].t;
+  expect(crossing).toBeGreaterThan(400);
+  expect(crossing).toBeLessThan(1_000);
 
   // Same end state as before: Aqua under a quarter-lap of violet.
   await expect(page.getByTestId("home-goal-measure")).toContainText(
     "2h 30m en 2 paseos",
   );
+  expect(await groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+});
+
+test("crosses the goal with no wipe for a tutor who asked for no animation", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // The same crossing with motion off. **"Absent" has to mean the whole bar
+  // substitutes at once** — the rest of the app collapses an animation to the
+  // state it was heading for, and a wipe held at half a bar, or a ground that
+  // waits 620 ms for a gesture nobody is drawing, would both be worse than
+  // the cut this replaced.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await resetE2EPets();
+  await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("10:00");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "1h en 1 paseo",
+  );
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("10:00");
+  await page.getByTestId("entry-to").fill("11:30");
+
+  const sampling = toneFrames(page, 2_500);
+  await page.getByTestId("entry-save").click();
+  const frames = await sampling;
+
+  // Nothing was ever drawn over the bar.
+  expect(frames.filter((f) => f.turn >= 0).length).toBe(0);
+
+  // And the two halves land together: no frame wears one lap's ground under
+  // the other lap's fill.
+  const split = frames.filter(
+    (f) =>
+      (f.ground === colors.accent) !== (f.fill === colors.accentFocus) &&
+      f.ground !== "" &&
+      f.fill !== "",
+  );
+  expect(split.map((f) => [f.ground, f.fill])).toEqual([]);
+
   expect(await groundColour(page)).toBe(colors.accent);
   expect(await fillColour(page)).toBe(colors.accentFocus);
   await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
@@ -2166,7 +2254,22 @@ test("re-reads every tier when the goal is edited under a running walk", async (
   );
 });
 
-test("laps the live segment past the floor, and leaves the ground alone", async ({
+/**
+ * **The ground follows the walk in progress, and the label goes with it.**
+ *
+ * Until v0.20.0 the ground was the tier the *recorded* minutes had reached,
+ * and a live segment lapping in grey over an unturned ground was the signal
+ * that something had not been saved. That rule is lifted deliberately: the
+ * moment the day reaches its goal is the moment the dog did the walking, and
+ * the tutor would rather see it then than at the paperwork. A walk left
+ * running is still visible in the log's `En marcha` row and in the control's
+ * stop glyph.
+ *
+ * **The bar and the words are one clock.** v0.15.0 went entirely into making
+ * them unable to disagree, so `Día cumplido` appears with the ground or the
+ * defect is back for as long as the walk runs.
+ */
+test("follows the walk in progress over the goal, ground and label together", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -2194,31 +2297,34 @@ test("laps the live segment past the floor, and leaves the ground alone", async 
   await page.goto("/");
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
 
-  // **The ground is the tier the recorded minutes reached, and only a real
-  // stop turns it.** That asymmetry is the feature: a bar lapping in grey is
-  // itself the signal that something has not been saved, so a walk left
-  // running by mistake can never pass for a finished day.
-  expect(await groundColour(page)).toBe(colors.surface);
-  await expect(page.getByTestId("home-goal-met")).toHaveCount(0);
+  // **The ground is the tier the day has reached, minutes in progress and
+  // all.** The bar is whole and Aqua, and the words under it say so.
+  expect(await groundColour(page)).toBe(colors.accent);
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+
+  // Nothing is celebrated: the confetti is kept for the stop, because during
+  // a walk the phone is in a pocket.
+  await expect(page.getByTestId("celebration")).toBeHidden();
 
   const bar = await widthOf(page, "home-goal-ground");
-  // Lap one is completed in its own live tone, from the saved edge…
-  expect(await widthOf(page, "home-goal-bar")).toBeCloseTo(bar * 0.5, 0);
-  expect(await colourOf(page, "home-goal-live")).toBe(colors.textTertiary);
-  expect(await widthOf(page, "home-goal-live")).toBeCloseTo(bar * 0.5, 0);
-  // …and a second band is drawn from the left edge in the next lap's. Its
-  // width is the one reading here that moves with the clock: 75 of 60 is a
-  // quarter of lap two, and a setup that crossed a minute makes it 76.
-  expect(await colourOf(page, "home-goal-lap")).toBe(colors.accentFocusDim);
-  expectMinutes((await widthOf(page, "home-goal-lap")) / bar, 15, 16, 60);
-  const left = await page.getByTestId("home-goal-ground").boundingBox();
-  const band = await page.getByTestId("home-goal-lap").boundingBox();
-  expect(band!.x).toBeCloseTo(left!.x, 0);
+  // **Nothing is recorded on lap two yet**, so there is no saved fill and no
+  // junction to mark — the whole of what is drawn over the Aqua is the walk
+  // in progress, in lap two's live tone. Its width is the one reading here
+  // that moves with the clock: 75 of 60 is a quarter of lap two, and a setup
+  // that crossed a minute makes it 76.
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+  expect(await colourOf(page, "home-goal-live")).toBe(colors.accentFocusDim);
+  expectMinutes((await widthOf(page, "home-goal-live")) / bar, 15, 16, 60);
+  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
 
-  // The tick does not move with it: it still marks the saved/live boundary,
-  // which is where the recorded minutes stop.
-  const tick = await page.getByTestId("home-goal-tick").boundingBox();
-  expect(tick!.x + tick!.width / 2).toBeCloseTo(left!.x + bar * 0.5, 0);
+  // **And the band over a completed lap is gone with the rule it carried.**
+  // A lap the ground has not admitted to cannot exist any more: the ground
+  // admits to everything the day has walked.
+  await expect(page.getByTestId("home-goal-lap")).toHaveCount(0);
+
+  const left = await page.getByTestId("home-goal-ground").boundingBox();
+  const segment = await page.getByTestId("home-goal-live").boundingBox();
+  expect(segment!.x).toBeCloseTo(left!.x, 0);
 });
 
 test("draws no bar at all for a pet with no goal, as before", async ({
@@ -2485,20 +2591,24 @@ test("lands a close on the second lap, over a bar that is already Aqua", async (
 });
 
 /**
- * **The two halves of the handover, read off one sampler.**
+ * **What the close has left to do once the live minutes have turned the
+ * ground: convert the band on the lap the bar is already standing on.**
  *
- * 30 min recorded and a walk of 31 against a 60-minute goal: 61 of 60 crosses
- * the goal inside the one fill. What this pins is that the bar is never in two
- * minds — not in width, which the no-shrink spec above owns, and not in tone:
- * the ground may not turn Aqua until the fill has arrived there, and with the
- * reload no longer gated it lands somewhere inside these 760 ms and would turn
- * it early for anyone who fixed only the width.
+ * 30 min recorded and a walk of 31 against a 60-minute goal. The day crossed
+ * the goal while the walk ran, so the bar is Aqua before the stop is pressed
+ * and the only thing still live is a minute of lap two. The close converts
+ * exactly that — **and may not re-paint lap one's ground on its way**, which
+ * is the one way this change could turn the close into a backwards step: a
+ * gesture that started at the recorded minutes would open by putting the
+ * empty track back over a bar that turned minutes ago.
  *
  * **And nothing is celebrated.** Tier 1 is the everyday now — most days clear
  * it — and the everyday is not celebrated. The ground turning and the label
  * under the bar are the whole of what a goal met gets.
  */
-test("crosses the goal inside one fill, with no confetti", async ({ page }) => {
+test("converts the live band on the lap the ground already turned", async ({
+  page,
+}) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   const now = new Date();
@@ -2520,35 +2630,32 @@ test("crosses the goal inside one fill, with no confetti", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
-  // Before the stop the day is on lap one: the empty track under a Mist fill.
-  await expect.poll(() => groundColour(page)).toBe(colors.surface);
-  expect(await fillColour(page)).toBe(colors.textSecondary);
+  // **Before the stop the bar has already crossed**: 61 of 60 is a minute
+  // into lap two, live minutes and all, so the ground is Aqua and the label
+  // is under it with no walk closed.
+  await expect.poll(() => groundColour(page)).toBe(colors.accent);
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
 
-  const sampling = barFrames(page, 3_000, "home-goal-close-lap-0-fill");
+  const sampling = barFrames(page, 3_000, "home-goal-close-lap-1-fill");
   await page.getByTestId("home-goal-control").click();
   const { bar, frames } = await sampling;
 
-  // **The bar is painted across its whole width from before the press**, and
-  // that is not what is being watched here: the live segment had already
-  // lapped, so the painted width cannot say where the conversion has got to.
-  // The lap's own fill can.
+  // The bar is painted across its whole width from before the press — it is
+  // an Aqua ground — so the painted width cannot say where the conversion has
+  // got to. The lap's own fill can.
   expect(Math.min(...frames.map((f) => f.painted))).toBeCloseTo(bar, 0);
 
-  // It travelled: lap one's fill is caught at readings that are neither where
-  // it began (half the bar) nor where it ends (all of it).
-  const converting = frames.filter((f) => f.probe >= 0 && f.probe < bar - 0.5);
-  expect(converting.filter((f) => f.probe > bar * 0.55).length).toBeGreaterThan(
-    3,
-  );
+  // **Aqua on every frame of it.** Lap one's ground is never painted again:
+  // the close begins at the foot of lap two, where the bar already stands.
+  const ground = frames.filter((f) => f.ground !== "");
+  expect(ground.map((f) => f.ground)).toEqual(ground.map(() => colors.accent));
+  await expect(page.getByTestId("home-goal-close-lap-0-ground")).toHaveCount(0);
 
-  // **And no frame turned the ground before the fill got there.** Every frame
-  // with the conversion still under way is wearing the empty track, not Aqua
-  // — which is the half of the handover a builder who fixed only the width
-  // would ship, since the reload lands somewhere inside these 760 ms.
-  expect(converting.map((f) => f.ground)).toEqual(
-    converting.map(() => colors.surface),
-  );
-  expect(frames[frames.length - 1].ground).toBe(colors.accent);
+  // And it did convert: the lap-two fill is caught somewhere inside the
+  // minute it is converting rather than simply set at the end of it.
+  expect(
+    frames.filter((f) => f.probe > 0 && f.probe < bar / 60).length,
+  ).toBeGreaterThan(3);
 
   // It comes to rest Aqua, with a minute of lap two in violet over it, and
   // the conclusion said under the bar.
@@ -2567,16 +2674,16 @@ test("converts a lapped walk without dropping its second band", async ({
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
-  // 50 min recorded against a 60-minute goal and a walk of 30 on top: the
-  // live segment has lapped, so before the stop the left third of the bar is
-  // wearing lap two's live violet over a lap one that is otherwise Mist.
+  // 50 min recorded against a 60-minute goal and a walk of 30 on top: 80 of
+  // 60 is a third of the way into lap two, so before the stop the left third
+  // of the bar is wearing lap two's live violet over an Aqua ground.
   //
   // **The painted width is blind to this.** It is the whole bar before the
   // stop and the whole bar throughout the close, so the no-shrink spec cannot
   // see a band inside the paint reverting to the tone underneath it. A point
   // can: sampled at 15% of the bar, the close may hand it from lap two's live
-  // violet to lap two's saved violet and to nothing else. A frame of Mist
-  // there is the lapped band having been dropped for the first slice of the
+  // violet to lap two's saved violet and to nothing else. A frame of Aqua or
+  // of Mist there is the band having been dropped for the first slice of the
   // animation — the smaller version of exactly the backwards step this whole
   // gesture exists to remove.
   const now = new Date();
@@ -2598,11 +2705,11 @@ test("converts a lapped walk without dropping its second band", async ({
   await seedSession(page);
   await page.goto("/");
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
-  // The lapped band is there before the stop, and reaches past the point
-  // this spec watches.
-  expect(await colourOf(page, "home-goal-lap")).toBe(colors.accentFocusDim);
+  // The live band is there before the stop, and reaches past the point this
+  // spec watches.
+  expect(await colourOf(page, "home-goal-live")).toBe(colors.accentFocusDim);
   expect(
-    (await widthOf(page, "home-goal-lap")) /
+    (await widthOf(page, "home-goal-live")) /
       (await widthOf(page, "home-goal-ground")),
   ).toBeGreaterThan(0.25);
 
@@ -2627,17 +2734,32 @@ test("converts a lapped walk without dropping its second band", async ({
   expect(await fillColour(page)).toBe(colors.accentFocus);
 });
 
-test("crosses both tiers in one close and still celebrates once", async ({
+/**
+ * **The description follows the data; the celebration follows the viewer.**
+ *
+ * This is the one spec that holds the two clocks apart, and it is the whole
+ * reason they are allowed to differ. The bar and the label say what the day
+ * is, so they follow the minutes as they happen — a championship day is
+ * announced under the bar while the walk is still running. The confetti is an
+ * event aimed at somebody looking, and during a walk the phone is locked in a
+ * pocket: fired then it would be missed most of the times it was earned.
+ *
+ * So the accepted side effect, pinned here rather than discovered: the words
+ * arrive first and the party waits for the stop, which is the moment the
+ * tutor is certainly looking at the screen.
+ */
+test("says the championship day during the walk and keeps the confetti for the stop", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   // 15 min recorded against a 30-minute goal and a walk of 46 on top: 61 of
-  // 60 is past double, so the one gesture passes both tiers. 30 is the floor a
-  // goal can have, so the tiers cannot be made closer than this; the recorded
-  // walk is half the goal to keep lap one starting where it always did, and the
-  // live walk is what has to grow — which costs the first 47 minutes of the
-  // day, when 46 minutes ago is still yesterday.
+  // 60 is past double, so the live minutes alone carry the day over both
+  // tiers. 30 is the floor a goal can have, so the tiers cannot be made
+  // closer than this; the recorded walk is half the goal to keep lap one
+  // starting where it always did, and the live walk is what has to grow —
+  // which costs the first 47 minutes of the day, when 46 minutes ago is still
+  // yesterday.
   const now = new Date();
   const earlier = new Date(now);
   earlier.setHours(0, 1, 0, 0);
@@ -2657,16 +2779,31 @@ test("crosses both tiers in one close and still celebrates once", async ({
   await seedSession(page);
   await page.goto("/");
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // **The day is already said, and nothing has been saved.** The bar is
+  // violet throughout — there is no third lap to paint over it — and the
+  // label names the tier, with the walk still running.
+  await expect.poll(() => groundColour(page)).toBe(colors.accentFocus);
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Día de campeonato",
+  );
+  // And the party has not started: the phone is in a pocket.
   await expect(page.getByTestId("celebration")).toBeHidden();
 
-  // Lap one converts and hands over to lap two inside the same gesture.
-  const lapOne = widthInFlight(page, "home-goal-close-lap-0-fill", 0.55, 0.95);
-  const lapTwo = widthInFlight(page, "home-goal-close-lap-1-fill", 0.1, 0.9);
+  // **Armed before the tap**, because the confetti is a few seconds long and
+  // the bar assertions below would retry straight past it.
+  const party = page.waitForSelector('[data-testid="celebration"]', {
+    state: "attached",
+  });
   await page.getByTestId("home-goal-control").click();
-  await lapOne;
-  await lapTwo;
 
-  // The bar ends violet throughout, with nothing over it, and says so.
+  // **Once, on the save, at the second tier and not at the first.** The
+  // crossing happened minutes ago on the bar; the confetti is the stop's.
+  await party;
+
+  // The bar has nothing left to do — it was already at the top — and says
+  // the same thing afterwards.
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
   await expect.poll(() => groundColour(page)).toBe(colors.accentFocus);
   expect(await widthOf(page, "home-goal-bar")).toBe(0);
@@ -2674,9 +2811,6 @@ test("crosses both tiers in one close and still celebrates once", async ({
     "Día de campeonato",
   );
 
-  // **Once, at the second tier and not at the first.** Two crossings in one
-  // animation is still one day doubled.
-  await expect(page.getByTestId("celebration")).toBeVisible();
   await expect(page.getByTestId("celebration")).toHaveCount(0);
   await expect(
     page.waitForSelector('[data-testid="celebration"]', {

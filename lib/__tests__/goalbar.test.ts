@@ -1,4 +1,10 @@
-import { barProgress, barStateAt, closeLaps, closeMotion } from "../goalbar";
+import {
+  barProgress,
+  barStateAt,
+  closeLaps,
+  closeMotion,
+  lapFill,
+} from "../goalbar";
 
 describe("barProgress", () => {
   it("is the fraction of the goal below it", () => {
@@ -32,29 +38,60 @@ describe("barStateAt", () => {
   });
 });
 
+describe("lapFill", () => {
+  it("is where a point of the scale sits inside one lap", () => {
+    expect(lapFill(1.25, 1)).toBeCloseTo(25);
+  });
+  it("is nothing on a lap the point has not reached", () => {
+    expect(lapFill(0.75, 1)).toBe(0);
+  });
+  it("is the whole lap once the point is past it", () => {
+    expect(lapFill(1.25, 0)).toBe(100);
+  });
+});
+
 describe("closeMotion", () => {
   it("fills from where the saved minutes stopped to where they now stop", () => {
     expect(
       closeMotion({ recordedBefore: 60, closedMinutes: 30, goalMinutes: 120 }),
     ).toEqual({ kind: "fill", from: 0.5, to: 0.75 });
   });
-  it("crosses a tier inside one fill", () => {
-    const m = closeMotion({
-      recordedBefore: 90,
-      closedMinutes: 60,
-      goalMinutes: 120,
-    });
-    expect(m).toEqual({ kind: "fill", from: 0.75, to: 1.25 });
+  it("begins at the foot of the lap it lands on, because the ground is already there", () => {
+    // **The live minutes turned the ground before the stop did.** 90 of 120
+    // with an hour running has been painted on lap two since the walk passed
+    // the goal, so the stretch left to convert is the band on *that* lap —
+    // starting the fill at 0.75 would paint lap one's ground back over a bar
+    // that has already moved on.
+    expect(
+      closeMotion({ recordedBefore: 90, closedMinutes: 60, goalMinutes: 120 }),
+    ).toEqual({ kind: "fill", from: 1, to: 1.25 });
   });
-  it("crosses both tiers inside one fill", () => {
+  it("converts nothing when the close lands on the top tier the bar already shows", () => {
+    // The bar is violet throughout before the stop and violet throughout
+    // after it. The gesture is kept rather than refused, because the block
+    // hangs its hold on it — what is drawn is nothing.
     expect(
       closeMotion({ recordedBefore: 60, closedMinutes: 240, goalMinutes: 120 }),
-    ).toEqual({ kind: "fill", from: 0.5, to: 2 });
+    ).toEqual({ kind: "fill", from: 2, to: 2 });
   });
   it("says nothing on a day already past the top tier", () => {
     expect(
       closeMotion({ recordedBefore: 300, closedMinutes: 40, goalMinutes: 120 }),
     ).toEqual({ kind: "none" });
+  });
+  it("leaves the close one lap to draw, whatever the walk crossed", () => {
+    // The two halves read together: what `closeMotion` hands over is a
+    // stretch inside one lap, so a close can no longer turn a ground. That
+    // is the whole reconciliation — the ground turns once, where the live
+    // minutes turned it, and the close converts what is left.
+    const motion = closeMotion({
+      recordedBefore: 15,
+      closedMinutes: 46,
+      goalMinutes: 30,
+    });
+    expect(motion.kind).toBe("fill");
+    if (motion.kind !== "fill") return;
+    expect(closeLaps(motion.from, motion.to)).toHaveLength(1);
   });
   it("says nothing without a goal, and nothing for a walk that added nothing", () => {
     expect(
