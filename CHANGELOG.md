@@ -18,6 +18,29 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.22.1] — 2026-10-22
+
+### Arreglado
+
+- **Una relectura que nadie pidió ya no se lleva el diario.** En v0.22.0,
+  volver a la app sin cobertura cambiaba un diario perfectamente legible por
+  el mensaje de «no se ha podido cargar» y su Reintentar: la relectura al
+  volver fallaba y se lo contaba a quien no había preguntado nada. Es el
+  mismo fallo que costó cuatro rondas en v0.15.0 —«una acción fallida no es
+  una navegación fallida»— llegando por un camino peor, porque allí el tutor
+  había pulsado algo y aquí solo había abierto el teléfono. **Lo que ya
+  estaba cargado sigue siendo verdad**: unas filas que eran correctas hace un
+  minuto no dejan de ser lo mejor que hay porque una lectura que nadie pidió
+  vuelva con las manos vacías. Si estás en la v0.22.0, eso es lo que verás al
+  abrir la app sin red; con esta no.
+  **El gesto no cambia y no debe cambiar.** Quien tira hacia abajo está
+  preguntando y está mirando: ahí un error es una respuesta. Lo mismo las
+  flechas de día y el Reintentar. La distinción no es «falló una acción» sino
+  **si alguien pidió esa lectura**, que es la única pregunta que se puede
+  hacer cuando no hay acción ninguna detrás — y cuando las dos cosas caen
+  juntas gana la pedida, para que volver a la app no tape una recarga que
+  tenía una escritura que confirmar.
+
 ## [v0.22.0] — 2026-10-22
 
 ### Arreglado
