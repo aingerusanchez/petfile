@@ -1,8 +1,8 @@
 import { useEffect, type ReactNode, type RefObject } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardInset } from "./keyboard";
-import { PAGE_GUTTER, spacing } from "./tokens";
+import { colors, PAGE_GUTTER, spacing } from "./tokens";
 
 type Edge = "top" | "bottom";
 
@@ -63,6 +63,22 @@ type ScreenProps = {
    * screen that can scroll.
    */
   footer?: ReactNode;
+  /**
+   * Read it all again, because the tutor asked for it by pulling down.
+   *
+   * Only meaningful together with `scroll`: the gesture is the scroll
+   * container's. Given it, the page grows the platform's own refresh
+   * indicator — the one control here whose looks are the OS's and not this
+   * app's, which is why it takes its two colours from the tokens rather than
+   * leaving them at a stock Android blue on a dark page.
+   *
+   * `refreshing` is the indicator, and it is the screen's business rather
+   * than the control's: it stays up until the read it asked for has answered.
+   */
+  onRefresh?: () => void;
+  refreshing?: boolean;
+  /** The refresh control's own handle, for a test that asks whether it is there. */
+  refreshTestID?: string;
   /** Appended to the container's classes, for per-screen alignment. */
   className?: string;
   testID?: string;
@@ -106,6 +122,9 @@ export function Screen({
   onTopInset,
   overlay,
   footer,
+  onRefresh,
+  refreshing = false,
+  refreshTestID,
   className = "",
   testID,
 }: ScreenProps) {
@@ -181,6 +200,22 @@ export function Screen({
         contentContainerStyle={footer ? { ...padding, flexGrow: 1 } : padding}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
+        // The spinner's colours come from the tokens, like every other colour
+        // a React Native prop takes: `colors` is Android's ring and
+        // `tintColor` iOS's, and the disc behind the ring is Fjord Slate so
+        // it reads as part of the page instead of a white dot on Deep Night.
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              testID={refreshTestID}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.accent]}
+              tintColor={colors.accent}
+              progressBackgroundColor={colors.surface}
+            />
+          ) : undefined
+        }
         onScroll={
           onScrollOffset
             ? (e) => onScrollOffset(e.nativeEvent.contentOffset.y)

@@ -838,6 +838,31 @@ export default function Home() {
   }, [readTreatments]);
 
   /**
+   * Pulling the diary down reads it again, and says so while it does.
+   *
+   * **Agency, not correction.** The re-read on return is for the days when
+   * nothing makes anybody suspect the day is behind; this is for the moment
+   * it already does — the other tutor says "ya lo he apuntado" and the day
+   * can be asked again without changing day or killing the app.
+   *
+   * It is `reload`, the same thing Reintentar does: everything the screen
+   * reads, read again, treatments included. A gesture the tutor made is
+   * allowed to settle a Reintentar they also pressed — it answers the same
+   * question — which is why this one may call `reload` where the silent
+   * re-read may not.
+   *
+   * **The indicator stays up until the day has answered**, because that is
+   * what the gesture promised. `reload` resolves false on a failure, and the
+   * failure is already said where it happened: the log's own error region
+   * and its Reintentar. Nothing here repeats it.
+   */
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    void reload().finally(() => setRefreshing(false));
+  }, [reload]);
+
+  /**
    * **The birthday gets the confetti, once a year, on the day itself.**
    *
    * The same rule the goal's confetti follows: it fires on a threshold being
@@ -1320,6 +1345,13 @@ export default function Home() {
     <Screen
       scroll
       edges={["top"]}
+      // The gesture everybody already knows, on the one screen where the
+      // measured problem is: a diary that may be behind what the other phone
+      // wrote. Salud and the ficha do not get it — they are not what goes
+      // stale while the app sits in a pocket.
+      onRefresh={refresh}
+      refreshing={refreshing}
+      refreshTestID="home-refresh"
       overlay={(position) => (
         <Fab
           testID="home-add"

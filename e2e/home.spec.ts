@@ -5466,3 +5466,23 @@ test("stays on the day it was left on when the app comes back", async ({
   await expect(page.getByTestId("home-title")).toHaveText("Ayer");
   await expect(page.getByTestId("home-log")).toContainText("Pienso de ayer");
 });
+
+test("offers the pull-to-refresh on the diary and nowhere else", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-title")).toBeVisible();
+
+  // The gesture serves the moment you already suspect the diary is behind,
+  // which is the diary's moment and not Salud's or the file's.
+  await expect(page.getByTestId("home-refresh")).toBeAttached();
+
+  await page.goto("/health");
+  await expect(page.getByTestId("health-title")).toBeVisible();
+  await expect(page.getByTestId("home-refresh")).toHaveCount(0);
+
+  await page.goto("/profile");
+  await expect(page.getByTestId("profile-title")).toBeVisible();
+  await expect(page.getByTestId("home-refresh")).toHaveCount(0);
+});
