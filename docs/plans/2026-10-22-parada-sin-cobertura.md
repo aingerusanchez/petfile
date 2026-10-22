@@ -26,6 +26,7 @@
 - **Dos paradas pendientes del mismo paseo.** No puede haber dos paseos a la vez en un teléfono, pero sí dos pulsaciones sobre el mismo: la segunda sustituye a la primera en vez de añadirse.
 - **La app se cierra con una parada pendiente.** La cola está en disco; al abrir, el paseo ya no está en marcha y sus minutos cuentan desde el primer render.
 - **El otro tutor cerró el mismo paseo mientras esta parada estaba pendiente.** La fila ya tiene duración: el reintento la sobrescribiría con la nuestra. Decidir y probar cuál gana.
+- **El tutor edita un paseo cuya parada está pendiente.** La fila existe y se puede tocar: la hoja abre y deja mover DESDE. Los `minutes` que la cola guardó se calcularon contra el inicio viejo y dejan de corresponder a nada. `pressedAt` es lo que permite recalcularlos — y es la razón por la que ese campo se queda aunque hoy nadie lo lea en tiempo de ejecución.
 - **La reproducción corre dos veces a la vez** — volver a la app y una lectura que termina bien pueden coincidir. Un elemento no puede subirse dos veces.
 
 ---
