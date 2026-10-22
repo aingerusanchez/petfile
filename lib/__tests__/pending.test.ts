@@ -63,9 +63,13 @@ describe("parsePending", () => {
     expect(parsePending(raw)).toEqual([]);
   });
 
-  it("does not keep the good elements of a list that has a bad one", () => {
-    const raw = JSON.stringify([close("a", 30), { kind: "delete" }]);
-    expect(parsePending(raw)).toEqual([]);
+  it("keeps the good elements of a list that has a bad one", () => {
+    const raw = JSON.stringify([
+      close("a", 30),
+      { kind: "delete" },
+      remove("b"),
+    ]);
+    expect(parsePending(raw)).toEqual([close("a", 30), remove("b")]);
   });
 
   it("goes there and back without losing anything", () => {

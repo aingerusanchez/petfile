@@ -31,7 +31,7 @@ const AGED_AFTER_MS = 6 * 60 * 60_000;
 const isInstant = (value: unknown): value is string =>
   typeof value === "string" && !Number.isNaN(new Date(value).getTime());
 
-/** One stored element, or null — which spoils the whole list, see below. */
+/** One stored element, or null when it is not a stop `parsePending` can keep. */
 function parseStop(value: unknown): PendingStop | null {
   if (typeof value !== "object" || value === null) return null;
   const item = value as Record<string, unknown>;
@@ -61,23 +61,24 @@ function parseStop(value: unknown): PendingStop | null {
  * queue, and nothing in here can throw — this runs on launch, so a parse that
  * threw on a corrupt value would take the day view down with it.
  *
- * **One element that is not a stop spoils the list.** A half-understood queue
- * is the app guessing at what the tutor pressed; an empty one is the app
- * saying it does not know, and the running walk is still there to be stopped
- * again.
+ * **An element that is not a stop is skipped, and its neighbours are kept.**
+ * Each one is validated on its own by `parseStop`, so a survivor is well-formed
+ * by definition — keeping it is not keeping something suspect. Emptying the
+ * queue over one bad element would throw away every valid stop beside it, and
+ * a pending stop is a walk the tutor already took: nothing here is discarded
+ * in silence, least of all the many for the sake of the one.
+ *
+ * A bad element is close to impossible, and that is why this is defensive
+ * rather than expected: the key is versioned (`petfile.pending.v1`), so a
+ * format change takes a new key instead of leaving garbage under the old one.
+ * Do not simplify the guard away on the strength of that.
  */
 export function parsePending(raw: string | null): PendingStop[] {
   if (!raw) return [];
   try {
     const value: unknown = JSON.parse(raw);
     if (!Array.isArray(value)) return [];
-    const queue: PendingStop[] = [];
-    for (const element of value) {
-      const stop = parseStop(element);
-      if (!stop) return [];
-      queue.push(stop);
-    }
-    return queue;
+    return value.flatMap((element) => parseStop(element) ?? []);
   } catch {
     return [];
   }
