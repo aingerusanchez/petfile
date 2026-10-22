@@ -65,8 +65,14 @@ relectura al volver existe para los días en que no.
 - **La relectura al volver es silenciosa.** Las filas se quedan en pantalla
   mientras se lee; un esqueleto cada vez que la app vuelve al frente sería
   peor que el fallo. El indicador lo pone el gesto, que es el suyo propio.
-- **Una lectura fallida se comporta como cualquier otra lectura fallida:** el
-  registro tiene su región de error y su Reintentar, y no se añade nada.
+- **Una lectura fallida se comporta como cualquier otra lectura fallida
+  _que alguien haya pedido_:** el registro tiene su región de error y su
+  Reintentar, y no se añade nada. La relectura silenciosa no es una de esas.
+  v0.22.0 la trató como tal y fue un fallo: volver a la app sin cobertura
+  cambiaba un diario que se leía bien por el mensaje de error, y el tutor no
+  había pulsado nada —había abierto el teléfono—. Desde v0.22.1 lo que ya
+  estaba cargado se queda; el gesto, que sí se pide, sigue contestando con el
+  error.
 - **El gesto es solo del diario.** Ni Salud ni Perfil: el problema medido está
   en el día, que es lo que el otro teléfono escribe mientras este duerme.
 
