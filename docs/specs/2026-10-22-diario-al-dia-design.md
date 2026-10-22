@@ -72,7 +72,9 @@ relectura al volver existe para los días en que no.
   cambiaba un diario que se leía bien por el mensaje de error, y el tutor no
   había pulsado nada —había abierto el teléfono—. Desde v0.22.1 lo que ya
   estaba cargado se queda; el gesto, que sí se pide, sigue contestando con el
-  error.
+  error. Y desde v0.22.2 eso vale también cuando las dos cosas se solapan:
+  volver a la app cancela la lectura que hubiera en marcha, así que hereda
+  sus términos en vez de contarse como una lectura que nadie pidió.
 - **El gesto es solo del diario.** Ni Salud ni Perfil: el problema medido está
   en el día, que es lo que el otro teléfono escribe mientras este duerme.
 
