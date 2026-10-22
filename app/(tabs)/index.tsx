@@ -89,6 +89,8 @@ import { useSettings, type DurationFormat } from "../../lib/settings";
 import {
   enqueueStop,
   parsePending,
+  pendingMinutes,
+  pendingWalks,
   serialisePending,
   PENDING_STORAGE_KEY,
   type PendingStop,
@@ -834,15 +836,44 @@ export default function Home() {
    * that was never known.
    */
   const dayTreatments = treatments ? treatmentsOn(treatments.rows, day) : [];
-  const walked = walkedMinutes(events);
+  /**
+   * The queued stops that belong to **this** day.
+   *
+   * **Matched against the day's rows rather than counted whole.** The queue
+   * is a fact about the phone and carries no day of its own, so adding it
+   * entire would put last night's pending walk onto whatever day the arrows
+   * land on. A row that already has a length is left out too: the other
+   * tutor closed the same walk, the total already contains it, and ours
+   * would be a second copy of one walk.
+   */
+  const pendingHere = pending.filter((stop) =>
+    events.some(
+      (event) => event.id === stop.id && event.duration_minutes === null,
+    ),
+  );
+  /**
+   * The day's minutes, **the stops still waiting to be uploaded included**.
+   *
+   * This is the optimistic update, and it is not decoration. A stop that
+   * fails releases the walk, so the live minutes the bar was drawing stop
+   * being drawn; if the pending ones did not take that place at the same
+   * instant the bar would step backwards on the press — the frame v0.15.0
+   * was spent removing. They are added here, where the day is counted once,
+   * so that every reader of the total has them: the measure, the bar, the
+   * close's `recordedBefore` and the celebration's threshold. A second place
+   * that added them would be a second place that could disagree.
+   */
+  const walked = walkedMinutes(events) + pendingMinutes(pendingHere);
   /**
    * The same rows, counted: how many walks those minutes came in.
    *
    * Read here beside the total and never apart from it — the measure states
    * both in one sentence, and a count from a different read of the day is a
-   * number the bar underneath would not add up to.
+   * number the bar underneath would not add up to. **Including the pending
+   * walks for that very reason**: minutes the sentence counts in a walk it
+   * does not is a sentence that does not add up.
    */
-  const walks = walkCount(events);
+  const walks = walkCount(events) + pendingWalks(pendingHere);
   /**
    * The day's minutes **as the goal block is allowed to state them**, which is
    * null when nobody knows.
@@ -863,7 +894,7 @@ export default function Home() {
    * keep: an action that failed over a diary already on screen leaves real
    * rows and a message, and those rows are still the day's minutes.
    *
-   * Only the block's own measure takes this. `walked` stays the rows' total
+   * Only the block's own measure takes this. `walked` stays a number
    * everywhere it is arithmetic rather than a statement — the close's
    * `recordedBefore`, the celebration's threshold — and both of those need a
    * running row to reach them, which a day with no rows has not got.

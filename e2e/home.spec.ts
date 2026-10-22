@@ -3729,10 +3729,14 @@ test("una parada sin red deja el paseo guardado para después", async ({
     await page.evaluate(() => window.localStorage.getItem("petfile.walk.v1")),
   ).toBeNull();
 
-  // Vuelve la red y la app se abre de cero: la cola sigue ahí y el paseo no
-  // ha vuelto a aparecer como en marcha.
+  // Vuelve la red y la app se abre de cero: la cola sigue ahí, el paseo no ha
+  // vuelto a aparecer como en marcha, y sus minutos cuentan desde el primer
+  // render.
   await page.unroute(supabase);
   await page.reload();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
     "aria-label",
@@ -3743,6 +3747,82 @@ test("una parada sin red deja el paseo guardado para después", async ({
       window.localStorage.getItem("petfile.pending.v1"),
     ),
   ).toContain(walkId);
+});
+
+/**
+ * **La barra no puede retroceder porque la parada se haya quedado
+ * pendiente**, que es el fotograma que la v0.15.0 se gastó en eliminar.
+ * Mientras el paseo corría, sus minutos vivos ya estaban pintados; al
+ * soltarlo, los pendientes tienen que ocupar exactamente ese sitio.
+ *
+ * Se muestrea el ancho pintado a cada frame desde antes de la pulsación y no
+ * puede caer por debajo de lo que medía entonces. Solo se cortan las
+ * escrituras: la relectura llega y trae las mismas filas —la fila sigue
+ * abierta en el servidor—, así que lo que sostiene la medida son los minutos
+ * pendientes y nada más.
+ */
+test("la barra no retrocede cuando la parada se queda pendiente", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // Solo las escrituras, y las dos: un cierre es un PATCH y un mis-tap un
+  // DELETE. La lectura del día llega, y no trae nada nuevo.
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    ["PATCH", "DELETE"].includes(route.request().method())
+      ? route.abort()
+      : route.continue(),
+  );
+
+  const sampling = barFrames(page, 3_000);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+  const at = frames[0].painted;
+
+  // 30 guardados y 31 en marcha sobre un objetivo de 120, antes de pulsar.
+  expectMinutes(at / bar, 61, 62, 120);
+  expect(Math.min(...frames.map((f) => f.painted))).toBeGreaterThanOrEqual(
+    at - 0.5,
+  );
+
+  // Y lo que queda pintado es lo mismo, dicho ahora por los pendientes: la
+  // medida pasa de "De paseo" a contar ese paseo como propio del día.
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  // Sin animación de cierre: no se ha guardado nada, solo se ha dejado de
+  // contar en vivo lo que ahora cuenta como pendiente.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    /^1h [12]m en 2 paseos$/,
+  );
+  expectMinutes(
+    (await widthOf(page, "home-goal-bar")) /
+      (await widthOf(page, "home-goal-ground")),
+    61,
+    62,
+    120,
+  );
+  await page.unroute("**/rest/v1/pet_events*");
 });
 
 test("shakes the control when a start cannot be saved", async ({ page }) => {
