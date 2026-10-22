@@ -335,7 +335,9 @@ git commit -m "feat(pending): la parada sube sola en cuanto hay red"
 
 - Modify: `package.json`, `CHANGELOG.md`, `PRODUCT.md`, `docs/specs/2026-10-21-offline-walk-design.md`, `AGENTS.md` si la arquitectura lo pide
 
-- [ ] **Step 1: Bump a `0.22.0` y escribir la entrada**
+- [ ] **Step 1: Bump a `0.23.0` y escribir la entrada**
+
+`0.22.0` ya no está libre: se la llevó el arreglo del diario que se quedaba viejo al volver a la app (`docs/specs/2026-10-22-diario-al-dia-design.md`), que se construyó primero por llevar tiempo costando datos. Esa versión ya contiene la cola de paradas tal y como la dejaron las tareas 1 a 3 — guardada en el teléfono y contada en el día, pero sin subirse sola todavía—, así que esta entrada es la de la funcionalidad terminada.
 
 Lo que cambió y por qué lo anterior estaba mal, con el número: parar en el portal sin cobertura obligaba a volver a pulsar al llegar a casa, **y la segunda pulsación escribía esa hora** — veinte minutos de ascensor y escaleras entraban como paseo.
 
@@ -355,7 +357,7 @@ Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e`
 
 ```bash
 git add package.json CHANGELOG.md lib/changelog.generated.ts PRODUCT.md docs/specs/2026-10-21-offline-walk-design.md
-git commit -m "chore(release): v0.22.0"
+git commit -m "chore(release): v0.23.0"
 ```
 
 **No termina en un teclado.** En el teléfono hay que ver: la marca de pendiente y su forma envejecida, que la barra no retroceda al pulsar parar sin red, y la subida al volver la cobertura de verdad — no con una ruta cortada, sino saliendo de casa.
