@@ -250,10 +250,12 @@ const TURN_EASING = Easing.inOut(Easing.cubic);
  * direction; the shake moves the pill, and so the target the thumb is on,
  * sideways. At 4 dp the pill is never more than a twelfth of a 48 dp target
  * off where the finger found it, so a second press during the shake still
- * lands on it — which is the whole point, since the walk is still running and
- * the next thing the tutor does is press stop again. A shake big enough to
- * read from across the room would be one that moves the control out from
- * under the retry. The amplitude decays to nothing,
+ * lands on it — which is the whole point, because the press that failed is a
+ * press the tutor is likely to make again where they made it: a start that
+ * could not be written is pressed again in the same place, and since v0.22.0
+ * a stop that could not be written leaves the start under the same thumb. A
+ * shake big enough to read from across the room would be one that moves the
+ * control out from under the retry. The amplitude decays to nothing,
  * so the largest excursion is the first and the pill ends exactly where it
  * began.
  *

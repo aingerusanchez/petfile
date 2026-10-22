@@ -473,8 +473,8 @@ export default function Home() {
    */
   const walkInFlight = useRef(false);
   /**
-   * Set by the one reload that follows an action which *failed*, and consumed
-   * by the pet effect when it runs.
+   * Set by a reload that follows an action which *failed*, and consumed by
+   * the pet effect when it runs.
    *
    * **The distinction three rounds kept missing.** The diary is kept when an
    * action failed: a failed *action* must not take it away. It is not kept
@@ -482,9 +482,16 @@ export default function Home() {
    * landed, the screen is waiting on a read that will not answer, and the
    * old rows do not show what was written. Silence is the one thing that
    * state must not offer; a walk that cannot be stopped is a wrong duration
-   * in the record. So the keep path is opt-in, from the single place that
-   * reloads after a failure (a start that errored), and every other reload —
-   * a successful start or stop, a saved sheet, Reintentar — shows the error.
+   * in the record.
+   *
+   * **The test is "did the action come back with an error", and the keep
+   * path is opt-in from each place that reloads after one.** Two of them
+   * today: a start that errored, and a stop that errored and queued itself.
+   * Every other reload — a successful start or stop, a saved sheet,
+   * Reintentar — leaves the flag alone and shows the error. A third caller
+   * is allowed, as long as it is on the error side of that test; the one
+   * thing that may never set it is a reload that follows a write the server
+   * accepted.
    */
   const keepDiaryOnFailedRead = useRef(false);
   /**
