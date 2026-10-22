@@ -20,10 +20,15 @@
  * this file doubles a goal — and since v0.19.0 nothing outside it needs the
  * doubled number in words either, because the measure no longer counts
  * against a ceiling. `topTierMinutes` went with that sentence.
- * Because a position anywhere on the bar is one scalar, a close that crosses a
- * tier is one interpolation between two of them and needs no special case: the
+ * Because a position anywhere on the bar is one scalar, any stretch of it is
+ * one interpolation between two points and needs no special case: the
  * animation walks from `from` to `to` and `barStateAt` says what each frame
- * looks like.
+ * looks like. **Since v0.20.0 a close never crosses a tier** — the ground
+ * follows the walk in progress, so the crossing has already happened by the
+ * time the stop is pressed and `closeMotion` hands over a stretch inside one
+ * lap. The lap arithmetic stays where it is: it is what decides *which* lap
+ * that is, and a boundary computed a second way is a bar that turns colour
+ * where the measure says it should not.
  *
  * **`closeMotion` takes `recordedBefore` and adds.** The caller holds the total
  * from *before* the walk closed — the value the component already has while the
@@ -70,7 +75,8 @@ export function barStateAt(progress: number): BarState {
 
 /**
  * - `fill` — the walk added a stretch of bar: animate from `from` to `to` on
- *   the scale above. It may cross a tier, or both; nothing special is needed.
+ *   the scale above. Since v0.20.0 the two ends are always inside one lap;
+ *   see `closeMotion`.
  * - `none` — there is no bar (no goal, or a goal of zero), the walk added
  *   nothing, or the day was already past the top tier, where the minutes it
  *   added fall off the end of the bar and there is no stretch to point at.
@@ -83,6 +89,24 @@ export type CloseMotion =
  * component already holds while the reload is in flight. The minutes are
  * added to it, never subtracted from a total that may or may not include
  * them yet.
+ *
+ * **The fill begins at the foot of the lap the close lands on, and that is
+ * what keeps one moment to one mechanism** (v0.20.0). The bar's ground
+ * follows the day's minutes including the walk in progress, so by the time a
+ * stop is pressed the ground has already turned for everything that walk
+ * crossed — the only thing still showing as live is the band on the top lap.
+ * A fill that began at the recorded minutes would open by painting the lap
+ * *below* back over a bar that turned minutes ago, which is a backwards step
+ * of exactly the kind the close exists to remove. So the close converts a
+ * band and never turns a ground; the ground is turned once, where the
+ * minutes turned it.
+ *
+ * **The silence is still decided on the raw total**, not on the clamped one:
+ * only a day that was *already* past the top tier before this walk says
+ * nothing. A walk that carries the day to the top is a `fill` of zero length
+ * — nothing left to convert, because the bar is already violet throughout —
+ * and it is kept rather than refused because the block hangs its hold of the
+ * day's total on it.
  */
 export function closeMotion(input: {
   recordedBefore: number;
@@ -98,7 +122,7 @@ export function closeMotion(input: {
   if (from === null || to === null) return { kind: "none" };
   if (from >= TOP_TIER) return { kind: "none" };
 
-  return { kind: "fill", from, to };
+  return { kind: "fill", from: Math.max(from, barStateAt(to).tier), to };
 }
 
 /**
@@ -126,8 +150,16 @@ export type CloseLap = {
   fill: [number, number];
 };
 
-/** Where a point of the scale sits inside one lap, 0–100, clamped to it. */
-function lapFill(progress: number, tier: number): number {
+/**
+ * Where a point of the scale sits inside one lap, 0–100, clamped to it.
+ *
+ * **Exported because the bar draws two points on one lap** (v0.20.0): the
+ * lap the day is on carries the recorded minutes and the live ones, and the
+ * recorded total may sit below the lap's own floor — a walk in progress
+ * carried the day up here and nothing has been saved on this lap yet. That
+ * reads 0, which is the right answer and not a special case.
+ */
+export function lapFill(progress: number, tier: number): number {
   return Math.min(100, Math.max(0, (progress - tier) * 100));
 }
 
@@ -135,9 +167,11 @@ function lapFill(progress: number, tier: number): number {
  * The laps a close crosses, in the order it crosses them, from the two ends
  * `closeMotion` returns.
  *
- * A close inside one lap is one entry. A close that lands exactly on a tier
- * gets a second, zero-length entry — the lap it opens with an empty fill,
- * which is the "foot of its own lap" rule `barStateAt` states, drawn.
+ * A close inside one lap is one entry, which since v0.20.0 is every close
+ * `closeMotion` produces. The crossing cases below are the function's own
+ * contract rather than dead weight: it is `closeMotion` that decides where a
+ * stretch begins, and this is the one place that knows what a stretch
+ * crossing a boundary would look like if one ever did.
  */
 export function closeLaps(from: number, to: number): CloseLap[] {
   const start = Math.min(TOP_TIER, Math.max(0, from));

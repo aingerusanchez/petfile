@@ -25,6 +25,7 @@ import {
   barStateAt,
   closeLaps,
   closeMotion,
+  lapFill,
 } from "../../lib/goalbar";
 import type { DurationFormat } from "../../lib/settings";
 import { elapsedMinutes } from "../../lib/walk";
@@ -137,8 +138,8 @@ const BAND_HEIGHT = 4;
 const CLOSE_MS = 760;
 
 /**
- * How long the fill waits after the ground has turned, when the day crosses a
- * tier with nothing drawn over the bar.
+ * How long the new ground takes to wipe across the bar when the day crosses a
+ * tier, and the curve it travels on.
  *
  * **Crossing the goal is two substitutions, and landing them on one frame
  * reads as a cut.** Confirmed on the tutor's walk: the ground gains colour
@@ -147,37 +148,47 @@ const CLOSE_MS = 760;
  * as a different bar. Each half on its own is legible; it is the simultaneity
  * that is the defect.
  *
- * So they are **ordered in time rather than recoloured**: the ground turns
- * first and the fill follows 150 ms later. Same two colours, same end state,
- * read as a consequence instead of a cut.
+ * v0.18.0 answered that by **ordering them in time**: the ground turned and
+ * the fill followed 150 ms later. v0.20.0 replaces the gap with the gesture
+ * the moment deserves, and **one mechanism is the whole point of the
+ * change.** Now that the ground follows the walk in progress, the crossing
+ * happens where the dog reached the goal rather than where the tutor pressed
+ * stop — and at 99 % of lap one going to 100 % there was nothing to see. So
+ * the new ground **wipes across the bar from left to right** over the picture
+ * the bar had, and the lap underneath — ground and fill together — is
+ * substituted when the wipe arrives. A stagger underneath a wipe would be two
+ * answers to one question, and the second would be invisible anyway: the
+ * fill it staggers is covered by the wipe until the last frame.
  *
- * **Nothing travels and nothing fades**, which is this bar's own idiom — see
- * `LAPS` and `CloseLapPaint`: a colour here is a `className` on a layer, and
- * what changes is which layer is covering the pixel, never the value in it. A
- * cross-fade would need a second full-width layer inside the track, which is
- * exactly the shape the close's sampler reads as "the ground", and it would
- * put back the travelling colour this file deliberately removed. There is no
- * easing to choose because there is no interpolation: what changed is only
- * that the two substitutions no longer land on the same frame.
+ * **620 ms, eased out.** It repeats the gesture the bar has just finished —
+ * a fill that spent the morning travelling left to right and arrived — so it
+ * decelerates into the end of the bar rather than scanning across at a
+ * constant speed. Eased *in* would read as a swipe wiping the bar clean. The
+ * number is placed between the two animations it must not be confused with:
+ * clear of the failure shake's 400 ms, so a crossing is never read as a
+ * refusal, and under the close's 760 ms, which is what lets a close that
+ * turns a ground cover this entirely (see below).
  *
- * **It is not gated on `useReducedMotion` for the same reason.** Both halves
- * are instant either way, so there is no movement to remove; the gap is how a
- * reader of the bar tells which change caused which.
+ * **It is gated on `useReducedMotion`, where the 150 ms gap was not.** The
+ * gap had no movement in it to remove; this does, so under "remove
+ * animations" the whole bar substitutes on one frame — the cut, which is the
+ * honest static form of a wipe, and the line the rest of the app draws.
  *
- * **It cannot reach the close, and must not.** A close paints its own laps
- * over the whole bar for `CLOSE_MS`, so these 150 ms are spent underneath an
- * overlay — the tutor called that animation «genial, incluso cuando salta de
- * tier», and it is untouched. What this reaches is every crossing the close
- * is *not* covering: a walk written through the sheet, a reload bringing in
- * the other tutor's, a goal edited under the day.
+ * **A close can still cover it, and that is why it stays shorter.** The
+ * ground has normally turned long before the stop, but the server's minutes
+ * can be a minute ahead of the block's own clock and land the day over a tier
+ * on the stop itself. A close paints its own laps over the whole bar for
+ * `CLOSE_MS`, so the wipe underneath is never seen — the tutor called that
+ * animation «genial, incluso cuando salta de tier», and it is untouched.
+ * What the wipe is for is every crossing the close is not covering: the walk
+ * in progress reaching the goal, a walk written through the sheet, a reload
+ * bringing in the other tutor's, a goal edited under the day.
  *
- * **The ground still only ever reflects what is saved.** This orders a
- * transition between two legitimate grounds; it never shows a tier the
- * recorded minutes have not reached. The lag runs the safe way round — for
- * 150 ms the fill wears the tier the day has just *left*, never the one it is
- * heading for.
+ * **Only upwards.** A tier lost — a walk deleted, the goal raised, a hold
+ * released — substitutes at once: there is nothing to announce, and a wipe
+ * would announce it.
  */
-const TURN_GAP_MS = 150;
+const TURN_MS = 620;
 
 /**
  * The shake a failed start or stop gives the control: how long it takes, how
@@ -346,32 +357,39 @@ function lapFillAt(
  * relaxing it. With no denominator there is nothing left that can disagree
  * with the fill.
  *
- * **Crossing a tier turns the ground first and the fill a beat after it**,
- * because the two landing together read as a cut rather than as one bar
- * changing. `TURN_GAP_MS` carries the whole argument, including why it leaves
- * the close alone.
+ * **The ground is the day's minutes, the walk in progress included** — which
+ * is new in v0.20.0 and is a rule being lifted rather than a detail. It used
+ * to be the *recorded* minutes alone, so that a bar lapping in grey was the
+ * signal that something had not been saved; the tutor gave that up
+ * deliberately, after the argument for it: the moment worth showing is the
+ * one where the dog reached his two hours, not the one where the paperwork
+ * was filed, and a walk left running is still there to see in the log's `En
+ * marcha` row and in the control's stop glyph. The close keeps what is
+ * properly its own — converting the live band into saved tone.
+ *
+ * **Crossing a tier wipes the new ground across the bar**, because the ground
+ * and the fill substituting together read as a cut rather than as one bar
+ * changing, and because at the crossing there is otherwise nothing to see at
+ * all. `TURN_MS` carries the whole argument, including why a close covers it.
  *
  * **A day landing exactly on the goal has an empty fill, and that is the
  * rule rather than a rounding slip.** It is the foot of lap two, not the head
  * of lap one: at the goal the whole bar is already Aqua, so there is nothing
  * left for a lap-one fill to say.
  *
- * **The bar's fill stays Mist while walking on lap one.** Aqua on the
- * *ground* is what means "goal met" (DESIGN.md), so a walk in progress still
- * changes nothing but the text. The minutes of the walk in progress are not
- * stored, so they are a dimmer segment at the head of the fill rather than
- * part of it — the measure keeps measuring what is recorded, and the segment
- * shows what is merely happening. That holds on either lap; only the pair of
- * tones changes.
+ * **The minutes of the walk in progress are a dimmer segment at the head of
+ * the fill.** They are not stored, so the saved fill keeps measuring what is
+ * recorded and the segment shows what is merely happening, a tone apart with
+ * the tick between them. That holds on either lap; only the pair of tones
+ * changes.
  *
- * **The segment laps and the ground does not.** A walk long enough to carry
- * the day past the floor completes its lap in that lap's live tone and starts
- * a second band from the left edge in the next lap's, over the one it just
- * finished — while the ground stays at the tier the *recorded* minutes
- * reached and waits for the stop. The asymmetry is the point rather than a
- * compromise: a bar lapping in grey is itself the signal that something has
- * not been saved, so a walk left running by mistake can never disguise itself
- * as a finished day. Only a real stop turns the ground.
+ * **What laps is the whole bar, not a band inside it.** A walk that carries
+ * the day past the goal takes the ground with it: the bar turns, and the lap
+ * it opens begins with nothing recorded on it, so the live segment is the
+ * only thing drawn over the new ground and there is no junction to tick. The
+ * band that used to be drawn over a completed lap went with the rule that
+ * made it necessary — there is no lap the ground has not admitted to any
+ * more.
  *
  * **The segment is static, and a dot says "still going".** It used to breathe,
  * and measured against a 3 h goal on a 327 dp bar it is 3.6 dp wide at two
@@ -690,42 +708,94 @@ export function GoalBlock({
       ? held.walked
       : walked;
   /**
-   * That place on the two-lap scale. Null is "there is nothing to draw" — no
-   * goal, a goal of zero, or minutes nobody could read — and reads as the
-   * foot of the first lap so that nothing downstream has to repeat the check.
+   * The recorded minutes' place on the two-lap scale. Null is "there is
+   * nothing to draw" — no goal, a goal of zero, or minutes nobody could read.
    */
   const progress =
     shown === null ? null : barProgress(shown.minutes, goalMinutes);
-  const state: BarState =
-    progress === null ? { tier: 0, fill: 0 } : barStateAt(progress);
   /**
-   * **`met` still means the recorded minutes alone cover the goal** — the
-   * walk in progress is excluded, here and everywhere that leans on it,
-   * including the celebration. `metX2` is the same claim about the top tier.
-   * Both are read off the scale rather than recomputed from the minutes, so
-   * the words under the bar and the colour of the bar cannot disagree.
-   */
-  const met = progress !== null && state.tier >= 1;
-  const metX2 = progress !== null && state.tier === 2;
-  /**
-   * The tier the **fills** are wearing, which trails the ground's by
-   * `TURN_GAP_MS` across a crossing.
+   * Where the walk in progress has carried the day, on the same scale.
    *
-   * **State and a timer, because the thing being staged is which tone the
-   * layers carry, not a number to interpolate.** It starts at whatever tier
-   * the block mounts on, so landing on the screen, paging to another day and
-   * a reload all paint the day they find with no turn at all — a crossing is
-   * a tier changing *under* a mounted block, which is the only time there is
-   * anything to sequence.
+   * **Added to `shown`, so the live total starts where the recorded one
+   * ends** rather than to the rows, which the bar is not always reading. And
+   * null when the day's minutes are unknown: a running walk's own length is
+   * known, but a total it is added to is not.
    */
-  const [toned, setToned] = useState<0 | 1 | 2>(state.tier);
+  const liveAt =
+    walkingSince && shown !== null
+      ? barProgress(shown.minutes + running, goalMinutes)
+      : null;
+  /**
+   * **The place the bar speaks: the live total while a walk runs, the
+   * recorded one otherwise** (v0.20.0).
+   *
+   * This one line is the rule being lifted. The ground used to be the tier
+   * the *recorded* minutes reached, and a walk in progress could only add a
+   * band inside the lap it was on; now the day's minutes are the day's
+   * minutes, walked and saved alike, and the whole bar follows them. The
+   * tutor's own words: «vamos a dejar de jugar a la defensiva con los paseos
+   * no guardados». A forgotten running walk will read as a finished day on
+   * this bar, knowingly — the log's row says `En marcha` and the control
+   * shows a stop, and the rest is the tutor's to correct.
+   *
+   * Null reads as the foot of the first lap so that nothing downstream has
+   * to repeat the check.
+   */
+  const at = liveAt ?? progress;
+  const state: BarState = at === null ? { tier: 0, fill: 0 } : barStateAt(at);
+  /**
+   * **`met` is the day's minutes covering the goal, the walk in progress
+   * included** — and that is not negotiable, because the label and the ground
+   * are two descriptions of one day shown at once. v0.15.0 went entirely into
+   * making them unable to disagree; putting the ground on live minutes and
+   * leaving the words on saved ones would reopen that defect for as long as a
+   * walk runs. `metX2` is the same claim about the top tier. Both are read
+   * off the scale rather than recomputed from the minutes.
+   *
+   * **The celebration does not read this, and must not.** It still fires on
+   * the save, from the screen's own threshold — a description follows the
+   * data, a celebration follows the viewer, and during a walk the phone is in
+   * a pocket where confetti is confetti nobody sees.
+   */
+  const met = at !== null && state.tier >= 1;
+  const metX2 = at !== null && state.tier === 2;
+  /**
+   * The tier the bar is **painted** at, which lags the day's across a
+   * crossing while the new ground wipes over it.
+   *
+   * **State and a timer, because what is staged is which picture the layers
+   * are drawing, not a number to interpolate.** It starts at whatever tier
+   * the block mounts on, so landing on the screen, paging to another day and
+   * a reload all paint the day they find with no wipe at all — a crossing is
+   * a tier changing *under* a mounted block, which is the only time there is
+   * anything to announce.
+   */
+  const [painted, setPainted] = useState<0 | 1 | 2>(state.tier);
   const tier = state.tier;
 
+  // **A tier lost is taken at once, in the render it arrives on.** A walk
+  // deleted, a goal raised, a hold released onto smaller rows: there is
+  // nothing to announce, and holding the higher picture for 620 ms would be
+  // the bar standing by a day it no longer has. React's own "adjust state
+  // when a prop changes", the shape this block already uses for a close.
+  if (tier < painted) setPainted(tier);
+
   useEffect(() => {
-    if (toned === tier) return;
-    const timer = setTimeout(() => setToned(tier), TURN_GAP_MS);
+    if (painted >= tier) return;
+    const timer = setTimeout(
+      () => setPainted(tier),
+      reduceMotion ? 0 : TURN_MS,
+    );
     return () => clearTimeout(timer);
-  }, [toned, tier]);
+  }, [painted, tier, reduceMotion]);
+  /**
+   * Whether a wipe is crossing the bar right now.
+   *
+   * **Under "remove animations" there is no wipe and so no lag**: the
+   * substitution lands on one frame and `painted` catches up behind it,
+   * unread.
+   */
+  const turning = !reduceMotion && painted < tier;
   /**
    * **The control is a stop as soon as the caller has one, not as soon as the
    * row has arrived.** A start writes the row and asks for a reload, and
@@ -755,7 +825,17 @@ export function GoalBlock({
   const glyph = filled ? colors.onAccent : colors.accent;
 
   /**
-   * The fills, as percentages of the bar, **within the current lap**.
+   * **The lap the track is drawing, which is the one the day is on except
+   * while a wipe is crossing it.** During a wipe the bar holds the lap it is
+   * leaving — complete, because the day walked through it — and the new
+   * ground is painted over the top by `GroundTurn`. Holding the whole picture
+   * rather than only its tones is what keeps the crossing from flashing: the
+   * lap being left is full, and substituting it for a lap that has barely
+   * begun would empty the bar for the length of the gesture meant to fill it.
+   */
+  const lap = LAPS[turning ? painted : tier];
+  /**
+   * The fills, as percentages of the bar, **within the lap being drawn**.
    *
    * **Nothing is painted over the top tier.** `barStateAt` reports a full
    * fill there, because the scale has nowhere further to go, but there is no
@@ -763,59 +843,24 @@ export function GoalBlock({
    * A walk running on such a day adds minutes that cannot be shown, which is
    * the same silence the close keeps.
    *
-   * **The live segment laps and the ground does not, and that asymmetry is
-   * the feature.** The ground is the tier the *recorded* minutes reached and
-   * only a real stop turns it; the fill follows the live total, so a walk that
-   * carries the day past the floor completes its lap in that lap's live tone
-   * and starts a second band from the left edge in the next lap's. A band over
-   * a completed one is what says "there is more here than the ground admits" —
-   * so a bar lapping in grey is itself the signal that something has not been
-   * saved, and a walk left running by mistake can never disguise itself as a
-   * finished day.
-   */
-  /**
-   * **Two rows of `LAPS` for one tier, and only across a crossing.** The
-   * ground is read at the tier the day is on, now; the fills are read at
-   * `toned`, which is the same tier except for the `TURN_GAP_MS` after a
-   * crossing. The *widths* all come from `state` either way — nothing waits,
-   * nothing moves twice, and the end state is the one row it always was.
-   */
-  const lap = LAPS[state.tier];
-  const fillLap = LAPS[toned];
-  const recorded = state.tier === 2 ? 0 : state.fill;
-  /**
-   * Where the walk in progress has carried the day, on the same scale.
+   * **`recorded` is where the saved minutes stop on this lap, and it can be
+   * zero on a lap the day is standing on** — the walk in progress carried it
+   * here and nothing has been saved up here yet. That is also why there is
+   * no tick then: there is no junction, which is the rule the mark already
+   * had. `inProgress` is the rest of the lap's fill, which is the walk.
    *
-   * **Added to `shown`, so the live segment starts where the recorded fill
-   * ends** rather than to the rows, which the fill is not always reading.
-   * And null when the day's minutes are unknown: a running walk's own length
-   * is known, but a total it is added to is not.
+   * During a wipe both are read against the lap being left, which the day has
+   * passed: the saved minutes stop where they stopped, and the walk in
+   * progress is everything from there to the end of the lap.
    */
-  const liveAt =
-    walkingSince && shown !== null
-      ? barProgress(shown.minutes + running, goalMinutes)
-      : null;
-  const live = liveAt === null ? null : barStateAt(liveAt);
-  /** The live total has passed into a lap the recorded total has not reached. */
-  const lapped = live !== null && state.tier < 2 && live.tier > state.tier;
-  const inProgress =
-    state.tier === 2 || live === null
+  const drawn = turning ? painted : tier;
+  const recorded =
+    drawn === 2 || progress === null ? 0 : lapFill(progress, drawn);
+  const inProgress = turning
+    ? 100 - recorded
+    : drawn === 2
       ? 0
-      : lapped
-        ? 100 - recorded
-        : Math.max(0, live.fill - recorded);
-  /**
-   * The band over the completed lap: the next lap's live tone, from the left
-   * edge. Capped at one lap ahead — past the top there is nothing further to
-   * show, which is the same cap the recorded fill keeps.
-   */
-  const overLap = LAPS[Math.min(toned + 1, 2)];
-  const lapping =
-    live !== null && lapped
-      ? live.tier > state.tier + 1
-        ? 100
-        : live.fill
-      : 0;
+      : Math.max(0, state.fill - recorded);
 
   return (
     <View testID={testID} className="mb-8">
@@ -1021,7 +1066,7 @@ export function GoalBlock({
             <View
               testID={testID ? `${testID}-bar` : undefined}
               style={{ width: `${recorded}%` }}
-              className={`h-[4px] ${fillLap.saved}`}
+              className={`h-[4px] ${lap.saved}`}
             />
             {inProgress > 0 ? (
               // Static, and hidden from a reader: the measure already says
@@ -1033,21 +1078,19 @@ export function GoalBlock({
                 importantForAccessibility="no-hide-descendants"
                 aria-hidden
                 style={{ width: `${inProgress}%` }}
-                className={`h-[4px] ${fillLap.live}`}
+                className={`h-[4px] ${lap.live}`}
               />
             ) : null}
-            {lapping > 0 ? (
-              // **Absolutely placed, so it starts at the bar's left edge
-              // rather than after the two fills in the row.** It is the
-              // second lap of a walk still running, drawn over a lap the
-              // ground has not admitted to yet.
-              <View
-                testID={testID ? `${testID}-lap` : undefined}
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                aria-hidden
-                style={{ width: `${lapping}%` }}
-                className={`absolute top-0 bottom-0 left-0 ${overLap.live}`}
+            {turning ? (
+              // **The crossing, drawn: the new ground arriving over the lap
+              // the day has just left.** Over the fills rather than under
+              // them, because what it replaces is the whole picture — a wipe
+              // under a full lap of Mist would be invisible until the lap
+              // vanished from under it, which is the cut again. It is inside
+              // the track, so the bar's rounded ends clip it.
+              <GroundTurn
+                tier={tier}
+                testID={testID ? `${testID}-turn` : undefined}
               />
             ) : null}
             {/* **Inside the track, so its rounded `overflow-hidden` is the
@@ -1058,10 +1101,11 @@ export function GoalBlock({
                 it passed one — for the whole length of every walk. Absolutely
                 placed, so it adds nothing to the flex row, and the track has
                 no padding or border, so its left edge is the bar's. Last, so
-                it paints over both fills. */}
+                it paints over both fills, and over a wipe: the walk is still
+                live while the bar is changing ground. */}
             {walkingSince ? (
               <Sweep
-                met={met}
+                met={drawn >= 1}
                 recorded={recorded}
                 testID={testID ? `${testID}-sweep` : undefined}
               />
@@ -1534,6 +1578,51 @@ function Sweep({
         </View>
       ) : null}
     </View>
+  );
+}
+
+/**
+ * The crossing: the new ground filling the bar from left to right over the
+ * lap the day has just left.
+ *
+ * **One layer and one width, which is this bar's whole idiom.** A colour here
+ * is a `className` on a layer and what changes is which layer covers the
+ * pixel, never the value inside it — the close is built the same way, and a
+ * cross-fade would put back the travelling colour both of them deliberately
+ * avoid. So the wipe is the destination's ground on a layer that grows, and
+ * the picture underneath is held until it has arrived.
+ *
+ * **It is mounted only while it runs.** The commitment under "remove
+ * animations" is that nothing animated exists rather than that it is held
+ * still, and the block's own `turning` is false there, so this is never
+ * built. The same line `PulseDot`, `Sweep` and the close draw.
+ *
+ * Decoration to a reader: the label under the bar says the tier in words, in
+ * the same breath, and the measure says the day's minutes.
+ */
+function GroundTurn({ tier, testID }: { tier: 0 | 1 | 2; testID?: string }) {
+  const across = useSharedValue(0);
+
+  useEffect(() => {
+    across.value = withTiming(1, {
+      duration: TURN_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [across]);
+
+  const style = useAnimatedStyle(() => ({
+    width: `${across.value * 100}%`,
+  }));
+
+  return (
+    <Animated.View
+      testID={testID}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      aria-hidden
+      style={style}
+      className={`absolute top-0 bottom-0 left-0 ${LAPS[tier].ground}`}
+    />
   );
 }
 
