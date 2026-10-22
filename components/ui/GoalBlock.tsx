@@ -840,9 +840,33 @@ export function GoalBlock({
                   label while it waits. A spinner alone is a glyph, and this
                   app's own rule is that an icon is never a reason.
 
+                  **And it says which write is in flight, in the app's own
+                  language.** It used to say "Guardando…" for both. Measured
+                  at `font_scale` 1.45, "En marcha…" is the same width as the
+                  string it replaces and "A casa…" is shorter, so the stop
+                  costs the measure beside it less than it did. The pair is
+                  the one the app already speaks — "¡Vamos, Loki!" / "¡Loki ya
+                  está contigo!" — and it earns its keep: on the tutor's walk
+                  the label sat on screen for **over nine seconds**, the stop
+                  pressed in a lift with no signal and the write left hanging.
+                  That is a word you stare at, not one you glimpse.
+
+                  **The pega, taken knowingly:** "En marcha…" asserts the
+                  dog's state while what is happening is a write that can
+                  fail. If it fails the button said "En marcha" and goes back
+                  to "Paseo" — which is the same optimism the offline mode is
+                  being designed around.
+
+                  **Which of the two is read off `walkingSince`, not off
+                  `stopping`.** `stopping` is true across the gap between a
+                  *start* being accepted and its row arriving — the control
+                  is already the stop there, disabled, and the label would
+                  have said "A casa…" over a walk that had just begun. A stop
+                  closes a row that exists; a start has none yet.
+
                   **The cost was measured and accepted.** At `font_scale` 1.3
                   the control already ends on the right margin, which is why
-                  its padding is `px-3`; "Guardando…" is wider than "Paseo", so
+                  its padding is `px-3`; both words are wider than "Paseo", so
                   from somewhere around that scale the measure beside it loses
                   its tail to an ellipsis, and at 200% it loses a good deal of
                   it. The tutor's call, knowingly: at a large font scale you
@@ -862,7 +886,7 @@ export function GoalBlock({
               <Text
                 className={`font-semibold ${filled ? "text-on-accent" : "text-accent"}`}
               >
-                {busy ? "Guardando…" : "Paseo"}
+                {busy ? (walkingSince ? "A casa…" : "En marcha…") : "Paseo"}
               </Text>
             </Pressable>
           </Shake>

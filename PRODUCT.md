@@ -128,7 +128,14 @@ not acknowledge the press. The rule is general, not a patch on that one
 control — **any button whose action waits on the server changes its icon and
 its label while it waits**, and changes them back on the answer:
 
-- `[STOP] Paseo` → `[LOADING] Guardando…` → `[PLAY] Paseo`
+- `[PLAY] Paseo` → `[LOADING] En marcha…` → `[STOP] Paseo`, and the other way
+  round `[STOP] Paseo` → `[LOADING] A casa…` → `[PLAY] Paseo`. **The word
+  names which write is in flight**, in the house's own language — the pair
+  behind "¡Vamos, Loki!" / "¡Loki ya está contigo!" — because on the tutor's
+  walk that label sat on screen for over nine seconds, the stop pressed in a
+  lift with no signal. "En marcha…" asserts the dog's state while what is
+  happening is a write that can fail; that is accepted, and it is the same
+  optimism the offline mode is designed around.
 - `[NETWORK-OFF] Reintentar` → `[SPINNER] Reconectando…` → on a second
   failure, back to `[NETWORK-OFF] Reintentar` **plus a toast saying why**.
 

@@ -3190,7 +3190,12 @@ test("shows the control working while the start is being written", async ({
   const control = page.getByTestId("home-goal-control");
   await expect(page.getByTestId("home-goal-spinner")).toBeVisible();
   await expect(control).toBeDisabled();
-  await expect(control).toContainText("Guardando…");
+  // **"En marcha…", not "Guardando…".** The word is on screen for as long as
+  // the write takes — nine seconds in a lift with no signal, filmed — so it
+  // is a word that gets stared at, and the house's own language is what
+  // belongs there. It also says which of the two writes is in flight, which
+  // "Guardando…" never did.
+  await expect(control).toContainText("En marcha…");
   await expect(control).toHaveAttribute("aria-label", "Empezar paseo");
   // Nothing is running until the write lands.
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
@@ -3201,9 +3206,64 @@ test("shows the control working while the start is being written", async ({
   await expect(control).toBeEnabled();
   // And back to the resting word on the answer.
   await expect(control).toContainText("Paseo");
-  await expect(control).not.toContainText("Guardando…");
+  await expect(control).not.toContainText("En marcha…");
   await expect(control).toHaveAttribute("aria-label", "Terminar paseo");
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+test("says it is coming home while the stop is being written", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **The other half of the word, and it is a different word.** A stop is not
+  // a start, and the label that sat on screen for nine seconds in the lift
+  // was the stop's. "A casa…" belongs to the pair the app already speaks —
+  // "¡Vamos, Loki!" / "¡Loki ya está contigo!" — and it is shorter than the
+  // string it replaces, so the measure beside it loses less of its tail at a
+  // large font.
+  //
+  // Thirty minutes old, so the stop writes a length rather than discarding a
+  // mis-tap: a discard is a DELETE and this spec parks the PATCH.
+  const now = new Date();
+  const running = new Date(now.getTime() - 30 * 60_000);
+  test.skip(running.getDate() !== now.getDate(), "30 minutes ago is yesterday");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // Park the close, the way the start above parks its insert: the PATCH
+  // waits and the reload that follows it does not.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/rest/v1/pet_events*", async (route) => {
+    if (route.request().method() === "PATCH") await held;
+    await route.continue();
+  });
+
+  const control = page.getByTestId("home-goal-control");
+  await control.click();
+
+  await expect(page.getByTestId("home-goal-spinner")).toBeVisible();
+  await expect(control).toBeDisabled();
+  await expect(control).toContainText("A casa…");
+  await expect(control).not.toContainText("En marcha…");
+  // The accessible name does not change with the word: the control is still
+  // the stop, and `aria-busy` is what says it is working.
+  await expect(control).toHaveAttribute("aria-label", "Terminar paseo");
+
+  release();
+  await expect(control).toBeEnabled();
+  await expect(control).toContainText("Paseo");
+  await expect(control).not.toContainText("A casa…");
   await page.unroute("**/rest/v1/pet_events*");
 });
 
