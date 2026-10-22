@@ -18,6 +18,31 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.22.2] — 2026-10-22
+
+### Arreglado
+
+- **Volver a la app ya no puede tapar una escritura sin confirmar.** v0.22.1
+  dijo que «cuando las dos cosas caen juntas gana la pedida», y era verdad
+  solo si caen en el mismo instante. Si se **solapan** —que es el caso real,
+  porque una lectura tarda entre uno y doce segundos en rendirse— la que
+  mandaba era la que nadie había pedido. Medido: se pulsa empezar paseo en el
+  portal, el servidor acepta el paseo, la lectura que tiene que confirmarlo
+  va en camino, y el teléfono sale del bolsillo en ese momento. La relectura
+  al volver cancelaba esa lectura y ocupaba su sitio sin heredar nada, así
+  que al fallar se quedaba con el diario de antes: **ni la fila del paseo, ni
+  mensaje, ni Reintentar, y el botón bloqueado en «En marcha…»** para un
+  paseo que entonces no hay forma de parar. Es exactamente el fallo que la
+  regla existía para impedir, entrando por la puerta de al lado.
+  **Lo que faltaba era que la petición sobreviva a la lectura que la
+  servía.** Una lectura cancelada no ha contestado, así que lo que se le
+  pidió sigue pendiente: ahora la relectura silenciosa hereda los términos de
+  la que canceló —y una petición nueva los sustituye, porque es la verdad del
+  momento—. El mismo solape se llevaba el error del gesto y el de un cambio
+  de día; los tres contestan ya.
+  Si estás en la v0.22.0 o la v0.22.1, esto es lo que puede pasarte al sacar
+  el móvil justo después de empezar o parar un paseo sin cobertura.
+
 ## [v0.22.1] — 2026-10-22
 
 ### Arreglado
