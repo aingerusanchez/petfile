@@ -18,6 +18,41 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.19.0] — 2026-10-22
+
+### Cambiado
+
+- **La medida del día dice los paseos, no el techo.** Ponía
+  **"1h 8m de 4h paseados"** y ahora pone **"1h 8m en 3 paseos"**: lo que el
+  día ha hecho, y en cuántos paseos. El denominador enunciaba un límite, y la
+  regla del tutor para esta parte de la pantalla es que va de **lo que has
+  hecho, no de lo que falta** —«no debería haber un límite máximo, no queremos
+  hacer que el usuario sea vago y conformista»—. Hay un segundo motivo que no
+  hizo falta que dijera: **esas 4h tampoco eran su objetivo**. Tenía puestas
+  2h, la barra llega al doble, así que el único número de la pantalla del día
+  que parecía una meta era uno que nadie había escrito. **Lo que esto
+  disuelve:** el denominador tenía que ser el nivel de arriba y no el objetivo
+  escrito, o "2h de 2h" quedaría bajo una barra pintada a medias; sin
+  denominador no queda nada en la frase que pueda contradecir al relleno. **Un
+  perro sin objetivo lee ahora la misma frase que los demás**, donde antes
+  tenía una rama propia. **Sin paseos no hay cláusula ninguna** —"0 min
+  paseados", nunca "en 0 paseos" ni "sin paseos todavía", que vuelven a meter
+  la expectativa por la puerta de atrás—; con uno va en singular; con un paseo
+  en marcha y con un día que no se pudo leer, igual que antes.
+- **La cuenta es tan cierta como los minutos, y sale de las mismas filas.**
+  Cuenta exactamente los paseos que suman esos minutos, así que un paseo sin
+  duración —en marcha, abandonado, o uno que nadie cronometró— no está en
+  ninguna de las dos mitades. Y **viaja con el cierre**: al parar un paseo la
+  barra sostiene el total que el servidor acaba de aceptar, porque la recarga
+  puede tardar o no llegar, y la cuenta se sostiene con él. Sin eso, el tercer
+  paseo del día se habría anunciado como el segundo durante toda la espera.
+- **El objetivo ya no está escrito en ninguna parte de la pantalla del día**,
+  solo en Perfil. Queda la barra, que sigue mostrando el avance contra él, y
+  el rótulo, que sigue diciendo cuándo se cruza un nivel: está la forma y no
+  está el número. Es el precio, asumido a sabiendas —un techo enunciado al
+  lado del esfuerzo es un límite con el que conformarse—, y está anotado en
+  PRODUCT.md porque allí había una frase que decía justo lo contrario.
+
 ## [v0.18.0] — 2026-10-22
 
 ### Cambiado
