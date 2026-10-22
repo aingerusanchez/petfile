@@ -223,3 +223,28 @@ condición que hace que el confeti valga algo.
 - Qué hace el cierre cuando la barra ya está en Aqua: le queda convertir la
   banda de la segunda vuelta, y nada más.
 - Si el pulso se reduce a una sustitución instantánea bajo "quitar animaciones".
+
+### Resuelto al construirlo (v0.20.0)
+
+- **620 ms, `Easing.out(Easing.cubic)`.** El pulso repite el gesto que la
+  barra acaba de terminar —un relleno que ha viajado toda la mañana de
+  izquierda a derecha y ha llegado—, así que frena al final en vez de barrer
+  a velocidad constante; con la curva al revés se leería como un barrido que
+  limpia la barra. El número va entre las dos animaciones con las que no
+  puede confundirse: lejos de los 400 ms del temblor del fallo, y por debajo
+  de los 760 ms del cierre, que es lo que permite que un cierre lo tape.
+- **Un solo mecanismo: `TURN_GAP_MS` desaparece.** Los 150 ms de desfase
+  existían para que el fondo y el relleno no cambiaran en el mismo frame; el
+  pulso ya ordena las dos sustituciones —el fondo llega viajando y la vuelta
+  de debajo se sustituye entera cuando ha llegado—, y mantener el desfase
+  además sería una segunda respuesta a la misma pregunta, invisible encima:
+  el relleno que desfasa está tapado por el pulso hasta el último frame.
+- **El cierre no se queda vacío, pero ya no gira ningún fondo.** Convierte la
+  banda viva de la vuelta en la que la barra ya está: `closeMotion` arranca
+  el relleno en el suelo de esa vuelta, porque arrancarlo en los minutos
+  guardados volvería a pintar la vuelta de abajo encima de una barra que giró
+  hace rato. Solo queda mudo cuando el día aterriza justo en el nivel de
+  arriba, donde la barra ya estaba violeta entera.
+- **Con "quitar animaciones" la barra se sustituye entera en un frame.** El
+  desfase no estaba condicionado porque no tenía movimiento que quitar; el
+  pulso sí lo tiene, así que sigue la línea del resto de la app.
