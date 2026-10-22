@@ -219,9 +219,15 @@ git commit -m "feat(home): los minutos pendientes son minutos del día"
 
 Hoy, tras una parada fallida, la fila dice **`En marcha`** — y eso ya es mentira: el tutor la paró. Con la cola, la fila muestra su duración como cualquier otra y lleva una marca de que no está subida.
 
-**La marca:** un glifo `CloudOff` de Lucide donde se dibuja la marca de la kaka, en `text-muted`, y la hora de la fila también en `text-muted` en vez de `text-tertiary`. Pasadas las seis horas (`agedPending`) el glifo pasa a `text-warning` — el mismo tono que el calendario usa para un día que pedía atención.
+**La marca:** un glifo `CloudOff` de Lucide donde se dibuja la marca de la kaka, en `text-muted`. Pasadas las seis horas (`agedPending`) pasa a `text-warning` — el mismo tono que el calendario usa para un día que pedía atención.
 
-**Un icono no es una razón**, así que la palabra va en el nombre accesible: la fila añade `sin subir todavía`, y `sin subir desde hace N horas` cuando ha envejecido.
+**Y la fila entera baja un escalón de la escala de texto**: el título de `text-primary` a `text-secondary`, el detalle y la hora de `text-secondary` y `text-tertiary` a `text-tertiary` y `text-muted`. Eso dice «provisional» en un idioma que la app ya habla, y los contrastes aguantan de sobra (12,6:1 y 6,5:1).
+
+**Un fondo distinto se consideró y se descarta.** Convertiría la fila en otro tipo de cosa, y eso contradice la actualización optimista: el paseo ocurrió y casi con seguridad se subirá. Atenuar dice lo mismo sin gritarlo.
+
+**El riesgo de atenuar, para el repaso en el teléfono:** puede leerse como «desactivado» en vez de «pendiente», y el paseo sí ocurrió. Si en pantalla pesa demasiado, el escalón se quita y se queda solo el glifo — es una clase menos en cada nodo.
+
+**Un icono no es una razón**, así que la palabra va en el nombre accesible: la fila añade `no sincronizado`, y `no sincronizado desde hace N horas` cuando ha envejecido. Es el texto más técnico de la app y es deliberado: se dice en voz alta, y ahí importa más que quede claro que falta una subida —no que se haya perdido un dato— que el tono de la casa.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -229,7 +235,7 @@ Hoy, tras una parada fallida, la fila dice **`En marcha`** — y eso ya es menti
 test("un paseo sin subir lleva su marca y dice por qué", async ({ page }) => {
   // Tras la parada sin red: la fila muestra la duración (no "En marcha"),
   // existe el testID de la marca, y el nombre accesible contiene
-  // "sin subir todavía".
+  // "no sincronizado".
 });
 ```
 
