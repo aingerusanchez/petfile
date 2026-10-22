@@ -18,6 +18,61 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.21.0] — 2026-10-22
+
+### Cambiado
+
+- **El cruce de nivel ya se ve: 700 ms, entrando y saliendo suave.** El pulso
+  que lleva el fondo nuevo de lado a lado de la barra duraba 620 ms y
+  **frenaba al final**, elegido para repetir el gesto que la barra acaba de
+  terminar —un relleno que ha viajado toda la mañana y llega—. La intención
+  era buena y apuntaba a la mitad equivocada del gesto: frenar sin acelerar
+  gasta la velocidad donde todavía no ha pasado nada. Esa curva cruzaba media
+  barra en unos 130 ms y nueve décimas en unos 330, así que el viaje entero
+  caía en el primer tercio, antes de que el ojo llegara, y lo demás eran los
+  últimos píxeles arrastrándose: medido en el navegador, a mitad de su propio
+  tiempo ya iba por el **95 %**. El tutor miró un cruce de verdad y otro al
+  volver de segundo plano y leyó los dos igual: «lo percibo como muy rápido,
+  no hay una transición apreciable». Ahora entra suave, cruza el centro de la
+  barra —que es la parte que se mira— a toda velocidad, y se posa.
+  **Los dos números son un criterio y no se han medido en el móvil**, igual
+  que los 620 anteriores, que estaban mal por un factor que desde un navegador
+  no se ve.
+  **Se pidieron 800 ms y el cierre los bajó a 700**, y eso sí está medido. El
+  pulso tiene que terminar antes de que el cierre deje de tapar la barra: el
+  cierre pinta sus propias vueltas sobre la barra entera durante 760 ms, los
+  dos relojes arrancan en el mismo fotograma, y un pulso más largo sigue
+  corriendo cuando la tapa se levanta. Lo que enseñan esos fotogramas no es un
+  detalle: el pulso pinta **por encima** de los rellenos y la vuelta de debajo
+  todavía no se ha sustituido, así que la barra se queda de un solo color, sin
+  la banda y con la pista vacía asomando en el borde. Medido con 800 ms: unos
+  40 ms, y dos pruebas del **cierre** se pusieron en rojo por ello. Y hay otra
+  mitad que nadie sabía: **en casi todas las paradas se arranca un pulso**,
+  porque el nivel del día baja a cero durante un solo fotograma entre que el
+  paseo deja de estar en marcha y el cierre fija su total. Con 620 ms eso
+  corría entero bajo la tapa y no se veía nunca. Con 700 quedan 60 ms de
+  margen, y una prueba unitaria impide acercarse más. **El arreglo de verdad
+  no es un pulso más corto**: es no arrancar ninguno mientras un cierre tapa
+  la barra, que liberaría la duración y se llevaría por delante ese cruce
+  fantasma.
+
+- **Los avisos de fallo se desvanecen solos a los ocho segundos.** Hasta ahora
+  se quedaban hasta que alguien los cerraba a mano. Lo pidió el tutor el día
+  que llegó el recuento —"puede que este tipo de errores tenga sentido que
+  sean persistentes para que el usuario los pueda leer"— y lo retiró al día
+  siguiente, después de vivir con ello: «lo que parece faltar es el
+  desvanecimiento tras un tiempo». Un muro rojo que solo se quita tocándolo es
+  una segunda tarea para quien acaba de ver fallar la primera. Ocho segundos
+  es el doble de lo que dura una confirmación: da para leer la frase y ver el
+  recuento al lado, y se va solo. **Decide la severidad, no quien lo escribe**,
+  así que un fallo nuevo no puede nacer con cuatro segundos por descuido.
+  **Repetir el fallo vuelve a poner el reloj a cero**, porque la segunda
+  pulsación necesita el tiempo de lectura entero y no el resto del de la
+  primera. El recuento —«×2» al lado del mensaje, sin apilar un segundo
+  aviso— no cambia en nada. El aviso de fallo ahora dibuja su barra de cuenta
+  atrás y ya no lleva aspa; se sigue anunciando como urgente a los lectores de
+  pantalla, que antes dependía de que fuera persistente.
+
 ## [v0.20.0] — 2026-10-22
 
 ### Cambiado
