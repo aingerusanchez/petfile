@@ -3600,7 +3600,7 @@ function shakeTranslation(page: Page, moving: boolean) {
   );
 }
 
-test("shakes the control and keeps it pressable when a stop cannot be saved", async ({
+test("shakes the control and offers it again when a stop cannot be saved", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -3625,25 +3625,124 @@ test("shakes the control and keeps it pressable when a stop cannot be saved", as
   await first;
 
   await expect(page.getByTestId("toast-error")).toBeVisible();
-  // The walk is still running and the control is still a stop, because
-  // nothing was saved — and no close animation ran.
-  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  // **The walk is no longer running: the tutor stopped it.** It used to stay
+  // running so the control could be pressed again, and the press that
+  // eventually landed wrote the hour it was made at. The intent is queued
+  // instead and the control goes back to being the start — and no close
+  // animation ran, because nothing was saved.
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
   // The spinner is the real signal that the control came back: a web
   // Pressable renders as a div, where `toBeEnabled` passes regardless.
   await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
     "aria-label",
-    "Terminar paseo",
+    "Empezar paseo",
   );
 
   // Settled, and then a second failure is a second shake: a counter, not a
-  // flag, so the second write is a change.
+  // flag, so the second write is a change. The second failure takes a second
+  // walk now that the first one was let go — the POST is not routed, so the
+  // start lands and only its stop fails.
   await shakeTranslation(page, false);
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
   const second = shakeTranslation(page, true);
   await page.getByTestId("home-goal-control").click();
   await second;
   await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **Pulsar PARAR sin cobertura cierra el paseo igualmente.** Hasta ahora el
+ * paseo seguía en marcha y el tutor tenía que volver a pulsar al llegar a
+ * casa — y esa segunda pulsación escribía *esa* hora, así que el ascensor y
+ * las escaleras entraban como paseo. Ahora la intención se guarda con la hora
+ * de la pulsación y el paseo se suelta: lo que falta es subirlo, no pararlo.
+ *
+ * **Se cortan todas las rutas, que es el modo avión de verdad**: falla el
+ * cierre y falla también la relectura que el fallo pide. El diario tiene que
+ * seguir en pantalla (un *acción* fallida no es una *navegación* fallida) y
+ * la cola tiene que estar en disco.
+ */
+test("una parada sin red deja el paseo guardado para después", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // Treinta minutos, para que la parada sea un cierre con minutos y no el
+  // borrado de un mis-tap: lo que se encola es lo que se intentó escribir.
+  const now = new Date();
+  const running = new Date(now.getTime() - 30 * 60_000);
+  test.skip(running.getDate() !== now.getDate(), "30 minutes ago is yesterday");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const [walkId] = await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: running },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  // **La nota del paseo en curso se escribe desde la página, no con un
+  // `addInitScript`.** Este test recarga, y un init script volvería a armar
+  // la clave en la recarga — justo lo que se está comprobando que ya no está.
+  await page.evaluate(
+    ([key, value]) => window.localStorage.setItem(key, value),
+    ["petfile.walk.v1", JSON.stringify({ id: walkId })] as const,
+  );
+  await page.reload();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+
+  await page.getByTestId("home-goal-control").click();
+
+  // El tutor se entera de que no hubo red —eso no cambia—…
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  // …y el paseo ya no está en marcha, porque lo paró.
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Empezar paseo",
+  );
+  // El diario sigue donde estaba: la relectura falló y las filas que ya
+  // había son la mejor respuesta que hay.
+  await expect(page.getByTestId("home-title")).toBeVisible();
+  await expect(page.getByTestId("home-retry")).toHaveCount(0);
+
+  // La intención está en disco, con la hora de la pulsación, y la nota del
+  // paseo en curso se ha ido con ella.
+  const queued = await page.evaluate(() =>
+    window.localStorage.getItem("petfile.pending.v1"),
+  );
+  expect(JSON.parse(queued ?? "[]")).toEqual([
+    {
+      kind: "close",
+      id: walkId,
+      minutes: expect.any(Number),
+      pressedAt: expect.any(String),
+    },
+  ]);
+  expect(
+    await page.evaluate(() => window.localStorage.getItem("petfile.walk.v1")),
+  ).toBeNull();
+
+  // Vuelve la red y la app se abre de cero: la cola sigue ahí y el paseo no
+  // ha vuelto a aparecer como en marcha.
+  await page.unroute(supabase);
+  await page.reload();
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Empezar paseo",
+  );
+  expect(
+    await page.evaluate(() =>
+      window.localStorage.getItem("petfile.pending.v1"),
+    ),
+  ).toContain(walkId);
 });
 
 test("shakes the control when a start cannot be saved", async ({ page }) => {

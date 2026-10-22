@@ -87,6 +87,13 @@ import {
 } from "../../lib/treatments";
 import { useSettings, type DurationFormat } from "../../lib/settings";
 import {
+  enqueueStop,
+  parsePending,
+  serialisePending,
+  PENDING_STORAGE_KEY,
+  type PendingStop,
+} from "../../lib/pending";
+import {
   parseRunningWalk,
   serialiseRunningWalk,
   walkOutcome,
@@ -403,6 +410,17 @@ export default function Home() {
   /** The walk this device has open, or null. Read once, then kept in step. */
   const [runningId, setRunningId] = useState<string | null>(null);
   /**
+   * The stops this device pressed and could not yet tell the server about.
+   *
+   * **A stop that fails is not a stop that did not happen.** The tutor
+   * pressed, the phone recorded the hour, and what is missing is the upload —
+   * so the walk is released and the intent waits here and on disk. Read once
+   * at mount beside the running walk, and written by the one branch that
+   * queues. See `lib/pending.ts` for why `pressedAt` is the datum that
+   * justifies the whole arrangement.
+   */
+  const [pending, setPending] = useState<PendingStop[]>([]);
+  /**
    * The walk the sheet has written to since it was last fetched, by id.
    *
    * **`stop` reads the fetched row, and the fetched row lags a sheet save.**
@@ -531,15 +549,30 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem(WALK_STORAGE_KEY)
-      .then((raw) => {
-        if (!cancelled) setRunningId(parseRunningWalk(raw));
-      })
-      .catch(() => {
-        // A read that fails is a device with no note, which is what a phone
-        // that has never started a walk looks like: the block offers Empezar.
-        // The same best-effort bargain `start` and `stop` already make.
-      });
+    // **Per key, so one unreadable value does not take the other with it.** A
+    // read that fails is a device with no note, which is what a phone that
+    // has never started a walk looks like: the block offers Empezar. The same
+    // best-effort bargain `start` and `stop` already make.
+    const read = (key: string) => AsyncStorage.getItem(key).catch(() => null);
+    void Promise.all([read(WALK_STORAGE_KEY), read(PENDING_STORAGE_KEY)]).then(
+      ([walk, queue]) => {
+        if (cancelled) return;
+        const stops = parsePending(queue);
+        const running = parseRunningWalk(walk);
+        setPending(stops);
+        // **A walk the queue already holds is not running.** The release
+        // writes the queue and only then clears the note, so a process killed
+        // between the two comes back with both on disk — and a walk counted
+        // live *and* as pending is counted twice, on the one screen whose
+        // whole job is a single total. The queue is the later fact, so it
+        // wins.
+        setRunningId(
+          running !== null && stops.some((stop) => stop.id === running)
+            ? null
+            : running,
+        );
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -956,10 +989,13 @@ export default function Home() {
     walkInFlight.current = true;
     setWalkBusy(true);
     try {
-      const outcome = walkOutcome(
-        new Date(runningWalk.occurred_at),
-        new Date(),
-      );
+      // **One reading of the clock, held.** It is the hour the tutor pressed,
+      // and it is what `outcome.minutes` is measured against — so a stop that
+      // has to be queued stores that same instant rather than the clock as it
+      // reads twelve seconds later, when the request finally gives up. See
+      // `pressedAt` in `lib/pending.ts`.
+      const pressedAt = new Date();
+      const outcome = walkOutcome(new Date(runningWalk.occurred_at), pressedAt);
       // **The rule is "untouched", not "under a minute".** A start and a stop
       // inside the same minute is a mis-tap and the honest record of a
       // mis-tap is nothing — but the live row is in the log as soon as the
@@ -977,6 +1013,21 @@ export default function Home() {
         !runningWalk.note &&
         Object.keys(details ?? {}).length === 0 &&
         writtenToId !== runningWalk.id;
+      // **What this stop writes, which is the only thing the bar has to say
+      // and now the only thing the queue has to carry.** `outcome.minutes`
+      // for a close; one minute for a discard that had been written on, which
+      // is closed at a minute rather than deleted for the reason above; and
+      // nothing at all for a deleted row or an abandon, which add no minutes
+      // — a bar that moved for them would be claiming a walk was saved when
+      // none was. **Read once, above the write**: the error branch queues the
+      // intent and the success branch draws it, and two readings of `outcome`
+      // could come to disagree about which walk was being saved.
+      const added =
+        outcome.action === "close"
+          ? outcome.minutes
+          : outcome.action === "discard" && !untouched
+            ? 1
+            : null;
       const { error } =
         outcome.action === "discard"
           ? untouched
@@ -986,12 +1037,71 @@ export default function Home() {
             ? await closeWalk(runningWalk.id, outcome.minutes)
             : { error: null };
       if (error) {
-        // The walk stays running so the tutor can press stop again.
+        // **The walk was stopped; what is missing is the upload.** It used to
+        // stay running so the tutor could press again, and the second press
+        // wrote *that* hour — twenty minutes of lift and stairs went into the
+        // record as walking. The toast and the shake stay, because the tutor
+        // has to know there was no network, and the intent is kept with the
+        // hour the phone recorded.
         toast.show({ variant: "error", message: error });
+        // The intent is the write that just failed, said again: a close with
+        // its minutes, or the delete a clean mis-tap gets. An abandon writes
+        // nothing and so cannot arrive here.
+        const intent: PendingStop =
+          added === null
+            ? {
+                kind: "delete",
+                id: runningWalk.id,
+                pressedAt: pressedAt.toISOString(),
+              }
+            : {
+                kind: "close",
+                id: runningWalk.id,
+                minutes: added,
+                pressedAt: pressedAt.toISOString(),
+              };
+        const queued = enqueueStop(pending, intent);
+        setPending(queued);
+        // **Released, and its minutes change hands in the same commit.** The
+        // live segment goes with `runningId`, and `walked` counts the queue,
+        // so the bar is painted at the same width on both sides of this.
+        setRunningId(null);
         // **Bumped here, in the run that clears `walkBusy`.** No `await`
         // separates this from the `finally` below, so the shake and the
         // control coming back from its spinner are one commit.
         setFailed((n) => n + 1);
+        // **And the day is reloaded on the way out**, as a failed start does:
+        // `withTimeout` abandons the request after twelve seconds and the
+        // update may well have committed on the other side of it. The diary
+        // is kept if that read fails too — a failed *action* is not a failed
+        // *navigation*, and the rows on screen are what the day's minutes,
+        // pending ones included, are counted from.
+        keepDiaryOnFailedRead.current = true;
+        setAttempt((n) => n + 1);
+        // **Disk below the `set…` calls, for the reason `setClosed` sits
+        // below its own `await`:** an `await` ends the window React coalesces
+        // updates in, and a render committed in the middle would show the
+        // walk released with nothing counting its minutes — the backwards
+        // frame, for as long as the storage round trip takes.
+        //
+        // **The queue goes down before the note is cleared**, so a process
+        // killed between the two leaves a walk that is queued and still
+        // marked as running, which the mount read resolves, rather than one
+        // that is neither. Both writes are best-effort, as everywhere else
+        // here: the queue in memory is what this session counts.
+        try {
+          await AsyncStorage.setItem(
+            PENDING_STORAGE_KEY,
+            serialisePending(queued),
+          );
+        } catch {
+          // Not worth a second failure on top of the one being reported.
+        }
+        try {
+          await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+        } catch {
+          // See above.
+        }
         return;
       }
       // Best-effort, as in `start`: if the flag outlives the walk, the row has
@@ -1002,15 +1112,9 @@ export default function Home() {
       } catch {
         // See above.
       }
-      // **What the close actually added, which is the only thing the bar has
-      // to say.** `outcome.minutes` for a close; one minute for a discard
-      // that had been written on, which is closed at a minute rather than
-      // deleted for the reason above; and nothing at all for a deleted row or
-      // an abandon, which add no minutes — a bar that moved for them would be
-      // claiming a walk was saved when none was. The row's id goes with it
-      // because that is what makes the animation fire once per close: two
-      // walks of the same length are two animations, and a value check would
-      // swallow the second.
+      // **The row's id goes with the minutes**, because that is what makes
+      // the animation fire once per close: two walks of the same length are
+      // two animations, and a value check would swallow the second.
       //
       // **Below the `await`, and that is not tidiness.** It has to be set in
       // the same batch as `setAttempt`, because the gate the animation waits
@@ -1025,12 +1129,6 @@ export default function Home() {
       // the native module's round trip reproduced it exactly, with the close
       // firing at 59 of 60 minutes and drawing the previous walk's stretch
       // instead of the one that reached the goal.
-      const added =
-        outcome.action === "close"
-          ? outcome.minutes
-          : outcome.action === "discard" && !untouched
-            ? 1
-            : null;
       if (added !== null) {
         setClosed({
           id: runningWalk.id,
@@ -1077,6 +1175,7 @@ export default function Home() {
     isToday,
     goal,
     celebrated,
+    pending,
     walked,
     walks,
     day,
