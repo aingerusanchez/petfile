@@ -7,9 +7,12 @@ Track your pet's daily routines and health, backed by Supabase.
 ```bash
 git clone <repo-url>
 cd petfile
+nvm use                  # la versión de `.nvmrc`
 pnpm install
 cp .env.example .env
 ```
+
+La versión de Node está fijada en [`.nvmrc`](.nvmrc). No es una preferencia: por debajo de la 22 la suite de e2e muere entera antes de abrir el navegador, y el parche concreto que hay ahí es el que cierra el aviso de seguridad del 21 de octubre de 2026.
 
 Rellena `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_KEY` en `.env` con los valores de tu proyecto de Supabase. Si no tienes un proyecto todavía, sigue [`docs/supabase-setup.md`](docs/supabase-setup.md), que cubre la creación del proyecto, las credenciales de Google OAuth y la cuenta de test de e2e.
 
