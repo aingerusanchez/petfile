@@ -160,26 +160,76 @@ const CLOSE_MS = 760;
  * answers to one question, and the second would be invisible anyway: the
  * fill it staggers is covered by the wipe until the last frame.
  *
- * **620 ms, eased out.** It repeats the gesture the bar has just finished —
- * a fill that spent the morning travelling left to right and arrived — so it
- * decelerates into the end of the bar rather than scanning across at a
- * constant speed. Eased *in* would read as a swipe wiping the bar clean. The
- * number is placed between the two animations it must not be confused with:
- * clear of the failure shake's 400 ms, so a crossing is never read as a
- * refusal, and under the close's 760 ms, which is what lets a close that
- * turns a ground cover this entirely (see below).
+ * **700 ms, eased in and out — and `out` was wrong, not merely slower than
+ * it should have been.** The curve was `Easing.out(Easing.cubic)` over
+ * 620 ms, chosen to repeat the gesture the bar had just finished: a fill that
+ * spent the morning travelling left to right and arrived, so it decelerated
+ * into the end of the bar rather than scanning across. The intention was
+ * right and it was aimed at the wrong half of the gesture. Pure deceleration
+ * spends its speed where nothing has happened yet: `out(cubic)` covers half
+ * the bar in about 130 ms and nine tenths of it in about 330, so the travel
+ * lands in the first third, before the eye has arrived, and the rest is the
+ * last pixels crawling. Measured in the browser at the midpoint of its own
+ * duration it was **95 %** across. The tutor watched a real crossing and a
+ * resume-from-background crossing and read both as instant: «lo percibo como
+ * muy rápido, no hay una transición apreciable».
+ *
+ * **Do not put `out` back.** An arrival nobody saw begin is not an arrival,
+ * and the e2e spec now asserts the midpoint for that reason. `inOut` eases
+ * in, crosses the middle of the bar — the part that is actually watched — at
+ * speed, and settles into the end. Eased *in* alone would read as a swipe
+ * wiping the bar clean, which is still true and is still not what this is.
+ *
+ * **Both numbers are a judgement and neither has been measured on the
+ * device.** So was 620, and it was wrong by a factor nobody could see from a
+ * browser. They are one constant each — `TURN_MS` and `TURN_EASING` — so the
+ * next round is two edits in one place.
+ *
+ * **800 was the number asked for, and the close took it back to 700.** The
+ * ceiling is not taste: the wipe has to finish before the close stops
+ * covering the bar (see below), and `CLOSE_MS` is 760. 700 leaves 60 ms,
+ * which is a frame either way plus room; `components/__tests__/
+ * goal-turn-under-close.test.ts` fails on anything closer. Most of what the
+ * tutor was missing is in the curve rather than in the duration — at the
+ * midpoint of its own time the bar is now half crossed where it used to be
+ * 95 % across — so the ceiling costs a little of the change and not the
+ * point of it.
+ *
+ * It stays clear of the failure shake's 400 ms, so a crossing is never read
+ * as a refusal.
  *
  * **It is gated on `useReducedMotion`, where the 150 ms gap was not.** The
  * gap had no movement in it to remove; this does, so under "remove
  * animations" the whole bar substitutes on one frame — the cut, which is the
  * honest static form of a wipe, and the line the rest of the app draws.
  *
- * **A close can still cover it, and that is why it stays shorter.** The
- * ground has normally turned long before the stop, but the server's minutes
- * can be a minute ahead of the block's own clock and land the day over a tier
- * on the stop itself. A close paints its own laps over the whole bar for
- * `CLOSE_MS`, so the wipe underneath is never seen — the tutor called that
- * animation «genial, incluso cuando salta de tier», and it is untouched.
+ * **A close covers it, and it must keep covering all of it — which is a
+ * measurement and not the aside it reads like.** A close paints its own laps
+ * over the whole bar for `CLOSE_MS`, and both timers are armed in the same
+ * commit, so a wipe longer than 760 ms runs on past the cover. The frames in
+ * between are not a detail: the wipe paints **over** the fills, and `painted`
+ * has not admitted the new lap yet, so the bar they show is one flat ground
+ * — the violet band gone, the empty track still visible at the far edge
+ * where the wipe has not quite arrived. Measured at 800 ms: about 40 ms of
+ * it, and two e2e specs about the *close* went red for it.
+ *
+ * **And a wipe is armed on nearly every stop, which is the half nobody
+ * knew.** The reasoning used to be that this only coincides when the
+ * server's minutes land the day over a tier on the stop itself — rare.
+ * Measured in the browser: on an ordinary stop on a day already past the
+ * goal, the tier dips to 0 for a single render between `walkingSince` going
+ * null and the close's hold landing, `painted` follows it down at once, and
+ * the return to the real tier arms a wipe. At 620 ms the whole of that ran
+ * and ended under the close and nobody ever saw it. So the cover is load
+ * bearing for the common case, not for a coincidence.
+ *
+ * **The real fix is not a shorter wipe, and it is not in this change.** It is
+ * to stop arming one under a close at all — a wipe under a close was never
+ * visible, and that would both free the duration and remove the spurious
+ * crossing above. Until then `TURN_MS` lives under `CLOSE_MS` and the unit
+ * test says so. The close itself is untouched: the tutor called it «genial,
+ * incluso cuando salta de tier».
+ *
  * What the wipe is for is every crossing the close is not covering: the walk
  * in progress reaching the goal, a walk written through the sheet, a reload
  * bringing in the other tutor's, a goal edited under the day.
@@ -188,7 +238,8 @@ const CLOSE_MS = 760;
  * released — substitutes at once: there is nothing to announce, and a wipe
  * would announce it.
  */
-const TURN_MS = 620;
+const TURN_MS = 700;
+const TURN_EASING = Easing.inOut(Easing.cubic);
 
 /**
  * The shake a failed start or stop gives the control: how long it takes, how
@@ -775,7 +826,7 @@ export function GoalBlock({
 
   // **A tier lost is taken at once, in the render it arrives on.** A walk
   // deleted, a goal raised, a hold released onto smaller rows: there is
-  // nothing to announce, and holding the higher picture for 620 ms would be
+  // nothing to announce, and holding the higher picture for `TURN_MS` would be
   // the bar standing by a day it no longer has. React's own "adjust state
   // when a prop changes", the shape this block already uses for a close.
   if (tier < painted) setPainted(tier);
@@ -1606,7 +1657,7 @@ function GroundTurn({ tier, testID }: { tier: 0 | 1 | 2; testID?: string }) {
   useEffect(() => {
     across.value = withTiming(1, {
       duration: TURN_MS,
-      easing: Easing.out(Easing.cubic),
+      easing: TURN_EASING,
     });
   }, [across]);
 

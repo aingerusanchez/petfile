@@ -1978,6 +1978,20 @@ test("a day at exactly double is violet throughout, with nothing over it", async
 });
 
 /**
+ * `TURN_MS` in `components/ui/GoalBlock.tsx`, the length of the wipe that
+ * crosses the bar at a tier.
+ *
+ * **Copied rather than imported**, because this spec drives the web build
+ * through a browser and shares no module with it. It is provisional there
+ * and so it is provisional here: a wipe that changes length changes this
+ * line, and the two assertions that read it say what the number has to buy
+ * rather than what it is. Its ceiling is pinned where it can be checked —
+ * `components/__tests__/goal-turn-under-close.test.ts` fails if the wipe
+ * grows long enough to outlive the close that covers it.
+ */
+const TURN_MS = 700;
+
+/**
  * Samples the bar's two tones and the wipe crossing it, on every frame for
  * `ms`, with the clock.
  *
@@ -2067,6 +2081,11 @@ function toneFrames(page: Page, ms: number) {
  * The close covers its own crossing — it paints the whole bar for 760 ms — so
  * the crossing this watches is one nothing is drawn over: a walk written
  * through the sheet.
+ *
+ * **And it watches the curve, not only the travel.** `out(cubic)` travelled
+ * too — it was a wipe by every assertion below except the two added with
+ * `TURN_MS`, and the tutor still read it as a cut, because it spent nine
+ * tenths of itself in the first third of its time.
  */
 test("wipes the new ground across the bar when the goal is crossed", async ({
   page,
@@ -2114,6 +2133,27 @@ test("wipes the new ground across the bar when the goal is crossed", async ({
     "the wipe should be caught part-way across",
   ).toBeGreaterThan(3);
 
+  // **And it is half across at half time, which is the curve and not the
+  // travel.** `Easing.out(Easing.cubic)` passed every assertion above and the
+  // tutor still read a real crossing as instant: deceleration alone covers
+  // half the bar in about a fifth of its time, so the motion is over before
+  // the eye has arrived and the rest is the last pixels crawling. Measured
+  // from the wipe's own first frame, so this is the shape of the curve rather
+  // than the lateness of the mount, and banded wide because a frame either
+  // side of the midpoint is not the point.
+  const began = wiping[0].t;
+  const middle = wiping.reduce((best, frame) =>
+    Math.abs(frame.t - began - TURN_MS / 2) <
+    Math.abs(best.t - began - TURN_MS / 2)
+      ? frame
+      : best,
+  );
+  expect(
+    middle.turn,
+    "the wipe should be near the middle of the bar at the middle of its time",
+  ).toBeGreaterThan(0.2);
+  expect(middle.turn).toBeLessThan(0.8);
+
   // **And the bar underneath is held at the lap it is leaving, every frame of
   // it.** The ground and the fill are two halves of one picture, so a frame
   // where one has turned and the other has not is the cut this replaces.
@@ -2123,14 +2163,17 @@ test("wipes the new ground across the bar when the goal is crossed", async ({
   );
 
   // The substitution lands when the wipe has arrived, not before it and not
-  // half a second after: 620 ms, with a frame of slack either side.
+  // half a second after: `TURN_MS`, with room for the mount and a frame of
+  // slack either side. The band is wide on purpose — what catches a wrong
+  // *curve* is the midpoint above, and what catches a wipe outliving the
+  // close is a unit test on the two constants.
   const turned = frames.findIndex((f) => f.ground === colors.accent);
   expect(turned, "the ground should reach Aqua").toBeGreaterThan(0);
   expect(frames[turned].fill).toBe(colors.accentFocus);
   expect(frames[turned].turn).toBe(-1);
-  const crossing = frames[turned].t - wiping[0].t;
-  expect(crossing).toBeGreaterThan(400);
-  expect(crossing).toBeLessThan(1_000);
+  const crossing = frames[turned].t - began;
+  expect(crossing).toBeGreaterThan(TURN_MS - 100);
+  expect(crossing).toBeLessThan(TURN_MS + 400);
 
   // Same end state as before: Aqua under a quarter-lap of violet.
   await expect(page.getByTestId("home-goal-measure")).toContainText(
