@@ -17,7 +17,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
-import { formatDuration } from "../../lib/duration";
+import { type Walked, formatDuration, formatWalked } from "../../lib/duration";
 import {
   type BarState,
   type CloseLap,
@@ -25,7 +25,6 @@ import {
   barStateAt,
   closeLaps,
   closeMotion,
-  topTierMinutes,
 } from "../../lib/goalbar";
 import type { DurationFormat } from "../../lib/settings";
 import { elapsedMinutes } from "../../lib/walk";
@@ -283,7 +282,7 @@ const LAPS = [
  *
  * **Decided once, from `closeMotion`'s own two endpoints**, rather than read
  * from props as it runs: the reload lands somewhere inside these 760 ms and
- * moves `walkedMinutes` underneath, and an animation that re-read the laps
+ * moves `walked` underneath, and an animation that re-read the laps
  * would change its mind about which ground it was heading for mid-gesture.
  * The id is carried so a second close inside the window is a new animation
  * rather than a reconciliation into the first one's shared value.
@@ -337,8 +336,15 @@ function lapFillAt(
  * Mist filling it, which is what it always was; at the goal the whole bar
  * turns Aqua and Aurora Boreal begins to fill over it; past double the whole
  * bar is Aurora Boreal and there is nothing left to fill. `LAPS` is the
- * table, and the measure counts against the **top** tier — "3h de 4h" on a
- * 2 h goal.
+ * table.
+ *
+ * **The bar is the only place the goal is said, and the measure above it no
+ * longer counts against anything** (v0.19.0). It reads `1h 8m en 3 paseos`:
+ * what the day did, and in how many walks. The ceiling it used to carry had
+ * to be the top tier so the words could not disagree with the bar — and the
+ * tutor took the ceiling out, which dissolves the constraint rather than
+ * relaxing it. With no denominator there is nothing left that can disagree
+ * with the fill.
  *
  * **Crossing a tier turns the ground first and the fill a beat after it**,
  * because the two landing together read as a cut rather than as one bar
@@ -437,7 +443,7 @@ function lapFillAt(
  * come and go; the block does not.
  */
 export function GoalBlock({
-  walkedMinutes,
+  walked,
   goalMinutes,
   durationFormat,
   walkingSince,
@@ -449,7 +455,8 @@ export function GoalBlock({
   testID,
 }: {
   /**
-   * The minutes recorded on the day, or **null when they could not be read**.
+   * What the day recorded — the minutes and the walks they came in — or
+   * **null when they could not be read**.
    *
    * Null is not zero and the block may not round it down to one: a failed read
    * arrives as no rows, and "nobody walked him" is a claim about the dog that
@@ -457,8 +464,13 @@ export function GoalBlock({
    * withholds the number, the fill is not painted and `Día cumplido`
    * is not said — **unless a close is being held**, which is a total the block
    * does know, and then the measure reads that rather than nothing.
+   *
+   * **One prop and not two, because the two halves are one fact.** The
+   * sentence states both and the day is either read or it is not; a count
+   * arriving beside a `null` minutes, or from a different read of the rows,
+   * is a number the bar underneath would not add up to. See `Walked`.
    */
-  walkedMinutes: number | null;
+  walked: Walked | null;
   goalMinutes: number | null;
   durationFormat: DurationFormat;
   /** The walk in progress's start, or null when none is running. */
@@ -472,18 +484,21 @@ export function GoalBlock({
    * walks of the same length are a different animation, and a value check
    * would swallow the second.
    *
-   * **`recordedBefore` is the total at the moment the server accepted**, and
-   * it is what makes the fill computable before the reload lands. The caller
-   * holds it; this block cannot work it out, because `walkedMinutes` either
-   * does or does not already contain the minutes being announced depending on
-   * whether the day's rows have come back, and subtracting them from a total
-   * that may already lack them is the stale-total defect `closeMotion`'s
-   * contract was inverted to remove.
+   * **`before` is the day at the moment the server accepted**, and it is what
+   * makes the fill computable before the reload lands. The caller holds it;
+   * this block cannot work it out, because `walked` either does or does not
+   * already contain the walk being announced depending on whether the day's
+   * rows have come back, and subtracting it from a total that may already
+   * lack it is the stale-total defect `closeMotion`'s contract was inverted
+   * to remove. **Its count is there for the same reason and not for
+   * symmetry:** the row exists from the start of the walk with no length, so
+   * the rows count it only once the reload lands, and a block that added one
+   * to its own count would announce the third walk of the day as the second.
    */
   justClosed?: {
     id: string;
     minutes: number;
-    recordedBefore: number;
+    before: Walked;
   } | null;
   /**
    * Bumped each time a start or a stop came back with an error. A counter
@@ -548,17 +563,21 @@ export function GoalBlock({
    *
    * **The fill no longer waits for the reload, so something has to hold its
    * end.** `closeMotion` knows where the bar lands the moment the server
-   * accepts; `walkedMinutes` learns it when the day's rows come back, which
+   * accepts; `walked` learns it when the day's rows come back, which
    * may be after the animation has finished, or never. Holding the total the
    * close ended on is what makes the handover invisible in both directions: a
    * slower reload moves nothing on arrival, a faster one does not restart the
    * fill, and a reload that fails leaves the bar where the fill left it
    * rather than snapping back — the failure is the toast's job, not the
    * bar's.
+   *
+   * **The count rides with it.** The walk that just closed is one the rows
+   * will not have until the reload lands, so a count read off them under a
+   * hold would say "en 2 paseos" with the third walk's minutes beside it.
+   * What is held is the day, both halves of it, exactly as it will read when
+   * the rows catch up.
    */
-  const [held, setHeld] = useState<{ id: string; minutes: number } | null>(
-    null,
-  );
+  const [held, setHeld] = useState<{ id: string; walked: Walked } | null>(null);
   /** The close this block has already answered, so a re-render does not replay it. */
   const [answered, setAnswered] = useState<string | null>(null);
 
@@ -566,7 +585,8 @@ export function GoalBlock({
   // every render, and anything depending on its identity would fire forever.
   const closeId = justClosed?.id ?? null;
   const closeMinutes = justClosed?.minutes ?? 0;
-  const closeRecordedBefore = justClosed?.recordedBefore ?? 0;
+  const closeRecordedBefore = justClosed?.before.minutes ?? 0;
+  const closeWalksBefore = justClosed?.before.walks ?? 0;
 
   /**
    * **Answered during the render the close arrives on, not from an effect.**
@@ -599,7 +619,13 @@ export function GoalBlock({
       setHeld(null);
       setClosing(null);
     } else {
-      setHeld({ id: closeId, minutes: closeRecordedBefore + closeMinutes });
+      setHeld({
+        id: closeId,
+        walked: {
+          minutes: closeRecordedBefore + closeMinutes,
+          walks: closeWalksBefore + 1,
+        },
+      });
       // **Under "remove animations" the hold is the whole close.** The bar is
       // painted at the fill's end state on the stop, with no overlay ever
       // mounted — reverting to a wait for the reload would restore the hole
@@ -615,7 +641,7 @@ export function GoalBlock({
   } else if (
     held !== null &&
     (held.id !== closeId ||
-      (walkedMinutes !== null && walkedMinutes >= held.minutes))
+      (walked !== null && walked.minutes >= held.walked.minutes))
   ) {
     // **Released by the data, and once.** The reload has landed and says at
     // least what the close said, so the hold has nothing left to add and the
@@ -659,16 +685,17 @@ export function GoalBlock({
    * stands is read on the new scale rather than pinning the bar to a
    * proportion of a goal that no longer exists.
    */
-  const shown =
-    held !== null && (walkedMinutes === null || held.minutes > walkedMinutes)
-      ? held.minutes
-      : walkedMinutes;
+  const shown: Walked | null =
+    held !== null && (walked === null || held.walked.minutes > walked.minutes)
+      ? held.walked
+      : walked;
   /**
    * That place on the two-lap scale. Null is "there is nothing to draw" — no
    * goal, a goal of zero, or minutes nobody could read — and reads as the
    * foot of the first lap so that nothing downstream has to repeat the check.
    */
-  const progress = shown === null ? null : barProgress(shown, goalMinutes);
+  const progress =
+    shown === null ? null : barProgress(shown.minutes, goalMinutes);
   const state: BarState =
     progress === null ? { tier: 0, fill: 0 } : barStateAt(progress);
   /**
@@ -766,7 +793,7 @@ export function GoalBlock({
    */
   const liveAt =
     walkingSince && shown !== null
-      ? barProgress(shown + running, goalMinutes)
+      ? barProgress(shown.minutes + running, goalMinutes)
       : null;
   const live = liveAt === null ? null : barStateAt(liveAt);
   /** The live total has passed into a lap the recorded total has not reached. */
@@ -822,19 +849,16 @@ export function GoalBlock({
                   // stated.** Not "0 min", which is a claim about the dog, and
                   // not the previous day's total either.
                   UNREAD
-                : goalMinutes === null
-                  ? // **No "hoy".** The block renders on every day now, and the
-                    // start is withheld on a past one — so paging back for a pet
-                    // with no goal put "30 min paseados hoy" under a header
-                    // reading "Ayer". That is the lie the log fixed once already
-                    // with its own title; the header names the day, and one place
-                    // saying it is enough.
-                    `${formatDuration(shown, durationFormat)} paseados`
-                  : // **The denominator is the top tier, not the goal the tutor
-                    // typed.** The bar runs to double and the measure has to
-                    // count against the same thing the bar draws, or "2h de 2h"
-                    // would sit under a bar that is half painted.
-                    `${formatDuration(shown, durationFormat)} de ${formatDuration(topTierMinutes(goalMinutes), durationFormat)} paseados`}
+                : // **One sentence, goal or no goal, because the goal was
+                  // never its subject.** It used to end `de 4h` — the top
+                  // tier, so the words could not disagree with a bar that
+                  // runs to double — and the tutor removed the ceiling: this
+                  // part of the screen is about what the day did, not what it
+                  // is short of. The pet with no goal used to need a branch
+                  // of its own here and now reads the same line as everyone
+                  // else. `formatWalked` carries the whole argument, the zero
+                  // form and the plural.
+                  formatWalked(shown, durationFormat)}
           </Text>
         </View>
 

@@ -380,6 +380,27 @@ export function walkedMinutes(events: PetEventRow[]): number {
   );
 }
 
+/**
+ * How many walks those minutes came in.
+ *
+ * **It counts exactly the rows `walkedMinutes` adds up**, which is the whole
+ * contract: the measure says "these minutes, in this many walks", so a walk
+ * that contributes no minutes contributes no count either. A walk with no
+ * length is one of three things — still running, abandoned past the column's
+ * ceiling, or one nobody timed — and none of them is a walk the minutes came
+ * from. `lib/__tests__/events.test.ts` pins the pairing rather than trusting
+ * two functions to go on agreeing about what a walk is.
+ */
+export function walkCount(events: PetEventRow[]): number {
+  return events.reduce(
+    (count, event) =>
+      event.kind === "walk" && event.duration_minutes !== null
+        ? count + 1
+        : count,
+    0,
+  );
+}
+
 export async function logEvent(
   petId: string,
   event: NewEvent,

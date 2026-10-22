@@ -52,7 +52,7 @@ import {
   formatDayDate,
   formatDayHeadline,
 } from "../../lib/dates";
-import { formatDuration, parseDuration } from "../../lib/duration";
+import { type Walked, formatDuration, parseDuration } from "../../lib/duration";
 import {
   dayKey,
   eventDetail,
@@ -70,6 +70,7 @@ import {
   parseTimeOfDay,
   startWalk,
   updateEvent,
+  walkCount,
   walkedMinutes,
   type EventKind,
   type PetEventRow,
@@ -430,8 +431,8 @@ export default function Home() {
   const [closed, setClosed] = useState<{
     id: string;
     minutes: number;
-    /** The day's total before this walk was counted into it. */
-    recordedBefore: number;
+    /** The day before this walk was counted into it: minutes and walks. */
+    before: Walked;
     day: string;
   } | null>(null);
   // **Dropped the moment the day in view leaves it**, in React's own "adjust
@@ -802,6 +803,14 @@ export default function Home() {
   const dayTreatments = treatments ? treatmentsOn(treatments.rows, day) : [];
   const walked = walkedMinutes(events);
   /**
+   * The same rows, counted: how many walks those minutes came in.
+   *
+   * Read here beside the total and never apart from it — the measure states
+   * both in one sentence, and a count from a different read of the day is a
+   * number the bar underneath would not add up to.
+   */
+  const walks = walkCount(events);
+  /**
    * The day's minutes **as the goal block is allowed to state them**, which is
    * null when nobody knows.
    *
@@ -809,7 +818,7 @@ export default function Home() {
    * rows is not zero minutes.** The log's own region has checked `error`
    * before `events.length === 0` since the day it learned to; the measure
    * above it was handed `walked` and counted the same empty array as a fact.
-   * It then said "0 min de 2h paseados" — in larger type and higher on the
+   * It then said "0 min paseados" — in larger type and higher on the
    * screen than the sentence that rule was written for, and on a close whose
    * reload failed it said it directly above a bar painted past the goal.
    * PRODUCT.md: an empty state may never stand in for a failed read, because
@@ -826,7 +835,10 @@ export default function Home() {
    * `recordedBefore`, the celebration's threshold — and both of those need a
    * running row to reach them, which a day with no rows has not got.
    */
-  const measured = logError !== null && events.length === 0 ? null : walked;
+  const measured: Walked | null =
+    logError !== null && events.length === 0
+      ? null
+      : { minutes: walked, walks };
   const goal = pet?.exercise_goal_minutes ?? null;
   /**
    * Whether the day has already had the one celebration it gets.
@@ -1024,13 +1036,13 @@ export default function Home() {
         setClosed({
           id: runningWalk.id,
           minutes: added,
-          // **The total before this walk joined it**, which is what lets the
-          // bar draw the close without waiting for the reload: `walked`
-          // counts closed walks, and the one being announced is not among
-          // them yet. The block cannot work this out for itself — by the
-          // time it sees the close, whether its own total already contains
-          // these minutes depends on a request still in flight.
-          recordedBefore: walked,
+          // **The day before this walk joined it**, which is what lets the
+          // bar draw the close without waiting for the reload: `walked` and
+          // `walks` both count closed walks, and the one being announced is
+          // not among them yet. The block cannot work this out for itself —
+          // by the time it sees the close, whether its own total already
+          // contains this walk depends on a request still in flight.
+          before: { minutes: walked, walks },
           day: dayKey(day),
         });
       }
@@ -1067,6 +1079,7 @@ export default function Home() {
     goal,
     celebrated,
     walked,
+    walks,
     day,
   ]);
 
@@ -1220,7 +1233,7 @@ export default function Home() {
       </View>
 
       {/* **The measure waits in its own shape too.** Leaving the previous
-          day's "2h 30m de 3h paseados" over a header that already says "Ayer"
+          day's "2h 30m en 3 paseos" over a header that already says "Ayer"
           is the same lie the log used to tell, in fewer words and larger
           type. */}
       {loading ? (
@@ -1233,7 +1246,7 @@ export default function Home() {
       ) : (
         <GoalBlock
           testID="home-goal"
-          walkedMinutes={measured}
+          walked={measured}
           goalMinutes={goal}
           durationFormat={settings.durationFormat}
           walkingSince={walkingSince}
@@ -1273,7 +1286,7 @@ export default function Home() {
               ? {
                   id: closed.id,
                   minutes: closed.minutes,
-                  recordedBefore: closed.recordedBefore,
+                  before: closed.before,
                 }
               : null
           }

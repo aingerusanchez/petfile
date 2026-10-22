@@ -84,8 +84,12 @@ test("shows the day, the goal and a way to log each kind", async ({ page }) => {
   await expect(page.getByTestId("home-title")).toHaveText("Hoy");
   await expect(page.getByTestId("home-date")).not.toBeEmpty();
 
-  // The goal only appears once the profile has set one.
-  await expect(page.getByTestId("home-goal")).toContainText("de 2h");
+  // Nothing walked yet, and the measure says so without naming a ceiling.
+  // The goal reaches the screen as the bar, which only a pet with one gets.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+  await expect(page.getByTestId("home-goal-ground")).toBeVisible();
 
   // The kinds are behind the floating action, near the thumb, and the page
   // shows none of them until it is asked.
@@ -129,7 +133,7 @@ test("logs a walk from its two ends and counts it toward the goal", async ({
   await expect(page.getByTestId("home-title")).toContainText("Ayer");
 
   await expect(page.getByTestId("home-empty")).toBeVisible();
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
 
   await add(page, "walk");
 
@@ -157,8 +161,11 @@ test("logs a walk from its two ends and counts it toward the goal", async ({
   await expect(page.getByTestId("home-log")).toContainText("30 min");
   await expect(page.getByTestId("home-log")).toContainText("sin tirones");
 
-  // The walk's minutes are the one thing the day view computes from.
-  await expect(page.getByTestId("home-goal")).toContainText("30 min de 2h");
+  // The walk's minutes are the one thing the day view computes from, and
+  // the sentence says how many walks they came in.
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "30 min en 1 paseo",
+  );
 });
 
 test("re-derives the duration when either time is corrected", async ({
@@ -326,7 +333,9 @@ test("still logs a walk nobody timed", async ({ page }) => {
   // A walk with only an end is a valid entry: it still happened, and the end
   // is the only time anybody wrote down.
   await expect(page.getByTestId("home-log")).toContainText("08:30");
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 2h");
+  // **No length, so it is in neither half of the sentence.** The count is
+  // the walks the minutes came in, and this one brought none of either.
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
 });
 
 test("records several stools on one walk, the second in one tap", async ({
@@ -584,7 +593,7 @@ test("logs the other three kinds without touching the goal", async ({
   }
 
   // None of them has a duration, so the goal has not moved.
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
 });
 
 test("reads the day forwards", async ({ page }) => {
@@ -802,7 +811,9 @@ test("throws confetti for the walk that doubles the goal, and only that one", as
   await add(page, "walk");
   await typeWalk(page, now, 45);
   await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("home-goal")).toContainText("1h 45m de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "1h 45m en 3 paseos",
+  );
   await expect(page.getByTestId("celebration")).toBeHidden();
 
   // And the walk that doubles it.
@@ -1383,7 +1394,7 @@ test("forgets the length with the start it was read from", async ({ page }) => {
   await page.getByTestId("entry-save").click();
   await expect(page.getByTestId("home-log")).toContainText("09:45");
   await expect(page.getByTestId("home-log")).not.toContainText("30 min");
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
 });
 
 test("keeps every control on the 48dp floor here too", async ({ page }) => {
@@ -1443,9 +1454,9 @@ test("marks the goal met, once", async ({ page }) => {
   await page.getByTestId("entry-save").click();
 
   await expect(page.getByTestId("home-goal")).toContainText("Día cumplido");
-  // The goal reads in hours on both sides of the "de", and the right-hand
-  // side is the **top** tier: an hour's goal is counted against two.
-  await expect(page.getByTestId("home-goal")).toContainText("1h de 2h");
+  // The day's own minutes and the walks they came in. No ceiling: the
+  // goal is the bar's business now, not the sentence's.
+  await expect(page.getByTestId("home-goal")).toContainText("1h en 1 paseo");
 
   // **Under the bar, not beside the measure.** The measure row's right slot
   // is the walk control's now, so the label has one home on every day. Both
@@ -1546,7 +1557,7 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
   await expect(entries).toHaveCount(0);
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
 });
 
 /**
@@ -1633,7 +1644,9 @@ test("moves the tick as more is recorded, and leaves the layout alone", async ({
 
   await seedSession(page);
   await page.goto("/");
-  await expect(page.getByTestId("home-goal")).toContainText("15 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "15 min en 1 paseo",
+  );
   await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
   const idle = await page.getByTestId("home-goal").boundingBox();
 
@@ -1864,7 +1877,9 @@ test("turns Aqua at the goal and starts the second lap over it", async ({
   await page.goto("/");
 
   // 180 of 120 is lap two, half way: the ground is Aqua and the fill violet.
-  await expect(page.getByTestId("home-goal-measure")).toContainText("de 4h");
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "3h en 1 paseo",
+  );
   const ground = await groundColour(page);
   const fill = await fillColour(page);
   expect(ground).toBe(colors.accent);
@@ -1898,7 +1913,9 @@ test("a day exactly at the goal is Aqua with no second lap showing", async ({
   await seedSession(page);
   await page.goto("/");
 
-  await expect(page.getByTestId("home-goal-measure")).toContainText("2h de 4h");
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "2h en 1 paseo",
+  );
   expect(await groundColour(page)).toBe(colors.accent);
   // **The foot of lap two, not the head of lap one.** A day that lands on the
   // goal has nothing left for a lap-one fill to say — the whole bar is already
@@ -1922,7 +1939,7 @@ test("a day past double is violet throughout", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByTestId("home-goal-measure")).toContainText(
-    "4h 20m de 4h",
+    "4h 20m en 1 paseo",
   );
   expect(await groundColour(page)).toBe(colors.accentFocus);
   // There is no third lap to start, so nothing is painted over the violet.
@@ -1950,7 +1967,9 @@ test("a day at exactly double is violet throughout, with nothing over it", async
   await seedSession(page);
   await page.goto("/");
 
-  await expect(page.getByTestId("home-goal-measure")).toContainText("4h de 4h");
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "4h en 1 paseo",
+  );
   expect(await groundColour(page)).toBe(colors.accentFocus);
   expect(await widthOf(page, "home-goal-bar")).toBe(0);
   await expect(page.getByTestId("home-goal-met")).toHaveText(
@@ -2043,7 +2062,9 @@ test("turns the ground a beat before the fill when the goal is crossed", async (
   await page.getByTestId("entry-from").fill("09:00");
   await page.getByTestId("entry-to").fill("10:00");
   await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("home-goal-measure")).toContainText("1h de 4h");
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "1h en 1 paseo",
+  );
   expect(await groundColour(page)).toBe(colors.surface);
   expect(await fillColour(page)).toBe(colors.textSecondary);
 
@@ -2076,7 +2097,7 @@ test("turns the ground a beat before the fill when the goal is crossed", async (
 
   // Same end state as before: Aqua under a quarter-lap of violet.
   await expect(page.getByTestId("home-goal-measure")).toContainText(
-    "2h 30m de 4h",
+    "2h 30m en 2 paseos",
   );
   expect(await groundColour(page)).toBe(colors.accent);
   expect(await fillColour(page)).toBe(colors.accentFocus);
@@ -2091,8 +2112,8 @@ test("re-reads every tier when the goal is edited under a running walk", async (
   test.skip(earlier === null, "the first minutes of the day have no room");
 
   // Seed 150 recorded against a 120 goal (lap two), start a walk, change the
-  // goal to 300 in Perfil, come back: the bar is lap one at half, the measure
-  // says "de 10h", and nothing is left painted violet. Every tier is derived
+  // goal to 300 in Perfil, come back: the bar is lap one at half and
+  // nothing is left painted violet. Every tier is derived
   // from the goal the screen is holding right now, and a stale one would show
   // here as a bar still wearing the old lap's colours.
   await resetE2EPets();
@@ -2104,7 +2125,7 @@ test("re-reads every tier when the goal is edited under a running walk", async (
   await page.goto("/");
 
   await expect(page.getByTestId("home-goal-measure")).toContainText(
-    "2h 30m de 4h",
+    "2h 30m en 1 paseo",
   );
   expect(await groundColour(page)).toBe(colors.accent);
   expect(await fillColour(page)).toBe(colors.accentFocus);
@@ -2134,10 +2155,15 @@ test("re-reads every tier when the goal is edited under a running walk", async (
   expect(across).toBeCloseTo(0.5, 2);
   await expect(page.getByTestId("home-goal-met")).toHaveCount(0);
 
-  // And the measure counts against the new top tier once the walk is out of
-  // the way — while one runs it says the walk instead, as it always has.
+  // And the measure goes back to the day's own minutes once the walk is
+  // out of the way. The goal was never in that sentence, so the edit does
+  // not reach it — the tiers above are where an edit shows. The shape is
+  // what is pinned: a navigation slow enough to close the walk at a
+  // minute adds one to each half of it.
   await page.getByTestId("home-goal-control").click();
-  await expect(page.getByTestId("home-goal")).toContainText("de 10h");
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    /^2h 3\dm en [12] paseos?$/,
+  );
 });
 
 test("laps the live segment past the floor, and leaves the ground alone", async ({
@@ -2204,7 +2230,7 @@ test("draws no bar at all for a pet with no goal, as before", async ({
 
   // The constraint that a tutor without a goal keeps today's behaviour
   // exactly: no bar on the day view, no underline in the calendar, and the
-  // measure says what it says today. This is the regression the tiers could
+  // measure says what it says on any other day. This is the regression the tiers could
   // silently break, since every new branch keys off a goal that is there.
   await resetE2EPets();
   const petId = await seedE2EPet({ exercise_goal_minutes: null });
@@ -2215,7 +2241,7 @@ test("draws no bar at all for a pet with no goal, as before", async ({
   await page.goto("/");
 
   await expect(page.getByTestId("home-goal-measure")).toHaveText(
-    "30 min paseados",
+    "30 min en 1 paseo",
   );
   await expect(page.getByTestId("home-goal-ground")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-bar")).toHaveCount(0);
@@ -2298,7 +2324,7 @@ test("lands the minute a walk that was written on recorded", async ({
   await mounted;
 
   // And then it goes, leaving the fill holding the tone it already had.
-  await expect(page.getByTestId("home-goal")).toContainText("1 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
 });
@@ -2322,10 +2348,10 @@ test("does not animate a close onto a day that is not the walk's", async ({
   await page.getByTestId("entry-save").click();
   await expect(page.getByTestId("entry-title")).toHaveCount(0);
   await page.getByTestId("home-goal-control").click();
-  await expect(page.getByTestId("home-goal")).toContainText("1 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
 
   await page.getByTestId("home-prev-day").click();
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
   // Never, rather than "gone by the time we looked" — the same reason the
   // replay spec below waits to be disappointed. Yesterday's bar would have
   // animated for 760 ms, and a settled assertion would simply retry past it.
@@ -2352,12 +2378,12 @@ test("does not replay a close on the way back to the day it happened on", async 
   await page.getByTestId("entry-save").click();
   await expect(page.getByTestId("entry-title")).toHaveCount(0);
   await page.getByTestId("home-goal-control").click();
-  await expect(page.getByTestId("home-goal")).toContainText("1 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
 
   await page.getByTestId("home-prev-day").click();
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
   await page.getByTestId("home-next-day").click();
-  await expect(page.getByTestId("home-goal")).toContainText("1 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
 
   // **Never, rather than "gone by the time we looked".** The settled
   // assertion the others make cannot tell a replay from no replay here: the
@@ -2406,7 +2432,7 @@ test("settles twice when two walks are closed in succession", async ({
     // The overlay is mounted for this close, so it was one — and it goes.
     await mounted;
     await expect(page.getByTestId("home-goal")).toContainText(
-      `${total} min de 2h`,
+      `${total} min en ${total} ${total === 1 ? "paseo" : "paseos"}`,
     );
     await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
     await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
@@ -2807,7 +2833,7 @@ test("holds the fill when the reload never comes", async ({ page }) => {
   // carried — the line above the bar reads them too, rather than counting a
   // log it could not read and announcing nought.
   await expect(page.getByTestId("home-goal-measure")).toHaveText(
-    /^1h [12]m de 4h paseados$/,
+    /^1h [12]m en 2 paseos$/,
   );
   await page.unroute("**/rest/v1/pet_events*");
 });
@@ -2818,7 +2844,7 @@ test("holds the fill when the reload never comes", async ({ page }) => {
  * the phone drops the house wifi on the stairs, the `PATCH` gets through and
  * the pet read does not. The bar holds what the close carried — that part was
  * already right — and the measure used to count an empty log and state
- * "0 min de 2h paseados" directly above a bar painted past the goal and a
+ * "0 min paseados" directly above a bar painted past the goal and a
  * label reading "Día cumplido". A tutor cannot tell which half is real,
  * and the one they read every day is the number.
  *
@@ -2878,7 +2904,7 @@ test("keeps the measure and the bar agreeing when a close lands and the reload d
   await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
   // The line that used to contradict both of them.
   await expect(page.getByTestId("home-goal-measure")).toHaveText(
-    /^1h [56]m de 2h paseados$/,
+    /^1h [56]m en 2 paseos$/,
   );
 
   await page.unroute(pets);
@@ -2909,7 +2935,7 @@ test("lands a close with no animation at all for a tutor who asked for none", as
   // No overlay is ever mounted, and the bar is still right: the tone and
   // the thickness come from props, which is what makes "absent" true rather
   // than "too quick to catch".
-  await expect(page.getByTestId("home-goal")).toContainText("1 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-bar")).toBeVisible();
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
@@ -3197,7 +3223,9 @@ test("fills from the tick without the bar ever shrinking", async ({ page }) => {
   );
 
   // It settles where the data says, with the live marks gone.
-  await expect(page.getByTestId("home-goal")).toHaveText(/1h [12]m de 4h/);
+  await expect(page.getByTestId("home-goal")).toHaveText(
+    /1h [12]m en 2 paseos/,
+  );
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
@@ -4533,7 +4561,9 @@ test("saves a stored walk that crossed midnight, and saves it again after an edi
   await expect(page.getByTestId("entry-title")).toHaveCount(0);
   await expect(page.getByTestId("home-log")).toContainText("23:30");
   await expect(page.getByTestId("home-log")).toContainText("30 min");
-  await expect(page.getByTestId("home-goal")).toContainText("30 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "30 min en 1 paseo",
+  );
 });
 
 test("saves a stored walk with both its times, changing only its note", async ({
@@ -4570,7 +4600,9 @@ test("saves a stored walk with both its times, changing only its note", async ({
   await expect(page.getByTestId("home-log")).toContainText(
     "Con el perro del vecino",
   );
-  await expect(page.getByTestId("home-goal")).toContainText("45 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "45 min en 1 paseo",
+  );
 });
 
 test("re-reads the duration when a time is set on the clock face", async ({
@@ -4612,7 +4644,7 @@ test("re-reads the duration when a time is set on the clock face", async ({
   await expect(page.getByTestId("entry-title")).toHaveCount(0);
   await expect(page.getByTestId("home-log")).toContainText("10:00");
   await expect(page.getByTestId("home-log")).toContainText("1h");
-  await expect(page.getByTestId("home-goal")).toContainText("1h de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText("1h en 1 paseo");
 
   // And DESDE's own dial reads the same way round.
   await page.locator('[data-testid^="home-entry-"]').first().click();
@@ -4675,7 +4707,9 @@ test("keeps a crossed walk's length while its real end is tried in HASTA", async
   await expect(page.getByTestId("entry-title")).toHaveCount(0);
   await expect(page.getByTestId("home-log")).toContainText("23:40");
   await expect(page.getByTestId("home-log")).toContainText("30 min");
-  await expect(page.getByTestId("home-goal")).toContainText("30 min de 2h");
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "30 min en 1 paseo",
+  );
 });
 
 test("refuses a typed return time that does not parse, instead of dropping it", async ({
@@ -4748,9 +4782,12 @@ test("shows the goal block for a pet with no goal, and still starts a walk", asy
   await seedSession(page);
   await page.goto("/");
 
-  // "paseados", without the day: the block renders on past days too now, and
-  // the header is what names the day.
-  await expect(page.getByTestId("home-goal")).toContainText("paseados");
+  // The day's own minutes with no count clause at all, and nothing saying
+  // "hoy": a tutor with no goal reads the same sentence as everybody else,
+  // and the block renders on past days too, where the header names the day.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
   await expect(page.getByTestId("home-goal")).not.toContainText("hoy");
   // No goal, so no bar and nothing to have met.
   await expect(page.getByTestId("home-goal-bar")).toHaveCount(0);

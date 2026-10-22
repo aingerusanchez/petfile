@@ -14,6 +14,7 @@ import {
   startWithinDay,
   summariseMonth,
   validateEvent,
+  walkCount,
   walkedMinutes,
   type NewEvent,
   type PetEventRow,
@@ -52,6 +53,34 @@ describe("walkedMinutes", () => {
 
   it("is zero for a day with nothing in it", () => {
     expect(walkedMinutes([])).toBe(0);
+  });
+});
+
+describe("walkCount", () => {
+  it("counts the walks, and nothing else in the day", () => {
+    const events: PetEventRow[] = [
+      walk(30),
+      { ...walk(null), kind: "meal" },
+      walk(45),
+      { ...walk(999), kind: "medication" },
+    ];
+    expect(walkCount(events)).toBe(2);
+  });
+
+  it("counts exactly the walks whose minutes are counted", () => {
+    // **A walk with no length contributes to neither.** The measure says
+    // "these minutes, in this many walks", so the count has to be the walks
+    // those minutes came from — a running walk, an abandoned one and a walk
+    // nobody timed all add no minutes and no count. Paired here rather than
+    // trusted to stay paired: two functions that disagree about what a walk
+    // is would put a number on screen that nothing adds up to.
+    const events: PetEventRow[] = [walk(null), walk(20), walk(null), walk(25)];
+    expect(walkCount(events)).toBe(2);
+    expect(walkedMinutes(events)).toBe(45);
+  });
+
+  it("is zero for a day with nothing in it", () => {
+    expect(walkCount([])).toBe(0);
   });
 });
 
