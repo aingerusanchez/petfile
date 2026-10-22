@@ -5467,6 +5467,43 @@ test("stays on the day it was left on when the app comes back", async ({
   await expect(page.getByTestId("home-log")).toContainText("Pienso de ayer");
 });
 
+test("keeps the diary on screen when the re-read on return fails", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "meal", occurredAt: new Date(), what: "Pienso de la mañana" },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Pienso de la mañana",
+  );
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  const petReadGaveUp = failedReads(page, /\/rest\/v1\/pets\b/, 4);
+  await page.route(supabase, (route) => route.abort());
+  await comeBackToTheApp(page);
+  await petReadGaveUp;
+
+  // **Nobody pressed anything.** The tutor opened their phone, and what was
+  // already loaded is still true: a read they did not ask for coming back
+  // empty-handed is no reason to take the day away from them. A failed
+  // *navigation* still shows the error — that is the ‹ pressed offline, two
+  // tests above — and so does the gesture, because that one was asked for.
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Pienso de la mañana",
+  );
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-measure")).not.toHaveText(
+    "Sin datos del día",
+  );
+});
+
 test("offers the pull-to-refresh on the diary and nowhere else", async ({
   page,
 }) => {

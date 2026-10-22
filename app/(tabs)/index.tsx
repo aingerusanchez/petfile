@@ -411,21 +411,31 @@ export default function Home() {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [attempt, setAttempt] = useState(0);
   /**
-   * Read the day again, saying nothing about it.
+   * Reads nobody asked for: the one the app does on its way back to the
+   * foreground.
    *
-   * One bump of `attempt`, which is the pet, the day's rows and — while it is
-   * open — the calendar's window. **Not `reload`**, deliberately: `reload`
-   * also claims the promise a Reintentar is waiting on, and a re-read that
-   * nobody pressed must not settle somebody's press. The effect run this
-   * causes inherits a resolver still outstanding and answers it, which is the
-   * existing arrangement for a reload overtaking a press.
+   * **A counter of its own rather than a bump of `attempt`, because the day
+   * read has to be able to tell the two apart.** A read somebody pressed for
+   * owes them an answer, including the bad one; a read that happened because
+   * the phone was picked up owes them nothing, and a failure it reports is a
+   * day taken away from somebody who did not ask. See the keep in the day
+   * effect below, and `keepDiaryOnFailedRead` for the other half of the same
+   * rule.
+   *
+   * **Not `reload` either**, for a second reason: `reload` claims the promise
+   * a Reintentar is waiting on, and a re-read nobody pressed must not settle
+   * somebody's press.
+   */
+  const [unasked, setUnasked] = useState(0);
+  /**
+   * Read the day again, saying nothing about it.
    *
    * **It is the shape the other triggers will reuse.** The queued walk stop
    * needs the same moment — see `docs/plans/2026-10-22-parada-sin-cobertura.md`
    * — so coming back to the app is one named thing to hang it off rather than
-   * a `setAttempt` buried in a listener.
+   * a counter bumped inside a listener.
    */
-  const reread = useCallback(() => setAttempt((n) => n + 1), []);
+  const reread = useCallback(() => setUnasked((n) => n + 1), []);
   /** The walk this device has open, or null. Read once, then kept in step. */
   const [runningId, setRunningId] = useState<string | null>(null);
   /**
@@ -508,8 +518,32 @@ export default function Home() {
    * is allowed, as long as it is on the error side of that test; the one
    * thing that may never set it is a reload that follows a write the server
    * accepted.
+   *
+   * **It is no longer the only reason the diary is kept, and the second one
+   * deliberately does not come through here.** A read nobody asked for — the
+   * one the app does on its way back to the foreground — keeps it too. The
+   * test written above cannot answer for that case, because there is no
+   * action to have come back with an error: the tutor pressed nothing, they
+   * opened their phone. So it is decided in the day effect, from whether
+   * anything actually asked for the run (see `unasked`), and this flag keeps
+   * meaning exactly what it says. Keeping it a separate question is also what
+   * makes the two compose correctly: a run that an accepted write's reload
+   * asked for is an asked-for run even when a return to the foreground lands
+   * on top of it, and it still has to show that it could not confirm.
    */
   const keepDiaryOnFailedRead = useRef(false);
+  /**
+   * What the last run of the day read was reading, so the next one can tell
+   * whether anything asked for it.
+   *
+   * A ref rather than state: it is the previous run's bookkeeping, nothing
+   * renders from it, and writing it from the effect is what keeps the
+   * comparison exactly one run deep.
+   *
+   * It starts on no day at all, so the first run — the one opening the
+   * screen asked for — counts as asked for.
+   */
+  const lastRun = useRef({ attempt: 0, day: "" });
   /**
    * How many times a start or a stop has come back with an error. The goal
    * block shakes the control on each bump; a counter because two failures in
@@ -610,6 +644,38 @@ export default function Home() {
     // other: the reload a failed action asked for, and nothing later.
     const afterFailedAction = keepDiaryOnFailedRead.current;
     keepDiaryOnFailedRead.current = false;
+    /**
+     * Whether anything asked for this run.
+     *
+     * A press, a navigation or a reload moves `attempt` or the day; the
+     * return to the foreground moves neither, only `unasked`. **So a run is
+     * unasked only when nothing else asked for it** — and when both land
+     * together, the asked-for reason wins, which is what stops a return to
+     * the app from masking a reload that has a write to confirm.
+     */
+    const asked =
+      attempt !== lastRun.current.attempt ||
+      dayKey(day) !== lastRun.current.day;
+    lastRun.current = { attempt, day: dayKey(day) };
+    /**
+     * **What was already loaded is still true.**
+     *
+     * The rows on screen were correct a minute ago and nothing has happened
+     * since except a read, which failed. v0.15.0 spent four rounds on the
+     * version of this that arrives after a failed action; v0.22.0 brought it
+     * back by a worse road, where the tutor had pressed nothing at all and
+     * coming back to the app with no coverage cost them the day. A read with
+     * nobody behind it may not report its failure over rows that are good.
+     *
+     * The gesture is not this case and keeps the error: pulling the diary
+     * down goes through `reload`, which moves `attempt`, so the run is an
+     * asked-for one. Somebody who asked is somebody looking for the answer.
+     *
+     * It is `||`-ed with the failed-action keep only where that keep already
+     * lived — the pet's branch. The day's branch below takes this reason
+     * alone, so nothing an action does changes there.
+     */
+    const unaskedRun = !asked;
     // **Claimed here, synchronously, for the same reason.** `reload` stores
     // its resolver and only then bumps `attempt`, so this run — the first one
     // to start after the press — is the one that owes it an answer. See
@@ -632,9 +698,14 @@ export default function Home() {
         // row check is decided from the log itself, inside the updater, so it
         // cannot disagree with what is on screen; the action check is what
         // stops a *successful* write whose reload failed from keeping rows
-        // that do not show it — see `keepDiaryOnFailedRead`.
+        // that do not show it — see `keepDiaryOnFailedRead`. **Or nobody
+        // asked for this read at all**, which is the same keep for a reason
+        // of its own: see `unaskedRun`.
         setLog((prev) =>
-          afterFailedAction && prev && prev.day === dayKey(day) && !prev.error
+          (afterFailedAction || unaskedRun) &&
+          prev &&
+          prev.day === dayKey(day) &&
+          !prev.error
             ? prev
             : { day: dayKey(day), attempt, events: [], error: unreadable },
         );
@@ -652,12 +723,25 @@ export default function Home() {
       // A failed read of the log does not take the screen down with it: the
       // craft floor's rule is that one component's error must not block the
       // whole interface, and everything above the log comes from the pet.
-      setLog({
-        day: dayKey(day),
-        attempt,
-        events: rows ?? [],
-        error: eventError,
-      });
+      //
+      // **And a failure nobody asked to hear about does not take the rows
+      // either** — the same keep as the branch above, on the other half of
+      // the same read: the pet can answer while the day does not. A read
+      // that worked always writes, whoever asked for it.
+      setLog((prev) =>
+        eventError !== null &&
+        unaskedRun &&
+        prev &&
+        prev.day === dayKey(day) &&
+        !prev.error
+          ? prev
+          : {
+              day: dayKey(day),
+              attempt,
+              events: rows ?? [],
+              error: eventError,
+            },
+      );
       // **The day is the pet and its rows**, so a press is answered yes only
       // when both came back. A failed log read is still a failure to the
       // button, because the error it was pressed over is still on screen.
@@ -667,7 +751,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [day, attempt, answerReload]);
+  }, [day, attempt, unasked, answerReload]);
 
   /**
    * Lazily, and only while the calendar is open: most visits to the diary
