@@ -1,5 +1,4 @@
 import {
-  agedPending,
   enqueueStop,
   parsePending,
   pendingMinutes,
@@ -122,22 +121,5 @@ describe("pendingMinutes and pendingWalks", () => {
   it("is nothing for an empty queue", () => {
     expect(pendingMinutes([])).toBe(0);
     expect(pendingWalks([])).toBe(0);
-  });
-});
-
-describe("agedPending", () => {
-  const at = (hours: number, minutes: number) =>
-    new Date(new Date(PRESSED).getTime() + (hours * 60 + minutes) * 60_000);
-
-  it("is not aged at 5 h 59 min", () => {
-    expect(agedPending(close("a", 30), at(5, 59))).toBe(false);
-  });
-
-  it("is aged at 6 h 1 min", () => {
-    expect(agedPending(close("a", 30), at(6, 1))).toBe(true);
-  });
-
-  it("ages a delete the same way", () => {
-    expect(agedPending(remove("a"), at(6, 1))).toBe(true);
   });
 });

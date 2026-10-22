@@ -25,9 +25,6 @@ export type PendingStop =
   | { kind: "close"; id: string; minutes: number; pressedAt: string }
   | { kind: "delete"; id: string; pressedAt: string };
 
-/** Past this, a pending mark stops being discreet — see `agedPending`. */
-const AGED_AFTER_MS = 6 * 60 * 60_000;
-
 const isInstant = (value: unknown): value is string =>
   typeof value === "string" && !Number.isNaN(new Date(value).getTime());
 
@@ -114,14 +111,4 @@ export function pendingMinutes(queue: PendingStop[]): number {
  */
 export function pendingWalks(queue: PendingStop[]): number {
   return queue.filter((stop) => stop.kind === "close").length;
-}
-
-/**
- * Six hours after the press. Not a deadline to give up at — the stop is kept
- * however long it takes — but the point where the mark stops being discreet:
- * the tutor opens the app several times a day, so six hours still pending
- * means the retries are failing, again and again, and they should be told.
- */
-export function agedPending(item: PendingStop, now: Date): boolean {
-  return now.getTime() - new Date(item.pressedAt).getTime() > AGED_AFTER_MS;
 }
