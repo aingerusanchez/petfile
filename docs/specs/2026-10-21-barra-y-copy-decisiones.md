@@ -157,3 +157,69 @@ Dicho tras un paseo real, no en una maqueta:
   `app/treatments.tsx`, `app/weights.tsx`). Mecánico, una línea cada una.
 - El repaso en dispositivo que falta: TIER 2 en la barra, la banda de segunda
   vuelta, el confeti violeta, y TalkBack leyendo las etiquetas en voz alta.
+
+---
+
+# Enmienda del 22 de octubre: la barra sigue al paseo en marcha
+
+Decidido tras ver en vídeo el momento en que el día alcanza el objetivo —y
+comprobar que **no se ve nada**. La barra pasa del 99 % al 100 % de la primera
+vuelta, que es imperceptible, y todo lo demás espera al cierre.
+
+## Lo que se levanta
+
+**El fondo ya no refleja solo lo guardado.** Al llegar a las dos horas, aunque
+sea con minutos vivos, la barra se tiñe de Aqua **con un pulso que la rellena
+de izquierda a derecha**, y el rótulo `Día cumplido` aparece a la vez.
+
+Esto deroga deliberadamente la regla que protegía contra un paseo olvidado en
+marcha. El tutor: _"vamos a dejar de jugar a la defensiva con los paseos no
+guardados"_ — ese error se trata en los casos que lo merecen, como los fallos
+al pulsar parar, y el resto son correcciones del tutor.
+
+**Lo que la objeción no había pesado:** la barra nunca fue la única evidencia
+de un paseo en marcha. La fila del registro dice `En marcha` y el control
+lleva el cuadrado de parada. Quitarle ese trabajo a la barra no deja al tutor
+sin pistas.
+
+**Lo que se gana:** el momento grande se muda del guardado al logro. Hoy la
+transformación visual ocurre al pulsar parar, que es papeleo; con esto ocurre
+cuando el perro llega a sus dos horas, que es lo que de verdad pasó. El cierre
+se queda con lo suyo: convertir el tramo vivo.
+
+## El rótulo va con la barra, y no es negociable
+
+Si el fondo sigue a los minutos vivos, `Día cumplido` también. La v0.15.0 se
+fue entera en lograr que la barra y las palabras no pudieran contradecirse;
+dejar el fondo en un reloj y el texto en otro reabre ese defecto durante
+minutos u horas.
+
+## El confeti NO va con la barra, y el porqué es el principio
+
+**El confeti sigue disparándose al guardar.** No por coherencia perdida, sino
+porque la coherencia aquí se mide en otra cosa — el argumento es del tutor:
+
+> Durante el paseo el móvil está bloqueado en el bolsillo. Se saca para apuntar
+> una nota o una kaka, y entonces ver avanzar la barra sirve. Pero un confeti
+> disparado con el móvil en el bolsillo es un confeti que nadie ve, y la mayoría
+> de las veces que se consiguiera se perdería — lo contrario de para qué existe.
+
+El principio que lo ordena, y que vale para todo lo que venga:
+
+**Una descripción sigue al dato; una celebración sigue al espectador.**
+
+La barra y el rótulo deben coincidir porque son dos descripciones del mismo día
+mostradas a la vez. El confeti no describe: es un suceso dirigido a alguien que
+mira. Por eso pueden ir en relojes distintos sin que ninguno mienta.
+
+Efecto secundario aceptado: en un día de campeonato el rótulo aparece durante
+el paseo y el confeti llega al parar, así que el texto anuncia la fiesta antes
+de que ocurra. Al pulsar parar el tutor está mirando la pantalla, que es la
+condición que hace que el confeti valga algo.
+
+## Lo que queda por decidir al construirlo
+
+- La duración y la curva del pulso.
+- Qué hace el cierre cuando la barra ya está en Aqua: le queda convertir la
+  banda de la segunda vuelta, y nada más.
+- Si el pulso se reduce a una sustitución instantánea bajo "quitar animaciones".
