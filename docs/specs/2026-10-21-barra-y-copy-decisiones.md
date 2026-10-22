@@ -47,22 +47,25 @@ sitios** — la leyenda, el rótulo de la barra y el nombre accesible de la
 celda. "10, día de campeonato" se lee bien. "Buen día" se descartó porque en
 el nombre de una celda suena a saludo.
 
-## 3. El rótulo, encima de la barra y siempre presente
+## 3. El rótulo se queda donde está
 
-El rótulo se mueve **encima** de la barra, entre la duración del día y la
-propia barra. Y **el hueco existe siempre**, haya objetivo alcanzado o no.
+**Enmendado el 22 de octubre.** El 21 se decidió subirlo encima de la barra y
+que su hueco existiera siempre. La mañana siguiente el tutor cerró la mitad
+que faltaba: **no se muestra nada un día que no alcanza ningún nivel** — "no
+hace falta mostrar nada cuando no hay nada que celebrar".
 
-**Por qué siempre:** si el hueco solo aparece al cruzar, la barra baja una
-línea justo en el instante en que se está animando el cierre — un salto de
-maquetación sobre la única animación medida frame a frame de este proyecto.
+Y sin hueco permanente, subirlo pierde su razón y conserva su coste: la barra
+bajaría una línea **justo en el instante en que se anima el cierre**, que es
+la única animación de este proyecto medida frame a frame. Así que el rótulo
+se queda debajo de la barra y solo aparece al cumplir. Solo cambian sus
+palabras, en el punto 2.
 
-**Lo que esa línea NO puede decir.** El tutor fue explícito: _esa sección no
-trata de lo que falta, sino de lo que llevas en el día._ Nada de "faltan 52
-min". **No hay máximo y no se empuja al tutor hacia el conformismo** — una
-cuenta atrás convierte el objetivo en un techo, y además sería el regaño que
-el TIER 0 existe para evitar.
-
-Queda por decidir qué dice la línea los días que aún no se ha llegado.
+**Lo que esto cerró, y conviene tenerlo escrito:** hoy, un día por debajo del
+objetivo no tiene ese rótulo oculto ni vacío — el nodo no se monta
+(`GoalBlock.tsx`, el ternario cierra en `null`). Subirlo con hueco permanente
+no habría sido mover un texto: habría sido inventar un estado que nunca ha
+existido, y con él una frase que decir los martes a las once con veinte
+minutos paseados. Esa frase ya no hace falta.
 
 ## 4. El degradado: descartado
 
