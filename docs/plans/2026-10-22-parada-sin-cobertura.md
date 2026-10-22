@@ -59,7 +59,7 @@
 
 `pressedAt` es un instante ISO y es **el dato que justifica todo**: es la hora en que el tutor pulsó, registrada por el teléfono. `minutes` ya se calculó contra ella, así que reproducir la intención no vuelve a mirar el reloj.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ts
 it("sobrevive a cualquier basura en el almacenamiento", () => {
@@ -78,21 +78,21 @@ it("va y vuelve del texto sin perder nada", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `npx jest lib/__tests__/pending.test.ts`
 Expected: FAIL — el módulo no existe.
 
-- [ ] **Step 3: Implement `lib/pending.ts`**
+- [x] **Step 3: Implement `lib/pending.ts`**
 
 Sigue el patrón de `lib/walk.ts`, que ya hace esto mismo para el paseo en curso: parseo defensivo, clave versionada, nada que lance.
 
-- [ ] **Step 4: Run to verify they pass**
+- [x] **Step 4: Run to verify they pass**
 
 Run: `npx jest lib/__tests__/pending.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/pending.ts lib/__tests__/pending.test.ts
@@ -119,7 +119,7 @@ Ahora: el toast y el temblor **se quedan** —el tutor debe saber que no hubo re
 
 **El orden importa y ya costó un defecto aquí:** la escritura en disco de la cola va **después** de los `set…`, por la misma razón que el comentario existente da para `setClosed` — un `await` entre dos actualizaciones rompe el lote de React y deja commitar un render a medias.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 test("una parada sin red deja el paseo guardado para después", async ({
@@ -132,19 +132,19 @@ test("una parada sin red deja el paseo guardado para después", async ({
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx playwright test e2e/home.spec.ts -g "guardado para después"`
 Expected: FAIL — hoy el control sigue siendo el de parar.
 
-- [ ] **Step 3: Encolar en la rama de error, y leer la cola al montar**
+- [x] **Step 3: Encolar en la rama de error, y leer la cola al montar**
 
-- [ ] **Step 4: Run the walk specs**
+- [x] **Step 4: Run the walk specs**
 
 Run: `npx playwright test e2e/home.spec.ts -g "guardado para después|paseo|stop|offline"`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "app/(tabs)/index.tsx" e2e/home.spec.ts
@@ -168,7 +168,7 @@ Esto es la actualización optimista, y sin ella la Task 2 es una regresión: hoy
 
 El bloque del objetivo lee un solo valor `Walked { minutes, walks }`. Los pendientes se suman ahí, antes de que el bloque lo vea, para que no haya dos sitios que puedan discrepar.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 test("la barra no retrocede cuando la parada se queda pendiente", async ({
@@ -180,19 +180,19 @@ test("la barra no retrocede cuando la parada se queda pendiente", async ({
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx playwright test e2e/home.spec.ts -g "no retrocede cuando la parada"`
 Expected: FAIL.
 
-- [ ] **Step 3: Sumar los pendientes al `Walked` del día**
+- [x] **Step 3: Sumar los pendientes al `Walked` del día**
 
-- [ ] **Step 4: Run the bar specs**
+- [x] **Step 4: Run the bar specs**
 
 Run: `npx playwright test e2e/home.spec.ts -g "no retrocede|barra|medida|objetivo"`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "app/(tabs)/index.tsx" e2e/home.spec.ts
