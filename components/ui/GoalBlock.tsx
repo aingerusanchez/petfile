@@ -138,6 +138,49 @@ const BAND_HEIGHT = 4;
 const CLOSE_MS = 760;
 
 /**
+ * How long the fill waits after the ground has turned, when the day crosses a
+ * tier with nothing drawn over the bar.
+ *
+ * **Crossing the goal is two substitutions, and landing them on one frame
+ * reads as a cut.** Confirmed on the tutor's walk: the ground gains colour
+ * (the empty track to Aqua) and the fill changes hue (Mist to Aurora Boreal)
+ * in the same paint, and the bar stops reading as one bar changing — it reads
+ * as a different bar. Each half on its own is legible; it is the simultaneity
+ * that is the defect.
+ *
+ * So they are **ordered in time rather than recoloured**: the ground turns
+ * first and the fill follows 150 ms later. Same two colours, same end state,
+ * read as a consequence instead of a cut.
+ *
+ * **Nothing travels and nothing fades**, which is this bar's own idiom — see
+ * `LAPS` and `CloseLapPaint`: a colour here is a `className` on a layer, and
+ * what changes is which layer is covering the pixel, never the value in it. A
+ * cross-fade would need a second full-width layer inside the track, which is
+ * exactly the shape the close's sampler reads as "the ground", and it would
+ * put back the travelling colour this file deliberately removed. There is no
+ * easing to choose because there is no interpolation: what changed is only
+ * that the two substitutions no longer land on the same frame.
+ *
+ * **It is not gated on `useReducedMotion` for the same reason.** Both halves
+ * are instant either way, so there is no movement to remove; the gap is how a
+ * reader of the bar tells which change caused which.
+ *
+ * **It cannot reach the close, and must not.** A close paints its own laps
+ * over the whole bar for `CLOSE_MS`, so these 150 ms are spent underneath an
+ * overlay — the tutor called that animation «genial, incluso cuando salta de
+ * tier», and it is untouched. What this reaches is every crossing the close
+ * is *not* covering: a walk written through the sheet, a reload bringing in
+ * the other tutor's, a goal edited under the day.
+ *
+ * **The ground still only ever reflects what is saved.** This orders a
+ * transition between two legitimate grounds; it never shows a tier the
+ * recorded minutes have not reached. The lag runs the safe way round — for
+ * 150 ms the fill wears the tier the day has just *left*, never the one it is
+ * heading for.
+ */
+const TURN_GAP_MS = 150;
+
+/**
  * The shake a failed start or stop gives the control: how long it takes, how
  * far it travels, and how many times it goes there and back.
  *
@@ -296,6 +339,11 @@ function lapFillAt(
  * bar is Aurora Boreal and there is nothing left to fill. `LAPS` is the
  * table, and the measure counts against the **top** tier — "3h de 4h" on a
  * 2 h goal.
+ *
+ * **Crossing a tier turns the ground first and the fill a beat after it**,
+ * because the two landing together read as a cut rather than as one bar
+ * changing. `TURN_GAP_MS` carries the whole argument, including why it leaves
+ * the close alone.
  *
  * **A day landing exactly on the goal has an empty fill, and that is the
  * rule rather than a rounding slip.** It is the foot of lap two, not the head
@@ -633,6 +681,25 @@ export function GoalBlock({
   const met = progress !== null && state.tier >= 1;
   const metX2 = progress !== null && state.tier === 2;
   /**
+   * The tier the **fills** are wearing, which trails the ground's by
+   * `TURN_GAP_MS` across a crossing.
+   *
+   * **State and a timer, because the thing being staged is which tone the
+   * layers carry, not a number to interpolate.** It starts at whatever tier
+   * the block mounts on, so landing on the screen, paging to another day and
+   * a reload all paint the day they find with no turn at all — a crossing is
+   * a tier changing *under* a mounted block, which is the only time there is
+   * anything to sequence.
+   */
+  const [toned, setToned] = useState<0 | 1 | 2>(state.tier);
+  const tier = state.tier;
+
+  useEffect(() => {
+    if (toned === tier) return;
+    const timer = setTimeout(() => setToned(tier), TURN_GAP_MS);
+    return () => clearTimeout(timer);
+  }, [toned, tier]);
+  /**
    * **The control is a stop as soon as the caller has one, not as soon as the
    * row has arrived.** A start writes the row and asks for a reload, and
    * `walkingSince` comes out of that row — so between the two there is a walk
@@ -679,7 +746,15 @@ export function GoalBlock({
    * saved, and a walk left running by mistake can never disguise itself as a
    * finished day.
    */
+  /**
+   * **Two rows of `LAPS` for one tier, and only across a crossing.** The
+   * ground is read at the tier the day is on, now; the fills are read at
+   * `toned`, which is the same tier except for the `TURN_GAP_MS` after a
+   * crossing. The *widths* all come from `state` either way — nothing waits,
+   * nothing moves twice, and the end state is the one row it always was.
+   */
   const lap = LAPS[state.tier];
+  const fillLap = LAPS[toned];
   const recorded = state.tier === 2 ? 0 : state.fill;
   /**
    * Where the walk in progress has carried the day, on the same scale.
@@ -707,7 +782,7 @@ export function GoalBlock({
    * edge. Capped at one lap ahead — past the top there is nothing further to
    * show, which is the same cap the recorded fill keeps.
    */
-  const overLap = LAPS[Math.min(state.tier + 1, 2)];
+  const overLap = LAPS[Math.min(toned + 1, 2)];
   const lapping =
     live !== null && lapped
       ? live.tier > state.tier + 1
@@ -922,7 +997,7 @@ export function GoalBlock({
             <View
               testID={testID ? `${testID}-bar` : undefined}
               style={{ width: `${recorded}%` }}
-              className={`h-[4px] ${lap.saved}`}
+              className={`h-[4px] ${fillLap.saved}`}
             />
             {inProgress > 0 ? (
               // Static, and hidden from a reader: the measure already says
@@ -934,7 +1009,7 @@ export function GoalBlock({
                 importantForAccessibility="no-hide-descendants"
                 aria-hidden
                 style={{ width: `${inProgress}%` }}
-                className={`h-[4px] ${lap.live}`}
+                className={`h-[4px] ${fillLap.live}`}
               />
             ) : null}
             {lapping > 0 ? (

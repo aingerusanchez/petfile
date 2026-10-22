@@ -1958,6 +1958,131 @@ test("a day at exactly double is violet throughout, with nothing over it", async
   );
 });
 
+/**
+ * Samples the bar's two tones on every frame for `ms`, with the clock.
+ *
+ * **The crossing is the one thing on this bar that cannot be asserted
+ * settled.** Before and after are the same picture whether the two
+ * substitutions landed together or a beat apart, so what has to be caught is
+ * the frame in between — the ground already turned and the fill not yet. The
+ * timestamps come from the page's own clock rather than from Playwright's,
+ * because the gap being measured is shorter than a round trip.
+ */
+function toneFrames(page: Page, ms: number) {
+  return page.evaluate(
+    ([sampleMs]) =>
+      new Promise<
+        { t: number; ground: string; fill: string; closing: boolean }[]
+      >((resolve) => {
+        const hex = (css: string): string => {
+          const rgb = (css.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+          if (rgb.length < 3) return "";
+          return `#${rgb
+            .map((v) => v.toString(16).padStart(2, "0"))
+            .join("")}`.toUpperCase();
+        };
+        const tone = (id: string) => {
+          const el = document.querySelector(`[data-testid="${id}"]`);
+          return el ? hex(getComputedStyle(el).backgroundColor) : "";
+        };
+        const frames: {
+          t: number;
+          ground: string;
+          fill: string;
+          closing: boolean;
+        }[] = [];
+        const began = performance.now();
+        const step = () => {
+          frames.push({
+            t: performance.now() - began,
+            ground: tone("home-goal-ground"),
+            fill: tone("home-goal-bar"),
+            closing:
+              document.querySelector('[data-testid="home-goal-close"]') !==
+              null,
+          });
+          if (performance.now() - began >= sampleMs) {
+            resolve(frames);
+            return;
+          }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }),
+    [ms] as const,
+  );
+}
+
+/**
+ * **Two substitutions on one frame read as a cut, and that was the defect.**
+ *
+ * Crossing the goal turns the ground (the empty track to Aqua) and changes
+ * the fill's hue (Mist to Aurora Boreal). Each is legible on its own; landing
+ * together they stop reading as one bar changing and start reading as a
+ * different bar. The close covers its own crossing — the tutor called that
+ * animation genial — so the crossing this watches is one the close is not
+ * covering: a walk written through the sheet, where nothing is drawn over the
+ * bar at all.
+ */
+test("turns the ground a beat before the fill when the goal is crossed", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **On yesterday, where a fixed morning hour has already happened.** The
+  // crossing has to be driven by two saves on one day without the block
+  // remounting between them, and the second save is what carries 60 of 120
+  // over the goal to 150 — lap two at a quarter.
+  await resetE2EPets();
+  await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("10:00");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("1h de 4h");
+  expect(await groundColour(page)).toBe(colors.surface);
+  expect(await fillColour(page)).toBe(colors.textSecondary);
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("10:00");
+  await page.getByTestId("entry-to").fill("11:30");
+
+  const sampling = toneFrames(page, 4_000);
+  await page.getByTestId("entry-save").click();
+  const frames = await sampling;
+
+  // Nothing was drawn over the bar: this is the bare crossing, not the close.
+  expect(frames.filter((f) => f.closing).length).toBe(0);
+
+  const turned = frames.findIndex((f) => f.ground === colors.accent);
+  const followed = frames.findIndex((f) => f.fill === colors.accentFocus);
+  expect(turned, "the ground should reach Aqua").toBeGreaterThanOrEqual(0);
+  expect(followed, "the fill should reach Aurora Boreal").toBeGreaterThan(
+    turned,
+  );
+
+  // **The frame in between is the whole spec.** On the frame the ground turns
+  // the fill is still wearing lap one's Mist, and it keeps wearing it for
+  // about 150 ms — long enough to be read as a consequence of the ground
+  // turning rather than as part of the same cut.
+  expect(frames[turned].fill).toBe(colors.textSecondary);
+  const gap = frames[followed].t - frames[turned].t;
+  expect(gap).toBeGreaterThan(80);
+  expect(gap).toBeLessThan(500);
+
+  // Same end state as before: Aqua under a quarter-lap of violet.
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "2h 30m de 4h",
+  );
+  expect(await groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+});
+
 test("re-reads every tier when the goal is edited under a running walk", async ({
   page,
 }) => {
