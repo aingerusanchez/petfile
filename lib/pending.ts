@@ -62,8 +62,11 @@ function parseStop(value: unknown): PendingStop | null {
  * Each one is validated on its own by `parseStop`, so a survivor is well-formed
  * by definition — keeping it is not keeping something suspect. Emptying the
  * queue over one bad element would throw away every valid stop beside it, and
- * a pending stop is a walk the tutor already took: nothing here is discarded
- * in silence, least of all the many for the sake of the one.
+ * a pending stop is a walk the tutor already took, so the many are not thrown
+ * away for the sake of the one. **The bad element itself does go, quietly**,
+ * and that is the one place this module parts company with the rule that
+ * nothing is discarded in silence — an element that cannot be read cannot be
+ * announced either, because there is nothing left in it to name.
  *
  * A bad element is close to impossible, and that is why this is defensive
  * rather than expected: the key is versioned (`petfile.pending.v1`), so a
