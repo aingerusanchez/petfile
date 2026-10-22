@@ -54,12 +54,9 @@
   export function withoutStop(queue: PendingStop[], id: string): PendingStop[];
   export function pendingMinutes(queue: PendingStop[]): number;
   export function pendingWalks(queue: PendingStop[]): number;
-  export function agedPending(item: PendingStop, now: Date): boolean;
   ```
 
 `pressedAt` es un instante ISO y es **el dato que justifica todo**: es la hora en que el tutor pulsó, registrada por el teléfono. `minutes` ya se calculó contra ella, así que reproducir la intención no vuelve a mirar el reloj.
-
-`agedPending` es `true` pasadas **seis horas**. No es un plazo para rendirse: es cuándo la marca deja de ser discreta, porque el tutor abre la app varias veces al día y seis horas pendiente significa que los reintentos están fallando una y otra vez.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -74,9 +71,6 @@ it("una segunda parada del mismo paseo sustituye a la primera", () => {
 it("suma los minutos pendientes y cuenta los paseos", () => {
   // dos close de 30 y 12 y un delete → pendingMinutes 42, pendingWalks 2.
   // Un delete no aporta minutos ni cuenta como paseo: no habrá fila.
-});
-it("una parada envejece a las seis horas", () => {
-  // 5 h 59 min → false; 6 h 1 min → true.
 });
 it("va y vuelve del texto sin perder nada", () => {
   // parsePending(serialisePending(q)) es igual a q.
@@ -215,23 +209,19 @@ git commit -m "feat(home): los minutos pendientes son minutos del día"
 
 **Interfaces:**
 
-- Consumes: `agedPending` de Task 1; el estado `pending` de Task 2.
+- Consumes: el estado `pending` de Task 2.
 
 Hoy, tras una parada fallida, la fila dice **`En marcha`** — y eso ya es mentira: el tutor la paró. Con la cola, la fila muestra su duración como cualquier otra y lleva una marca de que no está subida.
 
-**La marca:** un glifo `CloudOff` de Lucide donde se dibuja la marca de la kaka, en `text-muted`. Pasadas las seis horas (`agedPending`) pasa a `text-warning` — el mismo tono que el calendario usa para un día que pedía atención.
+**La marca, decidida sobre el prototipo del tablero (opción B).** Un glifo `CloudOff` de Lucide **delante del título**, en `text-warning`, dentro de la misma línea que la palabra. Nada más cambia de tono.
 
-**Y la fila entera baja un escalón de la escala de texto**: el título de `text-primary` a `text-secondary`, el detalle y la hora de `text-secondary` y `text-tertiary` a `text-tertiary` y `text-muted`. Eso dice «provisional» en un idioma que la app ya habla, y los contrastes aguantan de sobra (12,6:1 y 6,5:1).
+**Va delante del título y no en el borde derecho**, que es donde vive la marca de la kaka. Esa marca habla del **paseo**; esta habla del **registro**. Pegada al título se lee como una propiedad de la fila en vez de un dato del animal.
 
-**Un fondo distinto se consideró y se descarta.** Convertiría la fila en otro tipo de cosa, y eso contradice la actualización optimista: el paseo ocurrió y casi con seguridad se subirá. Atenuar dice lo mismo sin gritarlo.
+**Sin estado envejecido.** Se consideró y se descartó: _el problema es que no se ha sincronizado, no desde cuándo_. Con eso desaparecen `agedPending`, la condición del color y la variante del texto hablado.
 
-**El riesgo de atenuar, para el repaso en el teléfono:** puede leerse como «desactivado» en vez de «pendiente», y el paseo sí ocurrió.
+**Y la opción A se descartó con una medición.** Atenuar la fila entera exigía bajar la hora a `text-muted`, que mide **3,96:1** y falla AA; subirla a `text-tertiary` para que se lea deja el escalón en 17,19:1 → 12,68:1, una diferencia que existe en la tabla y casi no en la pantalla.
 
-**El plan B, acordado con el tutor:** si en pantalla pesa demasiado, se quita el escalón de atenuado y el glifo pasa a `text-warning` **desde el principio** en vez de solo al envejecer. Es una clase menos en cada nodo y una condición menos.
-
-Tiene un coste que hay que resolver si se toma: **colapsa los dos estados en uno**. Hoy el glifo distingue pendiente (apagado) de envejecido (ámbar); con el plan B ambos son ámbar y «lleva seis horas sin subir» se queda sin portador visual. Quedaría solo en el nombre accesible, o habría que darle otro — un segundo glifo, o la palabra en la fila. **Decidirlo al tomar el plan B, no después.**
-
-**Un icono no es una razón**, así que la palabra va en el nombre accesible: la fila añade `no sincronizado`, y `no sincronizado desde hace N horas` cuando ha envejecido. Es el texto más técnico de la app y es deliberado: se dice en voz alta, y ahí importa más que quede claro que falta una subida —no que se haya perdido un dato— que el tono de la casa.
+**Un icono no es una razón**, así que la palabra va en el nombre accesible: la fila añade `no sincronizado`. Es el texto más técnico de la app y es deliberado: se dice en voz alta, y ahí importa más que quede claro que falta una subida —no que se haya perdido un dato— que el tono de la casa.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -283,6 +273,8 @@ git commit -m "feat(home): un paseo sin subir lo dice"
     queue: PendingStop[],
   ): Promise<{ left: PendingStop[]; rejected: PendingStop[] }>;
   ```
+
+**Sin reintento manual, y la razón no es que ya haya disparadores.** Un botón solo ayuda si los automáticos no se están disparando; si se disparan y fallan, pulsarlo hace lo mismo y falla igual, porque el problema es la red. Lo que lo reabriría es ver la marca sobrevivir a varias aperturas de la app con cobertura — y entonces el arreglo serían los disparadores, no un botón.
 
 **Tres disparadores, ninguno es un detector de red:** volver a la app (`AppState`), cualquier lectura del día que termine bien, y el `Reintentar` del registro. Los tres son momentos en que hay motivo para creer que la red ha vuelto.
 
