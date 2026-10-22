@@ -1,7 +1,7 @@
 # El diario está al día cuando vuelves a él — diseño
 
-**Estado:** acordado con el tutor el 22 de octubre de 2026, después de que él y
-su pareja detectaran el fallo en uso. Sin construir.
+**Estado:** construido en v0.22.0. Acordado con el tutor el 22 de octubre de
+2026, después de que él y su pareja detectaran el fallo en uso.
 
 ## El fallo, contado como lo contó quien lo sufre
 
@@ -60,14 +60,20 @@ desactualizado se ve exactamente igual que uno al día: no hay hueco, no hay
 marca, no hay nada que haga sospechar. El gesto sirve cuando ya sospechas; la
 relectura al volver existe para los días en que no.
 
-## Lo que este documento no decide
+## Lo que este documento no decidía, y ya está decidido
 
-- Si la relectura al volver muestra algún indicio mientras ocurre, o es
-  silenciosa.
-- Qué hace el gesto cuando la lectura falla — presumiblemente lo mismo que
-  cualquier otra lectura fallida, que ya tiene su región de error y su
-  Reintentar.
-- Si el gesto alcanza también a Salud y a Perfil, o solo al diario.
+- **La relectura al volver es silenciosa.** Las filas se quedan en pantalla
+  mientras se lee; un esqueleto cada vez que la app vuelve al frente sería
+  peor que el fallo. El indicador lo pone el gesto, que es el suyo propio.
+- **Una lectura fallida se comporta como cualquier otra lectura fallida:** el
+  registro tiene su región de error y su Reintentar, y no se añade nada.
+- **El gesto es solo del diario.** Ni Salud ni Perfil: el problema medido está
+  en el día, que es lo que el otro teléfono escribe mientras este duerme.
+
+Una consecuencia que conviene saber: **los tratamientos no se releen al
+volver.** Cuelgan de `useFocusEffect`, que responde a la navegación entre
+pestañas y no al ciclo de vida de la app, así que volver del segundo plano no
+los toca. El gesto sí, porque llama a lo mismo que el Reintentar.
 
 ## Relación con el guardado local del paseo
 
