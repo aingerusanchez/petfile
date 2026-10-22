@@ -225,7 +225,11 @@ Hoy, tras una parada fallida, la fila dice **`En marcha`** — y eso ya es menti
 
 **Un fondo distinto se consideró y se descarta.** Convertiría la fila en otro tipo de cosa, y eso contradice la actualización optimista: el paseo ocurrió y casi con seguridad se subirá. Atenuar dice lo mismo sin gritarlo.
 
-**El riesgo de atenuar, para el repaso en el teléfono:** puede leerse como «desactivado» en vez de «pendiente», y el paseo sí ocurrió. Si en pantalla pesa demasiado, el escalón se quita y se queda solo el glifo — es una clase menos en cada nodo.
+**El riesgo de atenuar, para el repaso en el teléfono:** puede leerse como «desactivado» en vez de «pendiente», y el paseo sí ocurrió.
+
+**El plan B, acordado con el tutor:** si en pantalla pesa demasiado, se quita el escalón de atenuado y el glifo pasa a `text-warning` **desde el principio** en vez de solo al envejecer. Es una clase menos en cada nodo y una condición menos.
+
+Tiene un coste que hay que resolver si se toma: **colapsa los dos estados en uno**. Hoy el glifo distingue pendiente (apagado) de envejecido (ámbar); con el plan B ambos son ámbar y «lleva seis horas sin subir» se queda sin portador visual. Quedaría solo en el nombre accesible, o habría que darle otro — un segundo glifo, o la palabra en la fila. **Decidirlo al tomar el plan B, no después.**
 
 **Un icono no es una razón**, así que la palabra va en el nombre accesible: la fila añade `no sincronizado`, y `no sincronizado desde hace N horas` cuando ha envejecido. Es el texto más técnico de la app y es deliberado: se dice en voz alta, y ahí importa más que quede claro que falta una subida —no que se haya perdido un dato— que el tono de la casa.
 
