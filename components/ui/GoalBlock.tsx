@@ -282,10 +282,10 @@ const LAPS = [
  *
  * **Decided once, from `closeMotion`'s own two endpoints**, rather than read
  * from props as it runs: the reload lands somewhere inside these 760 ms and
- * moves `walked` underneath, and an animation that re-read the laps
- * would change its mind about which ground it was heading for mid-gesture.
- * The id is carried so a second close inside the window is a new animation
- * rather than a reconciliation into the first one's shared value.
+ * moves `walked` underneath, and an animation that re-read the laps would
+ * change its mind about which ground it was heading for mid-gesture. The id
+ * is carried so a second close inside the window is a new animation rather
+ * than a reconciliation into the first one's shared value.
  */
 type ClosePaint = {
   id: string;
@@ -563,9 +563,9 @@ export function GoalBlock({
    *
    * **The fill no longer waits for the reload, so something has to hold its
    * end.** `closeMotion` knows where the bar lands the moment the server
-   * accepts; `walked` learns it when the day's rows come back, which
-   * may be after the animation has finished, or never. Holding the total the
-   * close ended on is what makes the handover invisible in both directions: a
+   * accepts; `walked` learns it when the day's rows come back, which may be
+   * after the animation has finished, or never. Holding the total the close
+   * ended on is what makes the handover invisible in both directions: a
    * slower reload moves nothing on arrival, a faster one does not restart the
    * fill, and a reload that fails leaves the bar where the fill left it
    * rather than snapping back — the failure is the toast's job, not the
@@ -668,12 +668,12 @@ export function GoalBlock({
 
   const running = walkingSince ? elapsedMinutes(walkingSince, now) : 0;
   /**
-   * **The day's recorded minutes as this block will speak them, once**: the
-   * rows', or the close's hold while it is ahead of them, or null when
-   * neither knows. Everything the block says about the day is read off this
-   * one number — the measure's words, the bar's width, the tone of its ground
-   * and whether `Día cumplido` appears — so the two cannot disagree by
-   * construction rather than by discipline.
+   * **The day as this block will speak it, once**: the rows', or the close's
+   * hold while it is ahead of them, or null when neither knows. Everything
+   * the block says about the day is read off this one value — the measure's
+   * words, both halves of them, the bar's width, the tone of its ground and
+   * whether `Día cumplido` appears — so they cannot disagree by construction
+   * rather than by discipline.
    *
    * That is the second half of the same defect. The bar already read the
    * hold and the measure read the rows, so for the length of an ordinary
@@ -681,9 +681,9 @@ export function GoalBlock({
    * could stand a few hundred milliseconds above a number that did not
    * justify it. On a reload that never came the gap never closed.
    *
-   * **The hold is in minutes, not in a place**, so a goal edited while it
-   * stands is read on the new scale rather than pinning the bar to a
-   * proportion of a goal that no longer exists.
+   * **The hold is in minutes and walks, not in a place**, so a goal edited
+   * while it stands is read on the new scale rather than pinning the bar to
+   * a proportion of a goal that no longer exists.
    */
   const shown: Walked | null =
     held !== null && (walked === null || held.walked.minutes > walked.minutes)
