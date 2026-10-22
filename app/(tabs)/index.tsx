@@ -4,6 +4,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  CloudOff,
   Footprints,
   Pill,
   TriangleAlert,
@@ -1040,6 +1041,20 @@ export default function Home() {
    */
   const pendingHere = pendingForDay(pending, events);
   /**
+   * The same stops, addressed by the row they belong to, so a row can say it
+   * is not uploaded yet and say how long it was.
+   *
+   * **Built from `pendingHere` and from nothing else**, which is the whole
+   * point of it being here rather than in `Entry`. A pending row has no
+   * length on the server — the close never landed — so the minutes it shows
+   * can only come from the queue, and the total under it is summed from this
+   * very list. A row that read the raw queue instead would keep showing its
+   * own number for a walk the other tutor had already closed, while the
+   * measure counted the server's: the one disagreement this screen must not
+   * be able to have.
+   */
+  const pendingById = new Map(pendingHere.map((stop) => [stop.id, stop]));
+  /**
    * The day's minutes, **the stops still waiting to be uploaded included**.
    *
    * This is the optimistic update, and it is not decoration. A stop that
@@ -1727,6 +1742,7 @@ export default function Home() {
               key={event.id}
               event={event}
               running={event.id === runningWalk?.id}
+              pending={pendingById.get(event.id) ?? null}
               onPress={() =>
                 setEditing({ kind: event.kind as EventKind, event })
               }
@@ -1917,16 +1933,49 @@ function TreatmentEntry({
  * The whole row is the target, because the row is what the tutor is thinking
  * about. It opens the sheet it was created from — which is also where its
  * delete lives: a delete in the list is a mis-tap waiting for a scroll.
+ *
+ * **A stop that has not reached the server yet is marked, and the row is
+ * otherwise an ordinary row.** It says its length like any other — the length
+ * the queue is holding, since the server has none — because the tutor stopped
+ * this walk and a row still reading `En marcha` would be a lie about an act
+ * they performed. The mark says the only thing that is actually outstanding:
+ * the upload.
+ *
+ * **The glyph goes in front of the title, not at the right edge.** The right
+ * edge is where the stool marks live, and those speak about the *walk*; this
+ * one speaks about the *record*. Against the title it reads as a property of
+ * the row rather than a fact about the animal.
+ *
+ * **Nothing else changes tone, and there is no aged state.** Dimming the row
+ * was drawn and dropped on a measurement — it needed the time at `text-muted`,
+ * which is 3.96:1 and fails AA, and lifting it to `text-tertiary` left a step
+ * of 17.19:1 → 12.68:1 that exists in the table and not on the screen. A
+ * six-hour amber escalation was drawn and dropped too: the problem is that it
+ * has not synced, not since when.
+ *
+ * **An icon is never a reason**, so the word is in the accessible name:
+ * `no sincronizado`. It is the most technical string in the app and that is
+ * deliberate — it is spoken aloud, and there it matters more that a tutor
+ * knows an upload is outstanding than that the sentence sounds like the
+ * household.
  */
 function Entry({
   event,
   onPress,
   running = false,
+  pending = null,
 }: {
   event: PetEventRow;
   onPress: () => void;
   /** The walk this device has open: no length yet, and it is still going. */
   running?: boolean;
+  /**
+   * The stop this device is holding for this row, if it is holding one.
+   *
+   * It arrives from the day rather than being looked up here, because the
+   * day's total is summed from the same list: see `pendingById`.
+   */
+  pending?: PendingStop | null;
 }) {
   const { settings } = useSettings();
   const spec = KINDS[event.kind as EventKind];
@@ -1939,9 +1988,17 @@ function Entry({
   // **A running walk says "En marcha" and nothing else.** The goal block owns
   // the clock and ticks it on its own; a second counter here would only
   // refresh when this screen re-rendered, and the two would disagree.
+  //
+  // **A pending close states the queue's minutes**, because the row has none:
+  // the server never heard the close. `spec.describe` would read the row's
+  // null and say nothing, leaving a stopped walk with a blank where its
+  // length belongs. A pending *delete* carries no minutes and gets nothing,
+  // which is the same silence the day's total keeps about it.
   const described = running
     ? "En marcha"
-    : spec?.describe(event, settings.durationFormat);
+    : pending?.kind === "close"
+      ? formatDuration(pending.minutes, settings.durationFormat)
+      : spec?.describe(event, settings.durationFormat);
   const stools = readStools(event.details);
   const Icon = spec?.icon;
 
@@ -1950,11 +2007,17 @@ function Entry({
       testID={`home-entry-${event.id}`}
       onPress={onPress}
       accessibilityRole="button"
+      // **`no sincronizado` goes last, though the glyph goes first.** The
+      // mark leads visually because the eye needs somewhere to catch; a
+      // sentence that opened on the exception would announce the fault before
+      // naming the thing it is about. Said after the walk's own facts, it
+      // reads as what it is: a note about this record.
       accessibilityLabel={[
         spec?.label ?? event.kind,
         time,
         described,
         describeStools(stools),
+        pending ? "no sincronizado" : null,
       ]
         .filter(Boolean)
         .join(", ")}
@@ -2006,9 +2069,24 @@ function Entry({
         ) : null}
       </View>
       <View className="flex-1">
-        <Text className="font-semibold text-text-primary">
-          {spec?.label ?? event.kind}
-        </Text>
+        <View className="flex-row items-center gap-1.5">
+          {pending ? (
+            // Decorative: the row's name says the word, so a reader who
+            // cannot see this has already been told.
+            <View
+              testID={`home-entry-pending-${event.id}`}
+              className="shrink-0"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              aria-hidden
+            >
+              <CloudOff size={16} strokeWidth={2} color={colors.warning} />
+            </View>
+          ) : null}
+          <Text className="shrink font-semibold text-text-primary">
+            {spec?.label ?? event.kind}
+          </Text>
+        </View>
         {described ? (
           // **A running walk's state takes the accent**, like the time and the
           // glyph beside it: all three say the same thing, and one of them

@@ -1505,6 +1505,8 @@ async function typeWalk(page: Page, end: Date, minutes: number) {
  * behind it has to be handed it: the row is seeded and the device's own note
  * of which walk is running — the key and shape `lib/walk.ts` writes — is
  * planted before the page loads.
+ *
+ * Returns the row's id, for the specs that have to address that one row.
  */
 async function seedRunningWalk(page: Page, petId: string, startedAt: Date) {
   const [id] = await seedE2EEvents(petId, [
@@ -1514,6 +1516,7 @@ async function seedRunningWalk(page: Page, petId: string, startedAt: Date) {
     ([key, value]) => window.localStorage.setItem(key, value),
     ["petfile.walk.v1", JSON.stringify({ id })] as const,
   );
+  return id;
 }
 
 test("starts a walk and stops it from the goal block", async ({ page }) => {
@@ -3822,6 +3825,59 @@ test("la barra no retrocede cuando la parada se queda pendiente", async ({
     62,
     120,
   );
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **La fila deja de decir `En marcha` en cuanto el tutor la para**, aunque el
+ * cierre no haya subido — eso ya sería mentira. Dice su duración como
+ * cualquier otra fila, y la que dice es la que la cola guardó: los mismos
+ * minutos que la medida del día ya está contando.
+ *
+ * **Solo se cortan las escrituras**, que es lo que hace esta prueba valer algo:
+ * la relectura llega y devuelve la fila tal y como el servidor la tiene —
+ * abierta y sin duración—, así que los 30 minutos que la fila enseña no pueden
+ * venir de ella.
+ *
+ * Y la marca no viaja sola: un icono no es una razón, así que la palabra está
+ * en el nombre que se dice en voz alta.
+ */
+test("un paseo sin subir lleva su marca y dice por qué", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const now = new Date();
+  const running = new Date(now.getTime() - 30 * 60_000);
+  test.skip(running.getDate() !== now.getDate(), "30 minutes ago is yesterday");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const walkId = await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  const row = page.getByTestId(`home-entry-${walkId}`);
+  await expect(row).toContainText("En marcha");
+  // Nada que marcar mientras el paseo corre: no falta ninguna subida.
+  await expect(page.getByTestId(`home-entry-pending-${walkId}`)).toHaveCount(0);
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    ["PATCH", "DELETE"].includes(route.request().method())
+      ? route.abort()
+      : route.continue(),
+  );
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+
+  // Ya no está en marcha, porque el tutor la paró, y lo que dice en su lugar
+  // es su duración — la misma que la medida, que es el punto.
+  await expect(row).not.toContainText("En marcha");
+  await expect(row).toContainText("30 min");
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+  await expect(page.getByTestId(`home-entry-pending-${walkId}`)).toBeVisible();
+  await expect(row).toHaveAttribute("aria-label", /no sincronizado/);
+
   await page.unroute("**/rest/v1/pet_events*");
 });
 
