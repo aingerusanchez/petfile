@@ -5489,12 +5489,19 @@ test("keeps the diary on screen when the re-read on return fails", async ({
   await page.route(supabase, (route) => route.abort());
   await comeBackToTheApp(page);
   await petReadGaveUp;
+  // `failedReads` resolves on the `requestfailed` event, which is ahead of
+  // the rejection reaching React. Two of the three assertions below are
+  // absences, and an absence passes trivially against a screen that has not
+  // re-rendered yet — so settle first, as every sibling asserting an absence
+  // after a failed read does.
+  await page.waitForTimeout(750);
 
   // **Nobody pressed anything.** The tutor opened their phone, and what was
   // already loaded is still true: a read they did not ask for coming back
   // empty-handed is no reason to take the day away from them. A failed
-  // *navigation* still shows the error — that is the ‹ pressed offline, two
-  // tests above — and so does the gesture, because that one was asked for.
+  // *navigation* still shows the error — `says the day could not be loaded
+  // when ‹ is pressed offline, and recovers` — and so does the gesture,
+  // because that one was asked for.
   await expect(page.getByTestId("home-log")).toContainText(
     "Pienso de la mañana",
   );
@@ -5502,6 +5509,96 @@ test("keeps the diary on screen when the re-read on return fails", async ({
   await expect(page.getByTestId("home-goal-measure")).not.toHaveText(
     "Sin datos del día",
   );
+  await page.unroute(supabase);
+});
+
+/**
+ * **An unasked read may not weaken a read somebody asked for.**
+ *
+ * The overlap, which is the whole of the precedence rule: a walk is started,
+ * the server accepts it, the reload that has to confirm it is in flight — and
+ * the phone comes out of a pocket in the middle of it, which re-reads the day
+ * on its own. The run doing the confirming is cancelled and another takes its
+ * place; if that one counted as "nobody asked", the diary would be kept over
+ * a walk the screen does not know about: no row, no message, no Reintentar,
+ * and the control disabled over `En marcha…` for a walk nobody can stop.
+ *
+ * The control arm of this is `offers Reintentar when a walk was started and
+ * the reload cannot confirm it`, which is the same test without the return.
+ * The return has to land **after** the write is accepted — hence the wait on
+ * the reload's own first failed read — or it precedes the reload entirely and
+ * proves nothing.
+ */
+test("keeps the unconfirmed write's error when the app returns mid-reload", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const pets = /\/rest\/v1\/pets\b/;
+  await page.route(pets, (route) => route.abort());
+  const reloadStarted = failedReads(page, pets, 1);
+  const gaveUp = failedReads(page, pets, 8);
+  await page.getByTestId("home-goal-control").click();
+  await reloadStarted;
+  await comeBackToTheApp(page);
+  await gaveUp;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "Sin datos del día",
+  );
+
+  // And the way out still works, with the walk the server has been holding.
+  await page.unroute(pets);
+  await page.getByTestId("home-log-retry").click();
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(1);
+});
+
+/**
+ * The same keep on the other half of the read: the pet answers and the day
+ * does not. It is a separate branch in the code and it needs its own test,
+ * because the spec above cuts everything and never reaches it — the pet read
+ * fails first. Shaped on `says the day could not be loaded going back
+ * offline, when the first failure was only the log`, which cuts the entries
+ * alone.
+ */
+test("keeps the diary when only the entries fail on the return", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "meal", occurredAt: new Date(), what: "Pienso de la tarde" },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Pienso de la tarde",
+  );
+
+  const events = /\/rest\/v1\/pet_events\b/;
+  const eventsGaveUp = failedReads(page, events, 4);
+  await page.route(events, (route) => route.abort());
+  await comeBackToTheApp(page);
+  await eventsGaveUp;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Pienso de la tarde",
+  );
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await page.unroute(events);
 });
 
 test("offers the pull-to-refresh on the diary and nowhere else", async ({

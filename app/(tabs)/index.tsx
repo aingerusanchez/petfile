@@ -525,25 +525,45 @@ export default function Home() {
    * test written above cannot answer for that case, because there is no
    * action to have come back with an error: the tutor pressed nothing, they
    * opened their phone. So it is decided in the day effect, from whether
-   * anything actually asked for the run (see `unasked`), and this flag keeps
-   * meaning exactly what it says. Keeping it a separate question is also what
-   * makes the two compose correctly: a run that an accepted write's reload
-   * asked for is an asked-for run even when a return to the foreground lands
-   * on top of it, and it still has to show that it could not confirm.
+   * anything actually asked for the run, and this flag keeps meaning exactly
+   * what it says.
+   *
+   * **This flag is per-bump and the day effect is what makes it survive one.**
+   * It is read and cleared at the top of the run it belongs to; if that run
+   * is cancelled before it answers, its terms live on in `unanswered` and the
+   * unasked read that replaced it inherits them. A *newer* bump does not
+   * inherit anything — it is the current truth, and the one thing that may
+   * never keep the diary is a reload following a write the server accepted.
    */
   const keepDiaryOnFailedRead = useRef(false);
   /**
-   * What the last run of the day read was reading, so the next one can tell
-   * whether anything asked for it.
+   * What the previous run of the day read was serving, so this one can tell
+   * whether a bump caused it or it is the unasked re-read.
    *
-   * A ref rather than state: it is the previous run's bookkeeping, nothing
-   * renders from it, and writing it from the effect is what keeps the
-   * comparison exactly one run deep.
+   * A ref rather than state: it is bookkeeping, nothing renders from it, and
+   * writing it at the top of the effect is what keeps the comparison exactly
+   * one run deep.
    *
-   * It starts on no day at all, so the first run — the one opening the
-   * screen asked for — counts as asked for.
+   * It starts on no day at all, so the first run — the one opening the screen
+   * asked for — counts as a bump.
    */
-  const lastRun = useRef({ attempt: 0, day: "" });
+  const lastRequest = useRef({ attempt: 0, day: "" });
+  /**
+   * The terms of the read in flight, until a run answers with a log.
+   *
+   * **A read that is cancelled has not answered, so what was asked of it is
+   * still outstanding.** Everything else here is keyed to a run, and a run
+   * is exactly the thing a foreground return destroys: it supersedes the
+   * read, inherits nothing, and the ask is gone. That is how v0.22.1 came to
+   * keep the diary over a walk the server had accepted — the reload that had
+   * to confirm it was cancelled one second in, and its replacement counted
+   * as "nobody asked". Measured: the control disabled over `En marcha…`, the
+   * day saying nothing happened, no message and no Reintentar.
+   *
+   * So the terms outlive the run and are cleared only when one commits a
+   * log. An unasked read inherits them; a bump replaces them.
+   */
+  const unanswered = useRef<{ asked: boolean; keep: boolean } | null>(null);
   /**
    * How many times a start or a stop has come back with an error. The goal
    * block shakes the control on each bump; a counter because two failures in
@@ -645,37 +665,45 @@ export default function Home() {
     const afterFailedAction = keepDiaryOnFailedRead.current;
     keepDiaryOnFailedRead.current = false;
     /**
-     * Whether anything asked for this run.
+     * Who asked for this read, and on what terms.
      *
-     * A press, a navigation or a reload moves `attempt` or the day; the
-     * return to the foreground moves neither, only `unasked`. **So a run is
-     * unasked only when nothing else asked for it** — and when both land
-     * together, the asked-for reason wins, which is what stops a return to
-     * the app from masking a reload that has a write to confirm.
+     * **What was already loaded is still true**, so a read that fails may be
+     * kept quiet — but only when nobody is waiting to be told. v0.15.0 spent
+     * four rounds on the version of this that arrives after a failed action;
+     * v0.22.0 brought it back by a worse road, where the tutor had pressed
+     * nothing at all and coming back to the app with no coverage cost them
+     * the day.
+     *
+     * A press, a navigation, `Reintentar` and the pull gesture all move
+     * `attempt` or the day. The return to the foreground moves neither, only
+     * `unasked`. So a bump is somebody asking, and a run with no bump behind
+     * it is the unasked re-read — **except that it may be standing in for a
+     * run it cancelled, and then it is bound by that run's terms.** That is
+     * what `unanswered` carries, and it is the whole of the precedence rule:
+     *
+     * - bump, nothing outstanding → asked, keep only if the action failed;
+     * - bump on top of an outstanding read → the newer ask is the truth, and
+     *   the outstanding terms are dropped with it (a start that failed and
+     *   was pressed again successfully must show that it could not confirm);
+     * - no bump, nothing outstanding → the unasked re-read: keep;
+     * - no bump, outstanding → inherit, so a return to the foreground cannot
+     *   turn an accepted write's reload, a day change or the gesture into a
+     *   read nobody asked for;
+     * - no bump, outstanding from a failed action → inherit the keep too,
+     *   which is the same answer the failed action would have got alone;
+     * - two returns in a row → neither bumps and nothing is outstanding:
+     *   both unasked, both keep.
      */
-    const asked =
-      attempt !== lastRun.current.attempt ||
-      dayKey(day) !== lastRun.current.day;
-    lastRun.current = { attempt, day: dayKey(day) };
-    /**
-     * **What was already loaded is still true.**
-     *
-     * The rows on screen were correct a minute ago and nothing has happened
-     * since except a read, which failed. v0.15.0 spent four rounds on the
-     * version of this that arrives after a failed action; v0.22.0 brought it
-     * back by a worse road, where the tutor had pressed nothing at all and
-     * coming back to the app with no coverage cost them the day. A read with
-     * nobody behind it may not report its failure over rows that are good.
-     *
-     * The gesture is not this case and keeps the error: pulling the diary
-     * down goes through `reload`, which moves `attempt`, so the run is an
-     * asked-for one. Somebody who asked is somebody looking for the answer.
-     *
-     * It is `||`-ed with the failed-action keep only where that keep already
-     * lived — the pet's branch. The day's branch below takes this reason
-     * alone, so nothing an action does changes there.
-     */
-    const unaskedRun = !asked;
+    const bumped =
+      attempt !== lastRequest.current.attempt ||
+      dayKey(day) !== lastRequest.current.day;
+    lastRequest.current = { attempt, day: dayKey(day) };
+    const terms = bumped
+      ? { asked: true, keep: afterFailedAction }
+      : (unanswered.current ?? { asked: false, keep: false });
+    unanswered.current = terms;
+    /** The unasked half of it, which is the only reason the day branch takes. */
+    const unaskedRun = !terms.asked;
     // **Claimed here, synchronously, for the same reason.** `reload` stores
     // its resolver and only then bumps `attempt`, so this run — the first one
     // to start after the press — is the one that owes it an answer. See
@@ -686,6 +714,10 @@ export default function Home() {
       if (cancelled) return;
       if (failure || !row) {
         const unreadable = failure ?? NO_PET;
+        // Answered — whatever the answer is. From here the terms belong to
+        // this run and to nothing after it; a read that starts later and
+        // nobody asked for is a read nobody asked for.
+        unanswered.current = null;
         setPetError(unreadable);
         // **A failed navigation still has to land somewhere visible.** With no
         // pet the error takes the screen. With one already showing it does
@@ -702,7 +734,7 @@ export default function Home() {
         // asked for this read at all**, which is the same keep for a reason
         // of its own: see `unaskedRun`.
         setLog((prev) =>
-          (afterFailedAction || unaskedRun) &&
+          (terms.keep || unaskedRun) &&
           prev &&
           prev.day === dayKey(day) &&
           !prev.error
@@ -720,14 +752,22 @@ export default function Home() {
         day,
       );
       if (cancelled) return;
+      // Answered, as above.
+      unanswered.current = null;
       // A failed read of the log does not take the screen down with it: the
       // craft floor's rule is that one component's error must not block the
       // whole interface, and everything above the log comes from the pet.
       //
       // **And a failure nobody asked to hear about does not take the rows
       // either** — the same keep as the branch above, on the other half of
-      // the same read: the pet can answer while the day does not. A read
-      // that worked always writes, whoever asked for it.
+      // the same read: the pet can answer while the day does not.
+      //
+      // **Only that reason, though.** The failed-action keep has never
+      // reached this branch — a failed action whose pet read answers and
+      // whose entries do not has always shown the error here — and it does
+      // not start now, not even through an inherited `terms.keep`. One
+      // behaviour, overlap or no overlap. A read that worked always writes,
+      // whoever asked for it.
       setLog((prev) =>
         eventError !== null &&
         unaskedRun &&
