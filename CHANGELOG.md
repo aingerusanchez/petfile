@@ -18,6 +18,71 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.20.0] — 2026-10-22
+
+### Cambiado
+
+- **La barra sigue al paseo en marcha.** Hasta ahora el fondo de la barra era
+  el nivel que habían alcanzado los minutos **guardados**, así que el momento
+  en que el día llega a su objetivo no se veía: la barra pasa del 99 % al
+  100 % de la primera vuelta, que es imperceptible, y todo lo demás esperaba
+  a que se pulsara parar. El momento grande caía en el papeleo y no en el
+  logro. Ahora el fondo cuenta los minutos del día **con el paseo en marcha
+  dentro**: al llegar a las dos horas la barra se tiñe de Aqua, con un pulso
+  que la rellena de izquierda a derecha, mientras el perro sigue andando.
+  **El rótulo va con ella**, porque la barra y las palabras son dos
+  descripciones del mismo día enseñadas a la vez y la v0.15.0 se fue entera
+  en conseguir que no pudieran contradecirse.
+  **Lo que esto deroga, a sabiendas:** el fondo era la prueba de que algo no
+  se había guardado —una barra dando su segunda vuelta en gris—, y un paseo
+  olvidado en marcha va a parecer, en la barra, un día terminado. Lo decidió
+  el tutor habiendo oído el argumento en contra: «vamos a dejar de jugar a la
+  defensiva con los paseos no guardados». El paseo en marcha se sigue viendo
+  en la fila del registro, que pone **En marcha**, y en el cuadrado de parada
+  del control.
+  **La banda sobre la vuelta completada desaparece** con la regla que la
+  necesitaba: ya no hay ninguna vuelta que el fondo no admita, así que la
+  vuelta que se abre empieza sin nada guardado, el tramo vivo es lo único que
+  se pinta sobre el fondo nuevo y no hay muesca que marcar.
+- **Cruzar un nivel es un pulso que rellena la barra, y es el único
+  mecanismo.** Los 150 ms de desfase entre el fondo y el relleno que entraron
+  en la v0.18.0 se van: existían para que las dos sustituciones no cayeran en
+  el mismo fotograma, y el pulso ya las ordena —el fondo nuevo llega viajando
+  sobre la imagen que la barra tenía, y la vuelta de debajo se sustituye
+  entera cuando ha llegado—. Mantener el desfase además sería una segunda
+  respuesta a la misma pregunta, y encima invisible: lo que desfasaba queda
+  tapado por el pulso hasta el último fotograma. **620 ms, frenando al
+  final**, porque repite el gesto que la barra acaba de terminar: un relleno
+  que ha viajado toda la mañana de izquierda a derecha y ha llegado. Va lejos
+  de los 400 ms del temblor de un fallo, para que un cruce no se lea como una
+  negativa, y por debajo de los 760 ms del cierre, que lo tapa en el único
+  caso en que coinciden. **Con "quitar animaciones" la barra se sustituye
+  entera en un fotograma**, donde el desfase no estaba condicionado porque no
+  tenía movimiento que quitar. **Y solo hacia arriba:** un nivel perdido —un
+  paseo borrado, el objetivo subido— se sustituye al instante, porque no hay
+  nada que anunciar.
+- **Al cierre del paseo le queda convertir la banda viva, y ya no gira ningún
+  fondo.** Como el cruce ya ha ocurrido cuando se pulsa parar, el relleno del
+  cierre arranca en el suelo de la vuelta en la que la barra ya está: si
+  arrancara en los minutos guardados, empezaría pintando la vuelta de abajo
+  encima de una barra que giró hace rato, que es justo el paso atrás que esta
+  animación existe para quitar. Sigue siendo el mismo gesto de 760 ms sobre
+  el tramo que el paseo añadió. **Un cierre que deja el día justo en el nivel
+  de arriba no dibuja nada** —la barra ya estaba violeta entera—, y aun así
+  sostiene el total del día para que no caiga mientras llega la recarga.
+- **El confeti no se mueve: sigue saltando al guardar.** No por coherencia
+  perdida, sino porque la coherencia aquí se mide en otra cosa: **durante el
+  paseo el móvil está bloqueado en el bolsillo**. Se saca para apuntar una
+  nota o una kaka, y entonces ver avanzar la barra sirve; un confeti
+  disparado con el móvil en el bolsillo es un confeti que nadie ve, y la
+  mayoría de las veces que se consiguiera se perdería, que es lo contrario de
+  para qué existe. El principio que lo ordena, y que vale para lo que venga:
+  **una descripción sigue al dato; una celebración sigue al espectador.**
+  **Efecto secundario aceptado:** en un día de campeonato el rótulo aparece
+  durante el paseo y el confeti llega al parar, así que el texto anuncia la
+  fiesta antes de que ocurra —y al parar el tutor está mirando la pantalla,
+  que es la condición que hace que el confeti valga algo.
+
 ## [v0.19.0] — 2026-10-22
 
 ### Cambiado

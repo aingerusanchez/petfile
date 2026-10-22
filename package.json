@@ -1,7 +1,7 @@
 {
   "name": "petfile",
   "main": "expo-router/entry",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "start": "node scripts/changelog.mjs && expo start",
