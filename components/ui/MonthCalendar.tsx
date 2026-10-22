@@ -202,7 +202,7 @@ function keyOf(date: string): string {
  * `components.Day` in its own `Pressable` with a hardcoded
  * `accessibilityLabel` of the number and offers no way to change it, so the
  * label that says what happened has to live on a node inside it: TalkBack
- * lands on "8, botón" and then on "8, objetivo conseguido, con medicación".
+ * lands on "8, botón" and then on "8, día cumplido, con medicación".
  * Measured on the device — both nodes are focusable and share the same
  * bounds. The alternative is one stop that says only "8", which puts the
  * whole month back to communicating by colour alone. The second stop is
@@ -281,13 +281,17 @@ export function MonthCalendar({
                   ? "toca la vacuna"
                   : null,
               logged ? null : "sin registros",
-              // Spoken, so it is words and not "x2": the tutor heard TalkBack
-              // read it as "equis dos" and chose this phrase. The legend
-              // beside the grid still *shows* "x2", which fits there.
+              // **The same words the legend shows and the day view writes
+              // under its bar**, lowercase because they are read inside a
+              // sentence: "10, día de campeonato". They used to be said
+              // differently here — "doble objetivo diario conseguido" — for
+              // one reason, that a screen reader reads "x2" as "equis dos".
+              // The tiers are named now, so there is nothing left to
+              // translate and nothing left to drift.
               doubled
-                ? "doble objetivo diario conseguido"
+                ? "día de campeonato"
                 : met
-                  ? "objetivo conseguido"
+                  ? "día cumplido"
                   : logged
                     ? "objetivo sin conseguir"
                     : null,
@@ -578,15 +582,16 @@ export function MonthCalendar({
               <Legend
                 testID="calendar-legend-goal"
                 className="h-[4px] w-[16px] rounded-xl bg-accent"
-                label="Objetivo conseguido"
+                label="Día cumplido"
               />
               {/* Named as the day view names it, because the legend and the
-                  bar under the date are the same sentence two taps apart. */}
+                  bar under the date are the same sentence two taps apart —
+                  and now in the same words a cell's name uses, so there is
+                  one string per tier and no spoken copy of it. */}
               <Legend
-                testID="calendar-legend-goal-x2"
+                testID="calendar-legend-goal-top"
                 className="h-[4px] w-[16px] rounded-xl bg-accent-focus"
-                label="Objetivo conseguido x2"
-                spoken="doble objetivo diario conseguido"
+                label="Día de campeonato"
               />
             </>
           )}
@@ -657,30 +662,26 @@ export function MonthCalendar({
 function Legend({
   className,
   label,
-  spoken,
   testID,
 }: {
   className: string;
   label: string;
-  /** What a screen reader says when it differs from what is shown. */
-  spoken?: string;
   testID?: string;
 }) {
   return (
     // **`max-w-full` and a shrinking label: a long entry wraps rather than
     // clipping.** React Native's `flexShrink` defaults to 0, so an entry wider
-    // than its line would overflow it instead of folding. "Objetivo
-    // conseguido x2" is the longest label and is nowhere near a whole line at
-    // the largest font the tutor runs, but a legend that depends on that is one
+    // than its line would overflow it instead of folding. "Día de campeonato"
+    // is the longest label and is nowhere near a whole line at the largest
+    // font the tutor runs, but a legend that depends on that is one
     // translation away from clipping.
+    //
+    // **No spoken form.** It carried one while the top tier was written "x2",
+    // which a screen reader read as "equis dos"; the tiers are named now, so
+    // every entry here is said exactly as it is shown.
     <View className="max-w-full flex-row items-center gap-2">
       <View testID={testID} className={`shrink-0 ${className}`} />
-      <Text
-        accessibilityLabel={spoken}
-        className="shrink text-xs text-text-tertiary"
-      >
-        {label}
-      </Text>
+      <Text className="shrink text-xs text-text-tertiary">{label}</Text>
     </View>
   );
 }

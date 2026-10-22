@@ -738,7 +738,7 @@ test("opens the calendar from the date and says what each day carried", async ({
   await expect(page.getByTestId("calendar-mark-medication")).toHaveCount(1);
 
   // The legend names all three marks, so none of them is colour alone.
-  for (const name of ["Objetivo conseguido", "Medicación", "Incidencia"]) {
+  for (const name of ["Día cumplido", "Medicación", "Incidencia"]) {
     await expect(page.getByTestId("home-calendar")).toContainText(name);
   }
 
@@ -790,10 +790,8 @@ test("throws confetti for the walk that doubles the goal, and only that one", as
   await add(page, "walk");
   await typeWalk(page, now, 15);
   await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido",
-  );
-  // Tier 1 is read as it is written: no spoken form of its own.
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+  // Read as it is written: neither tier has a spoken form of its own.
   await expect(page.getByTestId("home-goal-met")).not.toHaveAttribute(
     "aria-label",
     /.+/,
@@ -812,7 +810,7 @@ test("throws confetti for the walk that doubles the goal, and only that one", as
   await typeWalk(page, now, 15);
   await page.getByTestId("entry-save").click();
   await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido x2",
+    "Día de campeonato",
   );
   await expect(page.getByTestId("celebration")).toBeVisible();
 
@@ -824,7 +822,9 @@ test("throws confetti for the walk that doubles the goal, and only that one", as
   );
 
   await page.reload();
-  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "Día de campeonato",
+  );
   await expect(page.getByTestId("celebration")).toBeHidden();
 
   // A further walk on a day already doubled does not celebrate again.
@@ -859,7 +859,7 @@ test("does not celebrate a day that has passed, however far it got", async ({
   // Yesterday is doubled, and filling in a day that has gone is bookkeeping
   // rather than an achievement.
   await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido x2",
+    "Día de campeonato",
   );
   await expect(page.getByTestId("celebration")).toBeHidden();
 });
@@ -993,14 +993,10 @@ test("marks a double day in the accent and an ordinary one in Aqua", async ({
 
   // Said in the day view's own words, so the mark is not colour alone — and
   // the top tier is called what the day view calls it.
-  await expect(barIn(page, "13, objetivo conseguido")).toBeVisible();
-  await expect(
-    barIn(page, "14, doble objetivo diario conseguido"),
-  ).toBeVisible();
-  await expect(
-    barIn(page, "15, doble objetivo diario conseguido"),
-  ).toBeVisible();
-  await expect(barIn(page, "16, objetivo conseguido")).toBeVisible();
+  await expect(barIn(page, "13, día cumplido")).toBeVisible();
+  await expect(barIn(page, "14, día de campeonato")).toBeVisible();
+  await expect(barIn(page, "15, día de campeonato")).toBeVisible();
+  await expect(barIn(page, "16, día cumplido")).toBeVisible();
   await expect(
     page
       .getByTestId("home-calendar")
@@ -1011,44 +1007,42 @@ test("marks a double day in the accent and an ordinary one in Aqua", async ({
 
   // The Shared Mark Rule: Aqua for the goal, Aurora Boreal for double — the
   // two colours the day view's bar wears for the same two states.
-  expect(await backgroundOf(barIn(page, "13, objetivo conseguido"))).toBe(
+  expect(await backgroundOf(barIn(page, "13, día cumplido"))).toBe(
     colors.accent,
   );
-  expect(
-    await backgroundOf(barIn(page, "14, doble objetivo diario conseguido")),
-  ).toBe(colors.accentFocus);
+  expect(await backgroundOf(barIn(page, "14, día de campeonato"))).toBe(
+    colors.accentFocus,
+  );
   // Exactly the goal is Tier 1, not short of it: the twin of the 240 day.
-  expect(await backgroundOf(barIn(page, "16, objetivo conseguido"))).toBe(
+  expect(await backgroundOf(barIn(page, "16, día cumplido"))).toBe(
     colors.accent,
   );
-  expect(
-    await backgroundOf(barIn(page, "15, doble objetivo diario conseguido")),
-  ).toBe(colors.accentFocus);
+  expect(await backgroundOf(barIn(page, "15, día de campeonato"))).toBe(
+    colors.accentFocus,
+  );
 
   // The legend names both, in the same words and the same colours, so neither
   // swatch is something to guess at.
   const legend = page.getByTestId("home-calendar");
-  await expect(legend).toContainText("Objetivo conseguido x2");
+  await expect(legend).toContainText("Día de campeonato");
   expect(await backgroundOf(page.getByTestId("calendar-legend-goal"))).toBe(
     colors.accent,
   );
-  expect(await backgroundOf(page.getByTestId("calendar-legend-goal-x2"))).toBe(
+  expect(await backgroundOf(page.getByTestId("calendar-legend-goal-top"))).toBe(
     colors.accentFocus,
   );
 });
 
-test("reads the top tier as words and still shows the short form", async ({
-  page,
-}) => {
+test("says the top tier in the same words it shows", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
-  // **Both halves in one test, because the defect would be changing one and
-  // not the other.** "Objetivo conseguido x2" is what fits under the bar and
-  // in a legend; "doble objetivo diario conseguido" is what the mark means
-  // when it is said aloud, where "equis dos" means nothing. A test that only
-  // looked for the spoken form would stay green if the visible text had been
-  // replaced with it, and a test that only looked for the visible one is the
-  // test that already existed.
+  // **The split is gone, and this is the test that keeps it gone.** "Objetivo
+  // conseguido x2" needed a spoken form of its own for one reason: a screen
+  // reader says "equis dos", which is not what the mark means. "Día de
+  // campeonato" is words already, so the visible and the spoken form are one
+  // string again — and a second copy of a name that lives in three places is
+  // a name that can drift in one of them. An `aria-label` anywhere on this
+  // mark is that copy coming back.
   //
   // Goal 60: today is 130 minutes (doubled), and last month's 13th is 70
   // (Tier 1) beside its 14th at 130 (Tier 2). The pet is born on New Year's
@@ -1069,42 +1063,40 @@ test("reads the top tier as words and still shows the short form", async ({
   await seedSession(page);
   await page.goto("/");
 
-  // The bar's label: shown short, spoken long.
+  // The bar's label: one string, seen and heard.
   const met = page.getByTestId("home-goal-met");
-  await expect(met).toHaveText("Objetivo conseguido x2");
-  await expect(met).toHaveAttribute(
-    "aria-label",
-    "doble objetivo diario conseguido",
-  );
+  await expect(met).toHaveText("Día de campeonato");
+  await expect(met).not.toHaveAttribute("aria-label", /.+/);
 
   await openLastMonth(page);
   const calendar = page.getByTestId("home-calendar");
 
-  // The cell: said long, and nothing in the calendar says "x2" to a reader.
+  // The cell says it in the same words, and nothing anywhere says "x2".
   await expect(
-    calendar.getByLabel("14, doble objetivo diario conseguido", {
+    calendar.getByLabel("14, día de campeonato", {
       exact: true,
     }),
   ).not.toHaveCount(0);
   await expect(calendar.getByLabel(/x2/i)).toHaveCount(0);
+  await expect(calendar.getByText(/x2/i)).toHaveCount(0);
 
-  // The legend: shown short, spoken long.
+  // The legend: the same string again, with nothing spoken over it.
   await expect(
-    calendar.getByText("Objetivo conseguido x2", { exact: true }),
+    calendar.getByText("Día de campeonato", { exact: true }),
   ).toBeVisible();
   await expect(
-    calendar.getByLabel("doble objetivo diario conseguido", { exact: true }),
-  ).toBeVisible();
+    calendar.getByText("Día de campeonato", { exact: true }),
+  ).not.toHaveAttribute("aria-label", /.+/);
 
-  // Tier 1 is unchanged, seen and heard: no spoken form of its own.
+  // Tier 1 is unchanged, seen and heard.
   await expect(
-    calendar.getByLabel("13, objetivo conseguido", { exact: true }),
+    calendar.getByLabel("13, día cumplido", { exact: true }),
   ).not.toHaveCount(0);
   await expect(
-    calendar.getByText("Objetivo conseguido", { exact: true }),
+    calendar.getByText("Día cumplido", { exact: true }),
   ).toBeVisible();
   await expect(
-    calendar.getByText("Objetivo conseguido", { exact: true }),
+    calendar.getByText("Día cumplido", { exact: true }),
   ).not.toHaveAttribute("aria-label", /.+/);
 });
 
@@ -1131,7 +1123,7 @@ test("a birthday that is also a double day reads as both", async ({ page }) => {
   await openLastMonth(page);
 
   // One cell, both facts, in words.
-  const label = "14, cumple 2 años, doble objetivo diario conseguido";
+  const label = "14, cumple 2 años, día de campeonato";
   const bar = barIn(page, label);
   await expect(bar).toBeVisible();
   expect(await backgroundOf(bar)).toBe(colors.accentFocus);
@@ -1450,9 +1442,7 @@ test("marks the goal met, once", async ({ page }) => {
   await typeWalk(page, now, 60);
   await page.getByTestId("entry-save").click();
 
-  await expect(page.getByTestId("home-goal")).toContainText(
-    "Objetivo conseguido",
-  );
+  await expect(page.getByTestId("home-goal")).toContainText("Día cumplido");
   // The goal reads in hours on both sides of the "de", and the right-hand
   // side is the **top** tier: an hour's goal is counted against two.
   await expect(page.getByTestId("home-goal")).toContainText("1h de 2h");
@@ -1467,7 +1457,7 @@ test("marks the goal met, once", async ({ page }) => {
   // Playwright reads as invisible. The ground is the bar at its full width
   // whatever the day did.
   await expect(page.getByTestId("home-goal-measure")).not.toContainText(
-    "Objetivo",
+    "Día cumplido",
   );
   const bar = await page.getByTestId("home-goal-ground").boundingBox();
   const met = await page.getByTestId("home-goal-met").boundingBox();
@@ -1888,9 +1878,7 @@ test("turns Aqua at the goal and starts the second lap over it", async ({
   expect(across).toBeCloseTo(0.5, 2);
 
   // Lap one is still said in words, because the bar no longer says it alone.
-  await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido",
-  );
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
 });
 
 test("a day exactly at the goal is Aqua with no second lap showing", async ({
@@ -1916,9 +1904,7 @@ test("a day exactly at the goal is Aqua with no second lap showing", async ({
   // goal has nothing left for a lap-one fill to say — the whole bar is already
   // Aqua — so the fill wraps to zero and the second lap begins empty.
   expect(await widthOf(page, "home-goal-bar")).toBe(0);
-  await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido",
-  );
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
 });
 
 test("a day past double is violet throughout", async ({ page }) => {
@@ -1942,7 +1928,7 @@ test("a day past double is violet throughout", async ({ page }) => {
   // There is no third lap to start, so nothing is painted over the violet.
   expect(await widthOf(page, "home-goal-bar")).toBe(0);
   await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido x2",
+    "Día de campeonato",
   );
 });
 
@@ -1968,7 +1954,7 @@ test("a day at exactly double is violet throughout, with nothing over it", async
   expect(await groundColour(page)).toBe(colors.accentFocus);
   expect(await widthOf(page, "home-goal-bar")).toBe(0);
   await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido x2",
+    "Día de campeonato",
   );
 });
 
@@ -2112,7 +2098,7 @@ test("draws no bar at all for a pet with no goal, as before", async ({
 
   await page.getByTestId("home-day").click();
   await expect(page.getByTestId("home-calendar")).toBeVisible();
-  await expect(page.getByLabel(/objetivo conseguido/)).toHaveCount(0);
+  await expect(page.getByLabel(/día cumplido/)).toHaveCount(0);
   await closeCalendar(page);
 });
 
@@ -2416,9 +2402,7 @@ test("crosses the goal inside one fill, with no confetti", async ({ page }) => {
   // It comes to rest Aqua, with a minute of lap two in violet over it, and
   // the conclusion said under the bar.
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
-  await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido",
-  );
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
   await expect.poll(() => groundColour(page)).toBe(colors.accent);
   expect(await fillColour(page)).toBe(colors.accentFocus);
   expect(await widthOf(page, "home-goal-bar")).toBeGreaterThan(0);
@@ -2536,7 +2520,7 @@ test("crosses both tiers in one close and still celebrates once", async ({
   await expect.poll(() => groundColour(page)).toBe(colors.accentFocus);
   expect(await widthOf(page, "home-goal-bar")).toBe(0);
   await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido x2",
+    "Día de campeonato",
   );
 
   // **Once, at the second tier and not at the first.** Two crossings in one
@@ -2588,7 +2572,7 @@ test("says nothing when the day is already past the top tier", async ({
   );
   expect(Math.min(...frames.map((f) => f.painted))).toBeCloseTo(bar, 0);
   await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido x2",
+    "Día de campeonato",
   );
 });
 
@@ -2638,9 +2622,7 @@ test("paints the end state at once for a tutor who asked for no animation", asyn
   // lap two, so the bar is Aqua with a violet sliver over it.
   await expect.poll(() => groundColour(page)).toBe(colors.accent);
   expect(await fillColour(page)).toBe(colors.accentFocus);
-  await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido",
-  );
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
 });
 
 test("holds the fill when the reload never comes", async ({ page }) => {
@@ -2712,7 +2694,7 @@ test("holds the fill when the reload never comes", async ({ page }) => {
  * the pet read does not. The bar holds what the close carried — that part was
  * already right — and the measure used to count an empty log and state
  * "0 min de 2h paseados" directly above a bar painted past the goal and a
- * label reading "Objetivo conseguido". A tutor cannot tell which half is real,
+ * label reading "Día cumplido". A tutor cannot tell which half is real,
  * and the one they read every day is the number.
  *
  * PRODUCT.md's rule is the same one the log's own region obeys: an empty state
@@ -2768,9 +2750,7 @@ test("keeps the measure and the bar agreeing when a close lands and the reload d
     6,
     60,
   );
-  await expect(page.getByTestId("home-goal-met")).toHaveText(
-    "Objetivo conseguido",
-  );
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
   // The line that used to contradict both of them.
   await expect(page.getByTestId("home-goal-measure")).toHaveText(
     /^1h [56]m de 2h paseados$/,

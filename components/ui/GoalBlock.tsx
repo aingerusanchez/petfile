@@ -406,7 +406,7 @@ export function GoalBlock({
    * Null is not zero and the block may not round it down to one: a failed read
    * arrives as no rows, and "nobody walked him" is a claim about the dog that
    * a failed request is no evidence for (PRODUCT.md). On null the measure
-   * withholds the number, the fill is not painted and `Objetivo conseguido`
+   * withholds the number, the fill is not painted and `Día cumplido`
    * is not said — **unless a close is being held**, which is a total the block
    * does know, and then the measure reads that rather than nothing.
    */
@@ -598,12 +598,12 @@ export function GoalBlock({
    * rows', or the close's hold while it is ahead of them, or null when
    * neither knows. Everything the block says about the day is read off this
    * one number — the measure's words, the bar's width, the tone of its ground
-   * and whether `Objetivo conseguido` appears — so the two cannot disagree by
+   * and whether `Día cumplido` appears — so the two cannot disagree by
    * construction rather than by discipline.
    *
    * That is the second half of the same defect. The bar already read the
    * hold and the measure read the rows, so for the length of an ordinary
-   * close the width led and the number followed, and `Objetivo conseguido`
+   * close the width led and the number followed, and `Día cumplido`
    * could stand a few hundred milliseconds above a number that did not
    * justify it. On a reload that never came the gap never closed.
    *
@@ -1026,27 +1026,33 @@ export function GoalBlock({
           that sits beside the measure on a past day and under the bar on today
           is two layouts for one sentence. One home, every day. */}
       {met ? (
-        // **"x2" is a placeholder the tutor marked as provisional**, leaning
-        // on the top tier being defined as double. It is not a phrase to
-        // defend; a better one replaces it without touching anything else.
+        // **The tiers are named, not numbered.** "Objetivo conseguido" and
+        // "Objetivo conseguido x2" were the form the feature shipped with and
+        // the tutor marked the second as provisional; "Día de campeonato" is
+        // their own phrase for what the top tier means, and "Día cumplido"
+        // says the day did what it had to without the tone of a form.
+        //
+        // **The split between what is shown and what is said went with the
+        // numbering**, and that is the point rather than a tidy-up. "x2"
+        // needed a spoken form of its own for exactly one reason — a screen
+        // reader says "equis dos" — and words do not. One string per tier,
+        // in the legend, here, and inside a calendar cell's name ("10, día
+        // de campeonato"); a second copy of a name that lives in three
+        // places is the copy that drifts.
         //
         // It wears the tier's own colour, because The Shared Mark Rule says a
         // mark stands for its record wherever it appears — and at the top
         // tier the bar under it is Aurora Boreal, not Aqua.
         //
-        // **Shown short, spoken long.** "x2" fits under the bar and a screen
-        // reader says "equis dos", which is not what the mark means; the
-        // tutor heard it and asked for "doble objetivo diario conseguido"
-        // aloud while the text stays as it is. Only the top tier needs it:
-        // Tier 1's words are already the ones to hear.
+        // **It stays under the bar.** Moving it above was decided and then
+        // undone: nothing is shown on a day that reaches no tier, so with no
+        // permanent slot the bar would drop a line at the exact moment the
+        // close is animating.
         <Text
           testID={testID ? `${testID}-met` : undefined}
-          accessibilityLabel={
-            metX2 ? "doble objetivo diario conseguido" : undefined
-          }
           className={`mt-2 font-semibold text-xs ${metX2 ? "text-accent-focus" : "text-accent"}`}
         >
-          {metX2 ? "Objetivo conseguido x2" : "Objetivo conseguido"}
+          {metX2 ? "Día de campeonato" : "Día cumplido"}
         </Text>
       ) : null}
     </View>
@@ -1470,7 +1476,7 @@ function Sweep({
  * every lap is exactly that — so the overlay unmounts onto the picture it was
  * already painting.
  *
- * Decoration to a reader: `Objetivo conseguido` appears under the bar in the
+ * Decoration to a reader: `Día cumplido` appears under the bar in the
  * same breath, and the measure says the new total.
  */
 function CloseLanding({ laps, testID }: { laps: CloseLap[]; testID?: string }) {
