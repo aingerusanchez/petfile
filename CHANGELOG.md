@@ -18,6 +18,65 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.18.0] — 2026-10-22
+
+### Cambiado
+
+- **El botón del paseo dice cuál de las dos cosas está escribiendo.** Ponía
+  "Guardando…" tanto al empezar como al parar. En el vídeo del paseo esa
+  palabra estuvo en pantalla **más de nueve segundos** —el paseo se paró en
+  el ascensor del portal, sin cobertura, y la escritura se quedó colgada—,
+  así que no es una palabra que se vislumbra: es una palabra que se mira. Y
+  mientras se miraba no decía nada de lo que estaba pasando. Ahora al empezar
+  pone **"En marcha…"** y al parar **"A casa…"**, que entronca con el par que
+  la app ya usa, _"¡Vamos, Loki!"_ / _"¡Loki ya está contigo!"_. Medido con
+  el tamaño de letra al 145%: "En marcha…" ocupa lo mismo que lo que
+  sustituye y "A casa…" es **más corto**, así que al parar la medida de al
+  lado pierde menos final del que perdía. **La pega, asumida:** "En marcha…"
+  afirma el estado del perro mientras lo que ocurre es una escritura que
+  puede fallar; si falla, el botón dijo "En marcha" y vuelve a "Paseo".
+- **Los dos niveles del objetivo tienen nombre en vez de número.**
+  "Objetivo conseguido" y "Objetivo conseguido x2" eran la forma con la que
+  salió la función, y el tutor marcó la segunda como provisional: era
+  **básica y redundante**. Pasan a ser **"Día cumplido"** y **"Día de
+  campeonato"** —la segunda es la frase del propio tutor al explicar qué
+  significa el nivel de arriba, y "cumplido" dice que el día hizo lo que
+  tenía que hacer sin el tono de formulario del texto anterior—. Son las
+  palabras que se leen en **tres sitios** y que ahora coinciden en los tres:
+  la leyenda del calendario, el rótulo bajo la barra del día y el nombre
+  hablado de una celda ("10, día de campeonato"). **Y desaparece la versión
+  hablada aparte.** El nivel de arriba tenía una frase solo para el lector de
+  pantalla —"doble objetivo diario conseguido"— por un único motivo: que
+  TalkBack lee "x2" como "equis dos". Con un nombre en palabras ese motivo no
+  existe, así que lo que se ve y lo que se oye vuelven a ser la misma frase,
+  y se va con ella la segunda copia de un nombre que vive en tres sitios.
+
+### Arreglado
+
+- **Cruzar el objetivo ya no es un cambio de escena.** Al llegar al objetivo
+  pasaban **dos cosas en el mismo fotograma**: el fondo de la barra ganaba
+  color (la pista vacía a Aqua) y el relleno cambiaba de tono (Mist a
+  violeta). Comprobado en un paseo de verdad: cada una por separado se lee
+  bien, y juntas la barra deja de leerse como una barra que cambia y pasa a
+  leerse como **otra barra**. Ahora las dos se ordenan en el tiempo: el fondo
+  gira primero y el relleno le sigue **150 ms después**. Mismos dos colores,
+  mismo estado final, leído como una consecuencia en vez de como un corte.
+  **No hay nada que viaje ni que se funda**, que es como habla esta barra: un
+  color aquí es una clase sobre una capa y lo que cambia es qué capa tapa el
+  píxel, nunca el valor que lleva dentro. **No toca el cierre del paseo** —el
+  cierre pinta sus propias vueltas sobre toda la barra durante 760 ms y el
+  tutor lo describió como «genial, incluso cuando salta de tier»—; alcanza a
+  los cruces que el cierre no tapa. **Y el fondo sigue reflejando solo lo
+  guardado**: el retraso va por el lado seguro, con el relleno llevando
+  durante 150 ms el nivel que el día acaba de **dejar**, nunca al que va.
+  **Descartado y medido, para que no se vuelva a proponer:** desplazar los
+  colores un escalón (fondo Mist y barra Aqua en el primer nivel) mide
+  **1,14:1**, la peor pareja de la paleta —comparten claridad y familia de
+  tono, así que no hay distancia cromática que lo rescate—, y un día que
+  alcanza justo el objetivo quedaría entero en Mist: 119 y 120 minutos se
+  verían igual y desaparecería justo el momento que la barra existe para
+  anunciar.
+
 ## [v0.17.0] — 2026-10-21
 
 ### Arreglado
