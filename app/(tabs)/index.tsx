@@ -919,7 +919,6 @@ export default function Home() {
         toast.show({
           variant: "error",
           message: error ?? "No se ha podido empezar el paseo",
-          persist: true,
         });
         // **And the day is reloaded on the way out.** `withTimeout` abandons
         // the request after twelve seconds; the insert may well have
@@ -988,7 +987,7 @@ export default function Home() {
             : { error: null };
       if (error) {
         // The walk stays running so the tutor can press stop again.
-        toast.show({ variant: "error", message: error, persist: true });
+        toast.show({ variant: "error", message: error });
         // **Bumped here, in the run that clears `walkBusy`.** No `await`
         // separates this from the `finally` below, so the shake and the
         // control coming back from its spinner are one commit.
@@ -1495,9 +1494,7 @@ export default function Home() {
             setAttempt((n) => n + 1);
             if (crossed) celebrate(CELEBRATION_TONE);
           }}
-          onFailed={(message) =>
-            toast.show({ variant: "error", message, persist: true })
-          }
+          onFailed={(message) => toast.show({ variant: "error", message })}
           petId={pet.id}
           timeMeans={editingRunning ? "start" : "end"}
           running={editingRunning}

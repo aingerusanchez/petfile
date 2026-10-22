@@ -289,7 +289,7 @@ export default function Profile() {
 
     const { error } = await updatePet(pet.id, edit);
     if (error) {
-      toast.show({ variant: "error", message: error, persist: true });
+      toast.show({ variant: "error", message: error });
       return false;
     }
 
@@ -307,7 +307,7 @@ export default function Profile() {
   const pickPhoto = useCallback(async () => {
     const { uri, error } = await pickPetPhoto();
     if (error) {
-      toast.show({ variant: "error", message: error, persist: true });
+      toast.show({ variant: "error", message: error });
       return null;
     }
     return uri;
@@ -326,7 +326,6 @@ export default function Profile() {
         toast.show({
           variant: "error",
           message: cropError ?? "No hemos podido recortar la foto",
-          persist: true,
         });
         return false;
       }
@@ -336,7 +335,6 @@ export default function Profile() {
         toast.show({
           variant: "error",
           message: error ?? "No hemos podido guardar la foto",
-          persist: true,
         });
         return false;
       }
@@ -344,7 +342,7 @@ export default function Profile() {
       // Only the photo column: an unsaved edit on screen stays unsaved.
       const { error: columnError } = await updatePetPhoto(pet.id, path);
       if (columnError) {
-        toast.show({ variant: "error", message: columnError, persist: true });
+        toast.show({ variant: "error", message: columnError });
         return false;
       }
 
@@ -361,12 +359,12 @@ export default function Profile() {
 
     const { error } = await removePetPhoto(pet.photo_url);
     if (error) {
-      toast.show({ variant: "error", message: error, persist: true });
+      toast.show({ variant: "error", message: error });
       return false;
     }
     const { error: columnError } = await updatePetPhoto(pet.id, null);
     if (columnError) {
-      toast.show({ variant: "error", message: columnError, persist: true });
+      toast.show({ variant: "error", message: columnError });
       return false;
     }
     setPhotoUri(null);
@@ -381,7 +379,7 @@ export default function Profile() {
     if (pet.photo_url) await removePetPhoto(pet.photo_url);
     const { error } = await deletePet(pet.id);
     if (error) {
-      toast.show({ variant: "error", message: error, persist: true });
+      toast.show({ variant: "error", message: error });
       return false;
     }
 

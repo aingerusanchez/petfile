@@ -3710,6 +3710,68 @@ test("does not stack a second toast for the same failure", async ({ page }) => {
 });
 
 /**
+ * **A failure is read and then it goes.** It used to stay until it was
+ * dismissed by hand, which the tutor asked for and then lived with for a day:
+ * «lo que parece faltar es el desvanecimiento tras un tiempo». Eight seconds
+ * — twice what a confirmation gets — is long enough to read the sentence and
+ * see the count, and short enough that nobody has to clear the diary by hand.
+ *
+ * **And a repeat puts the clock back.** The second press is the one that
+ * needs the reading time, so the countdown it restarts is the countdown that
+ * has to matter. This is the only test that can tell a restart from a toast
+ * that simply had not run out yet, because it waits past the first window.
+ *
+ * It is a slow test — about fifteen seconds of waiting — and the waits are
+ * the subject rather than a way of settling the page.
+ */
+test("fades a failure toast, and a repeat puts its clock back", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    route.request().method() === "POST" ? route.abort() : route.continue(),
+  );
+
+  const first = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await first;
+  const toast = page.getByTestId("toast-error");
+  await expect(toast).toBeVisible();
+
+  // **It draws a countdown and offers no dismiss**, which is the component's
+  // own way of saying it is going: a bar that drains over exactly the time
+  // left, and no control for an action the toast takes itself.
+  await expect(page.getByTestId("toast-error-countdown")).toBeVisible();
+  await expect(page.getByTestId("toast-error-dismiss")).toHaveCount(0);
+
+  // Five seconds in: past the four a confirmation gets, short of the eight a
+  // failure gets, so the toast is still up and the clock is part spent.
+  await page.waitForTimeout(5_000);
+  await expect(toast).toBeVisible();
+
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await shakeTranslation(page, false);
+  const second = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await second;
+  await expect(page.getByTestId("toast-error-repeats")).toHaveText("×2");
+
+  // Five seconds after the repeat — over ten since the toast appeared, which
+  // the first countdown would long since have ended. Only the restart
+  // explains a toast still on screen here.
+  await page.waitForTimeout(5_000);
+  await expect(toast).toBeVisible();
+
+  // And then it goes, with nobody dismissing it.
+  await expect(toast).toHaveCount(0, { timeout: 8_000 });
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
  * **The region and the toast are two different failures and must not read as
  * one.** In the same screenshot the log said "Parece que no hay conexión" and
  * so did the toast: a day that could not be *read* and a walk that could not

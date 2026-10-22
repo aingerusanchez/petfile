@@ -522,9 +522,7 @@ export default function Health() {
           toast.show({ variant: "success", message });
           reload();
         }}
-        onFailed={(message) =>
-          toast.show({ variant: "error", message, persist: true })
-        }
+        onFailed={(message) => toast.show({ variant: "error", message })}
       />
 
       {weighing ? (
@@ -538,9 +536,7 @@ export default function Health() {
             toast.show({ variant: "success", message });
             reload();
           }}
-          onFailed={(message) =>
-            toast.show({ variant: "error", message, persist: true })
-          }
+          onFailed={(message) => toast.show({ variant: "error", message })}
         />
       ) : null}
 
@@ -555,9 +551,7 @@ export default function Health() {
             toast.show({ variant: "success", message });
             reload();
           }}
-          onFailed={(message) =>
-            toast.show({ variant: "error", message, persist: true })
-          }
+          onFailed={(message) => toast.show({ variant: "error", message })}
         />
       ) : null}
     </Screen>
