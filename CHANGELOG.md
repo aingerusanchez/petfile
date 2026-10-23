@@ -18,6 +18,48 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.24.0] — 2026-10-23
+
+### Cambiado
+
+- **La barra se mueve igual cambie el paseo como cambie.** Tenía cuatro
+  tiempos medidos para un paseo que termina en el momento, y **saltaba** en
+  las tres formas de cambiar los minutos que ya existían: añadir uno que no
+  se pudo apuntar por la mañana, borrar un duplicado —que en esta casa pasa,
+  porque son dos tutores y a veces lo apuntan los dos— y corregir una
+  duración. El mismo dato cambiaba de la misma manera y la barra lo contaba
+  de dos maneras distintas según por dónde hubiera entrado.
+
+  **Lo que decide el movimiento es el signo del cambio, no la acción.** Si el
+  total sube, la barra hace lo mismo que al terminar un paseo: el perro
+  anduvo, y lo que estaba mal era el registro y no el día. Si baja, el
+  relleno viaja de vuelta y nada más — sin el hinchado ni el destello.
+  **Quitar un paseo es quitar algo que nunca ocurrió**, y darle la misma
+  función que a conseguir el objetivo sería celebrar la contabilidad. Es la
+  misma distinción por la que el confeti no salta al rellenar un martes
+  olvidado.
+
+  Un paseo que llega porque lo escribió **el otro móvil** no anima: llega
+  dentro de una relectura, la pantalla entera cambia de golpe, y señalar un
+  trozo sería llamar acontecimiento a algo que nadie de este lado ha hecho.
+
+- **El «No» que cancela un borrado ya se puede pulsar.** Medido en el
+  teléfono: ese botón ocupaba **16,6 dp de ancho** contra los 59 del
+  «Sí, bórralo» de al lado, separados por diecisiete. La opción destructiva
+  era tres veces y media más grande que la segura, y un pulgar que se fuera a
+  la derecha del «No» se encontraba el borrado. Ahora los dos miden 48 dp, que
+  es el suelo. El arreglo va en `Button` y no en esa pantalla: el suelo se
+  aplicaba solo al alto, así que cualquier botón de etiqueta corta valía lo
+  que midiera su palabra — el calendario ya lo había enseñado con su «Hoy» y
+  se arregló allí en vez de aquí, que es por lo que volvió.
+
+- **La marca de «no sincronizado» se va con una transición de 200 ms** en vez
+  de desaparecer entre dos fotogramas. Aparecer sigue siendo instantáneo, y a
+  propósito: la marca entra junto al aviso de error y al temblor del botón, y
+  ahí ya hay tres cosas diciendo lo mismo. Irse es el final de algo, y un
+  elemento que se esfuma de golpe se lee como un fallo de dibujo antes que
+  como «ya está».
+
 ## [v0.23.0] — 2026-10-23
 
 ### Nuevo

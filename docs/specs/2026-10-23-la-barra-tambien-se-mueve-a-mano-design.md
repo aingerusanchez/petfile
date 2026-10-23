@@ -1,6 +1,8 @@
 # La barra también se mueve cuando el paseo se edita a mano — diseño
 
-**Estado:** acordado con el tutor el 23 de octubre de 2026. Sin construir.
+**Estado:** construido en la v0.24.0, el 23 de octubre de 2026, y verificado
+en el teléfono con grabación. Las tres preguntas que este documento dejaba
+abiertas están contestadas más abajo, donde estaban las preguntas.
 
 **Origen:** lo levantó el tutor al cerrar la v0.23.0, y la frase es suya:
 «hemos pulido las animaciones en muchos de los casos […] sin embargo,
@@ -88,19 +90,38 @@ saltan; lo único que anima es el fondo, por `GroundTurn`. Así que el viaje de
 vuelta no es «quitarle la ceremonia al cierre», es una pieza nueva — más
 simple que el cierre, pero nueva: un ancho que viaja.
 
-## Lo que este documento no decide
+## Lo que este documento no decidía, y quedó decidido al construirlo
 
-- La duración y la curva del viaje de vuelta. El cierre son 760 ms en cuatro
-  tiempos; el barrido del fondo son 700 ms con `inOut(cubic)`, medido en el
-  dispositivo. El viaje de vuelta probablemente quiera parecerse al segundo
-  más que al primero, pero eso se decide viéndolo.
-- Qué pasa si dos cambios se solapan — dos borrados seguidos, o un borrado
-  mientras un cierre está en el aire.
-- Si el aterrizaje del cierre reutilizado desde una edición debe empezar
-  donde empieza hoy (al pie de la vuelta en la que cae) o en los minutos
-  grabados. Hoy esa decisión está tomada para un paseo en marcha, donde el
-  fondo ya había girado por los minutos vividos; en una edición no hay nada
-  vivido, así que la premisa cambia y hay que volver a mirarla.
+- **El viaje de vuelta son 700 ms con `inOut(cubic)`**, los mismos que el
+  barrido del fondo, para que cuando un descenso cruce un nivel las dos cosas
+  se lean como un movimiento y no como dos. **Medido en el teléfono sobre un
+  borrado que cruza hacia abajo**, seis fotogramas: a mitad de tiempo el
+  recorrido va por el 55,5%, donde `out(cubic)` daría 87,5%. El ajuste cae
+  dentro de cinco puntos porcentuales en los seis.
+- **Dos cambios solapados: gana el último**, reemplazando la capa como ya hace
+  el cierre. El segundo viaje arranca en su propio origen y no en la posición
+  visual exacta del relleno; redirigir de verdad pedía animar un escalar sobre
+  la escala de la barra en vez de anchuras por vuelta, que es otra
+  arquitectura. La guarda `fresh` hace que los dos coincidan salvo en una
+  ventana por debajo del segundo.
+- **Una edición que suma empieza en los minutos grabados, sin recortar**, y
+  no al pie de la vuelta donde aterriza. La premisa del cierre —que el fondo
+  ya había girado por los minutos vividos— no existe en una edición, donde no
+  se ha vivido nada.
+
+### Y una que no estaba y apareció construyendo
+
+**Un descenso no barre el fondo: lo sustituye vuelta a vuelta.** La intención
+era reutilizar el barrido, y la geometría del modelo de capas no lo permite:
+en un descenso el relleno se retira de derecha a izquierda y va _por encima_
+del fondo, así que un barrido de izquierda a derecha queda escondido media
+travesía y deja una cola que encoge, crece y desaparece; y uno de derecha a
+izquierda es invisible del todo.
+
+**La sustitución es invisible por donde ocurre**, y esto se midió: en el
+instante del cruce la vuelta de abajo está al 100%, así que el relleno tapa la
+barra entera y el fondo que cambia debajo no tiene un píxel donde mostrarse.
+No es suerte; es el único momento en que el cambio no se puede ver.
 
 ## Lo que hay que respetar al construirlo
 
