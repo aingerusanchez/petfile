@@ -896,17 +896,13 @@ test("carries the marks with it when the month is paged", async ({ page }) => {
   await page.getByTestId("home-day").click();
   await expect(page.getByTestId("home-calendar")).toBeVisible();
   await expect(page.getByTestId("calendar-mark-incident")).toHaveCount(0);
-  // The sheet fades in, and a tap on the month arrow during that fade is
-  // swallowed — the grid stays on the month it opened at and the assertion
-  // below then blames the fetch for a click that never landed.
-  await page.waitForTimeout(600);
 
   // Page back a month with the library's own arrow, the way anybody looking
   // for "which day did he have diarrhoea?" would. That arrow changes the
   // month without calling `onMonthChange`, so a per-month fetch never learned
   // it had to run — and every cell fell through to the unlogged branch, the
   // calendar asserting that nothing happened all month.
-  await page.getByTestId("btn-prev").click();
+  await pageBackOneMonth(page);
 
   // The month on screen must be the month the marks belong to. Falling
   // through to the unlogged branch would have the calendar assert that
@@ -943,10 +939,51 @@ function lastMonthAt(day: number): Date {
 async function openLastMonth(page: Page) {
   await page.getByTestId("home-day").click();
   await expect(page.getByTestId("home-calendar")).toBeVisible();
-  // The sheet fades in, and a tap on the month arrow during that fade is
-  // swallowed — see the paging spec above.
+  await pageBackOneMonth(page);
+}
+
+/**
+ * Presses ‹ once, and does not return until the grid has actually moved.
+ *
+ * **The wait is kept, and a check is added to it.** The sheet fades in and a
+ * tap on the arrow during that fade is swallowed: the grid stays on the month
+ * it opened at, and whatever the spec asserts next blames the fetch for a
+ * click that never landed. Pressing until the header moves catches that —
+ * measured while writing this, one press in three needed a second one.
+ *
+ * **Do not delete the wait and keep only the check.** That was tried, and the
+ * spec went from failing about one run in fifteen to failing nine. The 600 ms
+ * is not padding for the fade; it is time for the year-wide marks read to
+ * land, and the reason it matters is uglier than this helper: when that read
+ * answers, the library re-derives the month on screen from `date`, which never
+ * left today, and **the grid snaps back to this month on its own**. Measured
+ * with a probe: the press lands, the header reads «septiembre», and five
+ * seconds later the calendar is on «octubre» with the navigation thrown away.
+ * `waitForLoadState("networkidle")` is not a substitute either — also tried,
+ * also nine.
+ *
+ * That snap-back is a defect in the app and not in this suite, and it is
+ * written up in `docs/specs/2026-10-23-calendario-vuelve-al-mes-de-hoy.md`
+ * rather than fixed here: the library folds the
+ * displayed month into state built once, so it cannot simply be told to stay
+ * (AGENTS.md records the measurement). Until it is decided, this helper keeps
+ * the spec testing what it means to test — that paging fetches the month it
+ * moved to — and does not pretend the race is gone.
+ *
+ * The post-press wait is deliberately longer than a frame: a press that
+ * landed and is merely slow must not be pressed again, which is the one way
+ * this could overshoot. A swallowed press is swallowed at once, not slowly.
+ */
+async function pageBackOneMonth(page: Page) {
   await page.waitForTimeout(600);
-  await page.getByTestId("btn-prev").click();
+  const header = page.getByTestId("btn-month");
+  const opened = ((await header.textContent()) ?? "").trim();
+  await expect(async () => {
+    if (((await header.textContent()) ?? "").trim() === opened) {
+      await page.getByTestId("btn-prev").click();
+    }
+    await expect(header).not.toHaveText(opened, { timeout: 1500 });
+  }).toPass({ timeout: 15_000 });
 }
 
 /** The goal bar inside the cell the calendar labels exactly `label`. */
