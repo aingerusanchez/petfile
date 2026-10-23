@@ -1103,6 +1103,52 @@ export default function Home() {
   );
 
   /**
+   * **And coming back to the app re-reads them too.**
+   *
+   * The effect above hangs off `useFocusEffect`, which answers to navigation
+   * between tabs and not to the app's own lifecycle: putting the app in the
+   * background does not blur a screen, so coming back from it never touched
+   * the treatments. v0.22.0 fixed exactly this for the day's entries and left
+   * the treatments behind — the same defect, for another kind of row. A tutor
+   * who writes down a vaccine on their phone stays invisible on the other one
+   * until somebody changes tab, presses Reintentar or pulls down.
+   *
+   * **It keys on `unasked` because that is what coming back means here.**
+   * `reread` is called from the `AppState` handler and from nowhere else, so
+   * the counter moves when, and only when, the app comes to the front. That
+   * is cheaper and far less invasive than moving the handler down the file to
+   * reach `readTreatments`, and a ref is not an option: writing one in render
+   * is what `react-hooks/refs` reports.
+   *
+   * `unasked === 0` is the mount, which the effect above has already covered.
+   *
+   * **The zero-delay timeout is not decoration.** `readTreatments` sets state
+   * before its first await, and a synchronous `setState` in an effect body is
+   * the cascading render `react-hooks/set-state-in-effect` exists to stop —
+   * measured here: without it, lint refuses the file. This is the shape the
+   * `now` refresh above already uses for the same reason, followed rather
+   * than invented a second time. The alternative was moving the `AppState`
+   * handler below `readTreatments` so the call sits in an event handler,
+   * where state is ordinary; it drags the three hoisted lines above it along
+   * and turns a three-line change into a ninety-line move through the one
+   * file in this project that has twice rewritten a real walk.
+   *
+   * Safe by something `readTreatments` already guarantees and this does not
+   * re-implement: **a failed read keeps the rows it had**. So a read nobody
+   * asked for cannot take the treatments off a screen that was showing them,
+   * which is the rule three versions were spent on for the day's entries.
+   */
+  useEffect(() => {
+    if (unasked === 0) return;
+    let cancelled = false;
+    const soon = setTimeout(() => void readTreatments(() => cancelled), 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(soon);
+    };
+  }, [unasked, readTreatments]);
+
+  /**
    * Everything the screen reads, read again.
    *
    * **The treatments come back with the rest of it.** `attempt` drives the

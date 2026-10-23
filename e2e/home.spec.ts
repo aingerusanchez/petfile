@@ -4,6 +4,7 @@ import {
   resetE2EPets,
   seedE2EEvents,
   seedE2EPet,
+  seedE2ETreatments,
   seedSession,
 } from "./auth";
 import { colors } from "../components/ui/tokens";
@@ -5598,6 +5599,46 @@ test("re-reads the day when the app comes back to the foreground", async ({
   await expect(page.getByTestId("home-log")).toContainText(
     "Pienso del otro móvil",
   );
+});
+
+/**
+ * **La relectura al volver alcanza también a los tratamientos.**
+ *
+ * v0.22.0 lo arregló para las entradas del día y los dejó fuera: cuelgan de
+ * `useFocusEffect`, que responde a cambiar de pestaña y no al ciclo de vida
+ * de la app. Es el mismo fallo que el tutor reportó, para otra clase de fila
+ * — uno apunta la vacuna desde su móvil y el otro no la ve al volver.
+ *
+ * La siembra va **entre** dos comprobaciones, igual que en la prueba de las
+ * entradas: sin ella, «releyó» y «no hizo nada» se ven exactamente igual.
+ */
+test("relee los tratamientos al volver a la app, no solo las entradas", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const today = new Date();
+  const administeredOn = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  await seedSession(page);
+  await page.goto("/");
+  // El día ya ha contestado. Sin esperar aquí, la siembra correría contra la
+  // primera lectura y la sección aparecería sin que nadie hubiera releído.
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+  await expect(page.getByTestId("home-treatments")).toHaveCount(0);
+
+  // El otro móvil apunta la vacuna mientras éste tiene la app detrás.
+  await seedE2ETreatments(petId, [
+    { kind: "vaccine", name: "Rabia", administeredOn, nextDueOn: null },
+  ]);
+  // Y en esta pantalla no ha cambiado nada, que es justo el fallo.
+  await expect(page.getByTestId("home-treatments")).toHaveCount(0);
+
+  await comeBackToTheApp(page);
+
+  await expect(page.getByTestId("home-treatments")).toContainText("Rabia");
 });
 
 test("stays on the day it was left on when the app comes back", async ({
