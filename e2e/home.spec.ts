@@ -3770,9 +3770,8 @@ test("una parada sin red deja el paseo guardado para después", async ({
     await page.evaluate(() => window.localStorage.getItem("petfile.walk.v1")),
   ).toBeNull();
 
-  // Vuelve la red y la app se abre de cero: la cola sigue ahí, el paseo no ha
-  // vuelto a aparecer como en marcha, y sus minutos cuentan desde el primer
-  // render.
+  // Vuelve la red y la app se abre de cero: el paseo no ha vuelto a aparecer
+  // como en marcha, y sus minutos cuentan desde el primer render.
   await page.unroute(supabase);
   await page.reload();
   await expect(page.getByTestId("home-goal-measure")).toHaveText(
@@ -3783,11 +3782,19 @@ test("una parada sin red deja el paseo guardado para después", async ({
     "aria-label",
     "Empezar paseo",
   );
-  expect(
-    await page.evaluate(() =>
-      window.localStorage.getItem("petfile.pending.v1"),
-    ),
-  ).toContain(walkId);
+  // **Aquí se comprobaba que la cola seguía en disco, y dejó de ser cierto en
+  // la v0.23.0.** Con la red de vuelta, la reproducción sube la parada y
+  // vacía la cola: eso es exactamente lo que se construyó. Entre medias la
+  // comprobación fue una carrera —se ganaba mientras la subida tardase más
+  // que este `evaluate`, y se perdió en cuanto no—, y una carrera que pasa
+  // casi siempre es peor que una prueba que falla siempre, porque nadie la
+  // mira hasta que miente.
+  //
+  // Lo que esta prueba defiende sigue en pie y está arriba: la intención
+  // sobrevive a la pulsación y al arranque en frío. La medida lo demuestra
+  // sin depender de dónde esté el dato — dice `30 min en 1 paseo` lo lleve la
+  // cola o lo lleve ya el servidor. Que suba tiene su propia prueba, «sube la
+  // parada pendiente en cuanto vuelve la red».
 });
 
 /**
