@@ -13,6 +13,7 @@ import {
 } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Pressable, View } from "react-native";
+import Animated, { FadeOut, useReducedMotion } from "react-native-reanimated";
 import {
   Button,
   colors,
@@ -2225,6 +2226,7 @@ function Entry({
   pending?: PendingStop | null;
 }) {
   const { settings } = useSettings();
+  const reduceMotion = useReducedMotion();
   const spec = KINDS[event.kind as EventKind];
   // The reading side, so both formats are the tutor's. The sheet below keeps
   // 24-hour times, because that is the only form a number pad can express.
@@ -2320,7 +2322,24 @@ function Entry({
           {pending ? (
             // Decorative: the row's name says the word, so a reader who
             // cannot see this has already been told.
-            <View
+            // **La marca se va con una transición, no de golpe.** Aparecer
+            // es una noticia y puede ser instantáneo; irse es el final de
+            // algo, y un elemento que desaparece entre dos fotogramas se lee
+            // como un fallo de dibujo antes que como «ya está». 200 ms es lo
+            // que tarda en leerse como que la fila se asienta.
+            //
+            // **Solo a la salida.** La marca entra en el mismo fotograma en
+            // que la parada falla, junto al toast y al temblor del control:
+            // ahí ya hay tres cosas diciendo lo mismo y una cuarta llegando
+            // despacio sería ruido.
+            //
+            // No lleva prueba, y es deliberado: lo único que se podría
+            // afirmar es que el elemento tarda 200 ms en irse, que es una
+            // aserción contra un reloj — justo la clase de carrera que hoy
+            // costó una suite entera. Se verifica en el dispositivo, con una
+            // grabación, que es como se miden las animaciones aquí.
+            <Animated.View
+              exiting={reduceMotion ? undefined : FadeOut.duration(200)}
               testID={`home-entry-pending-${event.id}`}
               className="shrink-0"
               accessibilityElementsHidden
@@ -2328,7 +2347,7 @@ function Entry({
               aria-hidden
             >
               <CloudOff size={16} strokeWidth={2} color={colors.warning} />
-            </View>
+            </Animated.View>
           ) : null}
           <Text className="shrink font-semibold text-text-primary">
             {spec?.label ?? event.kind}
