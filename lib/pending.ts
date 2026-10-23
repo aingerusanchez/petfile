@@ -160,3 +160,101 @@ export function pendingMinutes(queue: PendingStop[]): number {
 export function pendingWalks(queue: PendingStop[]): number {
   return queue.filter((stop) => stop.kind === "close").length;
 }
+
+/**
+ * What the server said about one replayed intent.
+ *
+ * **A network failure and a rejection are not the same thing**, and keeping
+ * them apart is the whole reason this is three words rather than a boolean.
+ *
+ * - `done` — the intent holds now. Either this write landed, or the server
+ *   already agreed with it: the other tutor closed the same walk first, or
+ *   the row a delete was aimed at is already gone. Whichever close landed
+ *   first wins, which is the only rule that needs no guessing.
+ * - `gone` — the row no longer exists, so a close can never be written. This
+ *   intent will not be fulfilled however long it waits.
+ * - `failed` — the request did not get through. Nothing is known about the
+ *   row, so the intent is exactly as pending as it was.
+ */
+export type StopOutcome = "done" | "gone" | "failed";
+
+/**
+ * How a queued intent reaches the server.
+ *
+ * **Injected rather than imported**, so this module stays the pure one it
+ * says it is: the rules here can be tested against a writer that answers on
+ * demand, and the only Supabase import site in app code stays `lib/supabase.ts`
+ * — the screen passes `replayStop` from `lib/events.ts`, which is where the
+ * conditional write that makes `done` honest actually lives.
+ */
+export type ReplayStop = (stop: PendingStop) => Promise<StopOutcome>;
+
+/**
+ * The replays in flight, by walk id.
+ *
+ * **Two replays at once must not write the same intent twice**, and they can
+ * overlap for real: coming back to the app and a day read that ends well are
+ * two triggers that happen within the same second of each other. A second
+ * replay of an element already in the air waits on the first and reports its
+ * answer, so the queue is replayed once however many callers ask.
+ *
+ * **Per element rather than one flag over the whole replay**, which is the
+ * stronger guard and not the more complicated one: a replay whose queue has
+ * grown since the first started still writes the element the first does not
+ * carry, instead of being dropped whole.
+ *
+ * It holds nothing once a write settles — this is a guard against overlap,
+ * not a memory of what the server said.
+ */
+const replaying = new Map<string, Promise<StopOutcome>>();
+
+function replayOnce(stop: PendingStop, replay: ReplayStop) {
+  const held = replaying.get(stop.id);
+  if (held) return held;
+  const run = (async () => {
+    try {
+      return await replay(stop);
+    } catch {
+      // A writer that throws is a request that did not get through, which is
+      // the safe side of the only mistake this can make: the intent stays and
+      // is tried again, rather than being dropped on an exception nobody
+      // classified.
+      return "failed" as const;
+    } finally {
+      replaying.delete(stop.id);
+    }
+  })();
+  replaying.set(stop.id, run);
+  return run;
+}
+
+/**
+ * Replays the queue. Returns the elements that are still pending and the ones
+ * the server rejected for good, **which are two different things**.
+ *
+ * What is in neither list is done, and the caller may stop holding it: the
+ * walk is in the diary with the length the tutor pressed for.
+ *
+ * Nothing here reads the clock. `minutes` was computed against `pressedAt`
+ * when the tutor pressed, so a stop replayed from the lift and a stop
+ * replayed from the street write the same length.
+ */
+export async function flushPending(
+  queue: PendingStop[],
+  replay: ReplayStop,
+): Promise<{ left: PendingStop[]; rejected: PendingStop[] }> {
+  const replayed = await Promise.all(
+    queue.map(async (stop) => ({
+      stop,
+      outcome: await replayOnce(stop, replay),
+    })),
+  );
+  return {
+    left: replayed.flatMap(({ stop, outcome }) =>
+      outcome === "failed" ? stop : [],
+    ),
+    rejected: replayed.flatMap(({ stop, outcome }) =>
+      outcome === "gone" ? stop : [],
+    ),
+  };
+}

@@ -69,6 +69,7 @@ import {
   MAX_WALK_MINUTES,
   minutesBetween,
   parseTimeOfDay,
+  replayStop,
   startWalk,
   updateEvent,
   walkCount,
@@ -89,6 +90,7 @@ import {
 import { useSettings, type DurationFormat } from "../../lib/settings";
 import {
   enqueueStop,
+  flushPending,
   parsePending,
   pendingForDay,
   pendingMinutes,
@@ -213,6 +215,17 @@ function shiftDays(day: Date, by: number): Date {
 const NO_EVENTS: PetEventRow[] = [];
 /** What the screen says when the account has no pet to show a day of. */
 const NO_PET = "Todavía no hay ninguna mascota";
+/**
+ * The one thing a replay says out loud: the walk a queued stop was for has
+ * been deleted from the other phone, so that stop can never be written.
+ *
+ * **Said because nothing is discarded in silence**, which is the rule the
+ * whole queue is built on — and this is the only case where an intent leaves
+ * it without reaching the server. A warning rather than an error: nothing
+ * went wrong, the record simply moved on without this press.
+ */
+const WALK_GONE =
+  "Un paseo que quedaba por subir ya no existe: se borró desde otro móvil.";
 
 /**
  * Which tier of the goal a day's minutes have reached, on the bar's own
@@ -451,6 +464,32 @@ export default function Home() {
    */
   const [pending, setPending] = useState<PendingStop[]>([]);
   /**
+   * The same queue, where the replay can reach it.
+   *
+   * **A ref beside the state, because the replay runs from callbacks that
+   * were made before the queue changed.** The replay hangs off a day read,
+   * and the day effect may not re-run between a stop being queued and the
+   * next read landing; a closure over `pending` would then replay the queue
+   * as it was, which is a stop that never goes up. The state is what renders
+   * and the ref is what the replay reads, and the two are written together
+   * everywhere the queue moves: the mount read, the error branch of `stop`,
+   * and the replay itself.
+   */
+  const pendingRef = useRef<PendingStop[]>([]);
+  /**
+   * Whether a day read has ended well in this session.
+   *
+   * **It is half of "there is reason to believe the network is back".** The
+   * other half is having a queue to replay, and the two arrive in whichever
+   * order the phone decides: on a cold start with a stop waiting on disk, the
+   * day read can answer before `AsyncStorage` does, and a replay hung off the
+   * read alone would then find an empty queue and do nothing until the next
+   * read — which is precisely the "the mark survives several openings of the
+   * app" that would reopen the question of a manual retry button. So whoever
+   * arrives last fires it.
+   */
+  const dayRead = useRef(false);
+  /**
    * The walk the sheet has written to since it was last fetched, by id.
    *
    * **`stop` reads the fetched row, and the fetched row lags a sheet save.**
@@ -628,6 +667,138 @@ export default function Home() {
     };
   }, []);
 
+  /**
+   * Sends the queued stops up, and takes the ones that are settled out.
+   *
+   * **The three triggers the plan names all arrive here through one of
+   * them.** The plan lists coming back to the app, any day read that ends
+   * well, and the log's Reintentar; in this screen the first bumps `unasked`
+   * and the third bumps `attempt`, and both of those *are* a day read. So the
+   * replay hangs off the one moment all three produce — a read that answered
+   * — rather than off three call sites that would mostly fire each other.
+   * None of them is a connectivity detector: they are moments when there is
+   * reason to believe the network is back, which is as much as this app can
+   * ever know. The fourth moment, opening the app with a stop already on
+   * disk, is `dayRead` above.
+   *
+   * **Nothing here is said out loud except a rejection.** A replay that fails
+   * is not news: the tutor already knows, because the row carries the mark,
+   * and a toast on every read that ends well while the signal is still bad
+   * would be the app complaining about something it is handling. A rejection
+   * is the one case where an intent leaves the queue without being written,
+   * so it is the one case that speaks.
+   *
+   * **What the server accepted is written into the rows in the same commit
+   * the queue stops carrying it.** The day's minutes are counted from the
+   * rows *plus* the queue, so taking a stop out of the queue and waiting for
+   * a re-read to put it in the rows would drop those minutes out of the
+   * measure for a round trip — the backwards frame the goal bar spent a
+   * version removing. There is nothing optimistic about it: the row is given
+   * the length the server has just confirmed, and the next ordinary read
+   * agrees.
+   */
+  const runReplay = useCallback(async () => {
+    const queue = pendingRef.current;
+    if (queue.length === 0) return;
+    const { left, rejected } = await flushPending(queue, replayStop);
+    // Nothing settled — the usual answer while the signal is still bad, and
+    // the one that must leave every piece of state exactly as it was.
+    if (left.length === queue.length) return;
+
+    const settled = new Set(
+      queue.filter((stop) => !left.includes(stop)).map((stop) => stop.id),
+    );
+    const refused = new Set(rejected.map((stop) => stop.id));
+    /** The rows the server has just given a length, and the ones it has lost. */
+    const uploaded = new Map<string, number>();
+    const removed = new Set<string>();
+    for (const stop of queue) {
+      if (!settled.has(stop.id) || refused.has(stop.id)) continue;
+      if (stop.kind === "close") uploaded.set(stop.id, stop.minutes);
+      else removed.add(stop.id);
+    }
+    // **Filtered from the ref rather than replaced by `left`**, because a
+    // stop queued while this replay was in the air is not one of the elements
+    // it answered for, and must survive it.
+    const next = pendingRef.current.filter((stop) => !settled.has(stop.id));
+    pendingRef.current = next;
+    setPending(next);
+    if (uploaded.size > 0 || removed.size > 0) {
+      setLog((prev) =>
+        prev === null
+          ? prev
+          : {
+              ...prev,
+              events: prev.events.flatMap((event) =>
+                removed.has(event.id)
+                  ? []
+                  : uploaded.has(event.id)
+                    ? [
+                        {
+                          ...event,
+                          duration_minutes: uploaded.get(event.id) ?? null,
+                        },
+                      ]
+                    : [event],
+              ),
+            },
+      );
+    }
+    // One per rejection, which the toast queue counts rather than stacks: two
+    // walks the other phone deleted is the same sentence twice, said once.
+    rejected.forEach(() =>
+      toast.show({ variant: "warning", message: WALK_GONE }),
+    );
+    // Disk below the `set…` calls and after no `await`, for the reason the
+    // error branch of `stop` gives: an `await` ends the window React
+    // coalesces updates in, and the commit above has to be one render.
+    try {
+      await AsyncStorage.setItem(PENDING_STORAGE_KEY, serialisePending(next));
+    } catch {
+      // Best-effort, as everywhere else here. The queue in memory is what
+      // this session counts, and what is already up cannot be written twice:
+      // a close is conditional on the walk still being open.
+    }
+  }, [toast]);
+
+  /**
+   * One replay at a time, and never a trigger thrown away.
+   *
+   * **`flushPending` already guarantees one write per element**, so what this
+   * guards is the half that lives up here: a second replay of the same queue
+   * would wait on the first's writes, read the same rejections out of them
+   * and say so a second time — the one thing the replay is allowed to say out
+   * loud, said twice for one deleted walk.
+   *
+   * **A trigger that arrives mid-replay is remembered rather than dropped**,
+   * which a bare in-flight flag could not do. A stop queued while a replay is
+   * in the air is not one of the elements that replay is answering for, and a
+   * flag that simply refused the trigger it came with would leave it sitting
+   * there until the next time the tutor opened the app. The loop runs again
+   * exactly once per ask, so it ends as soon as the asking does.
+   *
+   * It is the same shape as `walkInFlight`, for the same reason: state closes
+   * the door only once a render has committed, and a ref closes it at once.
+   */
+  const replaying = useRef(false);
+  const replayAsked = useRef(false);
+  const replayQueue = useCallback(async () => {
+    if (replaying.current) {
+      replayAsked.current = true;
+      return;
+    }
+    replaying.current = true;
+    try {
+      do {
+        // Cleared before the run, so an ask that lands during it is kept.
+        replayAsked.current = false;
+        await runReplay();
+      } while (replayAsked.current);
+    } finally {
+      replaying.current = false;
+    }
+  }, [runReplay]);
+
   useEffect(() => {
     let cancelled = false;
     // **Per key, so one unreadable value does not take the other with it.** A
@@ -641,6 +812,7 @@ export default function Home() {
         const stops = parsePending(queue);
         const running = parseRunningWalk(walk);
         setPending(stops);
+        pendingRef.current = stops;
         // **A walk the queue already holds is not running.** The release
         // writes the queue and only then clears the note, so a process killed
         // between the two comes back with both on disk — and a walk counted
@@ -652,12 +824,16 @@ export default function Home() {
             ? null
             : running,
         );
+        // **The other order of the same pair.** A day read that already ended
+        // well has supplied the reason to believe the network is there, and
+        // this is the queue it was missing: see `dayRead`.
+        if (stops.length > 0 && dayRead.current) void replayQueue();
       },
     );
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [replayQueue]);
 
   useEffect(() => {
     let cancelled = false;
@@ -787,12 +963,21 @@ export default function Home() {
       // when both came back. A failed log read is still a failure to the
       // button, because the error it was pressed over is still on screen.
       answerReload(answering, eventError === null);
+      // **A read that ended well is the reason to try the queue again**, and
+      // it is the moment all three of the plan's triggers reach: a return to
+      // the foreground, this screen's Reintentar and the pull gesture each
+      // cause exactly this read. A read that failed is not one — there is
+      // nothing to believe about the network — so this sits on the far side
+      // of the error check and nowhere else. See `replayQueue`.
+      if (eventError !== null) return;
+      dayRead.current = true;
+      void replayQueue();
     });
 
     return () => {
       cancelled = true;
     };
-  }, [day, attempt, unasked, answerReload]);
+  }, [day, attempt, unasked, answerReload, replayQueue]);
 
   /**
    * Lazily, and only while the calendar is open: most visits to the diary
@@ -1296,6 +1481,9 @@ export default function Home() {
               };
         const queued = enqueueStop(pending, intent);
         setPending(queued);
+        // The replay reads the queue from here, because it runs from
+        // callbacks made before this press: see `pendingRef`.
+        pendingRef.current = queued;
         // **Released, and its minutes change hands in the same commit.** The
         // live segment goes with `runningId`, and `walked` counts the queue,
         // so the bar is painted at the same width on both sides of this.

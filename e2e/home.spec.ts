@@ -3918,6 +3918,76 @@ test("un paseo sin subir lleva su marca y dice por qué", async ({ page }) => {
   await page.unroute("**/rest/v1/pet_events*");
 });
 
+/**
+ * **La cola se sube sola, y el día no se mueve al hacerlo.** Esos minutos ya
+ * estaban contados —la actualización optimista es el punto de todo esto—, así
+ * que la subida no es un cambio en la medida: es el mismo número dicho a
+ * partir de la fila en vez de a partir de la cola. Lo único que desaparece es
+ * la marca, porque ya no falta nada por subir.
+ *
+ * **El disparador es una lectura del día que termina bien**, que es por donde
+ * llegan los tres momentos del plan: volver a la app y el `Reintentar` del
+ * registro provocan exactamente esa lectura. Aquí se usa el arco de días, que
+ * es el único que se puede pulsar con el registro sano — un Reintentar solo
+ * existe donde una lectura ha fallado.
+ *
+ * **Se corta solo la escritura**, que es lo que hace que la prueba valga: la
+ * relectura que sigue a la parada fallida llega, encuentra la fila abierta en
+ * el servidor y reproduce la cola contra una ruta todavía cortada. El cierre
+ * no sube hasta que la red vuelve de verdad.
+ */
+test("sube la parada pendiente en cuanto vuelve la red", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const now = new Date();
+  const running = new Date(now.getTime() - 30 * 60_000);
+  test.skip(running.getDate() !== now.getDate(), "30 minutes ago is yesterday");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const walkId = await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    ["PATCH", "DELETE"].includes(route.request().method())
+      ? route.abort()
+      : route.continue(),
+  );
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+
+  const row = page.getByTestId(`home-entry-${walkId}`);
+  await expect(page.getByTestId(`home-entry-pending-${walkId}`)).toBeVisible();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+
+  // Vuelve la red, y la cola espera a que algo dé motivos para creerlo: ‹ es
+  // una lectura del día que termina bien. La cola no va por días —el paseo
+  // está en hoy y la lectura es la de ayer— y aun así sube.
+  await page.unroute("**/rest/v1/pet_events*");
+  await page.getByTestId("home-prev-day").click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.localStorage.getItem("petfile.pending.v1")),
+    )
+    .toBe("[]");
+
+  await page.getByTestId("home-next-day").click();
+  // La marca se ha ido porque ya no falta ninguna subida, la fila dice su
+  // duración como cualquier otra —ahora desde el servidor— y la medida es la
+  // misma que antes de subir.
+  await expect(page.getByTestId(`home-entry-pending-${walkId}`)).toHaveCount(0);
+  await expect(row).toContainText("30 min");
+  await expect(row).not.toHaveAttribute("aria-label", /no sincronizado/);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+});
+
 test("shakes the control when a start cannot be saved", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
   await seedSession(page);

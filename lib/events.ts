@@ -1,5 +1,6 @@
 import type { Database } from "./database.types";
 import { describeFailure, withTimeout } from "./failures";
+import type { PendingStop, StopOutcome } from "./pending";
 import { supabase } from "./supabase";
 import { treatmentsSince, type PetTreatmentRow } from "./treatments";
 
@@ -522,6 +523,85 @@ export async function closeWalk(
     return { error: error ? describeFailure(error, "closeWalk") : null };
   } catch (cause) {
     return { error: describeFailure(cause, "closeWalk") };
+  }
+}
+
+/**
+ * Writes a stop the phone has been holding, and says which of three things
+ * happened to it. This is the writer `flushPending` is handed; the rules
+ * about what to do with each answer are in `lib/pending.ts`.
+ *
+ * **A close is conditional on the walk still being open**, which is the whole
+ * of the two-tutor rule: `is("duration_minutes", null)` means the other
+ * phone's close, if it landed first, is not overwritten by ours twenty
+ * minutes later. Whichever close landed first wins, and nothing has to guess
+ * which of the two was right.
+ *
+ * **A write that matches no row is not an error**, in Postgrest or anywhere
+ * else — the update simply touches nothing. So the answer has to be read from
+ * what came back, and when nothing did, the two reasons have to be told
+ * apart: the row has a length already (the intent holds, silently) or the row
+ * is gone (the intent can never hold, and the tutor is told). That second
+ * read is the only extra round trip here and it happens in neither of the
+ * ordinary cases.
+ *
+ * **A delete needs none of that.** Deleting a row that is already gone is the
+ * intent fulfilled, not a rejection: what was asked for is true.
+ *
+ * The sentences `describeFailure` builds are thrown away on purpose — the
+ * replay is silent, because a retry that fails is not news and the mark on
+ * the row already says an upload is outstanding. The call is kept for the
+ * console line, which is where a diagnostic belongs.
+ */
+export async function replayStop(stop: PendingStop): Promise<StopOutcome> {
+  if (stop.kind === "delete") {
+    try {
+      const { error } = await withTimeout(
+        supabase.from("pet_events").delete().eq("id", stop.id),
+        "deleteEvent",
+      );
+      if (error) {
+        describeFailure(error, "deleteEvent");
+        return "failed";
+      }
+      return "done";
+    } catch (cause) {
+      describeFailure(cause, "deleteEvent");
+      return "failed";
+    }
+  }
+
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from("pet_events")
+        .update({
+          duration_minutes: stop.minutes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", stop.id)
+        .is("duration_minutes", null)
+        .select("id"),
+      "closeWalk",
+    );
+    if (error) {
+      describeFailure(error, "closeWalk");
+      return "failed";
+    }
+    if ((data?.length ?? 0) > 0) return "done";
+
+    const { data: row, error: unreadable } = await withTimeout(
+      supabase.from("pet_events").select("id").eq("id", stop.id),
+      "closeWalk",
+    );
+    if (unreadable) {
+      describeFailure(unreadable, "closeWalk");
+      return "failed";
+    }
+    return (row?.length ?? 0) > 0 ? "done" : "gone";
+  } catch (cause) {
+    describeFailure(cause, "closeWalk");
+    return "failed";
   }
 }
 
