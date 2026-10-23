@@ -18,6 +18,50 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.23.0] — 2026-10-23
+
+### Nuevo
+
+- **Parar el paseo sin cobertura ya no cuesta veinte minutos de más.** Hasta
+  ahora, pulsar parar en el portal sin señal fallaba y había que volver a
+  pulsar al llegar a casa — **y era esa segunda pulsación la que se
+  guardaba**, así que el ascensor, las escaleras y lo que se tardara en
+  acordarse entraban en el paseo como si el perro los hubiera andado. El
+  teléfono se queda ahora con la intención: el paseo se da por terminado a la
+  hora en que se pulsó, el día lo cuenta desde ese momento, y la subida se
+  hace sola en cuanto hay red. **La hora no se recalcula nunca al subir**, así
+  que una parada que sube desde el ascensor y otra que sube desde la calle
+  escriben exactamente el mismo paseo.
+- **Una fila que aún no ha subido lo dice**, con una nube ámbar delante de su
+  título y la palabra «no sincronizado» en lo que se lee en voz alta. Dice su
+  duración como cualquier otra fila: el tutor paró el paseo, y una fila que
+  siguiera diciendo «En marcha» mentiría sobre algo que hizo. Lo único que
+  queda pendiente es la subida, y eso es lo que la marca señala. No hay un
+  estado envejecido ni un botón de reintentar: el problema es que no ha
+  subido, no desde cuándo.
+- **Sube sola al volver a la app, al cambiar de día, al tirar hacia abajo y al
+  pulsar Reintentar** — los cuatro son el mismo momento, una lectura del día
+  que ha salido bien, que es la única pista honesta de que la red ha vuelto.
+  La app no sabe si hay conexión; solo descubre que algo ha funcionado.
+- **Lo que no se puede cumplir se dice, no se descarta en silencio.** Si el
+  otro móvil borró ese paseo mientras tanto, la parada guardada no podrá
+  escribirse nunca: se retira y se avisa. Y si el otro móvil cerró el mismo
+  paseo primero, gana el suyo — el nuestro no lo pisa veinte minutos después.
+
+### Cambiado
+
+- **El alcance es la parada y solo la parada**, y conviene saberlo: empezar un
+  paseo sin cobertura sigue fallando como antes. Guardar un arranque exigiría
+  que el paseo tuviera una identidad inventada por el teléfono y que luego
+  hubiera que reconciliarla con la del servidor, que es otro problema y más
+  grande. Parar es la mitad que se puede resolver con lo que ya existe,
+  porque la fila ya está creada: la intención guardada es «cierra esta fila a
+  esta hora» y se reproduce tal cual.
+- **Los tratamientos también se releen al volver a la app.** La v0.22.0
+  arregló esto para las entradas del día y los dejó fuera, así que una vacuna
+  apuntada desde el otro móvil seguía sin aparecer hasta cambiar de pestaña.
+  Mismo fallo, otra clase de fila.
+
 ## [v0.22.2] — 2026-10-22
 
 ### Arreglado

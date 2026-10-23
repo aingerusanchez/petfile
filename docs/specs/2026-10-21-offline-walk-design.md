@@ -1,6 +1,10 @@
 # El paseo no depende de la cobertura — diseño
 
-**Estado:** diseño acordado con el tutor el 21 de octubre de 2026. Sin construir.
+**Estado:** construido en la v0.23.0, el 23 de octubre de 2026. Las cuatro
+decisiones de abajo siguen siendo las vigentes; lo que ha cambiado es que las
+cuatro preguntas que este documento dejaba abiertas ya tienen respuesta, y
+están escritas más abajo donde estaban las preguntas. **El alcance que se
+acordó al escribir el plan, y que esta spec no decía, es solo la parada.**
 **Origen:** la v0.15.0 arregló que un fallo de red no se llevara el diario por
 delante, y la v0.16.0 y la v0.17.0 arreglaron cómo lo cuenta. Ninguna de las
 tres arregla el problema de fondo: **el paseo de Loki se pierde si el teléfono
@@ -76,15 +80,56 @@ tutor la corrige después, como cualquier otro registro.
 Esto no contradice el punto 2 ni el 3: allí corregir sería inventar, aquí es
 usar lo que se tiene. **Esa es la línea, y es la única que hay que defender.**
 
-## Lo que este documento no decide
+## Lo que este documento no decidía, y quedó decidido al construirlo
 
-- La forma visual de la marca de pendiente.
-- Dónde vive la cola en el dispositivo y qué garantías da.
-- Si la sincronización se dispara por reintento manual, por foco, o por un
-  detector de conectividad — y esa última palabra arrastra la discusión que ya
-  tuvimos: **la app no sabe hoy si hay conexión**, solo descubre que una
-  petición ha fallado.
-- Qué pasa con un elemento de la cola que lleva días sin poder subirse.
+- **La forma de la marca:** una nube tachada en ámbar, a 16, delante del
+  título de la fila y dentro de su línea. Se eligió sobre un prototipo en el
+  tablero con una fila pendiente entre filas normales, porque aislada no se
+  juzga. **El glifo va delante y la palabra va detrás:** el ojo necesita
+  dónde engancharse, pero una frase que abriera por la excepción anunciaría
+  el fallo antes de nombrar la cosa de la que habla, así que lo que se lee en
+  voz alta termina en «no sincronizado». Se dibujaron y se descartaron dos
+  variantes: atenuar la fila entera, que obligaba a bajar la hora a un gris
+  que no pasa AA, y una escalada a ámbar a las seis horas — **el problema es
+  que no ha subido, no desde cuándo**.
+- **Dónde vive la cola:** en `AsyncStorage`, junto al paseo en marcha, bajo
+  una clave con versión (`petfile.pending.v1`). Es un hecho sobre la app y no
+  sobre el perro, y por eso **no lleva día**: añadida entera, la parada de
+  anoche aparecería en cualquier día al que lleguen las flechas. Qué paradas
+  son de la pantalla lo dicen las filas de ese día. Lo que lee el disco no se
+  fía de lo que encuentra y no puede lanzar: esto corre en el arranque, y un
+  parseo que lanzara se llevaría el diario por delante.
+- **Qué la dispara:** una lectura del día que ha salido bien, que es lo que
+  resultaron ser los tres disparadores del plan —volver a la app, el
+  `Reintentar` del registro, el gesto de arrastrar— más uno que el plan no
+  tenía, **abrir la app en frío**, donde `AppState` no dispara y la cola y la
+  lectura llegan en el orden que decida el teléfono. **Ningún detector de
+  conectividad**, por lo que esta misma sección ya decía: la app no sabe si
+  hay conexión, solo descubre que algo ha funcionado. Y **ningún botón
+  manual**, que es la decisión que más conviene poder reabrir: un botón solo
+  ayuda si los automáticos no se disparan, y entonces lo que hay que arreglar
+  son los disparadores. Lo que reabriría la discusión es ver la marca
+  sobrevivir a varias aperturas de la app con cobertura.
+- **Un elemento que lleva días sin subir se sigue reintentando y no se tira
+  nunca**, porque es un paseo que el perro dio. Lo único que sale de la cola
+  sin haberse escrito es lo que ya no puede escribirse —la fila que el otro
+  móvil borró— y eso se dice en voz alta. La única excepción, documentada en
+  `lib/pending.ts`, es un elemento almacenado que no se puede ni leer: no se
+  puede anunciar lo que no se puede leer, porque no queda nada que nombrar.
+
+## Lo que sigue sin estar cubierto
+
+- **El arranque.** Empezar un paseo sin cobertura falla como siempre. Lo que
+  hace la parada resoluble es que la fila ya existe en el servidor, así que
+  la intención guardada es «cierra esta fila a esta hora» y se reproduce tal
+  cual. Un arranque exigiría una identidad inventada por el teléfono y luego
+  reconciliarla, que es otro problema.
+- **Una carrera estrecha, conocida y abierta a propósito:** si una lectura de
+  ese mismo día está en vuelo cuando aterriza el PATCH de la subida, puede
+  volver con la fila todavía abierta y pisar el parche local — la medida se
+  queda corta hasta la siguiente lectura de ese día. Cerrarla pedía mantener
+  la parada en la cola hasta que las filas la confirmasen, bastante más
+  maquinaria de la que el defecto merece.
 
 ## Lo que hay que respetar al construirlo
 
