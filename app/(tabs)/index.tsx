@@ -3116,6 +3116,14 @@ function EntrySheet({
             {confirmingDelete ? (
               <View className="flex-row items-center justify-between">
                 <Text className="text-text-secondary">¿Lo borro?</Text>
+                {/* **El hueco se queda donde estaba, y eso es el arreglo.**
+                    Se subió a 24 dp midiendo la separación *antes* de que
+                    `Button` tuviera suelo de ancho, sin caer en que ese
+                    suelo ya iba a separar las dos opciones por su cuenta.
+                    Con las dos cosas, la distancia visual entre «No» y
+                    «Sí, bórralo» pasó de 17,5 dp a 55 y la pareja dejó de
+                    leerse como dos respuestas a la pregunta de al lado
+                    — dicho por el tutor al verlo, medido después. */}
                 <View className="flex-row items-center gap-5">
                   <Button
                     testID="entry-delete-cancel"

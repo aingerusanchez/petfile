@@ -175,8 +175,23 @@ export function Button({
   // The 48dp floor is a literal in `style`, not `min-h-12`: that class is 3rem,
   // and native resolves 1rem to 14, so it was quietly holding the hit area at
   // 42dp while reading as 48 here. See TOUCH_TARGET in tokens.ts.
+  //
+  // **And the floor is both axes.** Only the height was held here, so a short
+  // label made a target as narrow as its word: measured on the device, the
+  // `No` that declines deleting an entry was **16,6 dp wide** beside a
+  // `Sí, bórralo` of 59 — the destructive option three and a half times the
+  // size of the safe one, seventeen dp apart. The calendar's `Hoy` had
+  // already taught this (47,4 dp wide at `text-xs`) and the lesson was fixed
+  // where it was found instead of here, which is why it came back somewhere
+  // else. A width that the label already exceeds is untouched by this.
   const shape = isLink
-    ? "flex-row items-center gap-2 self-start py-3"
+    ? // `justify-center` solo hace algo cuando el `minWidth` de abajo supera
+      // a la etiqueta, que es justo el caso que existe para arreglar: sin
+      // él, los píxeles que el suelo añade se quedan todos a un lado del
+      // texto. Medido en el teléfono con el `No` de borrar una entrada —
+      // 102 px nuevos, los 102 entre las dos opciones, y la pareja dejó de
+      // leerse como dos respuestas a una pregunta.
+      "flex-row items-center justify-center gap-2 self-start py-3"
     : variant === "primary"
       ? `flex-row items-center justify-center gap-2 rounded-xl py-4 ${fill}`
       : isOutlined
@@ -233,7 +248,7 @@ export function Button({
       // See Checkbox: the web renders the role and drops the state.
       aria-disabled={inert}
       aria-busy={status === "loading"}
-      style={{ minHeight: TOUCH_TARGET }}
+      style={{ minHeight: TOUCH_TARGET, minWidth: TOUCH_TARGET }}
       className={`${shape} active:opacity-70`}
     >
       {status === "loading" ? (
