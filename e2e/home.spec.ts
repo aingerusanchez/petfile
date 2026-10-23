@@ -795,6 +795,13 @@ test("throws confetti for the walk that doubles the goal, and only that one", as
   await page.getByTestId("entry-save").click();
   await expect(page.getByTestId("home-goal")).toContainText("45 min");
   await expect(page.getByTestId("celebration")).toBeHidden();
+  // **Waited on the rows, and the measure is no longer enough.** A walk
+  // written by hand holds the day's new total the moment the server
+  // accepts it, so the sentence above is answered before the re-read lands
+  // — and the threshold this test is about is computed from the rows. The
+  // log's entry count is the one assertion only the re-read can satisfy;
+  // without it the next entry is filed against the day before this one.
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(1);
 
   // The walk that reaches the goal. The bar says so and nothing falls.
   await add(page, "walk");
@@ -807,6 +814,7 @@ test("throws confetti for the walk that doubles the goal, and only that one", as
     /.+/,
   );
   await expect(page.getByTestId("celebration")).toBeHidden();
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(2);
 
   // Most of the way through lap two, still nothing.
   await add(page, "walk");
@@ -816,6 +824,7 @@ test("throws confetti for the walk that doubles the goal, and only that one", as
     "1h 45m en 3 paseos",
   );
   await expect(page.getByTestId("celebration")).toBeHidden();
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(3);
 
   // And the walk that doubles it.
   await add(page, "walk");
@@ -2119,9 +2128,13 @@ function toneFrames(page: Page, ms: number) {
  * when the wipe has arrived. One mechanism for one moment, whatever moved the
  * day over the line.
  *
- * The close covers its own crossing — it paints the whole bar for 760 ms — so
- * the crossing this watches is one nothing is drawn over: a walk written
- * through the sheet.
+ * The close covers its own crossing — it paints the whole bar for 760 ms —
+ * so the crossing this watches has to be one nothing is drawn over. **That
+ * used to be a walk written through the sheet, and it is not any more:** a
+ * hand edit that adds minutes now takes the close's own ceremony, grounds
+ * and all, which is the whole of the change that moved it. What is left
+ * bare is the re-read — the other tutor's walk arriving — and the walk in
+ * progress reaching the goal, which cannot be driven here without a clock.
  *
  * **And it watches the curve, not only the travel.** `out(cubic)` travelled
  * too — it was a wipe by every assertion below except the two added with
@@ -2134,11 +2147,12 @@ test("wipes the new ground across the bar when the goal is crossed", async ({
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   // **On yesterday, where a fixed morning hour has already happened.** The
-  // crossing has to be driven by two saves on one day without the block
-  // remounting between them, and the second save is what carries 60 of 120
-  // over the goal to 150 — lap two at a quarter.
+  // crossing has to arrive under a block that is already mounted — a tier
+  // the day lands on while nobody is looking is the day's tier and not a
+  // crossing — so the hour is written first and the 90 minutes that carry
+  // 60 of 120 over the goal to 150 come in afterwards.
   await resetE2EPets();
-  await seedE2EPet({ exercise_goal_minutes: 120 });
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
   await seedSession(page);
   await page.goto("/");
   await page.getByTestId("home-prev-day").click();
@@ -2152,13 +2166,21 @@ test("wipes the new ground across the bar when the goal is crossed", async ({
   );
   expect(await groundColour(page)).toBe(colors.surface);
   expect(await fillColour(page)).toBe(colors.textSecondary);
+  // That save has a ceremony of its own now, and it has to be over before
+  // the bare crossing is watched for.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(1);
 
-  await add(page, "walk");
-  await page.getByTestId("entry-from").fill("10:00");
-  await page.getByTestId("entry-to").fill("11:30");
+  // Written straight into the table, the way the other phone writes it.
+  const crossedAt = new Date();
+  crossedAt.setDate(crossedAt.getDate() - 1);
+  crossedAt.setHours(10, 0, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: crossedAt, durationMinutes: 90 },
+  ]);
 
   const sampling = toneFrames(page, 4_000);
-  await page.getByTestId("entry-save").click();
+  await comeBackToTheApp(page);
   const frames = await sampling;
 
   // Nothing was drawn over the bar: this is the bare crossing, not the close.
@@ -5830,4 +5852,284 @@ test("offers the pull-to-refresh on the diary and nowhere else", async ({
   await page.goto("/profile");
   await expect(page.getByTestId("profile-title")).toBeVisible();
   await expect(page.getByTestId("home-refresh")).toHaveCount(0);
+});
+
+/**
+ * **The bar moves for a hand edit too, and which way it moves is the sign of
+ * the change.**
+ *
+ * Up — a forgotten walk written in, a duration lengthened — is the close's
+ * own ceremony, because the dog walked and what was wrong was the record.
+ * Down — a duplicate deleted, a duration shortened — is the journey back and
+ * nothing else: removing a walk is removing something that never happened,
+ * and giving it the gesture that marks reaching the goal would dramatise the
+ * bookkeeping.
+ *
+ * **What these pin is that the movement exists**, not how long it lasts. An
+ * assertion against a clock cost this suite a whole run and two rounds of
+ * wrong diagnosis; what makes the drawing undeletable is the same thing that
+ * does it for the close — `waitForSelector` armed before the press, because
+ * a settled assertion would retry straight past 700 ms, and the samplers
+ * further up for the shape of it.
+ *
+ * **They work on yesterday**, where a fixed morning hour has already
+ * happened whatever time the suite runs at. The whole of this file's header
+ * is about why.
+ */
+test("walks the bar back when a walk is deleted by hand", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  // **Waited for, and not out of caution.** The bar animates only what this
+  // tutor did to minutes the screen actually knows, so the gate is "the rows
+  // on screen answer the current request" — and until yesterday's read lands
+  // the goal block is behind its skeleton with nothing to animate. An add
+  // fired into that gap is a jump, correctly.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("09:30");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await page.getByTestId("entry-delete").click();
+
+  // **Sampled rather than waited for, because a mount is not a journey.**
+  // The fills on this bar are recomputed per render and jump; the one thing
+  // this change adds is a width that travels, and an overlay that mounted
+  // and painted its end state would satisfy a `waitForSelector` exactly as
+  // well as one that moved. Armed before the confirm, the way the close's
+  // own in-flight assertion is.
+  const sampling = barFrames(page, 3_000, "home-goal-travel-lap-0-fill");
+  await page.getByTestId("entry-delete-confirm").click();
+  const { bar, frames } = await sampling;
+
+  // Half the bar is where 30 of 60 minutes stops, and nothing is where the
+  // day ends up. Caught between the two, several times over, is the travel.
+  expect(
+    frames.filter((f) => f.probe >= 0).length,
+    "the journey should be mounted",
+  ).toBeGreaterThan(5);
+  expect(
+    frames.filter((f) => f.probe > bar * 0.1 && f.probe < bar * 0.4).length,
+    "the fill should be caught part-way back",
+  ).toBeGreaterThan(3);
+
+  // And it lands on the picture it was already painting: the day empty, the
+  // fill gone, nothing left mounted over the bar.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+  await expect(page.getByTestId("home-goal-travel")).toHaveCount(0);
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+});
+
+test("gives a walk written in by hand the close's own ceremony", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  // **Waited for, and not out of caution.** The bar animates only what this
+  // tutor did to minutes the screen actually knows, so the gate is "the rows
+  // on screen answer the current request" — and until yesterday's read lands
+  // the goal block is behind its skeleton with nothing to animate. An add
+  // fired into that gap is a jump, correctly.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("09:30");
+
+  // The same overlay the stop mounts, fed from the sheet instead. What makes
+  // this the close and not something shaped like it is that nothing new was
+  // built for it: `editMotion` hands over a `fill` and the block draws it.
+  const mounted = page.waitForSelector('[data-testid="home-goal-close"]', {
+    state: "attached",
+  });
+  await page.getByTestId("entry-save").click();
+  await mounted;
+
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-travel")).toHaveCount(0);
+});
+
+test("walks the bar back when a duration is corrected down", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  // **Waited for, and not out of caution.** The bar animates only what this
+  // tutor did to minutes the screen actually knows, so the gate is "the rows
+  // on screen answer the current request" — and until yesterday's read lands
+  // the goal block is behind its skeleton with nothing to animate. An add
+  // fired into that gap is a jump, correctly.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("09:45");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "45 min en 1 paseo",
+  );
+
+  // **A correction, not a deletion, and the same journey.** The rule is the
+  // sign of the change and not the action that caused it, which is the whole
+  // of the decision: three ways of taking minutes off a day are one number
+  // going down.
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await page.getByTestId("entry-to").fill("09:20");
+  const mounted = page.waitForSelector('[data-testid="home-goal-travel"]', {
+    state: "attached",
+  });
+  await page.getByTestId("entry-save").click();
+  await mounted;
+
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "20 min en 1 paseo",
+  );
+  await expect(page.getByTestId("home-goal-travel")).toHaveCount(0);
+});
+
+test("lengthens a duration with the ceremony, not with the journey", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  // **Waited for, and not out of caution.** The bar animates only what this
+  // tutor did to minutes the screen actually knows, so the gate is "the rows
+  // on screen answer the current request" — and until yesterday's read lands
+  // the goal block is behind its skeleton with nothing to animate. An add
+  // fired into that gap is a jump, correctly.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("09:20");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "20 min en 1 paseo",
+  );
+
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await page.getByTestId("entry-to").fill("09:50");
+  const mounted = page.waitForSelector('[data-testid="home-goal-close"]', {
+    state: "attached",
+  });
+  await page.getByTestId("entry-save").click();
+  await mounted;
+
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "50 min en 1 paseo",
+  );
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+});
+
+/**
+ * Whether either overlay was ever mounted over the bar, sampled every frame
+ * for as long as the window lasts.
+ *
+ * **It asserts an existence over a window, which is not an assertion against
+ * a clock.** Nothing here reads a duration or a position: the question is
+ * only whether a gesture was built at all, and the only way to answer it in
+ * the negative is to be watching while the thing that must not animate
+ * happens. The same shape as `toneFrames` above, with everything but the
+ * mounts taken out.
+ */
+function movedAtAll(page: Page, ms: number) {
+  return page.evaluate(
+    ([sampleMs]) =>
+      new Promise<boolean>((resolve) => {
+        const began = performance.now();
+        let moved = false;
+        const step = () => {
+          moved ||=
+            document.querySelector('[data-testid="home-goal-close"]') !==
+              null ||
+            document.querySelector('[data-testid="home-goal-travel"]') !== null;
+          if (performance.now() - began >= sampleMs) {
+            resolve(moved);
+            return;
+          }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }),
+    [ms] as const,
+  );
+}
+
+/**
+ * **A read nobody asked for does not behave like an action**, which is the
+ * boundary this branch has spent three versions defending.
+ *
+ * The other phone's walk arrives inside a reload. The whole screen changes
+ * at once in that moment, and animating a piece of it would point at
+ * something nobody on this side has done — the bar is a description and it
+ * follows the data, but the gesture is an acknowledgement and it follows the
+ * press.
+ */
+test("does not move the bar for a walk the other tutor wrote", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const morning = new Date();
+  morning.setDate(morning.getDate() - 1);
+  morning.setHours(9, 0, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: morning, durationMinutes: 30 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+
+  // Written straight into the table, the way the other phone writes it, and
+  // brought in by the re-read a return to the foreground asks for.
+  await seedE2EEvents(petId, [
+    {
+      kind: "walk",
+      occurredAt: new Date(morning.getTime() + 2 * 60 * 60_000),
+      durationMinutes: 30,
+    },
+  ]);
+
+  const watching = movedAtAll(page, 3_000);
+  await comeBackToTheApp(page);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "1h en 2 paseos",
+  );
+  expect(await watching, "a reload is not an action").toBe(false);
 });
