@@ -3,7 +3,9 @@ import {
   barStateAt,
   closeLaps,
   closeMotion,
+  editMotion,
   lapFill,
+  travelLaps,
 } from "../goalbar";
 
 describe("barProgress", () => {
@@ -103,6 +105,78 @@ describe("closeMotion", () => {
   });
 });
 
+describe("editMotion", () => {
+  it("fills, like a close, when the edit adds minutes", () => {
+    expect(
+      editMotion({ recordedBefore: 60, recordedAfter: 90, goalMinutes: 120 }),
+    ).toEqual({ kind: "fill", from: 0.5, to: 0.75 });
+  });
+  it("travels back when the edit takes minutes away", () => {
+    expect(
+      editMotion({ recordedBefore: 90, recordedAfter: 60, goalMinutes: 120 }),
+    ).toEqual({ kind: "travel", from: 0.75, to: 0.5 });
+  });
+
+  // **The one rule the whole change turns on.** `closeMotion` opens at the
+  // foot of the lap it lands on because a running walk had already turned
+  // the ground for the minutes it lived; a hand edit has lived nothing, so
+  // the ground below is still the ground the day is standing on and the
+  // stretch has to start where the minutes really stop.
+  it("starts at the recorded minutes and crosses the tier, where a close would not", () => {
+    expect(
+      editMotion({ recordedBefore: 90, recordedAfter: 150, goalMinutes: 120 }),
+    ).toEqual({ kind: "fill", from: 0.75, to: 1.25 });
+    expect(
+      closeMotion({ recordedBefore: 90, closedMinutes: 60, goalMinutes: 120 }),
+    ).toEqual({ kind: "fill", from: 1, to: 1.25 });
+    expect(closeLaps(0.75, 1.25).map((lap) => lap.tier)).toEqual([0, 1]);
+  });
+  it("turns the ground back when a deletion crosses a tier downwards", () => {
+    const motion = editMotion({
+      recordedBefore: 150,
+      recordedAfter: 90,
+      goalMinutes: 120,
+    });
+    expect(motion).toEqual({ kind: "travel", from: 1.25, to: 0.75 });
+    if (motion.kind !== "travel") return;
+    expect(travelLaps(motion.from, motion.to).map((lap) => lap.tier)).toEqual([
+      1, 0,
+    ]);
+  });
+
+  it("travels to nothing when the day's last walk is deleted", () => {
+    expect(
+      editMotion({ recordedBefore: 45, recordedAfter: 0, goalMinutes: 120 }),
+    ).toEqual({ kind: "travel", from: 0.375, to: 0 });
+  });
+  it("says nothing when the edit left the minutes where they were", () => {
+    expect(
+      editMotion({ recordedBefore: 60, recordedAfter: 60, goalMinutes: 120 }),
+    ).toEqual({ kind: "none" });
+  });
+  it("says nothing without a goal", () => {
+    expect(
+      editMotion({ recordedBefore: 60, recordedAfter: 90, goalMinutes: null }),
+    ).toEqual({ kind: "none" });
+    expect(
+      editMotion({ recordedBefore: 60, recordedAfter: 90, goalMinutes: 0 }),
+    ).toEqual({ kind: "none" });
+  });
+  it("says nothing when both totals are off the end of the bar", () => {
+    // Past double at both ends: the bar is violet throughout before and
+    // after, and there is no stretch to point at — the same silence the
+    // close keeps on a day already past the top tier.
+    expect(
+      editMotion({ recordedBefore: 400, recordedAfter: 300, goalMinutes: 120 }),
+    ).toEqual({ kind: "none" });
+  });
+  it("travels from the top of the bar when a deletion brings the day back under it", () => {
+    expect(
+      editMotion({ recordedBefore: 400, recordedAfter: 180, goalMinutes: 120 }),
+    ).toEqual({ kind: "travel", from: 2, to: 1.5 });
+  });
+});
+
 describe("closeLaps", () => {
   it("is one lap when the close stays inside the one it began on", () => {
     expect(closeLaps(0.25, 0.75)).toEqual([
@@ -140,5 +214,43 @@ describe("closeLaps", () => {
   });
   it("clamps a close that reaches past the top of the scale", () => {
     expect(closeLaps(1.5, 3)).toEqual(closeLaps(1.5, 2));
+  });
+});
+
+describe("travelLaps", () => {
+  it("is one lap when the journey stays inside the one it began on", () => {
+    expect(travelLaps(0.75, 0.25)).toEqual([
+      { tier: 0, at: [0, 1], fill: [75, 25] },
+    ]);
+  });
+  it("leaves the lap it was on first and enters the next one full", () => {
+    // The mirror of the ascent: the fill falls to nothing on lap one, the
+    // ground below arrives, and the lap it opens on is full — which is why a
+    // component has to gate each lap's fill on its own slice.
+    expect(travelLaps(1.25, 0.75)).toEqual([
+      { tier: 1, at: [0, 0.5], fill: [25, 0] },
+      { tier: 0, at: [0.5, 1], fill: [100, 75] },
+    ]);
+  });
+  it("is the ascent read backwards, boundary for boundary", () => {
+    // Not a second opinion about where the tiers fall: the same cut, walked
+    // the other way. A lap list that disagreed with `closeLaps` would be a
+    // bar that turns colour in one direction and not in the other.
+    const up = closeLaps(0.5, 2);
+    const down = travelLaps(2, 0.5);
+    expect(down.map((lap) => lap.tier)).toEqual(
+      up.map((lap) => lap.tier).reverse(),
+    );
+    expect(down[0]).toEqual({ tier: 2, at: [0, 0], fill: [0, 0] });
+    const last = down[down.length - 1];
+    expect(last.tier).toBe(0);
+    expect(last.fill).toEqual([100, 50]);
+    // Closely rather than exactly: `1 - x` and `x` are not the same float.
+    expect(last.at[0]).toBeCloseTo(2 / 3);
+    expect(last.at[1]).toBe(1);
+  });
+  it("clamps a journey reaching past either end of the scale", () => {
+    expect(travelLaps(3, 0.5)).toEqual(travelLaps(2, 0.5));
+    expect(travelLaps(0.5, -1)).toEqual(travelLaps(0.5, 0));
   });
 });

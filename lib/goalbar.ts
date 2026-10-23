@@ -1,5 +1,6 @@
 /**
- * The goal bar as one number, and what the close of a walk does to it.
+ * The goal bar as one number, and what a change to the day's minutes does to
+ * it — a walk closed, or one written, deleted or corrected by hand.
  *
  * **Lives in `lib/` for the reason `markdown.ts` does.** The bar says two
  * things at once — which tier of the goal the day has reached, and how far it
@@ -39,6 +40,13 @@
  * at the wrong place. The pre-close total is the one number the
  * caller is certain about, so the minutes are added to it, never subtracted
  * from a total that may contain them.
+ *
+ * **`editMotion` takes the two totals, because a hand edit has no "minutes
+ * it added".** A duration corrected from 50 to 35 adds nothing and removes
+ * nothing that can be named on its own; what it has is a before and an
+ * after, and the sign between them is the whole decision. The close keeps
+ * its own shape — it genuinely does know the minutes a stop added, and
+ * inverting that contract was the last defect this file fixed.
  */
 
 /** The bar stops at two laps; a day past double cannot be shown further. */
@@ -126,6 +134,59 @@ export function closeMotion(input: {
 }
 
 /**
+ * What a hand edit does to the bar: the close's own `fill`, a `travel` back,
+ * or nothing.
+ *
+ * `travel` is the stretch the fill walks *down*, `from` above `to`. The bar
+ * had never animated a width before it — the fills are recomputed per render
+ * and jump — so this is a new gesture rather than the close with its
+ * ceremony taken off.
+ */
+export type EditMotion =
+  CloseMotion | { kind: "travel"; from: number; to: number };
+
+/**
+ * The two totals a hand edit moved the day between, as something to draw.
+ *
+ * **The sign decides, not the action.** Adding a forgotten walk, deleting a
+ * duplicate and correcting a duration are not three cases to remember: they
+ * are one number that went up or went down. Up is the close's own fill — the
+ * dog walked, what was wrong was the record. Down is the return journey and
+ * nothing else, because removing a walk is removing something that never
+ * happened and giving that the ceremony of reaching the goal would
+ * dramatise the bookkeeping.
+ *
+ * **It starts at the recorded minutes, and `closeMotion` does not — which is
+ * the whole reason this is a second function and not a flag.** A close
+ * clamps its `from` up to the foot of the lap it lands on, because the
+ * ground had already turned for the minutes the dog was out walking: opening
+ * below that would repaint a lap that turned an hour ago. **A hand edit has
+ * lived nothing.** No ground has turned for the minutes it is adding, so the
+ * stretch begins at the total that is actually recorded and turns every
+ * ground it crosses on the way — which is what `closeLaps` has always known
+ * how to cut and, until now, was never handed.
+ *
+ * Silence is the same silence the close keeps: no goal, a goal of zero, or a
+ * day whose two totals land on the same point of the scale — which includes
+ * a day that was past the top tier at both ends, where the minutes moved
+ * fall off the end of the bar and there is nothing to point at.
+ */
+export function editMotion(input: {
+  recordedBefore: number;
+  recordedAfter: number;
+  goalMinutes: number | null;
+}): EditMotion {
+  const { recordedBefore, recordedAfter, goalMinutes } = input;
+
+  const from = barProgress(recordedBefore, goalMinutes);
+  const to = barProgress(recordedAfter, goalMinutes);
+  if (from === null || to === null) return { kind: "none" };
+  if (from === to) return { kind: "none" };
+
+  return { kind: to > from ? "fill" : "travel", from, to };
+}
+
+/**
  * One lap of the bar as the close travels across it: when it is converted,
  * and what its fill reads at the two ends of that stretch.
  *
@@ -193,4 +254,32 @@ export function closeLaps(from: number, to: number): CloseLap[] {
     });
   }
   return laps;
+}
+
+/**
+ * The laps a return journey crosses, in the order it crosses them — the same
+ * cut `closeLaps` makes, walked the other way.
+ *
+ * **Derived from `closeLaps` rather than written out again**, and that is the
+ * point of it: a boundary computed a second way is a bar that turns colour
+ * where the measure says it should not, which is the rule this whole file
+ * exists to keep. The ascent from `to` up to `from` already knows where the
+ * tiers fall; reversing the order and mirroring each lap's slice and its two
+ * fills turns it into the descent without a second opinion about anything.
+ *
+ * So a lap's `fill` reads high then low, and the lap the journey *leaves*
+ * comes first. A component drawing these must gate each lap's fill on its
+ * own slice the way it gates the ground: unlike a close, a lap further down
+ * the list opens at a full bar rather than at nothing, so a fill left
+ * ungated would paint the whole destination lap over the bar from the first
+ * frame.
+ */
+export function travelLaps(from: number, to: number): CloseLap[] {
+  return closeLaps(to, from)
+    .reverse()
+    .map((lap) => ({
+      tier: lap.tier,
+      at: [1 - lap.at[1], 1 - lap.at[0]],
+      fill: [lap.fill[1], lap.fill[0]],
+    }));
 }
