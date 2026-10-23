@@ -531,6 +531,44 @@ export default function Home() {
   // played, so a walk closed minutes ago would animate again on the way back
   // to its own day, and again on every return after that.
   if (closed !== null && closed.day !== dayKey(day)) setClosed(null);
+  /**
+   * The day's minutes as this tutor just rewrote them by hand, and the day
+   * they were rewritten on.
+   *
+   * **The same job as `closed` and the same single reader**, for the three
+   * ways of changing the minutes that are not a stop: a forgotten walk
+   * written in, a duplicate deleted, a duration corrected. The bar is a
+   * description and a description follows the data however the data
+   * arrived — but only when *this* phone is what moved it. A walk that
+   * appears because the other tutor wrote it arrives inside a reload, and a
+   * reload is not an action.
+   *
+   * **Two totals rather than a delta**, because an edit has no minutes of
+   * its own: 50 corrected to 35 added nothing and removed nothing that can
+   * be named. What the screen is certain of is the day before the press and
+   * the day after it, and `editMotion` reads the sign between them.
+   *
+   * **`overClose` is which close this was recorded over**, and it is the
+   * whole of the precedence between the two. An edit may mask a close that
+   * is already on screen — the day has moved on since — but a close
+   * recorded *after* the edit must not be masked by it, or stopping a walk
+   * after correcting one would leave the bar silent. A close newer than the
+   * one remembered here drops the edit, in the same "adjust state when an
+   * input changes" shape the day gate above uses.
+   */
+  const [edited, setEdited] = useState<{
+    id: string;
+    before: Walked;
+    after: Walked;
+    overClose: string | null;
+    day: string;
+  } | null>(null);
+  if (
+    edited !== null &&
+    (edited.day !== dayKey(day) || (closed?.id ?? null) !== edited.overClose)
+  ) {
+    setEdited(null);
+  }
   const [walkBusy, setWalkBusy] = useState(false);
   /**
    * A tap that arrives while another is still being handled.
@@ -1868,13 +1906,29 @@ export default function Home() {
           // moment the server says yes and nothing has to be waited for. The
           // day it belongs to is still checked, and that is settled above:
           // `closed` is dropped as the day in view leaves it.
+          //
+          // **Masked by a hand edit, so the block is only ever told one
+          // thing.** The two are one decision — what this phone last did to
+          // the day's minutes — and the block keeps one `answered` id, so
+          // handing it both would be handing it a precedence it has no way
+          // to resolve. Which of the two is the newer is settled where
+          // `edited` is declared.
           justClosed={
-            closed
+            closed && edited === null
               ? {
                   id: closed.id,
                   minutes: closed.minutes,
                   before: closed.before,
                 }
+              : null
+          }
+          // **The other three ways the minutes change, and the same rule.**
+          // Up is the close's own ceremony, down is the journey back; which
+          // of the two is `editMotion`'s decision, taken on the sign and not
+          // on the action, for the reason a wrong one does not throw.
+          justEdited={
+            edited
+              ? { id: edited.id, before: edited.before, after: edited.after }
               : null
           }
           failed={failed}
@@ -2045,7 +2099,17 @@ export default function Home() {
           day={day}
           dayLabel={isToday ? null : `${headline}, ${formatDayDate(day)}`}
           onClose={() => setEditing(null)}
-          onSaved={(walkMinutes) => {
+          onSaved={(walkMinutes, removed) => {
+            /**
+             * What the entry weighed before the press and what it weighs
+             * after it, in minutes. Both the confetti's threshold and the
+             * bar's movement are read off this one pair, so they cannot
+             * come to disagree about what just happened to the day.
+             */
+            const was = editing.event?.duration_minutes ?? null;
+            const wasMinutes = was ?? 0;
+            const nowMinutes = removed ? 0 : (walkMinutes ?? 0);
+
             // **The goal is a threshold, and this is the entry that crossed
             // it.** Now that the bar no longer flashes green, the moment it
             // is reached has nothing to mark it, and a bar quietly changing
@@ -2067,12 +2131,61 @@ export default function Home() {
             const crossed =
               isToday &&
               !celebrated &&
-              tierReached(
-                walked -
-                  (editing.event?.duration_minutes ?? 0) +
-                  (walkMinutes ?? 0),
-                goal,
-              ) === CELEBRATED_TIER;
+              tierReached(walked - wasMinutes + nowMinutes, goal) ===
+                CELEBRATED_TIER;
+
+            /**
+             * The day as the bar should now read it, for the animation and
+             * for nothing else.
+             *
+             * **The count is the rows' own rule and not a guess.**
+             * `walkCount` counts exactly the rows `walkedMinutes` adds up,
+             * so a walk with no length is no walk to the measure; the two
+             * sides below ask that same question of the entry before and
+             * after the press, which is why a walk written with only a
+             * DESDE adds minutes to neither.
+             */
+            const after: Walked = {
+              minutes: walked - wasMinutes + nowMinutes,
+              walks:
+                walks -
+                (was === null ? 0 : 1) +
+                (!removed && walkMinutes !== null ? 1 : 0),
+            };
+
+            // **Four gates, and each one is a way of saying the same
+            // thing: animate only what this tutor has just done to minutes
+            // this screen actually knows.**
+            //
+            // `fresh` — the rows on screen answer the current request, so
+            // `walked` is the day and not the day before the last reload.
+            // `measured` — a failed read is not a total, and a journey from
+            // a number nobody could read is a journey from nowhere.
+            // No walk running — the bar's edge then counts live minutes the
+            // edit never touched, so a stretch drawn between two *recorded*
+            // totals would begin and end somewhere the bar is not. It jumps
+            // there, as it did before any of this.
+            // And the minutes have to have moved: saving a meal, or a walk
+            // whose duration came back unchanged, is not a change to the
+            // bar — and announcing it would drop a close's hold mid-flight.
+            if (
+              fresh &&
+              measured !== null &&
+              walkingSince === null &&
+              after.minutes !== walked
+            ) {
+              setEdited({
+                // `attempt` is bumped by every action on this screen and
+                // never reused, which is all an id has to be: two edits of
+                // the same size are two animations, and a value check would
+                // swallow the second.
+                id: `edit-${attempt}`,
+                before: { minutes: walked, walks },
+                after,
+                overClose: closed?.id ?? null,
+                day: dayKey(day),
+              });
+            }
 
             // A save on the running walk is a write the fetched row does not
             // show yet: see `writtenToId`.
@@ -2465,8 +2578,19 @@ function EntrySheet({
   dayLabel: string | null;
   petId: string;
   onClose: () => void;
-  /** Reports the walk's minutes, so the day can tell whether it just won. */
-  onSaved: (walkMinutes: number | null) => void;
+  /**
+   * Reports the walk's minutes, so the day can tell whether it just won —
+   * and whether the row went away, so it can tell what the day now adds up
+   * to.
+   *
+   * **`removed` is not the same question as `walkMinutes === null`**, which
+   * is also what a saved meal and a walk with no length report. A deletion
+   * takes the entry's own minutes off the day and a save puts new ones in
+   * their place; the goal bar's journey is drawn between those two totals,
+   * so the one thing it cannot work out from the minutes alone is whether
+   * there is still a row.
+   */
+  onSaved: (walkMinutes: number | null, removed: boolean) => void;
   onFailed: (message: string) => void;
   /**
    * What a walk's lone `occurred_at` means when there is no duration.
@@ -2759,7 +2883,7 @@ function EntrySheet({
       return false;
     }
 
-    onSaved(walkMinutes);
+    onSaved(walkMinutes, false);
     return true;
   }, [
     at,
@@ -2786,7 +2910,7 @@ function EntrySheet({
       return false;
     }
     // A deletion never celebrates, whatever it does to the total.
-    onSaved(null);
+    onSaved(null, true);
     return true;
   }, [event, onFailed, onSaved]);
 

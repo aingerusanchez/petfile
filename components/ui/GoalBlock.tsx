@@ -25,7 +25,9 @@ import {
   barStateAt,
   closeLaps,
   closeMotion,
+  editMotion,
   lapFill,
+  travelLaps,
 } from "../../lib/goalbar";
 import type { DurationFormat } from "../../lib/settings";
 import { elapsedMinutes } from "../../lib/walk";
@@ -242,6 +244,32 @@ const TURN_MS = 700;
 const TURN_EASING = Easing.inOut(Easing.cubic);
 
 /**
+ * The return journey: how long the fill takes to walk back when a hand edit
+ * takes minutes off the day, and the curve it travels on.
+ *
+ * **The wipe's numbers and not the close's, and the reason is not taste.** A
+ * deletion that crosses a tier downwards turns a ground *and* moves a fill,
+ * and two gestures that answer one press have to arrive together or they
+ * read as two things happening to the bar rather than one thing happening to
+ * the day. `TURN_MS` and `TURN_EASING` are what the ground already travels
+ * on, measured on the device; matching them is the cheapest way to make the
+ * pair indivisible, and a journey that moves the fill alone still belongs to
+ * the same family.
+ *
+ * **Not the close's 760 and `inOut(quad)`**, because this is not the close.
+ * The close converts a band that is already painted and ends on a goal
+ * reached; this takes something back that should never have been there, and
+ * the asymmetry is the decision the spec was written around — the ceremony
+ * is for the dog's minutes, not for the paperwork.
+ *
+ * **A judgement, unmeasured.** It is the first number to question if the bar
+ * drags on the device; it is one constant and one curve, so the next round
+ * is two edits here.
+ */
+const TRAVEL_MS = 700;
+const TRAVEL_EASING = Easing.inOut(Easing.cubic);
+
+/**
  * The shake a failed start or stop gives the control: how long it takes, how
  * far it travels, and how many times it goes there and back.
  *
@@ -350,6 +378,12 @@ const LAPS = [
  * change its mind about which ground it was heading for mid-gesture. The id
  * is carried so a second close inside the window is a new animation rather
  * than a reconciliation into the first one's shared value.
+ *
+ * **The return journey is drawn from the same shape**, cut by `travelLaps`
+ * instead of `closeLaps` and walked the other way. Both are "the laps of one
+ * gesture, decided when it begins", and both are held in state for the same
+ * reason: an overlay has to be absent under "remove animations", not
+ * transparent.
  */
 type ClosePaint = {
   id: string;
@@ -522,6 +556,7 @@ export function GoalBlock({
   onStop,
   busy = false,
   justClosed = null,
+  justEdited = null,
   failed = 0,
   testID,
 }: {
@@ -570,6 +605,31 @@ export function GoalBlock({
     id: string;
     minutes: number;
     before: Walked;
+  } | null;
+  /**
+   * The day's minutes as this tutor just rewrote them by hand, or null.
+   *
+   * **Two totals and not a delta, because a hand edit has no minutes of its
+   * own.** A duration corrected from 50 to 35 added nothing and removed
+   * nothing nameable; a walk deleted took away minutes *and* a walk. What
+   * the caller is certain about either way is the day before the press and
+   * the day after it, and `editMotion` reads the sign between them. The
+   * close keeps its own shape — it does know the minutes a stop added.
+   *
+   * **The caller owes the same two things the close owes**: a total it has
+   * not read back from the server yet, and dropping this as the day in view
+   * leaves it. It also owes the narrower gate this prop cannot check for
+   * itself — that the press happened on *this* phone. A reload bringing in
+   * the other tutor's walk is not an action, and nothing here can tell the
+   * two apart.
+   *
+   * **It is never set beside `justClosed`.** One screen state feeds both, so
+   * the newer of the two is the only one that arrives.
+   */
+  justEdited?: {
+    id: string;
+    before: Walked;
+    after: Walked;
   } | null;
   /**
    * Bumped each time a start or a stop came back with an error. A counter
@@ -630,6 +690,13 @@ export function GoalBlock({
    */
   const [closing, setClosing] = useState<ClosePaint | null>(null);
   /**
+   * The return journey being drawn right now, or null when the bar is at
+   * rest. State for the reason `closing` is state, and a second one rather
+   * than a kind inside the first so that the close's own path is the path it
+   * always was.
+   */
+  const [travelling, setTravelling] = useState<ClosePaint | null>(null);
+  /**
    * Where the bar is held while the close's own numbers are ahead of the data.
    *
    * **The fill no longer waits for the reload, so something has to hold its
@@ -647,8 +714,21 @@ export function GoalBlock({
    * hold would say "en 2 paseos" with the third walk's minutes beside it.
    * What is held is the day, both halves of it, exactly as it will read when
    * the rows catch up.
+   *
+   * **`down` is which way the rows have to move to catch up**, and a hold
+   * without it would be released by the very reload it is waiting for. A
+   * close can only ever be ahead of the rows; a deletion is *behind* them —
+   * the row it removed is still in the ones on screen — so "the data says at
+   * least what the hold says" is satisfied from the first frame and the bar
+   * would snap back to the walk that was just deleted. One flag, read in the
+   * two places the direction matters, and `false` is the close exactly as it
+   * was.
    */
-  const [held, setHeld] = useState<{ id: string; walked: Walked } | null>(null);
+  const [held, setHeld] = useState<{
+    id: string;
+    walked: Walked;
+    down: boolean;
+  } | null>(null);
   /** The close this block has already answered, so a re-render does not replay it. */
   const [answered, setAnswered] = useState<string | null>(null);
 
@@ -658,9 +738,19 @@ export function GoalBlock({
   const closeMinutes = justClosed?.minutes ?? 0;
   const closeRecordedBefore = justClosed?.before.minutes ?? 0;
   const closeWalksBefore = justClosed?.before.walks ?? 0;
+  const editId = justEdited?.id ?? null;
+  const editBefore = justEdited?.before.minutes ?? 0;
+  const editAfter = justEdited?.after ?? null;
+  /**
+   * The one thing this block has been told about, whichever of the two said
+   * it. The caller never sets both, so there is no precedence to decide
+   * here — and `answered` stays one id, which is what makes a re-render
+   * unable to replay anything.
+   */
+  const changeId = closeId ?? editId;
 
   /**
-   * **Answered during the render the close arrives on, not from an effect.**
+   * **Answered during the render the change arrives on, not from an effect.**
    *
    * This is React's own "adjust state when a prop changes", the shape the day
    * view already uses to drop a close as the day leaves it — and here it is
@@ -671,54 +761,89 @@ export function GoalBlock({
    * ago. Setting the hold and mounting the overlay in the same render means
    * there is no frame between the two.
    */
-  if (closeId !== answered) {
-    setAnswered(closeId);
+  if (changeId !== answered) {
+    setAnswered(changeId);
+    // **Two functions and not one with a flag**, because the two differ in
+    // exactly one place and it is the place that matters: a close opens at
+    // the foot of the lap it lands on, where the live minutes had already
+    // turned the ground, and a hand edit opens at the minutes that are
+    // really recorded, because nothing has been lived and no ground has
+    // turned. See `editMotion`.
     const motion =
-      closeId === null
-        ? null
-        : closeMotion({
+      closeId !== null
+        ? closeMotion({
             recordedBefore: closeRecordedBefore,
             closedMinutes: closeMinutes,
             goalMinutes,
-          });
-    // Nothing to say: the walk added no minutes, there is no bar, or the day
-    // was already past the top tier, where the minutes it added fall off the
-    // end of the bar. That last one is a deliberate silence — the day is
-    // already said — and it is also why nothing is held: the bar is already
-    // where the close would have put it.
-    if (closeId === null || motion === null || motion.kind === "none") {
+          })
+        : editId !== null && editAfter !== null
+          ? editMotion({
+              recordedBefore: editBefore,
+              recordedAfter: editAfter.minutes,
+              goalMinutes,
+            })
+          : null;
+    // Nothing to say: the walk added no minutes, the edit left the day where
+    // it was, there is no bar, or the day was already past the top tier,
+    // where the minutes moved fall off the end of the bar. That last one is
+    // a deliberate silence — the day is already said — and it is also why
+    // nothing is held: the bar is already where the change would have put
+    // it.
+    if (changeId === null || motion === null || motion.kind === "none") {
       setHeld(null);
       setClosing(null);
+      setTravelling(null);
     } else {
+      /**
+       * The day this gesture lands on. A close knows the minutes a stop
+       * added and adds them to the total it was handed; a hand edit was
+       * handed the landing outright, because there is no delta to add to
+       * anything — a duration corrected from 50 to 35 has no minutes of
+       * its own.
+       */
+      const landing: Walked =
+        closeId === null && editAfter !== null
+          ? editAfter
+          : {
+              minutes: closeRecordedBefore + closeMinutes,
+              walks: closeWalksBefore + 1,
+            };
       setHeld({
-        id: closeId,
-        walked: {
-          minutes: closeRecordedBefore + closeMinutes,
-          walks: closeWalksBefore + 1,
-        },
+        id: changeId,
+        walked: landing,
+        down: motion.kind === "travel",
       });
-      // **Under "remove animations" the hold is the whole close.** The bar is
-      // painted at the fill's end state on the stop, with no overlay ever
+      // **Under "remove animations" the hold is the whole gesture.** The bar
+      // is painted at the end state on the press, with no overlay ever
       // mounted — reverting to a wait for the reload would restore the hole
       // for exactly the tutors who asked for less movement. `useReducedMotion`
       // is a constant read once at module load (Reanimated 4.5.1), so this
       // cannot flip under a mounted close.
       setClosing(
-        reduceMotion
+        reduceMotion || motion.kind !== "fill"
           ? null
-          : { id: closeId, laps: closeLaps(motion.from, motion.to) },
+          : { id: changeId, laps: closeLaps(motion.from, motion.to) },
+      );
+      setTravelling(
+        reduceMotion || motion.kind !== "travel"
+          ? null
+          : { id: changeId, laps: travelLaps(motion.from, motion.to) },
       );
     }
   } else if (
     held !== null &&
-    (held.id !== closeId ||
-      (walked !== null && walked.minutes >= held.walked.minutes))
+    (held.id !== changeId ||
+      (walked !== null &&
+        (held.down
+          ? walked.minutes <= held.walked.minutes
+          : walked.minutes >= held.walked.minutes)))
   ) {
     // **Released by the data, and once.** The reload has landed and says at
-    // least what the close said, so the hold has nothing left to add and the
-    // bar reads the rows again — which also means a walk deleted a minute
-    // later takes the bar down with it, rather than being propped up by a
-    // close nobody can see any more.
+    // least what the close said — or, on a deletion, has come down to what
+    // the journey said — so the hold has nothing left to add and the bar
+    // reads the rows again, which also means a walk deleted a minute later
+    // takes the bar down with it rather than being propped up by a close
+    // nobody can see any more.
     //
     // **Unread minutes release nothing.** Null is the one value that is not a
     // smaller total, it is no total at all, and dropping the hold on it would
@@ -737,11 +862,18 @@ export function GoalBlock({
     return () => clearTimeout(timer);
   }, [closing]);
 
+  useEffect(() => {
+    if (travelling === null) return;
+    const timer = setTimeout(() => setTravelling(null), TRAVEL_MS);
+    return () => clearTimeout(timer);
+  }, [travelling]);
+
   const running = walkingSince ? elapsedMinutes(walkingSince, now) : 0;
   /**
-   * **The day as this block will speak it, once**: the rows', or the close's
-   * hold while it is ahead of them, or null when neither knows. Everything
-   * the block says about the day is read off this one value — the measure's
+   * **The day as this block will speak it, once**: the rows', or the hold
+   * while it is still ahead of them — or behind them, where what is held is
+   * a deletion the rows have not dropped yet — or null when neither knows.
+   * Everything the block says about the day is read off this one value — the measure's
    * words, both halves of them, the bar's width, the tone of its ground and
    * whether `Día cumplido` appears — so they cannot disagree by construction
    * rather than by discipline.
@@ -757,7 +889,11 @@ export function GoalBlock({
    * a proportion of a goal that no longer exists.
    */
   const shown: Walked | null =
-    held !== null && (walked === null || held.walked.minutes > walked.minutes)
+    held !== null &&
+    (walked === null ||
+      (held.down
+        ? held.walked.minutes < walked.minutes
+        : held.walked.minutes > walked.minutes))
       ? held.walked
       : walked;
   /**
@@ -1144,6 +1280,24 @@ export function GoalBlock({
               <GroundTurn
                 tier={tier}
                 testID={testID ? `${testID}-turn` : undefined}
+              />
+            ) : null}
+            {travelling !== null ? (
+              // **Inside the track, unlike the close, because it carries no
+              // tick.** The close's mark stands 4 dp proud of a 4 dp track
+              // and has to escape the `overflow-hidden`; a journey back has
+              // no saved/live junction to mark — everything it moves is
+              // recorded — so it can live in here and inherit the bar's
+              // rounded ends for nothing.
+              //
+              // Keyed by the gesture, for the reason the close is: a second
+              // deletion inside the first one's 700 ms would otherwise
+              // reconcile into a shared value already sitting at 1 and paint
+              // itself arrived.
+              <ReturnTravel
+                key={travelling.id}
+                laps={travelling.laps}
+                testID={testID ? `${testID}-travel` : undefined}
               />
             ) : null}
             {/* **Inside the track, so its rounded `overflow-hidden` is the
@@ -1848,6 +2002,128 @@ function CloseLapPaint({
         testID={testID ? `${testID}-held` : undefined}
         style={heldStyle}
         className={`absolute top-0 bottom-0 ${tones.live}`}
+      />
+      <Animated.View
+        testID={testID ? `${testID}-fill` : undefined}
+        style={fillStyle}
+        className={`absolute top-0 bottom-0 left-0 ${tones.saved}`}
+      />
+    </>
+  );
+}
+
+/**
+ * The return journey: the fill walking back to what the day now says, over
+ * the grounds it uncovers on the way.
+ *
+ * **A width that travels, which is a thing this bar had never done.** The
+ * fills are recomputed on every render and jump; the only thing that
+ * animated before this was the ground. So the journey is not the close with
+ * its ceremony taken off — it is a new piece, and a smaller one: no swell,
+ * no sheen, no tick, no band held in the live tone. A walk removed is a walk
+ * that never happened, and dramatising the bookkeeping is the one thing the
+ * spec ruled out.
+ *
+ * **The bar underneath is already where the journey ends**, held there by
+ * the block the moment the server says yes — the same handover the close
+ * makes. So this paints the picture the bar *had*, walks it back, and
+ * unmounts onto the picture it was already painting. Nothing jumps when it
+ * is taken away, and a reload that never lands moves nothing on arrival.
+ *
+ * **One shared value, one lap each**, read the other way round from the
+ * close: `travelLaps` hands over the laps in the order the journey leaves
+ * them, so a deletion that crosses the goal downwards turns the ground back
+ * inside one gesture rather than in two animations.
+ *
+ * Decoration to a reader: the measure above says the new total in the same
+ * breath, and `Día cumplido` goes from under the bar if the day no longer
+ * holds it.
+ */
+function ReturnTravel({ laps, testID }: { laps: CloseLap[]; testID?: string }) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withTiming(1, {
+      duration: TRAVEL_MS,
+      easing: TRAVEL_EASING,
+    });
+  }, [progress]);
+
+  return (
+    <View
+      testID={testID}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      aria-hidden
+      className="absolute inset-0"
+    >
+      {laps.map((lap) => (
+        <TravelLapPaint
+          key={lap.tier}
+          lap={lap}
+          progress={progress}
+          testID={testID ? `${testID}-lap-${lap.tier}` : undefined}
+        />
+      ))}
+    </View>
+  );
+}
+
+/**
+ * One lap of a return journey: its ground, and the fill retreating across
+ * it.
+ *
+ * **Two layers where the close has three.** There is no band held in the
+ * live tone, because nothing here was ever live: a hand edit moves minutes
+ * that were already recorded, or minutes that were never walked at all.
+ * What travels is the same thing that travels in a close — which of the
+ * lap's own tones is covering the pixel — and the tones are the `className`
+ * halves the settled bar wears, so the overlay cannot land a shade off what
+ * it uncovers.
+ *
+ * **Both layers are gated on the lap's slice, and the fill's gate is the
+ * one a builder would leave out.** A close's later lap opens at nothing, so
+ * an ungated fill reads zero and paints nothing before its turn; a
+ * journey's later lap opens at a *full* bar, so the same ungated fill would
+ * paint the destination lap's tone over the whole bar from the first frame —
+ * the lap below arriving before the journey has left the one above it.
+ * `lapFillAt` clamps to the lap's start value, which is exactly the wrong
+ * answer here.
+ *
+ * The laps are rendered in the order the journey crosses them, so each
+ * lap's ground covers the one it is leaving — which is the tier turning
+ * back, drawn.
+ */
+function TravelLapPaint({
+  lap,
+  progress,
+  testID,
+}: {
+  lap: CloseLap;
+  progress: SharedValue<number>;
+  testID?: string;
+}) {
+  const tones = LAPS[lap.tier];
+  const [opens, closes] = lap.at;
+  const [from, to] = lap.fill;
+
+  const groundStyle = useAnimatedStyle(() => ({
+    width: progress.value >= opens ? "100%" : "0%",
+  }));
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width:
+      progress.value >= opens
+        ? `${lapFillAt(progress.value, opens, closes, from, to)}%`
+        : "0%",
+  }));
+
+  return (
+    <>
+      <Animated.View
+        testID={testID ? `${testID}-ground` : undefined}
+        style={groundStyle}
+        className={`absolute top-0 bottom-0 left-0 ${tones.ground}`}
       />
       <Animated.View
         testID={testID ? `${testID}-fill` : undefined}
