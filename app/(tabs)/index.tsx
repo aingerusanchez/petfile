@@ -713,9 +713,22 @@ export default function Home() {
     const uploaded = new Map<string, number>();
     const removed = new Set<string>();
     for (const stop of queue) {
-      if (!settled.has(stop.id) || refused.has(stop.id)) continue;
-      if (stop.kind === "close") uploaded.set(stop.id, stop.minutes);
-      else removed.add(stop.id);
+      if (!settled.has(stop.id)) continue;
+      // **A rejection takes the row with it**, for consistency rather than
+      // for a defect anybody has seen. `gone` means the server has no such
+      // row any more, so the queue and the rows should stop carrying it in
+      // the same commit, exactly as an upload that worked does.
+      //
+      // **The window where this shows is very narrow, and that is why no
+      // test covers it.** The replay fires from a day read that has just
+      // answered, and that read has already refreshed the rows — so a row
+      // the server had lost is normally gone from the screen before the
+      // replay reports it. The two can only disagree if the other phone
+      // deletes the walk in the hundred-odd milliseconds between our read
+      // returning and our PATCH landing. Staging that interleaving in
+      // Playwright costs far more than the line it would protect.
+      if (refused.has(stop.id) || stop.kind === "delete") removed.add(stop.id);
+      else uploaded.set(stop.id, stop.minutes);
     }
     // **Filtered from the ref rather than replaced by `left`**, because a
     // stop queued while this replay was in the air is not one of the elements
