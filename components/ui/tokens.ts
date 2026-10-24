@@ -19,6 +19,16 @@ export const colors = {
   borderStrong: "#334155",
   accent: "#7DD3E8",
   accentFocus: "#A78BFA",
+  /**
+   * Aurora Boreal, one step down: the minutes accumulating on the goal bar's
+   * second lap, where `accentFocus` is the ones already saved.
+   *
+   * The pair exists for the same reason Mist and Ash are a pair on lap one —
+   * the saved minutes stay a tone above the ones in progress, with the tick
+   * between them — and it is the same step: slate-300 to slate-400 there,
+   * violet-400 to violet-500 here.
+   */
+  accentFocusDim: "#8B5CF6",
   onAccent: "#0B1120",
   textPrimary: "#F1F5F9",
   textSecondary: "#CBD5E1",

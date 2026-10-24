@@ -237,9 +237,7 @@ export default function Treatments() {
             toast.show({ variant: "success", message });
             reload();
           }}
-          onFailed={(message) =>
-            toast.show({ variant: "error", message, persist: true })
-          }
+          onFailed={(message) => toast.show({ variant: "error", message })}
         />
       ) : null}
     </Screen>

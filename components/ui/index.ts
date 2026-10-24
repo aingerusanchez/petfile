@@ -8,6 +8,7 @@ export { Celebration } from "./Celebration";
 export { CelebrationProvider, useCelebration } from "./CelebrationProvider";
 export { Chip, ChipGroup } from "./Chip";
 export { DateField } from "./DateField";
+export { ErrorNote } from "./ErrorNote";
 export { Fab, FAB_CLEARANCE, type FabAction } from "./Fab";
 export { FieldLabel } from "./FieldLabel";
 export { GoalBlock } from "./GoalBlock";

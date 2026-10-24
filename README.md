@@ -7,9 +7,12 @@ Track your pet's daily routines and health, backed by Supabase.
 ```bash
 git clone <repo-url>
 cd petfile
+nvm use                  # la versión de `.nvmrc`
 pnpm install
 cp .env.example .env
 ```
+
+La versión de Node está fijada en [`.nvmrc`](.nvmrc). No es una preferencia: por debajo de la 22 la suite de e2e muere entera antes de abrir el navegador, y el parche concreto que hay ahí es el que cierra el aviso de seguridad del 21 de octubre de 2026.
 
 Rellena `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_KEY` en `.env` con los valores de tu proyecto de Supabase. Si no tienes un proyecto todavía, sigue [`docs/supabase-setup.md`](docs/supabase-setup.md), que cubre la creación del proyecto, las credenciales de Google OAuth y la cuenta de test de e2e.
 
@@ -88,8 +91,8 @@ pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el tr
 
 | Capa            | Tecnología                               | Versión                  |
 | --------------- | ---------------------------------------- | ------------------------ |
-| Framework       | Expo                                     | ~57.0.19                 |
-| Routing         | Expo Router                              | ~57.0.18                 |
+| Framework       | Expo                                     | ~57.0.21                 |
+| Routing         | Expo Router                              | ~57.0.20                 |
 | UI              | React Native                             | 0.86.3                   |
 | UI              | React                                    | 19.2.3                   |
 | Lenguaje        | TypeScript                               | ~6.0.3                   |
@@ -119,6 +122,7 @@ components/ui/            → primitivos del sistema de diseño que componen las
   Chip.tsx                → chip selector + ChipGroup (fila de selección única)
   Group.tsx               → sección de formulario con contorno hairline
   Toast.tsx               → mensaje transitorio; ToastProvider lo monta sobre el navegador
+  ErrorNote.tsx           → un fallo dicho donde pasó: marca roja, frase neutra
   Celebration.tsx         → confeti de un disparo; CelebrationProvider lo monta sobre el navegador
   Checkbox.tsx            → flag booleano voluntario, sin marcar por defecto
   DateField.tsx           → fecha + picker propio (mes+año si es aproximada)
@@ -140,6 +144,7 @@ lib/                      → lógica de dominio y acceso a datos
   pets.ts                 → validación, creación, edición y borrado de la mascota
   photos.ts               → foto de la mascota: elegir, subir y firmar la URL de lectura
   failures.ts             → tope de espera de cada petición y su mensaje en la voz de la app
+  toasts.ts               → qué hace que dos avisos sean el mismo, y qué hace una repetición
   dates.ts                → conversión entre el ISO del wire y el DD/MM/AAAA de la UI
   age.ts                  → la edad a partir de la fecha de nacimiento y su etapa de vida
   framing.ts              → las cuentas del recorte del avatar
@@ -153,7 +158,7 @@ e2e/                       → specs de Playwright + helpers de sign-in
 
 **Invariantes del sistema de diseño:** la UI compartida vive en `components/ui/`, nunca en `app/`, que es solo para rutas. Los insets de ventana se consumen **únicamente** en `Screen` — ninguna pantalla llama a `useSafeAreaInsets()` por su cuenta, y eso es lo que mantiene la acción principal fuera de la barra de navegación de Android en un solo sitio. Y cualquier color que necesite una prop de React Native sale de `components/ui/tokens.ts`, nunca de un hex reescrito a mano; `global.css` sigue siendo la fuente de verdad para todo lo que alcance un `className`.
 
-**El registro del día y los datos de salud** viven en tres tablas que añade `0006_events_weights_treatments.sql`, y su forma sigue una sola regla: **lo que la app calcula lleva columnas; lo que solo enseña, no.** Paseos, comidas, medicación e incidencias comparten `pet_events` porque son el mismo tipo de hecho —algo pasó a una hora— y se leen como una lista; sus detalles van en `details`. Los pesos (`pet_weights`) y los tratamientos (`pet_treatments`) tienen tabla propia porque de ellos salen una línea y una fecha de próxima dosis, y un cálculo que lee de un `jsonb` es un cálculo frágil. La única clave promovida es la duración del paseo, porque el objetivo diario se mide contra su suma.
+**El registro del día y los datos de salud** viven en tres tablas que añade `0006_events_weights_treatments.sql`, y su forma sigue una sola regla: **lo que la app calcula lleva columnas; lo que solo enseña, no.** Paseos, comidas, medicación e incidencias comparten `pet_events` porque son el mismo tipo de hecho —algo pasó a una hora— y se leen como una lista; sus detalles van en `details`. Los pesos (`pet_weights`) y los tratamientos (`pet_treatments`) tienen tabla propia porque de ellos salen una línea y una fecha de próxima dosis, y un cálculo que lee de un `jsonb` es un cálculo frágil. La única clave promovida es la duración del paseo, porque el objetivo diario se mide contra su suma. **El objetivo diario va de 30 a 300 minutos, o no hay objetivo**: el suelo no es un capricho —con dos niveles, un objetivo de 15 minutos pondría el segundo en 30 y la celebración sería cosa de todos los días—, y no hay excepción para un valor guardado antes de la regla: el perfil lo marca como cualquier otro error.
 
 **La app encuadra la foto, no el sistema.** El picker se abre sin recorte (`allowsEditing: false`) para que llegue la imagen entera, `components/ui/AvatarEditor.tsx` la encuadra sobre el círculo en el que se verá, `lib/framing.ts` convierte la geometría del escenario en un rectángulo de recorte y `expo-image-manipulator` lo aplica. **`expo-image-manipulator` es módulo nativo:** después de traer este cambio hay que recompilar la dev build (`pnpm android`), no basta con recargar.
 

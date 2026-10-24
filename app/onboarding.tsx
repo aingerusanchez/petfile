@@ -377,9 +377,14 @@ export default function Onboarding() {
         router.replace("/(tabs)");
         return true;
       }
-      // A failed write is something the tutor must deal with, not something to
-      // glance at, so it persists and offers the retry rather than draining
-      // away on a timer.
+      // A failed write is something the tutor must deal with, not something
+      // to glance at, so it carries the retry and gets the eight seconds a
+      // failure gets rather than the four a confirmation gets. **It used to
+      // persist, and the retry is what made that the closest call of the
+      // lot:** a toast that goes away takes its action with it. It still
+      // goes, because the screen behind it is the form, with the button that
+      // opened the whole exchange still under the tutor's thumb — the retry
+      // here is a shortcut, not the only road back.
       toast.show({
         variant: "error",
         // The failure stays inside the recall metaphor the button opened, and
@@ -388,7 +393,6 @@ export default function Onboarding() {
         message:
           failure ??
           `Parece que ${petName} no contesta a su nombre... ¡vuelve a intentarlo!`,
-        persist: true,
         action: { label: "Reintentar", onPress: () => void submit() },
       });
       return false;
@@ -399,7 +403,6 @@ export default function Onboarding() {
           err instanceof Error
             ? err.message
             : "Algo ha ido mal por nuestro lado. Vuelve a intentarlo.",
-        persist: true,
       });
       return false;
     }

@@ -4,6 +4,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  CloudOff,
   Footprints,
   Pill,
   TriangleAlert,
@@ -12,9 +13,11 @@ import {
 } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Pressable, View } from "react-native";
+import Animated, { FadeOut, useReducedMotion } from "react-native-reanimated";
 import {
   Button,
   colors,
+  ErrorNote,
   Fab,
   FAB_CLEARANCE,
   GoalBlock,
@@ -51,7 +54,7 @@ import {
   formatDayDate,
   formatDayHeadline,
 } from "../../lib/dates";
-import { formatDuration, parseDuration } from "../../lib/duration";
+import { type Walked, formatDuration, parseDuration } from "../../lib/duration";
 import {
   dayKey,
   eventDetail,
@@ -67,12 +70,16 @@ import {
   MAX_WALK_MINUTES,
   minutesBetween,
   parseTimeOfDay,
+  replayStop,
   startWalk,
   updateEvent,
+  walkCount,
   walkedMinutes,
+  walkLengths,
   type EventKind,
   type PetEventRow,
 } from "../../lib/events";
+import { barProgress, barStateAt } from "../../lib/goalbar";
 import { getMyPet, type PetRow } from "../../lib/pets";
 import {
   describeTreatment,
@@ -83,6 +90,17 @@ import {
   type TreatmentKind,
 } from "../../lib/treatments";
 import { useSettings, type DurationFormat } from "../../lib/settings";
+import {
+  enqueueStop,
+  flushPending,
+  parsePending,
+  pendingForDay,
+  pendingMinutes,
+  pendingWalks,
+  serialisePending,
+  PENDING_STORAGE_KEY,
+  type PendingStop,
+} from "../../lib/pending";
 import {
   parseRunningWalk,
   serialiseRunningWalk,
@@ -197,6 +215,50 @@ function shiftDays(day: Date, by: number): Date {
  * that read `events` would re-run on every render while the day waits.
  */
 const NO_EVENTS: PetEventRow[] = [];
+/** What the screen says when the account has no pet to show a day of. */
+const NO_PET = "Todavía no hay ninguna mascota";
+/**
+ * The one thing a replay says out loud: the walk a queued stop was for has
+ * been deleted from the other phone, so that stop can never be written.
+ *
+ * **Said because nothing is discarded in silence**, which is the rule the
+ * whole queue is built on — and this is the only case where an intent leaves
+ * it without reaching the server. A warning rather than an error: nothing
+ * went wrong, the record simply moved on without this press.
+ */
+const WALK_GONE =
+  "Un paseo que quedaba por subir ya no existe: se borró desde otro móvil.";
+
+/**
+ * Which tier of the goal a day's minutes have reached, on the bar's own
+ * scale: 0 below the goal, 1 at it, 2 at double.
+ *
+ * **Read off `lib/goalbar.ts` rather than compared against a number worked
+ * out here.** The bar, the calendar's miniature of it and the celebration all
+ * have to agree about where a tier begins, and two surfaces computing that by
+ * different arithmetic is exactly the defect this screen used to carry: a
+ * `walked >= goal` beside a bar whose own ground came from `barStateAt`. A
+ * wrong answer does not throw — it throws confetti at the wrong moment, or
+ * withholds it at the right one.
+ */
+function tierReached(minutes: number, goalMinutes: number | null): 0 | 1 | 2 {
+  const progress = barProgress(minutes, goalMinutes);
+  return progress === null ? 0 : barStateAt(progress).tier;
+}
+
+/**
+ * The tier that earns the confetti, and the only one: the top.
+ *
+ * **Tier 1 lost it on purpose.** The point of the two tiers is that reaching
+ * the goal becomes the everyday — most days clear it — and the everyday is
+ * not celebrated. Tier 1 keeps the ground turning Aqua, the label under the
+ * bar and the calendar's underline; the party is kept for the day that
+ * doubles it, which is the one worth marking on the calendar.
+ */
+const CELEBRATED_TIER = 2;
+
+/** What the top tier's confetti is made of: the tier's own colour. */
+const CELEBRATION_TONE = colors.accentFocus;
 
 /** What the sheet is open for: a new entry of a kind, or an existing one. */
 type Editing = { kind: EventKind; event: PetEventRow | null };
@@ -223,9 +285,9 @@ type Editing = { kind: EventKind; event: PetEventRow | null };
  * So the two states are the same **weight** and differ only in **hue** — Mist
  * Light 11.48:1 and Aqua Glaciar 10.03:1 on the bar's Fjord Slate track — and
  * the hue is the whole message: the measure is neutral while it is being read,
- * and the secondary accent is the conclusion. Ice Blue Glacial stays out of it,
- * so the primary accent still means "this is the one thing to do here", and on
- * this screen the one thing is the floating action. Success Green keeps the
+ * and the everyday accent is the conclusion. The scarce accent is not an action
+ * on this bar — it is the tier above that conclusion — and the floating action
+ * is still the one thing to do on this screen. Success Green keeps the
  * meaning it has everywhere else — a toast, the confetti — which is a **moment
  * that just happened**, never a state sitting on the screen.
  */
@@ -337,15 +399,98 @@ export default function Home() {
     /** The `attempt` this read answered, so a stale log can be told apart. */
     attempt: number;
     events: PetEventRow[];
+    /**
+     * Why this day could not be read, or null when it could.
+     *
+     * **Part of the log, not a second state beside it.** Whether the log holds
+     * real rows for a day is one fact made of the day, the rows and this, and
+     * three bugs in a row came from keeping a copy of it in a ref that was
+     * updated at some of the places the log was written and not at others.
+     * With the error inside the object there is one write, and the guard in
+     * the pet effect reads the real thing.
+     */
+    error: string | null;
   } | null>(null);
-  /** Fatal: with no pet there is no day to show. */
+  /**
+   * Fatal: with no pet there is no day to show.
+   *
+   * **Only while there is nothing on screen.** A failed *action* is not a
+   * failed *navigation*: a walk that cannot be saved offline bumps `attempt`,
+   * the refetch includes the pet read, and that fails offline too — about
+   * seven seconds later, after the pet read's own retries, which used to
+   * replace a diary the tutor was looking at with the connection error. The
+   * error takes the screen only where there is no pet already showing, so
+   * this holds for every present and future caller of the reload and not just
+   * the two error branches that exist today.
+   */
   const [petError, setPetError] = useState<string | null>(null);
-  /** Not fatal: the header, the goal and the actions all still work. */
-  const [logError, setLogError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [attempt, setAttempt] = useState(0);
+  /**
+   * Reads nobody asked for: the one the app does on its way back to the
+   * foreground.
+   *
+   * **A counter of its own rather than a bump of `attempt`, because the day
+   * read has to be able to tell the two apart.** A read somebody pressed for
+   * owes them an answer, including the bad one; a read that happened because
+   * the phone was picked up owes them nothing, and a failure it reports is a
+   * day taken away from somebody who did not ask. See the keep in the day
+   * effect below, and `keepDiaryOnFailedRead` for the other half of the same
+   * rule.
+   *
+   * **Not `reload` either**, for a second reason: `reload` claims the promise
+   * a Reintentar is waiting on, and a re-read nobody pressed must not settle
+   * somebody's press.
+   */
+  const [unasked, setUnasked] = useState(0);
+  /**
+   * Read the day again, saying nothing about it.
+   *
+   * **It is the shape the other triggers will reuse.** The queued walk stop
+   * needs the same moment — see `docs/plans/2026-10-22-parada-sin-cobertura.md`
+   * — so coming back to the app is one named thing to hang it off rather than
+   * a counter bumped inside a listener.
+   */
+  const reread = useCallback(() => setUnasked((n) => n + 1), []);
   /** The walk this device has open, or null. Read once, then kept in step. */
   const [runningId, setRunningId] = useState<string | null>(null);
+  /**
+   * The stops this device pressed and could not yet tell the server about.
+   *
+   * **A stop that fails is not a stop that did not happen.** The tutor
+   * pressed, the phone recorded the hour, and what is missing is the upload —
+   * so the walk is released and the intent waits here and on disk. Read once
+   * at mount beside the running walk, and written by the one branch that
+   * queues. See `lib/pending.ts` for why `pressedAt` is the datum that
+   * justifies the whole arrangement.
+   */
+  const [pending, setPending] = useState<PendingStop[]>([]);
+  /**
+   * The same queue, where the replay can reach it.
+   *
+   * **A ref beside the state, because the replay runs from callbacks that
+   * were made before the queue changed.** The replay hangs off a day read,
+   * and the day effect may not re-run between a stop being queued and the
+   * next read landing; a closure over `pending` would then replay the queue
+   * as it was, which is a stop that never goes up. The state is what renders
+   * and the ref is what the replay reads, and the two are written together
+   * everywhere the queue moves: the mount read, the error branch of `stop`,
+   * and the replay itself.
+   */
+  const pendingRef = useRef<PendingStop[]>([]);
+  /**
+   * Whether a day read has ended well in this session.
+   *
+   * **It is half of "there is reason to believe the network is back".** The
+   * other half is having a queue to replay, and the two arrive in whichever
+   * order the phone decides: on a cold start with a stop waiting on disk, the
+   * day read can answer before `AsyncStorage` does, and a replay hung off the
+   * read alone would then find an empty queue and do nothing until the next
+   * read — which is precisely the "the mark survives several openings of the
+   * app" that would reopen the question of a manual retry button. So whoever
+   * arrives last fires it.
+   */
+  const dayRead = useRef(false);
   /**
    * The walk the sheet has written to since it was last fetched, by id.
    *
@@ -361,6 +506,70 @@ export default function Home() {
    * walk at a minute instead of deleting it.
    */
   const [writtenToId, setWrittenToId] = useState<string | null>(null);
+  /**
+   * The walk this device has just closed, and the day it was closed on.
+   *
+   * **The goal bar's animation, and nothing else.** It is set only where the
+   * server has said yes, it carries the minutes the close actually added, and
+   * it is read by `GoalBlock` — no other part of the screen consults it, and
+   * dropping it would cost the bar its motion and nothing more.
+   *
+   * **The day travels with it** so that a walk closed just before the arrows
+   * are pressed cannot animate the day they land on.
+   */
+  const [closed, setClosed] = useState<{
+    id: string;
+    minutes: number;
+    /** The day before this walk was counted into it: minutes and walks. */
+    before: Walked;
+    day: string;
+  } | null>(null);
+  // **Dropped the moment the day in view leaves it**, in React's own "adjust
+  // state when an input changes" shape — the one `?day=` uses above — rather
+  // than in an effect. Reading the stored day at the call site instead would
+  // not be enough: the goal block unmounts behind the skeleton while the new
+  // day loads, and comes back with no memory of which closes it has already
+  // played, so a walk closed minutes ago would animate again on the way back
+  // to its own day, and again on every return after that.
+  if (closed !== null && closed.day !== dayKey(day)) setClosed(null);
+  /**
+   * The day's minutes as this tutor just rewrote them by hand, and the day
+   * they were rewritten on.
+   *
+   * **The same job as `closed` and the same single reader**, for the three
+   * ways of changing the minutes that are not a stop: a forgotten walk
+   * written in, a duplicate deleted, a duration corrected. The bar is a
+   * description and a description follows the data however the data
+   * arrived — but only when *this* phone is what moved it. A walk that
+   * appears because the other tutor wrote it arrives inside a reload, and a
+   * reload is not an action.
+   *
+   * **Two totals rather than a delta**, because an edit has no minutes of
+   * its own: 50 corrected to 35 added nothing and removed nothing that can
+   * be named. What the screen is certain of is the day before the press and
+   * the day after it, and `editMotion` reads the sign between them.
+   *
+   * **`overClose` is which close this was recorded over**, and it is the
+   * whole of the precedence between the two. An edit may mask a close that
+   * is already on screen — the day has moved on since — but a close
+   * recorded *after* the edit must not be masked by it, or stopping a walk
+   * after correcting one would leave the bar silent. A close newer than the
+   * one remembered here drops the edit, in the same "adjust state when an
+   * input changes" shape the day gate above uses.
+   */
+  const [edited, setEdited] = useState<{
+    id: string;
+    before: Walked;
+    after: Walked;
+    overClose: string | null;
+    day: string;
+  } | null>(null);
+  if (
+    edited !== null &&
+    (edited.day !== dayKey(day) || (closed?.id ?? null) !== edited.overClose)
+  ) {
+    setEdited(null);
+  }
   const [walkBusy, setWalkBusy] = useState(false);
   /**
    * A tap that arrives while another is still being handled.
@@ -369,48 +578,459 @@ export default function Home() {
    * committed; a train of taps can land before that. A ref flips at once.
    */
   const walkInFlight = useRef(false);
-
+  /**
+   * Set by a reload that follows an action which *failed*, and consumed by
+   * the pet effect when it runs.
+   *
+   * **The distinction three rounds kept missing.** The diary is kept when an
+   * action failed: a failed *action* must not take it away. It is not kept
+   * when the action succeeded and the reload could not confirm it — the write
+   * landed, the screen is waiting on a read that will not answer, and the
+   * old rows do not show what was written. Silence is the one thing that
+   * state must not offer; a walk that cannot be stopped is a wrong duration
+   * in the record.
+   *
+   * **The test is "did the action come back with an error", and the keep
+   * path is opt-in from each place that reloads after one.** Two of them
+   * today: a start that errored, and a stop that errored and queued itself.
+   * Every other reload — a successful start or stop, a saved sheet,
+   * Reintentar — leaves the flag alone and shows the error. A third caller
+   * is allowed, as long as it is on the error side of that test; the one
+   * thing that may never set it is a reload that follows a write the server
+   * accepted.
+   *
+   * **It is no longer the only reason the diary is kept, and the second one
+   * deliberately does not come through here.** A read nobody asked for — the
+   * one the app does on its way back to the foreground — keeps it too. The
+   * test written above cannot answer for that case, because there is no
+   * action to have come back with an error: the tutor pressed nothing, they
+   * opened their phone. So it is decided in the day effect, from whether
+   * anything actually asked for the run, and this flag keeps meaning exactly
+   * what it says.
+   *
+   * **This flag is per-bump and the day effect is what makes it survive one.**
+   * It is read and cleared at the top of the run it belongs to; if that run
+   * is cancelled before it answers, its terms live on in `unanswered` and the
+   * unasked read that replaced it inherits them. A *newer* bump does not
+   * inherit anything — it is the current truth, and the one thing that may
+   * never keep the diary is a reload following a write the server accepted.
+   */
+  const keepDiaryOnFailedRead = useRef(false);
+  /**
+   * What the previous run of the day read was serving, so this one can tell
+   * whether a bump caused it or it is the unasked re-read.
+   *
+   * A ref rather than state: it is bookkeeping, nothing renders from it, and
+   * writing it at the top of the effect is what keeps the comparison exactly
+   * one run deep.
+   *
+   * It starts on no day at all, so the first run — the one opening the screen
+   * asked for — counts as a bump.
+   */
+  const lastRequest = useRef({ attempt: 0, day: "" });
+  /**
+   * The terms of the read in flight, until a run answers with a log.
+   *
+   * **A read that is cancelled has not answered, so what was asked of it is
+   * still outstanding.** Everything else here is keyed to a run, and a run
+   * is exactly the thing a foreground return destroys: it supersedes the
+   * read, inherits nothing, and the ask is gone. That is how v0.22.1 came to
+   * keep the diary over a walk the server had accepted — the reload that had
+   * to confirm it was cancelled one second in, and its replacement counted
+   * as "nobody asked". Measured: the control disabled over `En marcha…`, the
+   * day saying nothing happened, no message and no Reintentar.
+   *
+   * So the terms outlive the run and are cleared only when one commits a
+   * log. An unasked read inherits them; a bump replaces them.
+   */
+  const unanswered = useRef<{ asked: boolean; keep: boolean } | null>(null);
+  /**
+   * How many times a start or a stop has come back with an error. The goal
+   * block shakes the control on each bump; a counter because two failures in
+   * a row are two shakes.
+   */
+  const [failed, setFailed] = useState(0);
+  /**
+   * The press `reload` has not answered yet: one resolver, or nothing.
+   *
+   * **`Reintentar` runs the button's loading cycle, and the cycle is a
+   * promise.** `reload` works by bumping `attempt`, which an effect consumes;
+   * the answer therefore has to travel from that effect back to the press,
+   * and a ref is the only thing both can reach.
+   *
+   * **Matched by identity, not by the attempt number.** The obvious key is
+   * "the attempt this resolver was created for", and it cannot be written
+   * honestly: `setAttempt((n) => n + 1)` is the only bump that is guaranteed
+   * to change the value, and it does not report the number it produced.
+   * Reading `attempt` from the press's own closure instead would be a copy of
+   * state that is correct until a start, a stop or a sheet save bumps it
+   * between the last commit and the press — at which point `setAttempt(n + 1)`
+   * writes the value that is already there, the effect does not re-run, and
+   * the button spins for ever. So the record itself is the key: `reload`
+   * stores it and *then* bumps, the effect claims whatever it finds at the
+   * top of its run, and only the run that found this very record may answer
+   * it. A run already in flight claimed null or an older record and cancels
+   * itself the moment `attempt` moves.
+   *
+   * Three ways it could be left dangling, all closed: a press that supersedes
+   * another answers the older one `false` on the spot; a run cancelled by a
+   * day change leaves the record in the ref for the run that replaces it; and
+   * unmount settles whatever is left — `Button` ignores it, because it checks
+   * `alive` before touching state, but a promise nobody can ever settle is
+   * not a thing to leave behind.
+   */
+  const awaitingReload = useRef<{ settle: (loaded: boolean) => void } | null>(
+    null,
+  );
+  /**
+   * Hands a waiting press its answer, once, and only from the run that
+   * claimed it.
+   *
+   * `loaded` is what the button shows: the check when the day came back, the
+   * alert when it did not.
+   */
+  const answerReload = useCallback(
+    (
+      answering: { settle: (loaded: boolean) => void } | null,
+      loaded: boolean,
+    ) => {
+      if (!answering || awaitingReload.current !== answering) return;
+      awaitingReload.current = null;
+      answering.settle(loaded);
+    },
+    [],
+  );
   useEffect(() => {
-    let cancelled = false;
-    AsyncStorage.getItem(WALK_STORAGE_KEY)
-      .then((raw) => {
-        if (!cancelled) setRunningId(parseRunningWalk(raw));
-      })
-      .catch(() => {
-        // A read that fails is a device with no note, which is what a phone
-        // that has never started a walk looks like: the block offers Empezar.
-        // The same best-effort bargain `start` and `stop` already make.
-      });
     return () => {
-      cancelled = true;
+      awaitingReload.current?.settle(false);
+      awaitingReload.current = null;
     };
   }, []);
 
+  /**
+   * Sends the queued stops up, and takes the ones that are settled out.
+   *
+   * **The three triggers the plan names all arrive here through one of
+   * them.** The plan lists coming back to the app, any day read that ends
+   * well, and the log's Reintentar; in this screen the first bumps `unasked`
+   * and the third bumps `attempt`, and both of those *are* a day read. So the
+   * replay hangs off the one moment all three produce — a read that answered
+   * — rather than off three call sites that would mostly fire each other.
+   * None of them is a connectivity detector: they are moments when there is
+   * reason to believe the network is back, which is as much as this app can
+   * ever know. The fourth moment, opening the app with a stop already on
+   * disk, is `dayRead` above.
+   *
+   * **Nothing here is said out loud except a rejection.** A replay that fails
+   * is not news: the tutor already knows, because the row carries the mark,
+   * and a toast on every read that ends well while the signal is still bad
+   * would be the app complaining about something it is handling. A rejection
+   * is the one case where an intent leaves the queue without being written,
+   * so it is the one case that speaks.
+   *
+   * **What the server accepted is written into the rows in the same commit
+   * the queue stops carrying it.** The day's minutes are counted from the
+   * rows *plus* the queue, so taking a stop out of the queue and waiting for
+   * a re-read to put it in the rows would drop those minutes out of the
+   * measure for a round trip — the backwards frame the goal bar spent a
+   * version removing. There is nothing optimistic about it: the row is given
+   * the length the server has just confirmed, and the next ordinary read
+   * agrees.
+   */
+  const runReplay = useCallback(async () => {
+    const queue = pendingRef.current;
+    if (queue.length === 0) return;
+    const { left, rejected } = await flushPending(queue, replayStop);
+    // Nothing settled — the usual answer while the signal is still bad, and
+    // the one that must leave every piece of state exactly as it was.
+    if (left.length === queue.length) return;
+
+    const settled = new Set(
+      queue.filter((stop) => !left.includes(stop)).map((stop) => stop.id),
+    );
+    const refused = new Set(rejected.map((stop) => stop.id));
+    /** The rows the server has just given a length, and the ones it has lost. */
+    const uploaded = new Map<string, number>();
+    const removed = new Set<string>();
+    for (const stop of queue) {
+      if (!settled.has(stop.id)) continue;
+      // **A rejection takes the row with it**, for consistency rather than
+      // for a defect anybody has seen. `gone` means the server has no such
+      // row any more, so the queue and the rows should stop carrying it in
+      // the same commit, exactly as an upload that worked does.
+      //
+      // **The window where this shows is very narrow, and that is why no
+      // test covers it.** The replay fires from a day read that has just
+      // answered, and that read has already refreshed the rows — so a row
+      // the server had lost is normally gone from the screen before the
+      // replay reports it. The two can only disagree if the other phone
+      // deletes the walk in the hundred-odd milliseconds between our read
+      // returning and our PATCH landing. Staging that interleaving in
+      // Playwright costs far more than the line it would protect.
+      if (refused.has(stop.id) || stop.kind === "delete") removed.add(stop.id);
+      else uploaded.set(stop.id, stop.minutes);
+    }
+    // **Filtered from the ref rather than replaced by `left`**, because a
+    // stop queued while this replay was in the air is not one of the elements
+    // it answered for, and must survive it.
+    const next = pendingRef.current.filter((stop) => !settled.has(stop.id));
+    pendingRef.current = next;
+    setPending(next);
+    if (uploaded.size > 0 || removed.size > 0) {
+      setLog((prev) =>
+        prev === null
+          ? prev
+          : {
+              ...prev,
+              events: prev.events.flatMap((event) =>
+                removed.has(event.id)
+                  ? []
+                  : uploaded.has(event.id)
+                    ? [
+                        {
+                          ...event,
+                          duration_minutes: uploaded.get(event.id) ?? null,
+                        },
+                      ]
+                    : [event],
+              ),
+            },
+      );
+    }
+    // One per rejection, which the toast queue counts rather than stacks: two
+    // walks the other phone deleted is the same sentence twice, said once.
+    rejected.forEach(() =>
+      toast.show({ variant: "warning", message: WALK_GONE }),
+    );
+    // Disk below the `set…` calls and after no `await`, for the reason the
+    // error branch of `stop` gives: an `await` ends the window React
+    // coalesces updates in, and the commit above has to be one render.
+    try {
+      await AsyncStorage.setItem(PENDING_STORAGE_KEY, serialisePending(next));
+    } catch {
+      // Best-effort, as everywhere else here. The queue in memory is what
+      // this session counts, and what is already up cannot be written twice:
+      // a close is conditional on the walk still being open.
+    }
+  }, [toast]);
+
+  /**
+   * One replay at a time, and never a trigger thrown away.
+   *
+   * **`flushPending` already guarantees one write per element**, so what this
+   * guards is the half that lives up here: a second replay of the same queue
+   * would wait on the first's writes, read the same rejections out of them
+   * and say so a second time — the one thing the replay is allowed to say out
+   * loud, said twice for one deleted walk.
+   *
+   * **A trigger that arrives mid-replay is remembered rather than dropped**,
+   * which a bare in-flight flag could not do. A stop queued while a replay is
+   * in the air is not one of the elements that replay is answering for, and a
+   * flag that simply refused the trigger it came with would leave it sitting
+   * there until the next time the tutor opened the app. The loop runs again
+   * exactly once per ask, so it ends as soon as the asking does.
+   *
+   * It is the same shape as `walkInFlight`, for the same reason: state closes
+   * the door only once a render has committed, and a ref closes it at once.
+   */
+  const replaying = useRef(false);
+  const replayAsked = useRef(false);
+  const replayQueue = useCallback(async () => {
+    if (replaying.current) {
+      replayAsked.current = true;
+      return;
+    }
+    replaying.current = true;
+    try {
+      do {
+        // Cleared before the run, so an ask that lands during it is kept.
+        replayAsked.current = false;
+        await runReplay();
+      } while (replayAsked.current);
+    } finally {
+      replaying.current = false;
+    }
+  }, [runReplay]);
+
   useEffect(() => {
     let cancelled = false;
+    // **Per key, so one unreadable value does not take the other with it.** A
+    // read that fails is a device with no note, which is what a phone that
+    // has never started a walk looks like: the block offers Empezar. The same
+    // best-effort bargain `start` and `stop` already make.
+    const read = (key: string) => AsyncStorage.getItem(key).catch(() => null);
+    void Promise.all([read(WALK_STORAGE_KEY), read(PENDING_STORAGE_KEY)]).then(
+      ([walk, queue]) => {
+        if (cancelled) return;
+        const stops = parsePending(queue);
+        const running = parseRunningWalk(walk);
+        setPending(stops);
+        pendingRef.current = stops;
+        // **A walk the queue already holds is not running.** The release
+        // writes the queue and only then clears the note, so a process killed
+        // between the two comes back with both on disk — and a walk counted
+        // live *and* as pending is counted twice, on the one screen whose
+        // whole job is a single total. The queue is the later fact, so it
+        // wins.
+        setRunningId(
+          running !== null && stops.some((stop) => stop.id === running)
+            ? null
+            : running,
+        );
+        // **The other order of the same pair.** A day read that already ended
+        // well has supplied the reason to believe the network is there, and
+        // this is the queue it was missing: see `dayRead`.
+        if (stops.length > 0 && dayRead.current) void replayQueue();
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [replayQueue]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Taken at the start of the run, so it belongs to this run and to no
+    // other: the reload a failed action asked for, and nothing later.
+    const afterFailedAction = keepDiaryOnFailedRead.current;
+    keepDiaryOnFailedRead.current = false;
+    /**
+     * Who asked for this read, and on what terms.
+     *
+     * **What was already loaded is still true**, so a read that fails may be
+     * kept quiet — but only when nobody is waiting to be told. v0.15.0 spent
+     * four rounds on the version of this that arrives after a failed action;
+     * v0.22.0 brought it back by a worse road, where the tutor had pressed
+     * nothing at all and coming back to the app with no coverage cost them
+     * the day.
+     *
+     * A press, a navigation, `Reintentar` and the pull gesture all move
+     * `attempt` or the day. The return to the foreground moves neither, only
+     * `unasked`. So a bump is somebody asking, and a run with no bump behind
+     * it is the unasked re-read — **except that it may be standing in for a
+     * run it cancelled, and then it is bound by that run's terms.** That is
+     * what `unanswered` carries, and it is the whole of the precedence rule:
+     *
+     * - bump, nothing outstanding → asked, keep only if the action failed;
+     * - bump on top of an outstanding read → the newer ask is the truth, and
+     *   the outstanding terms are dropped with it (a start that failed and
+     *   was pressed again successfully must show that it could not confirm);
+     * - no bump, nothing outstanding → the unasked re-read: keep;
+     * - no bump, outstanding → inherit, so a return to the foreground cannot
+     *   turn an accepted write's reload, a day change or the gesture into a
+     *   read nobody asked for;
+     * - no bump, outstanding from a failed action → inherit the keep too,
+     *   which is the same answer the failed action would have got alone;
+     * - two returns in a row → neither bumps and nothing is outstanding:
+     *   both unasked, both keep.
+     */
+    const bumped =
+      attempt !== lastRequest.current.attempt ||
+      dayKey(day) !== lastRequest.current.day;
+    lastRequest.current = { attempt, day: dayKey(day) };
+    const terms = bumped
+      ? { asked: true, keep: afterFailedAction }
+      : (unanswered.current ?? { asked: false, keep: false });
+    unanswered.current = terms;
+    /** The unasked half of it, which is the only reason the day branch takes. */
+    const unaskedRun = !terms.asked;
+    // **Claimed here, synchronously, for the same reason.** `reload` stores
+    // its resolver and only then bumps `attempt`, so this run — the first one
+    // to start after the press — is the one that owes it an answer. See
+    // `awaitingReload`.
+    const answering = awaitingReload.current;
 
     getMyPet().then(async ({ pet: row, error: failure }) => {
       if (cancelled) return;
-      if (failure) return setPetError(failure);
-      if (!row) return setPetError("Todavía no hay ninguna mascota");
+      if (failure || !row) {
+        const unreadable = failure ?? NO_PET;
+        // Answered — whatever the answer is. From here the terms belong to
+        // this run and to nothing after it; a read that starts later and
+        // nobody asked for is a read nobody asked for.
+        unanswered.current = null;
+        setPetError(unreadable);
+        // **A failed navigation still has to land somewhere visible.** With no
+        // pet the error takes the screen. With one already showing it does
+        // not — the gate below — so a day that could not be asked for would
+        // leave the log on its skeleton with no message and no way back.
+        // Hand it to the log, which is the part that could not be loaded.
+        // **Unless an action failed and the log holds real rows for this very
+        // day:** then this is a failed *action* reloading what is on screen,
+        // and the rows are the best answer there is. Both halves matter. The
+        // row check is decided from the log itself, inside the updater, so it
+        // cannot disagree with what is on screen; the action check is what
+        // stops a *successful* write whose reload failed from keeping rows
+        // that do not show it — see `keepDiaryOnFailedRead`. **Or nobody
+        // asked for this read at all**, which is the same keep for a reason
+        // of its own: see `unaskedRun`.
+        setLog((prev) =>
+          (terms.keep || unaskedRun) &&
+          prev &&
+          prev.day === dayKey(day) &&
+          !prev.error
+            ? prev
+            : { day: dayKey(day), attempt, events: [], error: unreadable },
+        );
+        answerReload(answering, false);
+        return;
+      }
 
       setPet(row);
+      setPetError(null);
       const { events: rows, error: eventError } = await eventsForDay(
         row.id,
         day,
       );
       if (cancelled) return;
+      // Answered, as above.
+      unanswered.current = null;
       // A failed read of the log does not take the screen down with it: the
       // craft floor's rule is that one component's error must not block the
       // whole interface, and everything above the log comes from the pet.
-      setLogError(eventError);
-      setLog({ day: dayKey(day), attempt, events: rows ?? [] });
+      //
+      // **And a failure nobody asked to hear about does not take the rows
+      // either** — the same keep as the branch above, on the other half of
+      // the same read: the pet can answer while the day does not.
+      //
+      // **Only that reason, though.** The failed-action keep has never
+      // reached this branch — a failed action whose pet read answers and
+      // whose entries do not has always shown the error here — and it does
+      // not start now, not even through an inherited `terms.keep`. One
+      // behaviour, overlap or no overlap. A read that worked always writes,
+      // whoever asked for it.
+      setLog((prev) =>
+        eventError !== null &&
+        unaskedRun &&
+        prev &&
+        prev.day === dayKey(day) &&
+        !prev.error
+          ? prev
+          : {
+              day: dayKey(day),
+              attempt,
+              events: rows ?? [],
+              error: eventError,
+            },
+      );
+      // **The day is the pet and its rows**, so a press is answered yes only
+      // when both came back. A failed log read is still a failure to the
+      // button, because the error it was pressed over is still on screen.
+      answerReload(answering, eventError === null);
+      // **A read that ended well is the reason to try the queue again**, and
+      // it is the moment all three of the plan's triggers reach: a return to
+      // the foreground, this screen's Reintentar and the pull gesture each
+      // cause exactly this read. A read that failed is not one — there is
+      // nothing to believe about the network — so this sits on the far side
+      // of the error check and nowhere else. See `replayQueue`.
+      if (eventError !== null) return;
+      dayRead.current = true;
+      void replayQueue();
     });
 
     return () => {
       cancelled = true;
     };
-  }, [day, attempt]);
+  }, [day, attempt, unasked, answerReload, replayQueue]);
 
   /**
    * Lazily, and only while the calendar is open: most visits to the diary
@@ -449,9 +1069,29 @@ export default function Home() {
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state !== "active") return;
+      // **Coming back to the app reads the day again, every time.**
+      //
+      // This used to happen only when the date had turned, because "a
+      // `setToday` on every foreground would refetch the day for nothing".
+      // That sentence is true of a diary with one reader and false of this
+      // one: the ficha is kept by two tutors with a phone each, so the
+      // moment this app spends in the background is precisely the moment the
+      // other phone may have written the meal. The two of them found it in
+      // use, which is how it got measured at all.
+      //
+      // **A stale diary looks exactly like a current one**: no gap, no mark,
+      // nothing to arouse suspicion. That is why this exists and the pull
+      // gesture is not enough on its own — nobody pulls down on a day they
+      // have no reason to doubt.
+      //
+      // Silent on purpose: the rows stay up while the read runs (the log's
+      // waiting state keys on the day, not on the attempt), because a
+      // skeleton every time the app came forward would be worse than the bug.
+      reread();
       const now = new Date();
-      // Only when the date actually turned: a `setToday` on every foreground
-      // would refetch the day for nothing.
+      // The date turning is a second, rarer thing, and it moves the boundary
+      // rather than the data: `today` caps the forward arrow and the
+      // calendar.
       if (daysAgo(now, today) === 0) return;
       setToday(now);
       // **The day on screen follows only if it was the old today.** Somebody
@@ -465,7 +1105,7 @@ export default function Home() {
       if (daysAgo(day, today) === 0 && !runningId) setDay(now);
     });
     return () => sub.remove();
-  }, [today, day, runningId]);
+  }, [today, day, runningId, reread]);
 
   // Hoisted above the early returns, because the birthday effect below is a
   // hook and cannot sit after them. `birthdayOn` takes a null birth date, so
@@ -516,6 +1156,52 @@ export default function Home() {
   );
 
   /**
+   * **And coming back to the app re-reads them too.**
+   *
+   * The effect above hangs off `useFocusEffect`, which answers to navigation
+   * between tabs and not to the app's own lifecycle: putting the app in the
+   * background does not blur a screen, so coming back from it never touched
+   * the treatments. v0.22.0 fixed exactly this for the day's entries and left
+   * the treatments behind — the same defect, for another kind of row. A tutor
+   * who writes down a vaccine on their phone stays invisible on the other one
+   * until somebody changes tab, presses Reintentar or pulls down.
+   *
+   * **It keys on `unasked` because that is what coming back means here.**
+   * `reread` is called from the `AppState` handler and from nowhere else, so
+   * the counter moves when, and only when, the app comes to the front. That
+   * is cheaper and far less invasive than moving the handler down the file to
+   * reach `readTreatments`, and a ref is not an option: writing one in render
+   * is what `react-hooks/refs` reports.
+   *
+   * `unasked === 0` is the mount, which the effect above has already covered.
+   *
+   * **The zero-delay timeout is not decoration.** `readTreatments` sets state
+   * before its first await, and a synchronous `setState` in an effect body is
+   * the cascading render `react-hooks/set-state-in-effect` exists to stop —
+   * measured here: without it, lint refuses the file. This is the shape the
+   * `now` refresh above already uses for the same reason, followed rather
+   * than invented a second time. The alternative was moving the `AppState`
+   * handler below `readTreatments` so the call sits in an event handler,
+   * where state is ordinary; it drags the three hoisted lines above it along
+   * and turns a three-line change into a ninety-line move through the one
+   * file in this project that has twice rewritten a real walk.
+   *
+   * Safe by something `readTreatments` already guarantees and this does not
+   * re-implement: **a failed read keeps the rows it had**. So a read nobody
+   * asked for cannot take the treatments off a screen that was showing them,
+   * which is the rule three versions were spent on for the day's entries.
+   */
+  useEffect(() => {
+    if (unasked === 0) return;
+    let cancelled = false;
+    const soon = setTimeout(() => void readTreatments(() => cancelled), 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(soon);
+    };
+  }, [unasked, readTreatments]);
+
+  /**
    * Everything the screen reads, read again.
    *
    * **The treatments come back with the rest of it.** `attempt` drives the
@@ -528,13 +1214,62 @@ export default function Home() {
    *
    * It is defined here rather than above because it calls `readTreatments`,
    * which needs the pet's id; nothing between the two uses it.
+   *
+   * **It resolves when the day has answered**, true when it loaded and false
+   * when it did not, because that is what makes `Button` run its loading
+   * cycle: the cycle is engaged by a promise and nothing else. Returning
+   * `void` is what left both Reintentar mute — offline, seven seconds of a
+   * press with nothing to show for it (PRODUCT.md, 2026-10-21). The treatments
+   * ride along and are deliberately not part of the answer: a failed
+   * treatments read draws nothing at all, so it is not a failure the button
+   * can honestly report.
+   *
+   * **The message is not cleared on the way in.** It used to be, and on the
+   * screen-wide error that swapped the whole screen for the full-screen
+   * spinner the instant the button was pressed — the button was gone before
+   * it could say it was working, and the sentence saying what had happened
+   * went with it. The pet read clears it on success and writes it again on
+   * failure, which is the only place that knows.
    */
   const reload = useCallback(() => {
-    setPetError(null);
-    setLogError(null);
-    setAttempt((n) => n + 1);
     void readTreatments(() => false);
+    // The resolver goes in **before** the bump: the effect run that the bump
+    // causes claims it on the way past. See `awaitingReload`.
+    const superseded = awaitingReload.current;
+    const settled = new Promise<boolean>((resolve) => {
+      awaitingReload.current = { settle: resolve };
+    });
+    // A press this one has taken the read away from: nothing will answer it
+    // now, and a promise that never settles is a button that spins for ever.
+    superseded?.settle(false);
+    setAttempt((n) => n + 1);
+    return settled;
   }, [readTreatments]);
+
+  /**
+   * Pulling the diary down reads it again, and says so while it does.
+   *
+   * **Agency, not correction.** The re-read on return is for the days when
+   * nothing makes anybody suspect the day is behind; this is for the moment
+   * it already does — the other tutor says "ya lo he apuntado" and the day
+   * can be asked again without changing day or killing the app.
+   *
+   * It is `reload`, the same thing Reintentar does: everything the screen
+   * reads, read again, treatments included. A gesture the tutor made is
+   * allowed to settle a Reintentar they also pressed — it answers the same
+   * question — which is why this one may call `reload` where the silent
+   * re-read may not.
+   *
+   * **The indicator stays up until the day has answered**, because that is
+   * what the gesture promised. `reload` resolves false on a failure, and the
+   * failure is already said where it happened: the log's own error region
+   * and its Reintentar. Nothing here repeats it.
+   */
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    void reload().finally(() => setRefreshing(false));
+  }, [reload]);
 
   /**
    * **The birthday gets the confetti, once a year, on the day itself.**
@@ -568,6 +1303,8 @@ export default function Home() {
   // cannot sit after the early returns. Every one is safe before the pet loads.
   const loading = log === null || log.day !== dayKey(day);
   const events = loading ? NO_EVENTS : log.events;
+  /** Not fatal: the header, the goal and the actions all still work. */
+  const logError = loading ? null : log.error;
   /**
    * What Salud recorded on this day, which the diary only reads.
    *
@@ -577,9 +1314,113 @@ export default function Home() {
    * that was never known.
    */
   const dayTreatments = treatments ? treatmentsOn(treatments.rows, day) : [];
-  const walked = walkedMinutes(events);
+  /**
+   * The queued stops the day in view has to account for — matched against
+   * its rows, because the queue carries no day of its own and a walk the
+   * other tutor has already closed must not be counted twice.
+   *
+   * **The matching is in `lib/pending.ts` and unit-tested**, for the reason
+   * the whole of that module is: a wrong answer does not throw, it counts
+   * the dog's minutes twice.
+   */
+  const pendingHere = pendingForDay(pending, events);
+  /**
+   * The same stops, addressed by the row they belong to, so a row can say it
+   * is not uploaded yet and say how long it was.
+   *
+   * **Built from `pendingHere` and from nothing else**, which is the whole
+   * point of it being here rather than in `Entry`. A pending row has no
+   * length on the server — the close never landed — so the minutes it shows
+   * can only come from the queue, and the total under it is summed from this
+   * very list. A row that read the raw queue instead would keep showing its
+   * own number for a walk the other tutor had already closed, while the
+   * measure counted the server's: the one disagreement this screen must not
+   * be able to have.
+   */
+  const pendingById = new Map(pendingHere.map((stop) => [stop.id, stop]));
+  /**
+   * The day's minutes, **the stops still waiting to be uploaded included**.
+   *
+   * This is the optimistic update, and it is not decoration. A stop that
+   * fails releases the walk, so the live minutes the bar was drawing stop
+   * being drawn; if the pending ones did not take that place at the same
+   * instant the bar would step backwards on the press — the frame v0.15.0
+   * was spent removing. They are added here, where the day is counted once,
+   * so that every reader of the total has them: the measure, the bar, the
+   * close's `recordedBefore` and the celebration's threshold. A second place
+   * that added them would be a second place that could disagree.
+   */
+  const walked = walkedMinutes(events) + pendingMinutes(pendingHere);
+  /**
+   * The same rows, counted: how many walks those minutes came in.
+   *
+   * Read here beside the total and never apart from it — the measure states
+   * both in one sentence, and a count from a different read of the day is a
+   * number the bar underneath would not add up to. **Including the pending
+   * walks for that very reason**: minutes the sentence counts in a walk it
+   * does not is a sentence that does not add up.
+   */
+  const walks = walkCount(events) + pendingWalks(pendingHere);
+  /**
+   * The same rows again, one length each: what the bar cuts the day into.
+   *
+   * **The third reading of one day, and it travels beside the other two
+   * rather than replacing them.** `walked` and `walks` are the measure's
+   * sentence and nothing about them changes here; this is the list behind it,
+   * and `walkLengths` is pinned against both in Jest so the three cannot drift
+   * into saying different things about the same rows.
+   *
+   * **The queued stops go in by id, not on the end.** A total may add them
+   * last and be right; a list may not — a walk closed on a phone with no
+   * signal happened at the hour its row says, between two others, and the
+   * cuts are read against the day in order.
+   */
+  const walkMinutes = walkLengths(
+    events,
+    new Map(
+      pendingHere.flatMap((stop) =>
+        stop.kind === "close" ? [[stop.id, stop.minutes] as const] : [],
+      ),
+    ),
+  );
+  /**
+   * The day's minutes **as the goal block is allowed to state them**, which is
+   * null when nobody knows.
+   *
+   * **A failed read is written into the log as no rows plus an error, and no
+   * rows is not zero minutes.** The log's own region has checked `error`
+   * before `events.length === 0` since the day it learned to; the measure
+   * above it was handed `walked` and counted the same empty array as a fact.
+   * It then said "0 min paseados" — in larger type and higher on the
+   * screen than the sentence that rule was written for, and on a close whose
+   * reload failed it said it directly above a bar painted past the goal.
+   * PRODUCT.md: an empty state may never stand in for a failed read, because
+   * zero minutes is a claim about the dog's day and an unread log is a claim
+   * about the network. **Nothing downstream of rows that could not be read
+   * may assert a number.**
+   *
+   * **Rows that did arrive outrank the error**, which is the failed-action
+   * keep: an action that failed over a diary already on screen leaves real
+   * rows and a message, and those rows are still the day's minutes.
+   *
+   * Only the block's own measure takes this. `walked` stays a number
+   * everywhere it is arithmetic rather than a statement — the close's
+   * `recordedBefore`, the celebration's threshold — and both of those need a
+   * running row to reach them, which a day with no rows has not got.
+   */
+  const measured: Walked | null =
+    logError !== null && events.length === 0
+      ? null
+      : { minutes: walked, walks };
   const goal = pet?.exercise_goal_minutes ?? null;
-  const met = goal !== null && walked >= goal;
+  /**
+   * Whether the day has already had the one celebration it gets.
+   *
+   * It is the **top** tier, not the goal the tutor typed: see
+   * `CELEBRATED_TIER`. Both gates below read it, so a second walk on a day
+   * that already doubled stays quiet.
+   */
+  const celebrated = tierReached(walked, goal) === CELEBRATED_TIER;
   /**
    * Whether the rows on screen answer the *current* request.
    *
@@ -651,7 +1492,6 @@ export default function Home() {
         toast.show({
           variant: "error",
           message: error ?? "No se ha podido empezar el paseo",
-          persist: true,
         });
         // **And the day is reloaded on the way out.** `withTimeout` abandons
         // the request after twelve seconds; the insert may well have
@@ -659,7 +1499,9 @@ export default function Home() {
         // presses start again, and now there are two open walks — the first
         // one invisible until something else happens to trigger a read. It is
         // visible and deletable the moment the log says it exists.
+        keepDiaryOnFailedRead.current = true;
         setAttempt((n) => n + 1);
+        setFailed((n) => n + 1);
         return;
       }
       // **The device's note is best-effort; the row is the fact.** A storage
@@ -687,10 +1529,13 @@ export default function Home() {
     walkInFlight.current = true;
     setWalkBusy(true);
     try {
-      const outcome = walkOutcome(
-        new Date(runningWalk.occurred_at),
-        new Date(),
-      );
+      // **One reading of the clock, held.** It is the hour the tutor pressed,
+      // and it is what `outcome.minutes` is measured against — so a stop that
+      // has to be queued stores that same instant rather than the clock as it
+      // reads twelve seconds later, when the request finally gives up. See
+      // `pressedAt` in `lib/pending.ts`.
+      const pressedAt = new Date();
+      const outcome = walkOutcome(new Date(runningWalk.occurred_at), pressedAt);
       // **The rule is "untouched", not "under a minute".** A start and a stop
       // inside the same minute is a mis-tap and the honest record of a
       // mis-tap is nothing — but the live row is in the log as soon as the
@@ -708,6 +1553,21 @@ export default function Home() {
         !runningWalk.note &&
         Object.keys(details ?? {}).length === 0 &&
         writtenToId !== runningWalk.id;
+      // **What this stop writes, which is the only thing the bar has to say
+      // and now the only thing the queue has to carry.** `outcome.minutes`
+      // for a close; one minute for a discard that had been written on, which
+      // is closed at a minute rather than deleted for the reason above; and
+      // nothing at all for a deleted row or an abandon, which add no minutes
+      // — a bar that moved for them would be claiming a walk was saved when
+      // none was. **Read once, above the write**: the error branch queues the
+      // intent and the success branch draws it, and two readings of `outcome`
+      // could come to disagree about which walk was being saved.
+      const added =
+        outcome.action === "close"
+          ? outcome.minutes
+          : outcome.action === "discard" && !untouched
+            ? 1
+            : null;
       const { error } =
         outcome.action === "discard"
           ? untouched
@@ -717,8 +1577,74 @@ export default function Home() {
             ? await closeWalk(runningWalk.id, outcome.minutes)
             : { error: null };
       if (error) {
-        // The walk stays running so the tutor can press stop again.
-        toast.show({ variant: "error", message: error, persist: true });
+        // **The walk was stopped; what is missing is the upload.** It used to
+        // stay running so the tutor could press again, and the second press
+        // wrote *that* hour — twenty minutes of lift and stairs went into the
+        // record as walking. The toast and the shake stay, because the tutor
+        // has to know there was no network, and the intent is kept with the
+        // hour the phone recorded.
+        toast.show({ variant: "error", message: error });
+        // The intent is the write that just failed, said again: a close with
+        // its minutes, or the delete a clean mis-tap gets. An abandon writes
+        // nothing and so cannot arrive here.
+        const intent: PendingStop =
+          added === null
+            ? {
+                kind: "delete",
+                id: runningWalk.id,
+                pressedAt: pressedAt.toISOString(),
+              }
+            : {
+                kind: "close",
+                id: runningWalk.id,
+                minutes: added,
+                pressedAt: pressedAt.toISOString(),
+              };
+        const queued = enqueueStop(pending, intent);
+        setPending(queued);
+        // The replay reads the queue from here, because it runs from
+        // callbacks made before this press: see `pendingRef`.
+        pendingRef.current = queued;
+        // **Released, and its minutes change hands in the same commit.** The
+        // live segment goes with `runningId`, and `walked` counts the queue,
+        // so the bar is painted at the same width on both sides of this.
+        setRunningId(null);
+        // **Bumped here, in the run that clears `walkBusy`.** No `await`
+        // separates this from the `finally` below, so the shake and the
+        // control coming back from its spinner are one commit.
+        setFailed((n) => n + 1);
+        // **And the day is reloaded on the way out**, as a failed start does:
+        // `withTimeout` abandons the request after twelve seconds and the
+        // update may well have committed on the other side of it. The diary
+        // is kept if that read fails too — a failed *action* is not a failed
+        // *navigation*, and the rows on screen are what the day's minutes,
+        // pending ones included, are counted from.
+        keepDiaryOnFailedRead.current = true;
+        setAttempt((n) => n + 1);
+        // **Disk below the `set…` calls, for the reason `setClosed` sits
+        // below its own `await`:** an `await` ends the window React coalesces
+        // updates in, and a render committed in the middle would show the
+        // walk released with nothing counting its minutes — the backwards
+        // frame, for as long as the storage round trip takes.
+        //
+        // **The queue goes down before the note is cleared**, so a process
+        // killed between the two leaves a walk that is queued and still
+        // marked as running, which the mount read resolves, rather than one
+        // that is neither. Both writes are best-effort, as everywhere else
+        // here: the queue in memory is what this session counts.
+        try {
+          await AsyncStorage.setItem(
+            PENDING_STORAGE_KEY,
+            serialisePending(queued),
+          );
+        } catch {
+          // Not worth a second failure on top of the one being reported.
+        }
+        try {
+          await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+        } catch {
+          // See above.
+        }
         return;
       }
       // Best-effort, as in `start`: if the flag outlives the walk, the row has
@@ -729,6 +1655,37 @@ export default function Home() {
       } catch {
         // See above.
       }
+      // **The row's id goes with the minutes**, because that is what makes
+      // the animation fire once per close: two walks of the same length are
+      // two animations, and a value check would swallow the second.
+      //
+      // **Below the `await`, and that is not tidiness.** It has to be set in
+      // the same batch as `setAttempt`, because the gate the animation waits
+      // on is "the rows answer the current request" and bumping `attempt` is
+      // what shuts it. An `await` ends the window React coalesces updates in,
+      // so recording the close above the storage write let a render commit
+      // between the two: `attempt` not yet bumped, the gate open, and the
+      // animation computed from the total from *before* this walk — which
+      // then marks itself played and swallows the real one. **Measured**: on
+      // the web the storage write resolves in a microtask and the batch held,
+      // which is why every test passed over it; standing a 50 ms tick in for
+      // the native module's round trip reproduced it exactly, with the close
+      // firing at 59 of 60 minutes and drawing the previous walk's stretch
+      // instead of the one that reached the goal.
+      if (added !== null) {
+        setClosed({
+          id: runningWalk.id,
+          minutes: added,
+          // **The day before this walk joined it**, which is what lets the
+          // bar draw the close without waiting for the reload: `walked` and
+          // `walks` both count closed walks, and the one being announced is
+          // not among them yet. The block cannot work this out for itself —
+          // by the time it sees the close, whether its own total already
+          // contains this walk depends on a request still in flight.
+          before: { minutes: walked, walks },
+          day: dayKey(day),
+        });
+      }
       setRunningId(null);
       setAttempt((n) => n + 1);
 
@@ -737,32 +1694,50 @@ export default function Home() {
       // no old value to take out before the new one goes in. `isToday` is what
       // stops a walk closed after midnight throwing confetti over a day nobody
       // is looking at.
+      //
+      // **The threshold is the top tier now, and it is read off the bar's own
+      // scale.** A walk that merely reaches the goal turns the bar Aqua and
+      // says so under it, and that is all it gets: see `CELEBRATED_TIER`.
       if (
         outcome.action === "close" &&
         isToday &&
-        goal !== null &&
-        goal > 0 &&
-        !met &&
-        walked + outcome.minutes >= goal
+        !celebrated &&
+        tierReached(walked + outcome.minutes, goal) === CELEBRATED_TIER
       ) {
-        celebrate();
+        celebrate(CELEBRATION_TONE);
       }
     } finally {
       walkInFlight.current = false;
       setWalkBusy(false);
     }
-  }, [runningWalk, writtenToId, toast, celebrate, isToday, goal, met, walked]);
+  }, [
+    runningWalk,
+    writtenToId,
+    toast,
+    celebrate,
+    isToday,
+    goal,
+    celebrated,
+    pending,
+    walked,
+    walks,
+    day,
+  ]);
 
-  if (petError) {
+  if (petError && !pet) {
     return (
       <Screen center edges={["top"]}>
-        <Text
-          accessibilityLiveRegion="polite"
-          className="mb-5 text-center text-error"
-        >
-          {petError}
-        </Text>
-        <Button testID="home-retry" label="Reintentar" onPress={reload} />
+        <ErrorNote testID="home-pet-note" message={petError} />
+        {/* **The result label is short and says only that the press did not
+            work**, because the sentence above it already says why — and it is
+            rewritten by the very read this button is waiting on, so by the
+            time the alert shows, the reason on screen is the current one. */}
+        <Button
+          testID="home-retry"
+          label="Reintentar"
+          errorLabel="Sigue sin cargar"
+          onPress={reload}
+        />
       </Screen>
     );
   }
@@ -818,6 +1793,13 @@ export default function Home() {
     <Screen
       scroll
       edges={["top"]}
+      // The gesture everybody already knows, on the one screen where the
+      // measured problem is: a diary that may be behind what the other phone
+      // wrote. Salud and the ficha do not get it — they are not what goes
+      // stale while the app sits in a pocket.
+      onRefresh={refresh}
+      refreshing={refreshing}
+      refreshTestID="home-refresh"
       overlay={(position) => (
         <Fab
           testID="home-add"
@@ -899,7 +1881,7 @@ export default function Home() {
       </View>
 
       {/* **The measure waits in its own shape too.** Leaving the previous
-          day's "2h 30m de 3h paseados" over a header that already says "Ayer"
+          day's "2h 30m en 3 paseos" over a header that already says "Ayer"
           is the same lie the log used to tell, in fewer words and larger
           type. */}
       {loading ? (
@@ -912,7 +1894,10 @@ export default function Home() {
       ) : (
         <GoalBlock
           testID="home-goal"
-          walkedMinutes={walked}
+          walked={measured}
+          // Additive: the measure goes on reading `measured`, and this is the
+          // same day cut into the walks it came in, for the marks on the bar.
+          walkMinutes={walkMinutes}
           goalMinutes={goal}
           durationFormat={settings.durationFormat}
           walkingSince={walkingSince}
@@ -935,6 +1920,44 @@ export default function Home() {
           onStop={
             walkingSince || (isToday && runningId !== null) ? stop : undefined
           }
+          // **The close animates on the tap, and the gate that made it wait
+          // is gone.** It used to be held until `fresh` — "the rows on screen
+          // answer the current request" — because the animation was computed
+          // by *subtracting* the closed minutes from a total that might or
+          // might not already contain them, so it needed the reload to know
+          // which. Those 400 ms of waiting were the hole the tutor filmed:
+          // the live segment unmounts on the tap and the bar spent the gap
+          // telling the truth of a minute ago. The close now carries the
+          // total it started from, so both ends of the fill are known the
+          // moment the server says yes and nothing has to be waited for. The
+          // day it belongs to is still checked, and that is settled above:
+          // `closed` is dropped as the day in view leaves it.
+          //
+          // **Masked by a hand edit, so the block is only ever told one
+          // thing.** The two are one decision — what this phone last did to
+          // the day's minutes — and the block keeps one `answered` id, so
+          // handing it both would be handing it a precedence it has no way
+          // to resolve. Which of the two is the newer is settled where
+          // `edited` is declared.
+          justClosed={
+            closed && edited === null
+              ? {
+                  id: closed.id,
+                  minutes: closed.minutes,
+                  before: closed.before,
+                }
+              : null
+          }
+          // **The other three ways the minutes change, and the same rule.**
+          // Up is the close's own ceremony, down is the journey back; which
+          // of the two is `editMotion`'s decision, taken on the sign and not
+          // on the action, for the reason a wrong one does not throw.
+          justEdited={
+            edited
+              ? { id: edited.id, before: edited.before, after: edited.after }
+              : null
+          }
+          failed={failed}
         />
       )}
 
@@ -1001,13 +2024,14 @@ export default function Home() {
         </Group>
       ) : logError ? (
         <Group testID="home-log-error">
-          <Text accessibilityLiveRegion="polite" className="mb-5 text-error">
-            {logError}
-          </Text>
+          <ErrorNote testID="home-log-note" message={logError} />
           <View className="mb-5">
             <Button
               testID="home-log-retry"
               label="Reintentar"
+              // See the screen's own Reintentar above: the reason is the line
+              // of text directly over this button.
+              errorLabel="Sigue sin cargar"
               onPress={reload}
             />
           </View>
@@ -1046,6 +2070,7 @@ export default function Home() {
               key={event.id}
               event={event}
               running={event.id === runningWalk?.id}
+              pending={pendingById.get(event.id) ?? null}
               onPress={() =>
                 setEditing({ kind: event.kind as EventKind, event })
               }
@@ -1100,7 +2125,17 @@ export default function Home() {
           day={day}
           dayLabel={isToday ? null : `${headline}, ${formatDayDate(day)}`}
           onClose={() => setEditing(null)}
-          onSaved={(walkMinutes) => {
+          onSaved={(walkMinutes, removed) => {
+            /**
+             * What the entry weighed before the press and what it weighs
+             * after it, in minutes. Both the confetti's threshold and the
+             * bar's movement are read off this one pair, so they cannot
+             * come to disagree about what just happened to the day.
+             */
+            const was = editing.event?.duration_minutes ?? null;
+            const wasMinutes = was ?? 0;
+            const nowMinutes = removed ? 0 : (walkMinutes ?? 0);
+
             // **The goal is a threshold, and this is the entry that crossed
             // it.** Now that the bar no longer flashes green, the moment it
             // is reached has nothing to mark it, and a bar quietly changing
@@ -1111,8 +2146,8 @@ export default function Home() {
             // The arithmetic is exact rather than a re-sum: `walked` already
             // counts the entry being edited, so its old minutes come out
             // before the new ones go in. A non-walk contributes null on both
-            // sides and cannot cross anything. `!met` is what keeps a second
-            // walk on an already-finished day quiet.
+            // sides and cannot cross anything. `!celebrated` is what keeps a
+            // second walk on an already-doubled day quiet.
             //
             // **Only on the day you are in.** Backfilling a forgotten
             // Tuesday is bookkeeping, and a week of catch-up entries firing
@@ -1121,13 +2156,62 @@ export default function Home() {
             // nothing; that is the narrower mistake of the two.
             const crossed =
               isToday &&
-              goal !== null &&
-              goal > 0 &&
-              !met &&
-              walked -
-                (editing.event?.duration_minutes ?? 0) +
-                (walkMinutes ?? 0) >=
-                goal;
+              !celebrated &&
+              tierReached(walked - wasMinutes + nowMinutes, goal) ===
+                CELEBRATED_TIER;
+
+            /**
+             * The day as the bar should now read it, for the animation and
+             * for nothing else.
+             *
+             * **The count is the rows' own rule and not a guess.**
+             * `walkCount` counts exactly the rows `walkedMinutes` adds up,
+             * so a walk with no length is no walk to the measure; the two
+             * sides below ask that same question of the entry before and
+             * after the press, which is why a walk written with only a
+             * DESDE adds minutes to neither.
+             */
+            const after: Walked = {
+              minutes: walked - wasMinutes + nowMinutes,
+              walks:
+                walks -
+                (was === null ? 0 : 1) +
+                (!removed && walkMinutes !== null ? 1 : 0),
+            };
+
+            // **Four gates, and each one is a way of saying the same
+            // thing: animate only what this tutor has just done to minutes
+            // this screen actually knows.**
+            //
+            // `fresh` — the rows on screen answer the current request, so
+            // `walked` is the day and not the day before the last reload.
+            // `measured` — a failed read is not a total, and a journey from
+            // a number nobody could read is a journey from nowhere.
+            // No walk running — the bar's edge then counts live minutes the
+            // edit never touched, so a stretch drawn between two *recorded*
+            // totals would begin and end somewhere the bar is not. It jumps
+            // there, as it did before any of this.
+            // And the minutes have to have moved: saving a meal, or a walk
+            // whose duration came back unchanged, is not a change to the
+            // bar — and announcing it would drop a close's hold mid-flight.
+            if (
+              fresh &&
+              measured !== null &&
+              walkingSince === null &&
+              after.minutes !== walked
+            ) {
+              setEdited({
+                // `attempt` is bumped by every action on this screen and
+                // never reused, which is all an id has to be: two edits of
+                // the same size are two animations, and a value check would
+                // swallow the second.
+                id: `edit-${attempt}`,
+                before: { minutes: walked, walks },
+                after,
+                overClose: closed?.id ?? null,
+                day: dayKey(day),
+              });
+            }
 
             // A save on the running walk is a write the fetched row does not
             // show yet: see `writtenToId`.
@@ -1136,11 +2220,9 @@ export default function Home() {
             }
             setEditing(null);
             setAttempt((n) => n + 1);
-            if (crossed) celebrate();
+            if (crossed) celebrate(CELEBRATION_TONE);
           }}
-          onFailed={(message) =>
-            toast.show({ variant: "error", message, persist: true })
-          }
+          onFailed={(message) => toast.show({ variant: "error", message })}
           petId={pet.id}
           timeMeans={editingRunning ? "start" : "end"}
           running={editingRunning}
@@ -1238,18 +2320,52 @@ function TreatmentEntry({
  * The whole row is the target, because the row is what the tutor is thinking
  * about. It opens the sheet it was created from — which is also where its
  * delete lives: a delete in the list is a mis-tap waiting for a scroll.
+ *
+ * **A stop that has not reached the server yet is marked, and the row is
+ * otherwise an ordinary row.** It says its length like any other — the length
+ * the queue is holding, since the server has none — because the tutor stopped
+ * this walk and a row still reading `En marcha` would be a lie about an act
+ * they performed. The mark says the only thing that is actually outstanding:
+ * the upload.
+ *
+ * **The glyph goes in front of the title, not at the right edge.** The right
+ * edge is where the stool marks live, and those speak about the *walk*; this
+ * one speaks about the *record*. Against the title it reads as a property of
+ * the row rather than a fact about the animal.
+ *
+ * **Nothing else changes tone, and there is no aged state.** Dimming the row
+ * was drawn and dropped on a measurement — it needed the time at `text-muted`,
+ * which is 3.96:1 and fails AA, and lifting it to `text-tertiary` left a step
+ * of 17.19:1 → 12.68:1 that exists in the table and not on the screen. A
+ * six-hour amber escalation was drawn and dropped too: the problem is that it
+ * has not synced, not since when.
+ *
+ * **An icon is never a reason**, so the word is in the accessible name:
+ * `no sincronizado`. It is the most technical string in the app and that is
+ * deliberate — it is spoken aloud, and there it matters more that a tutor
+ * knows an upload is outstanding than that the sentence sounds like the
+ * household.
  */
 function Entry({
   event,
   onPress,
   running = false,
+  pending = null,
 }: {
   event: PetEventRow;
   onPress: () => void;
   /** The walk this device has open: no length yet, and it is still going. */
   running?: boolean;
+  /**
+   * The stop this device is holding for this row, if it is holding one.
+   *
+   * It arrives from the day rather than being looked up here, because the
+   * day's total is summed from the same list: see `pendingById`.
+   */
+  pending?: PendingStop | null;
 }) {
   const { settings } = useSettings();
+  const reduceMotion = useReducedMotion();
   const spec = KINDS[event.kind as EventKind];
   // The reading side, so both formats are the tutor's. The sheet below keeps
   // 24-hour times, because that is the only form a number pad can express.
@@ -1260,9 +2376,17 @@ function Entry({
   // **A running walk says "En marcha" and nothing else.** The goal block owns
   // the clock and ticks it on its own; a second counter here would only
   // refresh when this screen re-rendered, and the two would disagree.
+  //
+  // **A pending close states the queue's minutes**, because the row has none:
+  // the server never heard the close. `spec.describe` would read the row's
+  // null and say nothing, leaving a stopped walk with a blank where its
+  // length belongs. A pending *delete* carries no minutes and gets nothing,
+  // which is the same silence the day's total keeps about it.
   const described = running
     ? "En marcha"
-    : spec?.describe(event, settings.durationFormat);
+    : pending?.kind === "close"
+      ? formatDuration(pending.minutes, settings.durationFormat)
+      : spec?.describe(event, settings.durationFormat);
   const stools = readStools(event.details);
   const Icon = spec?.icon;
 
@@ -1271,11 +2395,17 @@ function Entry({
       testID={`home-entry-${event.id}`}
       onPress={onPress}
       accessibilityRole="button"
+      // **`no sincronizado` goes last, though the glyph goes first.** The
+      // mark leads visually because the eye needs somewhere to catch; a
+      // sentence that opened on the exception would announce the fault before
+      // naming the thing it is about. Said after the walk's own facts, it
+      // reads as what it is: a note about this record.
       accessibilityLabel={[
         spec?.label ?? event.kind,
         time,
         described,
         describeStools(stools),
+        pending ? "no sincronizado" : null,
       ]
         .filter(Boolean)
         .join(", ")}
@@ -1286,13 +2416,21 @@ function Entry({
       {/* **Sized to its content, not to a number.** A fixed 80dp was measured
           wrong in both directions: 27dp of slack for "09:00" and too narrow
           for "12:05 p.m." at font_scale 1.3, where five characters already
-          take 53dp. Sizing to the content keeps every row in one format
-          aligned — 24-hour times are all five characters — and grows with the
-          font scale for free. The cost is a character of rag in 12-hour mode,
-          between "9:15 a.m." and "12:05 p.m.", which is cheaper than a
-          clipped time. */}
+          take 53dp. Sizing to the content grows with the font scale for free.
+          **It only keeps the titles aligned because the figures are
+          tabular.** "24-hour times are all five characters" was the original
+          justification and it is true of the count and false of the width:
+          Outfit's digits are proportional, so "09:40", with no narrow 1 in
+          it, was the widest of three measured on the device and pushed its
+          title right. `tabular-nums` gives every digit one width, so every
+          24-hour time is one width as well as one length. The cost is a
+          character of rag in 12-hour mode, between "9:15 a.m." and
+          "12:05 p.m.", which is cheaper than a clipped time. */}
       <View className="shrink-0 items-start gap-1">
-        <Text className={running ? "text-accent" : "text-text-tertiary"}>
+        <Text
+          className={running ? "text-accent" : "text-text-tertiary"}
+          style={{ fontVariant: ["tabular-nums"] }}
+        >
           {time}
         </Text>
         {Icon ? (
@@ -1319,9 +2457,41 @@ function Entry({
         ) : null}
       </View>
       <View className="flex-1">
-        <Text className="font-semibold text-text-primary">
-          {spec?.label ?? event.kind}
-        </Text>
+        <View className="flex-row items-center gap-1.5">
+          {pending ? (
+            // Decorative: the row's name says the word, so a reader who
+            // cannot see this has already been told.
+            // **La marca se va con una transición, no de golpe.** Aparecer
+            // es una noticia y puede ser instantáneo; irse es el final de
+            // algo, y un elemento que desaparece entre dos fotogramas se lee
+            // como un fallo de dibujo antes que como «ya está». 200 ms es lo
+            // que tarda en leerse como que la fila se asienta.
+            //
+            // **Solo a la salida.** La marca entra en el mismo fotograma en
+            // que la parada falla, junto al toast y al temblor del control:
+            // ahí ya hay tres cosas diciendo lo mismo y una cuarta llegando
+            // despacio sería ruido.
+            //
+            // No lleva prueba, y es deliberado: lo único que se podría
+            // afirmar es que el elemento tarda 200 ms en irse, que es una
+            // aserción contra un reloj — justo la clase de carrera que hoy
+            // costó una suite entera. Se verifica en el dispositivo, con una
+            // grabación, que es como se miden las animaciones aquí.
+            <Animated.View
+              exiting={reduceMotion ? undefined : FadeOut.duration(200)}
+              testID={`home-entry-pending-${event.id}`}
+              className="shrink-0"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              aria-hidden
+            >
+              <CloudOff size={16} strokeWidth={2} color={colors.warning} />
+            </Animated.View>
+          ) : null}
+          <Text className="shrink font-semibold text-text-primary">
+            {spec?.label ?? event.kind}
+          </Text>
+        </View>
         {described ? (
           // **A running walk's state takes the accent**, like the time and the
           // glyph beside it: all three say the same thing, and one of them
@@ -1434,8 +2604,19 @@ function EntrySheet({
   dayLabel: string | null;
   petId: string;
   onClose: () => void;
-  /** Reports the walk's minutes, so the day can tell whether it just won. */
-  onSaved: (walkMinutes: number | null) => void;
+  /**
+   * Reports the walk's minutes, so the day can tell whether it just won —
+   * and whether the row went away, so it can tell what the day now adds up
+   * to.
+   *
+   * **`removed` is not the same question as `walkMinutes === null`**, which
+   * is also what a saved meal and a walk with no length report. A deletion
+   * takes the entry's own minutes off the day and a save puts new ones in
+   * their place; the goal bar's journey is drawn between those two totals,
+   * so the one thing it cannot work out from the minutes alone is whether
+   * there is still a row.
+   */
+  onSaved: (walkMinutes: number | null, removed: boolean) => void;
   onFailed: (message: string) => void;
   /**
    * What a walk's lone `occurred_at` means when there is no duration.
@@ -1728,7 +2909,7 @@ function EntrySheet({
       return false;
     }
 
-    onSaved(walkMinutes);
+    onSaved(walkMinutes, false);
     return true;
   }, [
     at,
@@ -1755,7 +2936,7 @@ function EntrySheet({
       return false;
     }
     // A deletion never celebrates, whatever it does to the total.
-    onSaved(null);
+    onSaved(null, true);
     return true;
   }, [event, onFailed, onSaved]);
 
@@ -1961,6 +3142,14 @@ function EntrySheet({
             {confirmingDelete ? (
               <View className="flex-row items-center justify-between">
                 <Text className="text-text-secondary">¿Lo borro?</Text>
+                {/* **El hueco se queda donde estaba, y eso es el arreglo.**
+                    Se subió a 24 dp midiendo la separación *antes* de que
+                    `Button` tuviera suelo de ancho, sin caer en que ese
+                    suelo ya iba a separar las dos opciones por su cuenta.
+                    Con las dos cosas, la distancia visual entre «No» y
+                    «Sí, bórralo» pasó de 17,5 dp a 55 y la pareja dejó de
+                    leerse como dos respuestas a la pregunta de al lado
+                    — dicho por el tutor al verlo, medido después. */}
                 <View className="flex-row items-center gap-5">
                   <Button
                     testID="entry-delete-cancel"

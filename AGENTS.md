@@ -14,7 +14,7 @@ This file provides guidance to agentic AI tools when working with code in this r
 - **`pnpm android` depends on the phone reaching the Mac over WiFi.** It launches the app pointed at the dev server's **LAN IP**, so mobile data, another network or a firewalled port 8081 leaves the app sitting on the splash screen with no error at all — nothing in the log says the bundle never arrived. `pnpm android:usb` (`expo start --localhost --dev-client --android`) serves on `127.0.0.1` through the `adb reverse` Expo sets up itself, so it works on the cable alone. `--dev-client` is not optional there: without it the CLI opens `exp://`, which lands in **Expo Go** on a phone that has it installed, and Google sign-in cannot work there.
 - **The Android toolchain needs JDK 17.** A newer JDK fails the CMake configuration tasks with "A restricted method in java.lang.System has been called": JEP 472 escalates native access from an unnamed module to an error from JDK 24 on, and AGP trips it. Gradle 9.3.1 itself supports up to JDK 25, so this is AGP against the JDK rather than a Gradle limit. Point `JAVA_HOME` at a JDK 17.
 - **Delete the pre-MVP paragraph at the top of `CHANGELOG.md` when the version reaches `v1.0.0`.** It explains a rule that stops existing at that moment, and the file carries an HTML comment saying so. The app's renderer skips those comments, so notes to editors can live in the file without reaching a reader.
-- **Every feature and every bugfix gets a version, and `CHANGELOG.md` is where they are written down.** Bump `package.json` as part of the work, not afterwards, and add the entry in the same commit — the file is the one place that says what a build on somebody's phone actually contains. Keep the voice of the other docs: say what changed and why it was wrong, not "fixed a bug". Versions recorded in retrospect say so.
+- **Every feature and every bugfix gets a version, and `CHANGELOG.md` is where they are written down.** **One release commit per version** (`chore(release): vX.Y.Z`) carries that version's `package.json` bump and its whole changelog entry together; the feature and fix commits around it leave both alone. **A branch usually carries one**, because one merge is usually one version — but a branch long enough to ship twice carries two, and the rule that matters is that neither of them is split, not that there is only ever one. `feat/goal-bar-motion` did exactly that: v0.14.0 for the sweep and the four-beat close, v0.15.0 for the tiers. Nothing is lost by it — both entries exist, `versionCode` stays monotonic, and each release commit still says in one place what that build contains. **Do not go back and merge two of them into one**: the second version was a real build and collapsing it would erase a number somebody's phone may be running. What is never allowed is deferring the bump or the entry past the branch — a merged branch without its version is a build nobody can tell apart from the last. The changelog is the one place that says what a build on somebody's phone actually contains. Keep the voice of the other docs: say what changed and why it was wrong, not "fixed a bug". Versions recorded in retrospect say so.
 - **Pre-MVP the version is `0.x`,** so that reaching 1.0.0 means something. `versionCode` is derived as `major * 10000 + minor * 100 + patch`, which stays monotonic all the way from 0.2.0 (200) to 1.0.0 (10000) — **except across a deliberate version _decrease_,** where Android refuses the install with a downgrade error. Measured: `adb install -r -d` does **not** rescue it either — Android 15 honours `-d` only for a debuggable APK, and a release build is refused with `INSTALL_FAILED_VERSION_DOWNGRADE`. The only route is `adb uninstall com.petfile.app` first, which clears the Supabase session (one Google sign-in to restore) and the local settings; the pet, the photo and the log are all server-side and survive. **So decide the version scheme before handing out a build, not after.**
 - **The version lives in `package.json`, and `app.config.js` is what makes that true.** `app.json` stays the readable base and the config function overrides `version` and derives `android.versionCode` from it, so there is one number to bump. **The commit hash is the half that needs no discipline.** `app.config.js` reads `git rev-parse --short HEAD` into `extra.commit` and the footer shows `v1.2.0 · 6bae961`, with a trailing `+` when the tree was dirty at build time. The version only separates two builds if somebody remembered to bump it, and twice it was not: a phone three commits behind showed a number that agreed with the repo, and two rounds of "is this stale?" followed. Where git is unavailable — EAS, a tarball, CI — the hash is simply absent.
 
@@ -54,6 +54,7 @@ pnpm format             # prettier --write . (the pre-commit hook does this for 
 pnpm format:check       # prettier --check .
 pnpm lint               # eslint . — flat config on eslint-config-expo, plus this project's invariants
 pnpm lint:fix           # eslint . --fix
+pnpm typecheck          # tsc --noEmit — ESLint does not check types; this does
 ```
 
 ## Linting
@@ -71,6 +72,7 @@ Two more are errors rather than Expo's default warnings, because they catch defe
 ## Definition of done
 
 - `pnpm lint` passes.
+- `pnpm typecheck` passes. **ESLint does not check types**, so with `strict` on and "no `any`" as a rule, leaving the type checker outside the gate means the one tool that enforces half of those rules runs only when somebody remembers — and on the branch that added this line it caught a null-narrowing error the linter was never going to see.
 - `pnpm test` passes.
 - `pnpm test:e2e` passes.
 - No new raw hex colours; only Nordic Ice tokens.
@@ -102,6 +104,7 @@ components/ui/            → the design-system primitives every screen composes
   Chip.tsx                → selector chip + ChipGroup (exclusive single-select row)
   Group.tsx               → hairline-outlined form section
   Toast.tsx               → transient message; ToastProvider hosts it above the navigator
+  ErrorNote.tsx           → a failure said where it happened: red mark, neutral sentence
   Celebration.tsx         → one-shot confetti; CelebrationProvider hosts it above the navigator
   Checkbox.tsx            → voluntary boolean flag, unchecked by default
   DateField.tsx           → date display + in-house picker (month+year when approximate)
@@ -122,6 +125,7 @@ lib/                      → domain logic and data access
   pets.ts                 → pet validation, create, edit and delete
   photos.ts               → the pet's photo: pick, upload, and sign a read URL
   failures.ts             → the timeout on every request, and its message in the app's voice
+  toasts.ts               → what makes two toasts the same toast, and what a repeat does
   dates.ts                → the ISO/DD-MM-AAAA conversion at the edge
   clock.ts                → where a time sits on a clock face, and back again
   age.ts                  → the age from a birth date, and the life stage it lands in
@@ -130,6 +134,7 @@ lib/                      → domain logic and data access
   breeds.ts               → the breed list and what counts as "mestizo"
   limit.ts                → how long a note may be, and what that means for one already longer
   markdown.ts             → the block shapes of a note: heading, bullets, numbers, paragraph
+  goalbar.ts              → which of three things the goal bar does when a walk is closed
 supabase/migrations/      → Postgres schema, RLS policies, RPC functions
 e2e/                       → Playwright specs + sign-in helpers
 ```
@@ -184,6 +189,16 @@ Three platform gotchas the browser hides, all measured on device and recorded in
 
 The web target hides all three, so **a change that has to hold on the device is verified on the device**, with a screenshot (`adb exec-out screencap -p`) rather than by eye in the browser.
 
+**And the three tools that lie while you measure on it.** Each one cost an attempt, and all three fail the same way: not with an error, but by handing back something plausible.
+
+- **`uiautomator dump` cannot work while the app is animating.** It needs an idle window, and a walk in progress animates its sweep forever — so during a walk the command simply does not work. It fails with exit 1 and no message, and **if you have redirected that away, `cat` of the target path returns whatever dump was left on the phone last time.** Measured: it produced a screen dated three weeks earlier, with a measure in a wording three versions old, and the defect it appeared to show did not exist. While anything moves, `adb exec-out screencap -p` is the only source. A dump taken mid-animation also returns **bounds with the bottom above the top** (`[60,1770][426,1620]`), which reads as a laid-out element and is not one.
+- **`qlmanage -t -s N` bounds the LARGER dimension, not the width.** A phone recording is portrait, so `-s 1220` on a 1220×2656 video yields frames **560 px wide**, and every coordinate taken from the device points somewhere else. Measured: four frames of a goal bar all read as "100% empty track" because the crop was sampling the margin. Scale device coordinates by `frame_width / 1220` before cropping.
+- **A tap is swallowed whenever the screen has slept between commands**, which it does during any `sleep` longer than the display timeout. The first tap wakes the device and is consumed. Spend it deliberately: `KEYCODE_WAKEUP`, then a tap on empty space, then the real one. Never a double tap on the same control to force it through — on a toggle like the walk button that stops the walk and starts a new one.
+
+**Measuring an animation needs a recording, not a burst of screenshots.** `adb exec-out screencap -p` takes about half a second, so it cannot sample anything shorter than a couple of seconds. `adb shell screenrecord --time-limit N --bit-rate 12000000` captures at the display's own rate; pull it and cut frames out with `avconvert --start T --duration 0.05` plus `qlmanage -t`. There is **no `ffmpeg` on this machine**, so each frame costs the better part of a minute — bracket the moment coarsely first and then bisect, rather than sampling a whole clip. Pixel values come out of `sips -s format bmp`, which Python can parse with no dependencies.
+
+**A measurement on the device is worth the trouble, and this is what it bought once:** the goal bar's ground wipe was reported as instant twice. The frames said it ran 710 ms against the 700 in the source, matched its easing curve to within a point, and sat at **53% of the bar at the halfway point in time where the previous curve had measured 95%** — which is the whole difference between a jump and a journey, and is not a thing anybody can see by watching.
+
 ## Tests
 
 **`e2e/home.spec.ts` used to assume a working day, and it does not any more.** Ten of its tests failed before about 09:00: they fill real clock times — 08:30, 09:15, 10:45 — and the entry sheet refuses a time in the future, correctly, so a red suite at 01:00 said nothing about the code and every failure read "¿Todavía no habéis vuelto?". **The fix was the day, not the time**: a fixed morning hour has already happened on _yesterday_, whatever hour the suite runs at, and the diary can be written on a past day. Tests that need a specific clock time now press ‹ first; the two that are about today derive their times from a "now" they own. Measured: the whole suite green at 01:00.
@@ -194,7 +209,11 @@ Keep it that way. A new test that types a fixed morning time onto today is a tes
 
 **The e2e suite needs Node 22 or newer.** `@supabase/supabase-js` reaches for a native `WebSocket`, and on Node 20 every spec fails in `e2e/auth.ts` before the browser opens: "Node.js detected but native WebSocket not found." This project's default is 24; a shell that lands on 20 produces a total failure that looks nothing like a version problem. `node -v` is the first thing to check when the whole suite dies in the helper.
 
-**The Expo web dev server dies during long runs.** Three times in one session a suite failed in bulk with `net::ERR_CONNECTION_REFUSED at http://localhost:8081/` — nothing to do with the code under test. A mass failure whose first error is that one is a dead server: `pkill -f "expo start"`, then run again.
+**`.nvmrc` is what makes that version a fact rather than a shell state.** It exists because the floor above was written down and still depended on whichever Node the terminal happened to open with — `nvm use` in the project root is now the answer, and the number in it is a security patch, not a preference. It moves when a Node release fixes something, and the reason goes in the commit message. Keep it on an LTS line: 24.22.1 closes the 21 October 2026 advisory, whose worst item is an out-of-bounds write in the Brotli decoder (CVE-2026-111497, remote code execution from a crafted compressed stream).
+
+**Playwright's dev server runs with an 8 GB heap, and that is a lid on a problem nobody has measured.** `playwright.config.ts` passes `--max-old-space-size=8192` through `webServer.env` because `pnpm web` is Metro inside a Node process, and on the default heap the suite died three times in the same place — `e2e/notes.spec.ts` — taking the server with it, so every spec after it failed with `ERR_CONNECTION_REFUSED` and nothing in the output mentioned memory. Whether Metro leaks or 600 tests against one long-lived server simply accumulate is **not established**. If it dies there again, raising the lid a second time is the wrong move.
+
+**The Expo web dev server dies during long runs.** Three times in one session a suite failed in bulk with `net::ERR_CONNECTION_REFUSED at http://localhost:8081/` — nothing to do with the code under test. A mass failure whose first error is that one is a dead server: `pkill -f "expo start"`, then run again. **Those three were never diagnosed**, and the memory note above is now the first thing to suspect — the same symptom, with a cause that was measured the second time it happened. A dead server found today is worth one look at whether it died hungry before it is written off as the dev server being the dev server.
 
 ## Documentation maintenance
 
@@ -207,4 +226,4 @@ Update README.md whenever you touch one of these:
 | `supabase/migrations/`                 | README (Arquitectura), `docs/supabase-setup.md` if the setup flow itself changes |
 | `.env.example`                         | README (Secretos)                                                                |
 | Adding `eas.json` / a real CI workflow | README (Compilación de producción / CI/CD)                                       |
-| Any user-visible feature or bugfix     | `CHANGELOG.md`, in the same commit, with the `package.json` bump                 |
+| Any user-visible feature or bugfix     | `CHANGELOG.md`, in the branch's release commit, with the `package.json` bump     |

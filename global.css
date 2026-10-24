@@ -65,6 +65,10 @@
        the primary action, the floating action, and the birthday. Its whole
        value is that it is rare. */
     --color-accent-focus: #a78bfa;
+    /* Aurora Boreal one step down: the minutes accumulating on the goal bar's
+       second lap, where accent-focus is the ones already saved. The same
+       tonal step the bar's first lap takes between Mist and Ash. */
+    --color-accent-focus-dim: #8b5cf6;
     /* Added beyond the spec table: "base" already backs bg-base, and Tailwind's
        built-in text-base (font-size) utility would shadow a text-base color
        utility, so dark text placed on accent surfaces uses text-on-accent. */

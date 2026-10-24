@@ -1,7 +1,11 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   describeFailure,
+  FAILURE_ACTIONS,
   REQUEST_TIMEOUT_MS,
   TimeoutError,
+  UNNAMED_FAILURES,
   withTimeout,
 } from "../failures";
 
@@ -82,5 +86,85 @@ describe("describeFailure", () => {
       "[getMyPet]",
       "java.net.ConnectException: 172.64.149.246:443",
     );
+  });
+});
+
+describe("the action a failure is about", () => {
+  // Swapped rather than spied: the describe above restores the real one in
+  // its own `afterAll`, which runs after this body is evaluated.
+  const real = console.warn;
+  beforeAll(() => {
+    console.warn = () => {};
+  });
+  afterAll(() => {
+    console.warn = real;
+  });
+
+  it("names it when the connection is what failed", () => {
+    expect(
+      describeFailure(new Error("Network request failed"), "startWalk"),
+    ).toBe(
+      "No hay conexión para empezar el paseo. Inténtalo otra vez cuando vuelva.",
+    );
+    expect(
+      describeFailure(new TimeoutError("eventsForDay"), "eventsForDay"),
+    ).toBe(
+      "No hay conexión para leer el día. Inténtalo otra vez cuando vuelva.",
+    );
+  });
+
+  it("names it when the fault is ours", () => {
+    expect(describeFailure(new Error("boom"), "closeWalk")).toBe(
+      "Algo ha ido mal por nuestro lado al terminar el paseo. Vuelve a intentarlo.",
+    );
+  });
+
+  /**
+   * The defect this closes: a tutor offline saw the same sentence in the log's
+   * region and in the toast, and could not tell that two different things had
+   * failed — a day that could not be read and a walk that could not be
+   * started.
+   */
+  it("gives two different failures two different sentences", () => {
+    const offline = new Error("Network request failed");
+    expect(describeFailure(offline, "startWalk")).not.toBe(
+      describeFailure(offline, "eventsForDay"),
+    );
+  });
+
+  it("stays generic where the call site cannot name an action", () => {
+    for (const context of UNNAMED_FAILURES) {
+      expect(describeFailure(new Error("Failed to fetch"), context)).toBe(
+        "Parece que no hay conexión. Inténtalo otra vez cuando vuelva.",
+      );
+    }
+  });
+
+  /**
+   * A new call site that invents a context nobody wrote a phrase for would
+   * fall back to the generic sentence silently — which is the bug this file
+   * exists to stop coming back. Either name the action or add the context to
+   * `UNNAMED_FAILURES`, which is a decision rather than an oversight.
+   */
+  it("covers every context the app actually passes", () => {
+    const dir = join(process.cwd(), "lib");
+    const contexts = new Set<string>();
+    for (const file of readdirSync(dir)) {
+      if (!file.endsWith(".ts") || file === "failures.ts") continue;
+      const source = readFileSync(join(dir, file), "utf8");
+      for (const [, context] of source.matchAll(
+        /describeFailure\([^,]+,\s*"([A-Za-z]+)"\)/g,
+      )) {
+        contexts.add(context);
+      }
+    }
+    expect(contexts.has("startWalk")).toBe(true);
+    expect(contexts.size).toBeGreaterThan(20);
+    for (const context of contexts) {
+      expect(
+        context in FAILURE_ACTIONS ||
+          (UNNAMED_FAILURES as readonly string[]).includes(context),
+      ).toBe(true);
+    }
   });
 });

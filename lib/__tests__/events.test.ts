@@ -14,7 +14,9 @@ import {
   startWithinDay,
   summariseMonth,
   validateEvent,
+  walkCount,
   walkedMinutes,
+  walkLengths,
   type NewEvent,
   type PetEventRow,
 } from "../events";
@@ -52,6 +54,81 @@ describe("walkedMinutes", () => {
 
   it("is zero for a day with nothing in it", () => {
     expect(walkedMinutes([])).toBe(0);
+  });
+});
+
+describe("walkCount", () => {
+  it("counts the walks, and nothing else in the day", () => {
+    const events: PetEventRow[] = [
+      walk(30),
+      { ...walk(null), kind: "meal" },
+      walk(45),
+      { ...walk(999), kind: "medication" },
+    ];
+    expect(walkCount(events)).toBe(2);
+  });
+
+  it("counts exactly the walks whose minutes are counted", () => {
+    // **A walk with no length contributes to neither.** The measure says
+    // "these minutes, in this many walks", so the count has to be the walks
+    // those minutes came from — a running walk, an abandoned one and a walk
+    // nobody timed all add no minutes and no count. Paired here rather than
+    // trusted to stay paired: two functions that disagree about what a walk
+    // is would put a number on screen that nothing adds up to.
+    const events: PetEventRow[] = [walk(null), walk(20), walk(null), walk(25)];
+    expect(walkCount(events)).toBe(2);
+    expect(walkedMinutes(events)).toBe(45);
+  });
+
+  it("is zero for a day with nothing in it", () => {
+    expect(walkCount([])).toBe(0);
+  });
+});
+
+describe("walkLengths", () => {
+  it("lists the walks in the order the day holds them", () => {
+    const events: PetEventRow[] = [
+      walk(30),
+      { ...walk(null), kind: "meal" },
+      walk(45),
+      { ...walk(999), kind: "medication" },
+    ];
+    // In order, and not sorted: the bar's cuts are read against the day, so a
+    // list that put the long walk first would mark the morning in the
+    // afternoon's place.
+    expect(walkLengths(events)).toEqual([30, 45]);
+  });
+
+  it("holds exactly the walks the other two count", () => {
+    // **The three readings of one day, pinned together.** The measure says
+    // "these minutes, in this many walks" and the bar cuts those minutes into
+    // those walks; a list that disagreed with either would draw a mark the
+    // sentence above it does not account for.
+    const events: PetEventRow[] = [walk(null), walk(20), walk(null), walk(25)];
+    const lengths = walkLengths(events);
+    expect(lengths.reduce((sum, n) => sum + n, 0)).toBe(walkedMinutes(events));
+    expect(lengths).toHaveLength(walkCount(events));
+  });
+
+  it("keeps a queued stop in its own row's place", () => {
+    // The middle walk was closed on a phone with no signal: the row is there
+    // with no length, and the minutes are only in the queue. Appended on the
+    // end — the way a *total* may add them — it would say the dog's long walk
+    // was the last of the day.
+    const events: PetEventRow[] = [
+      { ...walk(30), id: "a" },
+      { ...walk(null), id: "b" },
+      { ...walk(25), id: "c" },
+    ];
+    expect(walkLengths(events, new Map([["b", 90]]))).toEqual([30, 90, 25]);
+  });
+
+  it("drops a running walk, which is a walk with no minutes yet", () => {
+    expect(walkLengths([walk(20), walk(null)], new Map())).toEqual([20]);
+  });
+
+  it("is empty for a day with nothing in it", () => {
+    expect(walkLengths([])).toEqual([]);
   });
 });
 

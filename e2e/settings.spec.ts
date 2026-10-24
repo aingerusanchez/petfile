@@ -1,5 +1,18 @@
 import { expect, test } from "@playwright/test";
-import { resetE2EPets, seedE2EPet, seedSession } from "./auth";
+import {
+  eventsTableExists,
+  resetE2EPets,
+  seedE2EEvents,
+  seedE2EPet,
+  seedSession,
+} from "./auth";
+
+/** The day's measure needs the log, so the one spec that reads it says so. */
+let ready = false;
+
+test.beforeAll(async () => {
+  ready = await eventsTableExists();
+});
 
 test.beforeEach(async () => {
   await resetE2EPets();
@@ -59,6 +72,21 @@ test("says the colon is optional, where somebody is thinking about time", async 
 test("carries the duration format into the day and the file", async ({
   page,
 }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **A day with a walk on it, because the measure only shows a format once
+  // it has minutes to show.** The ceiling it used to carry made this spec
+  // free; with the sentence counting what was done, the day has to have done
+  // something. 90 minutes is the length that reads differently on each side
+  // of the preference, and one minute past midnight has always happened.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 90 });
+  const earlier = new Date();
+  earlier.setHours(0, 1, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 90 },
+  ]);
+
   await seedSession(page);
   await page.goto("/profile");
 
@@ -72,7 +100,11 @@ test("carries the duration format into the day and the file", async ({
   await expect(page.getByTestId("profile-goal-value")).toHaveText("90 min");
 
   await page.goto("/");
-  await expect(page.getByTestId("home-goal")).toContainText("de 90 min");
+  // The measure speaks the preference too: the same 90 minutes, written the
+  // way this device was asked to write them.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "90 min en 1 paseo",
+  );
 });
 
 test("keeps the preference across a reload", async ({ page }) => {

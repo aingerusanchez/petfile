@@ -1,4 +1,4 @@
-import { formatDuration, parseDuration } from "../duration";
+import { formatDuration, formatWalked, parseDuration } from "../duration";
 
 describe("formatDuration", () => {
   it("keeps the unit word under an hour", () => {
@@ -98,5 +98,44 @@ describe("formatDuration in minutes", () => {
 
   it("defaults to hours, so an unqualified call is unchanged", () => {
     expect(formatDuration(90)).toBe(formatDuration(90, "hours"));
+  });
+});
+
+describe("formatWalked", () => {
+  it("says the minutes and how many walks they came in", () => {
+    expect(formatWalked({ minutes: 68, walks: 3 }, "hours")).toBe(
+      "1h 8m en 3 paseos",
+    );
+    expect(formatWalked({ minutes: 48, walks: 3 }, "hours")).toBe(
+      "48 min en 3 paseos",
+    );
+  });
+
+  it("says one walk in the singular", () => {
+    expect(formatWalked({ minutes: 30, walks: 1 }, "hours")).toBe(
+      "30 min en 1 paseo",
+    );
+  });
+
+  it("drops the clause entirely when there were no walks", () => {
+    // **Not "en 0 paseos", and not "sin paseos todavía".** Any phrasing of a
+    // zero count smuggles back the expectation the ceiling was removed for.
+    expect(formatWalked({ minutes: 0, walks: 0 }, "hours")).toBe(
+      "0 min paseados",
+    );
+  });
+
+  it("states no ceiling, whatever the goal is", () => {
+    // The sentence is about what was done. The goal is not in it, which is
+    // why it takes no goal to say.
+    expect(formatWalked({ minutes: 180, walks: 2 }, "hours")).not.toContain(
+      " de ",
+    );
+  });
+
+  it("speaks the tutor's duration format", () => {
+    expect(formatWalked({ minutes: 90, walks: 2 }, "minutes")).toBe(
+      "90 min en 2 paseos",
+    );
   });
 });

@@ -28,8 +28,8 @@ const STAGGER_MS = 700;
 const CONFETTI = [
   colors.accent,
   // **Aurora Boreal is in here because this is what it is for.** The two
-  // moments that throw confetti are a goal met and a birthday, and the
-  // birthday is one of the three places the scarce accent is spent at all.
+  // moments that throw confetti are a birthday and a day that doubled the
+  // goal, and both are places the scarce accent is spent at all.
   colors.accentFocus,
   colors.success,
   colors.textPrimary,
@@ -45,10 +45,13 @@ function Piece({
   index,
   width,
   height,
+  tone,
 }: {
   index: number;
   width: number;
   height: number;
+  /** One colour for every piece, or null for the default palette. */
+  tone: string | null;
 }) {
   const progress = useSharedValue(0);
 
@@ -57,7 +60,7 @@ function Piece({
   const drift = (vary(index, 3) - 0.5) * 90;
   const spin = 180 + vary(index, 4) * 540;
   const size = 6 + vary(index, 5) * 6;
-  const color = CONFETTI[index % CONFETTI.length];
+  const color = tone ?? CONFETTI[index % CONFETTI.length];
   // Half the pieces are round, half square. Squares tumble more legibly.
   const round = index % 2 === 0;
 
@@ -110,7 +113,21 @@ function Piece({
  * `pointerEvents: "none"` throughout, so it never intercepts a tap on whatever
  * screen it is falling over.
  */
-export function Celebration({ onDone }: { onDone: () => void }) {
+export function Celebration({
+  tone = null,
+  onDone,
+}: {
+  /**
+   * One colour for the whole fall, or null for the palette above.
+   *
+   * **A single tone is for a moment that already has one.** The goal bar's
+   * top tier is Aurora Boreal on the bar and in the calendar, so a mixed fall
+   * over it would be the one place the app spends a colour on a record that
+   * has its own. The birthday keeps the palette: it is not a tier.
+   */
+  tone?: string | null;
+  onDone: () => void;
+}) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
 
@@ -147,7 +164,7 @@ export function Celebration({ onDone }: { onDone: () => void }) {
       }}
     >
       {Array.from({ length: PIECES }, (_, i) => (
-        <Piece key={i} index={i} width={width} height={height} />
+        <Piece key={i} index={i} width={width} height={height} tone={tone} />
       ))}
     </View>
   );

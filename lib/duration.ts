@@ -68,3 +68,48 @@ export function parseDuration(text: string): number | null {
 
 /** What to say when the text is not a duration. Kept with the parser. */
 export const DURATION_HINT = "Escríbelo como 1h 30m";
+
+/**
+ * A day's walking: the minutes, and how many walks they came in.
+ *
+ * **One value with two halves, rather than two numbers travelling
+ * separately.** The measure states both in one sentence, and the day is
+ * either known or it is not — a count without minutes, or minutes with a
+ * count from a different read, would put a number on screen that nothing
+ * adds up to. Pairing them makes "as true as the minutes" structural instead
+ * of a thing to remember: the one `null` upstream covers both.
+ *
+ * `walks` is how many walks those minutes came from, so a walk with no
+ * length — one still running, one abandoned, one nobody timed — is in
+ * neither half. See `walkCount` in `lib/events.ts`, which is where the two
+ * are read off the same rows.
+ */
+export type Walked = { minutes: number; walks: number };
+
+/**
+ * The day's walking as the day screen says it: `1h 8m en 3 paseos`.
+ *
+ * **It states what was done and never what is missing**, which is why it
+ * takes no goal. The measure used to end `de 4h` — the top tier, so that the
+ * words could not disagree with a bar that runs to double — and the tutor
+ * removed the ceiling: «no debería haber un límite máximo, no queremos hacer
+ * que el usuario sea vago y conformista». The second reason needed no saying:
+ * that `4h` was not their goal either. They had typed 2 h, and the sentence
+ * stated a target nobody had set.
+ *
+ * **No walks drops the clause altogether** — `0 min paseados`, not "en 0
+ * paseos" and not "sin paseos todavía". Every phrasing of a zero count
+ * smuggles the expectation back in, which is the thing being removed.
+ *
+ * **And it never says "hoy".** The block renders on past days too, so a day
+ * named in the sentence would sit under a header already reading "Ayer" —
+ * the header names the day, and one place saying it is enough.
+ */
+export function formatWalked(
+  walked: Walked,
+  format: "hours" | "minutes" = "hours",
+): string {
+  const minutes = formatDuration(walked.minutes, format);
+  if (walked.walks <= 0) return `${minutes} paseados`;
+  return `${minutes} en ${walked.walks} ${walked.walks === 1 ? "paseo" : "paseos"}`;
+}

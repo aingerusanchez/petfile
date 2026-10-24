@@ -48,6 +48,27 @@ export type PetEdit = PetDraft & {
 /** The longest daily exercise target the form will accept, in minutes. */
 export const MAX_EXERCISE_GOAL_MINUTES = 300;
 
+/**
+ * The shortest daily exercise target the form will accept, in minutes — or
+ * there is no goal at all, which `null` still says.
+ *
+ * **Two reasons, and the second is the one the goal bar's tiers created.**
+ * Thirty minutes is the floor of who this app is for: it is what a dog with
+ * bad legs or a very old dog can still do, and below it somebody is not
+ * keeping a walk diary. And with two tiers a low goal is a back door to the
+ * top one — Tier 2 is double the goal, so 15 minutes would put it at 30,
+ * reached before lunch every day, and the confetti that was moved to Tier 2
+ * precisely because Tier 1 became the everyday would be the everyday again.
+ * The top tier has to stay exceptional.
+ *
+ * **Not grandfathered, deliberately.** A stored goal under the floor fails
+ * validation like any other, so the profile says so with the field to fix on
+ * the same screen; a stricter rule that quietly tolerates its own old
+ * violations is a rule nobody can reason about. No goal is Tier 0 — the storm,
+ * the illness, the rest day — and the floor applies only to a goal that is set.
+ */
+export const MIN_EXERCISE_GOAL_MINUTES = 30;
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
@@ -110,14 +131,17 @@ export function validatePetDraft(
     errors.breedSecondary = 'Marca "Es mestizo" para poder añadir otra raza';
   }
 
-  // A goal is a number of minutes, so the two ways to get it wrong are a
+  // A goal is a number of minutes, so the ways to get it wrong are a
   // non-number and a number nobody walks. Five hours is the ceiling: past it
-  // the tutor has mistyped rather than trained an Iditarod team.
+  // the tutor has mistyped rather than trained an Iditarod team. Half an hour
+  // is the floor, for a reason about the tiers (see the constant).
   const goal =
     "exerciseGoalMinutes" in draft ? draft.exerciseGoalMinutes : undefined;
   if (goal !== undefined && goal !== null) {
     if (!Number.isInteger(goal) || goal <= 0) {
       errors.exerciseGoalMinutes = "¿Cuántos minutos al día?";
+    } else if (goal < MIN_EXERCISE_GOAL_MINUTES) {
+      errors.exerciseGoalMinutes = `Al menos ${MIN_EXERCISE_GOAL_MINUTES} minutos`;
     } else if (goal > MAX_EXERCISE_GOAL_MINUTES) {
       errors.exerciseGoalMinutes = `Como mucho ${MAX_EXERCISE_GOAL_MINUTES} minutos`;
     }

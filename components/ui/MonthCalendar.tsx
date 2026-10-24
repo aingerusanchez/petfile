@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 import DateTimePicker from "react-native-ui-datepicker";
 import { birthdayOn } from "../../lib/dates";
 import { dayKey } from "../../lib/events";
+import { barProgress, barStateAt } from "../../lib/goalbar";
 import { NORDIC_ICE } from "./calendar";
 import { Text } from "./Text";
 import { colors, TOUCH_TARGET } from "./tokens";
@@ -169,6 +170,7 @@ function keyOf(date: string): string {
  * | | mark | colour |
  * |---|---|---|
  * | Met the goal | a bar under the number | Aqua Glaciar |
+ * | Doubled it | the same bar | Aurora Boreal |
  * | Fell short | the number, no bar | `text-primary` |
  * | Nothing logged | the number, dimmed | `text-muted` |
  * | Medication | a ring (an entry, or a treatment from Salud) | Warning Amber |
@@ -200,7 +202,7 @@ function keyOf(date: string): string {
  * `components.Day` in its own `Pressable` with a hardcoded
  * `accessibilityLabel` of the number and offers no way to change it, so the
  * label that says what happened has to live on a node inside it: TalkBack
- * lands on "8, botón" and then on "8, objetivo conseguido, con medicación".
+ * lands on "8, botón" and then on "8, día cumplido, con medicación".
  * Measured on the device — both nodes are focusable and share the same
  * bounds. The alternative is one stop that says only "8", which puts the
  * whole month back to communicating by colour alone. The second stop is
@@ -251,10 +253,17 @@ export function MonthCalendar({
           Day: (day) => {
             const mark = marks.get(keyOf(day.date));
             const logged = !!mark;
-            const met =
-              !!mark &&
-              goalMinutes !== null &&
-              mark.walkedMinutes >= goalMinutes;
+            // **The tier is `lib/goalbar.ts`'s to say, not this cell's.** The
+            // day view's bar takes its ground from the same two functions, so
+            // a day cannot be Tier 2 on one surface and Tier 1 on the other;
+            // a `walked >= goal` of this component's own was the arithmetic
+            // that used to sit beside the bar and drift from it.
+            const progress = mark
+              ? barProgress(mark.walkedMinutes, goalMinutes)
+              : null;
+            const tier = progress === null ? 0 : barStateAt(progress).tier;
+            const met = tier >= 1;
+            const doubled = tier === 2;
 
             const years = birthdayOn(new Date(day.date), birthDate);
             const birthday = years !== null;
@@ -272,11 +281,20 @@ export function MonthCalendar({
                   ? "toca la vacuna"
                   : null,
               logged ? null : "sin registros",
-              met
-                ? "objetivo conseguido"
-                : logged
-                  ? "objetivo sin conseguir"
-                  : null,
+              // **The same words the legend shows and the day view writes
+              // under its bar**, lowercase because they are read inside a
+              // sentence: "10, día de campeonato". They used to be said
+              // differently here — "doble objetivo diario conseguido" — for
+              // one reason, that a screen reader reads "x2" as "equis dos".
+              // The tiers are named now, so there is nothing left to
+              // translate and nothing left to drift.
+              doubled
+                ? "día de campeonato"
+                : met
+                  ? "día cumplido"
+                  : logged
+                    ? "objetivo sin conseguir"
+                    : null,
               mark?.hasIncident ? "con incidencia" : null,
               mark?.hasMedication ? "con medicación" : null,
             ].filter(Boolean);
@@ -492,16 +510,32 @@ export function MonthCalendar({
                 </View>
 
                 {/* **The day view's goal bar, in miniature — in the colour
-                    that bar wears when the goal is met.** Which is the point
-                    of the pair rather than a coincidence: whatever colour goes
-                    here appears on most days of the month, so it is the one
-                    mark that cannot be an alarm. See the day view. */}
+                    that bar wears at the tier the day reached.** Aqua for the
+                    goal, Aurora Boreal for double it: The Shared Mark Rule,
+                    one record in one colour wherever it appears. The goal is
+                    the colour that appears on most days of the month, so it is
+                    the one mark that cannot be an alarm (see the day view);
+                    double is a few days a month, which is what lets the scarce
+                    accent sit here without becoming the calendar's wallpaper.
+
+                    **Under the birthday's cake, not on it.** Both marks are
+                    Aurora Boreal, and a day can be both. The cake is a 60%
+                    watermark centred on the number and its base line ends
+                    about 3dp above where this strip begins; this is a 16×4
+                    bar at full strength below that. Different shape, different
+                    weight, different place — and `e2e/home.spec.ts` pins that
+                    the cake's box ends where the bar's begins. */}
                 <View
                   style={{ marginTop: BAR_GAP, height: BAR }}
                   className="items-center justify-center"
                 >
                   {met ? (
-                    <View className="h-[4px] w-[16px] rounded-xl bg-accent" />
+                    <View
+                      testID="calendar-mark-goal"
+                      className={`h-[4px] w-[16px] rounded-xl ${
+                        doubled ? "bg-accent-focus" : "bg-accent"
+                      }`}
+                    />
                   ) : null}
                 </View>
               </View>
@@ -544,10 +578,22 @@ export function MonthCalendar({
               names a mark the grid can never draw is a promise it cannot
               keep. */}
           {goalMinutes === null ? null : (
-            <Legend
-              className="h-[4px] w-[16px] rounded-xl bg-accent"
-              label="Objetivo conseguido"
-            />
+            <>
+              <Legend
+                testID="calendar-legend-goal"
+                className="h-[4px] w-[16px] rounded-xl bg-accent"
+                label="Día cumplido"
+              />
+              {/* Named as the day view names it, because the legend and the
+                  bar under the date are the same sentence two taps apart —
+                  and now in the same words a cell's name uses, so there is
+                  one string per tier and no spoken copy of it. */}
+              <Legend
+                testID="calendar-legend-goal-top"
+                className="h-[4px] w-[16px] rounded-xl bg-accent-focus"
+                label="Día de campeonato"
+              />
+            </>
           )}
           <Legend
             className="h-[6px] w-[6px] rounded-[3px] border border-warning"
@@ -613,11 +659,29 @@ export function MonthCalendar({
  * anything, but the number has to fit its box, and one rule for all of them
  * is cheaper than remembering which ones were allowed to drift.
  */
-function Legend({ className, label }: { className: string; label: string }) {
+function Legend({
+  className,
+  label,
+  testID,
+}: {
+  className: string;
+  label: string;
+  testID?: string;
+}) {
   return (
-    <View className="flex-row items-center gap-2">
-      <View className={className} />
-      <Text className="text-xs text-text-tertiary">{label}</Text>
+    // **`max-w-full` and a shrinking label: a long entry wraps rather than
+    // clipping.** React Native's `flexShrink` defaults to 0, so an entry wider
+    // than its line would overflow it instead of folding. "Día de campeonato"
+    // is the longest label and is nowhere near a whole line at the largest
+    // font the tutor runs, but a legend that depends on that is one
+    // translation away from clipping.
+    //
+    // **No spoken form.** It carried one while the top tier was written "x2",
+    // which a screen reader read as "equis dos"; the tiers are named now, so
+    // every entry here is said exactly as it is shown.
+    <View className="max-w-full flex-row items-center gap-2">
+      <View testID={testID} className={`shrink-0 ${className}`} />
+      <Text className="shrink text-xs text-text-tertiary">{label}</Text>
     </View>
   );
 }

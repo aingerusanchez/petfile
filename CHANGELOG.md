@@ -6,8 +6,10 @@ Lo que ha cambiado en cada versión, en el orden en que pasó.
      existir en cuanto la versión llegue a v1.0.0. -->
 
 Mientras el MVP no esté montado la versión se queda en `0.x`, para que llegar
-a `1.0.0` signifique algo: todas las pantallas en pie, y de momento falta
-Salud como mínimo. `versionCode` se deriva de aquí
+a `1.0.0` signifique algo. Lo que falta ya no son pantallas: falta que la app
+sirva a la casa entera —compartir la ficha con el segundo tutor— y falta
+publicarla en una pista de prueba interna con una clave de firma de verdad.
+Publicar es lo que la convierte en 1.0.0. `versionCode` se deriva de aquí
 (`major * 10000 + minor * 100 + patch`), así que sube sola y de forma monótona
 hasta el 1.0.0 — pero **bajar la versión a mano obliga a desinstalar**, porque
 Android rechaza la instalación.
@@ -15,6 +17,744 @@ Android rechaza la instalación.
 Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
+
+## [v0.25.0] — 2026-10-24
+
+### Nuevo
+
+- **La barra dice ahora en cuántos trozos fue el día, no solo cuánto.** Las
+  palabras de encima ya contaban los paseos —«1h 25m en 3 paseos»— y la barra
+  de debajo no los distinguía: un día de un paseo largo y otro de tres cortos
+  se dibujaban igual. Un corte fino marca dónde acabó cada uno. El último no
+  lleva: su final es el filo del relleno, que ya se ve.
+
+  **No es una marca nueva, es la que ya había.** La barra dibujaba un tick
+  mientras un paseo corría, en el punto donde acababan los minutos grabados —
+  que es, exactamente, la frontera entre ese paseo y el anterior. Dibujaba una
+  sola y solo durante un rato; ahora están todas y siempre. La app tiene un
+  mecanismo menos, no uno más.
+
+  **Los cortes de una vuelta cumplida se quedan.** Van pintados sobre el
+  fondo y no dentro del relleno, porque el relleno se vacía al cruzar el
+  objetivo y se habría llevado con él los paseos que lo llenaron — tres
+  paseos y una sola marca, en una casa donde cruzar las 2h es el día normal.
+  Así, cuando el día va por la segunda vuelta, los paseos de la primera
+  siguen marcados.
+
+  Una consecuencia que conviene saber: con dos vueltas en una pista, el
+  cuarto paseo del día puede acabar **a la izquierda** del primero. No hay un
+  orden de izquierda a derecha que leer; cada corte dice dónde acabó un
+  paseo, no en qué puesto fue.
+
+## [v0.24.0] — 2026-10-23
+
+### Cambiado
+
+- **La barra se mueve igual cambie el paseo como cambie.** Tenía cuatro
+  tiempos medidos para un paseo que termina en el momento, y **saltaba** en
+  las tres formas de cambiar los minutos que ya existían: añadir uno que no
+  se pudo apuntar por la mañana, borrar un duplicado —que en esta casa pasa,
+  porque son dos tutores y a veces lo apuntan los dos— y corregir una
+  duración. El mismo dato cambiaba de la misma manera y la barra lo contaba
+  de dos maneras distintas según por dónde hubiera entrado.
+
+  **Lo que decide el movimiento es el signo del cambio, no la acción.** Si el
+  total sube, la barra hace lo mismo que al terminar un paseo: el perro
+  anduvo, y lo que estaba mal era el registro y no el día. Si baja, el
+  relleno viaja de vuelta y nada más — sin el hinchado ni el destello.
+  **Quitar un paseo es quitar algo que nunca ocurrió**, y darle la misma
+  función que a conseguir el objetivo sería celebrar la contabilidad. Es la
+  misma distinción por la que el confeti no salta al rellenar un martes
+  olvidado.
+
+  Un paseo que llega porque lo escribió **el otro móvil** no anima: llega
+  dentro de una relectura, la pantalla entera cambia de golpe, y señalar un
+  trozo sería llamar acontecimiento a algo que nadie de este lado ha hecho.
+
+- **El «No» que cancela un borrado ya se puede pulsar.** Medido en el
+  teléfono: ese botón ocupaba **16,6 dp de ancho** contra los 59 del
+  «Sí, bórralo» de al lado, separados por diecisiete. La opción destructiva
+  era tres veces y media más grande que la segura, y un pulgar que se fuera a
+  la derecha del «No» se encontraba el borrado. Ahora los dos miden 48 dp, que
+  es el suelo. El arreglo va en `Button` y no en esa pantalla: el suelo se
+  aplicaba solo al alto, así que cualquier botón de etiqueta corta valía lo
+  que midiera su palabra — el calendario ya lo había enseñado con su «Hoy» y
+  se arregló allí en vez de aquí, que es por lo que volvió.
+
+- **La marca de «no sincronizado» se va con una transición de 200 ms** en vez
+  de desaparecer entre dos fotogramas. Aparecer sigue siendo instantáneo, y a
+  propósito: la marca entra junto al aviso de error y al temblor del botón, y
+  ahí ya hay tres cosas diciendo lo mismo. Irse es el final de algo, y un
+  elemento que se esfuma de golpe se lee como un fallo de dibujo antes que
+  como «ya está».
+
+## [v0.23.0] — 2026-10-23
+
+### Nuevo
+
+- **Parar el paseo sin cobertura ya no cuesta veinte minutos de más.** Hasta
+  ahora, pulsar parar en el portal sin señal fallaba y había que volver a
+  pulsar al llegar a casa — **y era esa segunda pulsación la que se
+  guardaba**, así que el ascensor, las escaleras y lo que se tardara en
+  acordarse entraban en el paseo como si el perro los hubiera andado. El
+  teléfono se queda ahora con la intención: el paseo se da por terminado a la
+  hora en que se pulsó, el día lo cuenta desde ese momento, y la subida se
+  hace sola en cuanto hay red. **La hora no se recalcula nunca al subir**, así
+  que una parada que sube desde el ascensor y otra que sube desde la calle
+  escriben exactamente el mismo paseo.
+- **Una fila que aún no ha subido lo dice**, con una nube ámbar delante de su
+  título y la palabra «no sincronizado» en lo que se lee en voz alta. Dice su
+  duración como cualquier otra fila: el tutor paró el paseo, y una fila que
+  siguiera diciendo «En marcha» mentiría sobre algo que hizo. Lo único que
+  queda pendiente es la subida, y eso es lo que la marca señala. No hay un
+  estado envejecido ni un botón de reintentar: el problema es que no ha
+  subido, no desde cuándo.
+- **Sube sola al volver a la app, al cambiar de día, al tirar hacia abajo y al
+  pulsar Reintentar** — los cuatro son el mismo momento, una lectura del día
+  que ha salido bien, que es la única pista honesta de que la red ha vuelto.
+  La app no sabe si hay conexión; solo descubre que algo ha funcionado.
+- **Lo que no se puede cumplir se dice, no se descarta en silencio.** Si el
+  otro móvil borró ese paseo mientras tanto, la parada guardada no podrá
+  escribirse nunca: se retira y se avisa. Y si el otro móvil cerró el mismo
+  paseo primero, gana el suyo — el nuestro no lo pisa veinte minutos después.
+
+### Cambiado
+
+- **El alcance es la parada y solo la parada**, y conviene saberlo: empezar un
+  paseo sin cobertura sigue fallando como antes. Guardar un arranque exigiría
+  que el paseo tuviera una identidad inventada por el teléfono y que luego
+  hubiera que reconciliarla con la del servidor, que es otro problema y más
+  grande. Parar es la mitad que se puede resolver con lo que ya existe,
+  porque la fila ya está creada: la intención guardada es «cierra esta fila a
+  esta hora» y se reproduce tal cual.
+- **Los tratamientos también se releen al volver a la app.** La v0.22.0
+  arregló esto para las entradas del día y los dejó fuera, así que una vacuna
+  apuntada desde el otro móvil seguía sin aparecer hasta cambiar de pestaña.
+  Mismo fallo, otra clase de fila.
+
+## [v0.22.2] — 2026-10-22
+
+### Arreglado
+
+- **Volver a la app ya no puede tapar una escritura sin confirmar.** v0.22.1
+  dijo que «cuando las dos cosas caen juntas gana la pedida», y era verdad
+  solo si caen en el mismo instante. Si se **solapan** —que es el caso real,
+  porque una lectura tarda entre uno y doce segundos en rendirse— la que
+  mandaba era la que nadie había pedido. Medido: se pulsa empezar paseo en el
+  portal, el servidor acepta el paseo, la lectura que tiene que confirmarlo
+  va en camino, y el teléfono sale del bolsillo en ese momento. La relectura
+  al volver cancelaba esa lectura y ocupaba su sitio sin heredar nada, así
+  que al fallar se quedaba con el diario de antes: **ni la fila del paseo, ni
+  mensaje, ni Reintentar, y el botón bloqueado en «En marcha…»** para un
+  paseo que entonces no hay forma de parar. Es exactamente el fallo que la
+  regla existía para impedir, entrando por la puerta de al lado.
+  **Lo que faltaba era que la petición sobreviva a la lectura que la
+  servía.** Una lectura cancelada no ha contestado, así que lo que se le
+  pidió sigue pendiente: ahora la relectura silenciosa hereda los términos de
+  la que canceló —y una petición nueva los sustituye, porque es la verdad del
+  momento—. El mismo solape se llevaba el error del gesto y el de un cambio
+  de día; los tres contestan ya.
+  Si estás en la v0.22.0 o la v0.22.1, esto es lo que puede pasarte al sacar
+  el móvil justo después de empezar o parar un paseo sin cobertura.
+
+## [v0.22.1] — 2026-10-22
+
+### Arreglado
+
+- **Una relectura que nadie pidió ya no se lleva el diario.** En v0.22.0,
+  volver a la app sin cobertura cambiaba un diario perfectamente legible por
+  el mensaje de «no se ha podido cargar» y su Reintentar: la relectura al
+  volver fallaba y se lo contaba a quien no había preguntado nada. Es el
+  mismo fallo que costó cuatro rondas en v0.15.0 —«una acción fallida no es
+  una navegación fallida»— llegando por un camino peor, porque allí el tutor
+  había pulsado algo y aquí solo había abierto el teléfono. **Lo que ya
+  estaba cargado sigue siendo verdad**: unas filas que eran correctas hace un
+  minuto no dejan de ser lo mejor que hay porque una lectura que nadie pidió
+  vuelva con las manos vacías. Si estás en la v0.22.0, eso es lo que verás al
+  abrir la app sin red; con esta no.
+  **El gesto no cambia y no debe cambiar.** Quien tira hacia abajo está
+  preguntando y está mirando: ahí un error es una respuesta. Lo mismo las
+  flechas de día y el Reintentar. La distinción no es «falló una acción» sino
+  **si alguien pidió esa lectura**, que es la única pregunta que se puede
+  hacer cuando no hay acción ninguna detrás — y cuando las dos cosas caen
+  juntas gana la pedida, para que volver a la app no tape una recarga que
+  tenía una escritura que confirmar.
+
+## [v0.22.0] — 2026-10-22
+
+### Arreglado
+
+- **Volver a la app relee el día.** Dos tutores, dos teléfonos, un diario: uno
+  apuntaba la comida y el otro abría su móvil —que llevaba la app en segundo
+  plano— y veía el día **sin esa comida**, sin nada que le dijera que estaba
+  mirando algo viejo. Lo contó quien lo sufrió: «hemos detectado diarios no
+  sincronizados algunos días porque la app ya estaba abierta en segundo plano».
+  El manejador de `AppState` solo releía cuando la fecha había cambiado, y el
+  comentario que lo justificaba decía que hacerlo siempre «volvería a leer el
+  día para nada». Esa frase es cierta en una app de un solo usuario y falsa en
+  cuanto son dos: volver del segundo plano es precisamente el momento en que el
+  otro teléfono ha podido escribir. No cambió el código, cambió que la ficha la
+  llevan dos personas — y ya había una incoherencia que lo delataba, porque los
+  tratamientos sí se releían al volver al foco y las entradas del día no.
+  **Lo que no cambia: la pantalla no se mueve de día sola.** Quien dejó la app
+  leyendo el martes vuelve al martes, y nunca se arrastra al tutor fuera del día
+  donde tiene un paseo abierto: esto es una relectura, no una navegación.
+  **Silenciosa a propósito** —las filas se quedan en pantalla mientras se lee—,
+  porque un esqueleto cada vez que la app vuelve al frente sería peor que el
+  fallo. Una lectura que falle se comporta como cualquier otra: el registro
+  tiene su mensaje y su Reintentar.
+
+### Nuevo
+
+- **Tirar del diario hacia abajo lo vuelve a leer.** El gesto que todo el mundo
+  conoce, para cuando el otro tutor dice «ya lo he apuntado» y se quiere ver ya,
+  sin cambiar de día ni cerrar la app. Relee todo lo que la pantalla lee —la
+  ficha, el día y los tratamientos—, que es exactamente lo que hace Reintentar,
+  y el indicador se queda hasta que el día contesta.
+  **No sustituye a la relectura al volver, y por eso llegan juntos:** no se
+  puede tirar hacia abajo de lo que no sabes que está viejo. Un diario
+  desactualizado se ve igual que uno al día —no hay hueco, no hay marca, nada
+  que haga sospechar—, así que el gesto sirve para cuando ya sospechas y la
+  relectura existe para los días en que no. **Solo lo lleva el diario**, que es
+  donde está el problema medido; Salud y la ficha no.
+  **El gesto no está medido en el teléfono.** Es el control nativo de la
+  plataforma y la suite lo prueba en el navegador, donde react-native-web lo
+  dibuja pero no lo ejecuta: lo que allí se comprueba es que está puesto en el
+  diario y en ninguna otra pantalla.
+
+## [v0.21.0] — 2026-10-22
+
+### Cambiado
+
+- **El cruce de nivel ya se ve: 700 ms, entrando y saliendo suave.** El pulso
+  que lleva el fondo nuevo de lado a lado de la barra duraba 620 ms y
+  **frenaba al final**, elegido para repetir el gesto que la barra acaba de
+  terminar —un relleno que ha viajado toda la mañana y llega—. La intención
+  era buena y apuntaba a la mitad equivocada del gesto: frenar sin acelerar
+  gasta la velocidad donde todavía no ha pasado nada. Esa curva cruzaba media
+  barra en unos 130 ms y nueve décimas en unos 330, así que el viaje entero
+  caía en el primer tercio, antes de que el ojo llegara, y lo demás eran los
+  últimos píxeles arrastrándose: medido en el navegador, a mitad de su propio
+  tiempo ya iba por el **95 %**. El tutor miró un cruce de verdad y otro al
+  volver de segundo plano y leyó los dos igual: «lo percibo como muy rápido,
+  no hay una transición apreciable». Ahora entra suave, cruza el centro de la
+  barra —que es la parte que se mira— a toda velocidad, y se posa.
+  **Los dos números son un criterio y no se han medido en el móvil**, igual
+  que los 620 anteriores, que estaban mal por un factor que desde un navegador
+  no se ve.
+  **Se pidieron 800 ms y el cierre los bajó a 700**, y eso sí está medido. El
+  pulso tiene que terminar antes de que el cierre deje de tapar la barra: el
+  cierre pinta sus propias vueltas sobre la barra entera durante 760 ms, los
+  dos relojes arrancan en el mismo fotograma, y un pulso más largo sigue
+  corriendo cuando la tapa se levanta. Lo que enseñan esos fotogramas no es un
+  detalle: el pulso pinta **por encima** de los rellenos y la vuelta de debajo
+  todavía no se ha sustituido, así que la barra se queda de un solo color, sin
+  la banda y con la pista vacía asomando en el borde. Medido con 800 ms: unos
+  40 ms, y dos pruebas del **cierre** se pusieron en rojo por ello. Y hay otra
+  mitad que nadie sabía: **en casi todas las paradas se arranca un pulso**,
+  porque el nivel del día baja a cero durante un solo fotograma entre que el
+  paseo deja de estar en marcha y el cierre fija su total. Con 620 ms eso
+  corría entero bajo la tapa y no se veía nunca. Con 700 quedan 60 ms de
+  margen, y una prueba unitaria impide acercarse más. **El arreglo de verdad
+  no es un pulso más corto**: es no arrancar ninguno mientras un cierre tapa
+  la barra, que liberaría la duración y se llevaría por delante ese cruce
+  fantasma.
+
+- **Los avisos de fallo se desvanecen solos a los ocho segundos.** Hasta ahora
+  se quedaban hasta que alguien los cerraba a mano. Lo pidió el tutor el día
+  que llegó el recuento —"puede que este tipo de errores tenga sentido que
+  sean persistentes para que el usuario los pueda leer"— y lo retiró al día
+  siguiente, después de vivir con ello: «lo que parece faltar es el
+  desvanecimiento tras un tiempo». Un muro rojo que solo se quita tocándolo es
+  una segunda tarea para quien acaba de ver fallar la primera. Ocho segundos
+  es el doble de lo que dura una confirmación: da para leer la frase y ver el
+  recuento al lado, y se va solo. **Decide la severidad, no quien lo escribe**,
+  así que un fallo nuevo no puede nacer con cuatro segundos por descuido.
+  **Repetir el fallo vuelve a poner el reloj a cero**, porque la segunda
+  pulsación necesita el tiempo de lectura entero y no el resto del de la
+  primera. El recuento —«×2» al lado del mensaje, sin apilar un segundo
+  aviso— no cambia en nada. El aviso de fallo ahora dibuja su barra de cuenta
+  atrás y ya no lleva aspa; se sigue anunciando como urgente a los lectores de
+  pantalla, que antes dependía de que fuera persistente.
+
+## [v0.20.0] — 2026-10-22
+
+### Cambiado
+
+- **La barra sigue al paseo en marcha.** Hasta ahora el fondo de la barra era
+  el nivel que habían alcanzado los minutos **guardados**, así que el momento
+  en que el día llega a su objetivo no se veía: la barra pasa del 99 % al
+  100 % de la primera vuelta, que es imperceptible, y todo lo demás esperaba
+  a que se pulsara parar. El momento grande caía en el papeleo y no en el
+  logro. Ahora el fondo cuenta los minutos del día **con el paseo en marcha
+  dentro**: al llegar a las dos horas la barra se tiñe de Aqua, con un pulso
+  que la rellena de izquierda a derecha, mientras el perro sigue andando.
+  **El rótulo va con ella**, porque la barra y las palabras son dos
+  descripciones del mismo día enseñadas a la vez y la v0.15.0 se fue entera
+  en conseguir que no pudieran contradecirse.
+  **Lo que esto deroga, a sabiendas:** el fondo era la prueba de que algo no
+  se había guardado —una barra dando su segunda vuelta en gris—, y un paseo
+  olvidado en marcha va a parecer, en la barra, un día terminado. Lo decidió
+  el tutor habiendo oído el argumento en contra: «vamos a dejar de jugar a la
+  defensiva con los paseos no guardados». El paseo en marcha se sigue viendo
+  en la fila del registro, que pone **En marcha**, y en el cuadrado de parada
+  del control.
+  **La banda sobre la vuelta completada desaparece** con la regla que la
+  necesitaba: ya no hay ninguna vuelta que el fondo no admita, así que la
+  vuelta que se abre empieza sin nada guardado, el tramo vivo es lo único que
+  se pinta sobre el fondo nuevo y no hay muesca que marcar.
+- **Cruzar un nivel es un pulso que rellena la barra, y es el único
+  mecanismo.** Los 150 ms de desfase entre el fondo y el relleno que entraron
+  en la v0.18.0 se van: existían para que las dos sustituciones no cayeran en
+  el mismo fotograma, y el pulso ya las ordena —el fondo nuevo llega viajando
+  sobre la imagen que la barra tenía, y la vuelta de debajo se sustituye
+  entera cuando ha llegado—. Mantener el desfase además sería una segunda
+  respuesta a la misma pregunta, y encima invisible: lo que desfasaba queda
+  tapado por el pulso hasta el último fotograma. **620 ms, frenando al
+  final**, porque repite el gesto que la barra acaba de terminar: un relleno
+  que ha viajado toda la mañana de izquierda a derecha y ha llegado. Va lejos
+  de los 400 ms del temblor de un fallo, para que un cruce no se lea como una
+  negativa, y por debajo de los 760 ms del cierre, que lo tapa en el único
+  caso en que coinciden. **Con "quitar animaciones" la barra se sustituye
+  entera en un fotograma**, donde el desfase no estaba condicionado porque no
+  tenía movimiento que quitar. **Y solo hacia arriba:** un nivel perdido —un
+  paseo borrado, el objetivo subido— se sustituye al instante, porque no hay
+  nada que anunciar.
+- **Al cierre del paseo le queda convertir la banda viva, y ya no gira ningún
+  fondo.** Como el cruce ya ha ocurrido cuando se pulsa parar, el relleno del
+  cierre arranca en el suelo de la vuelta en la que la barra ya está: si
+  arrancara en los minutos guardados, empezaría pintando la vuelta de abajo
+  encima de una barra que giró hace rato, que es justo el paso atrás que esta
+  animación existe para quitar. Sigue siendo el mismo gesto de 760 ms sobre
+  el tramo que el paseo añadió. **Un cierre que deja el día justo en el nivel
+  de arriba no dibuja nada** —la barra ya estaba violeta entera—, y aun así
+  sostiene el total del día para que no caiga mientras llega la recarga.
+- **El confeti no se mueve: sigue saltando al guardar.** No por coherencia
+  perdida, sino porque la coherencia aquí se mide en otra cosa: **durante el
+  paseo el móvil está bloqueado en el bolsillo**. Se saca para apuntar una
+  nota o una kaka, y entonces ver avanzar la barra sirve; un confeti
+  disparado con el móvil en el bolsillo es un confeti que nadie ve, y la
+  mayoría de las veces que se consiguiera se perdería, que es lo contrario de
+  para qué existe. El principio que lo ordena, y que vale para lo que venga:
+  **una descripción sigue al dato; una celebración sigue al espectador.**
+  **Efecto secundario aceptado:** en un día de campeonato el rótulo aparece
+  durante el paseo y el confeti llega al parar, así que el texto anuncia la
+  fiesta antes de que ocurra —y al parar el tutor está mirando la pantalla,
+  que es la condición que hace que el confeti valga algo.
+
+## [v0.19.0] — 2026-10-22
+
+### Cambiado
+
+- **La medida del día dice los paseos, no el techo.** Ponía
+  **"1h 8m de 4h paseados"** y ahora pone **"1h 8m en 3 paseos"**: lo que el
+  día ha hecho, y en cuántos paseos. El denominador enunciaba un límite, y la
+  regla del tutor para esta parte de la pantalla es que va de **lo que has
+  hecho, no de lo que falta** —«no debería haber un límite máximo, no queremos
+  hacer que el usuario sea vago y conformista»—. Hay un segundo motivo que no
+  hizo falta que dijera: **esas 4h tampoco eran su objetivo**. Tenía puestas
+  2h, la barra llega al doble, así que el único número de la pantalla del día
+  que parecía una meta era uno que nadie había escrito. **Lo que esto
+  disuelve:** el denominador tenía que ser el nivel de arriba y no el objetivo
+  escrito, o "2h de 2h" quedaría bajo una barra pintada a medias; sin
+  denominador no queda nada en la frase que pueda contradecir al relleno. **Un
+  perro sin objetivo lee ahora la misma frase que los demás**, donde antes
+  tenía una rama propia. **Sin paseos no hay cláusula ninguna** —"0 min
+  paseados", nunca "en 0 paseos" ni "sin paseos todavía", que vuelven a meter
+  la expectativa por la puerta de atrás—; con uno va en singular; con un paseo
+  en marcha y con un día que no se pudo leer, igual que antes.
+- **La cuenta es tan cierta como los minutos, y sale de las mismas filas.**
+  Cuenta exactamente los paseos que suman esos minutos, así que un paseo sin
+  duración —en marcha, abandonado, o uno que nadie cronometró— no está en
+  ninguna de las dos mitades. Y **viaja con el cierre**: al parar un paseo la
+  barra sostiene el total que el servidor acaba de aceptar, porque la recarga
+  puede tardar o no llegar, y la cuenta se sostiene con él. Sin eso, el tercer
+  paseo del día se habría anunciado como el segundo durante toda la espera.
+- **El objetivo ya no está escrito en ninguna parte de la pantalla del día**,
+  solo en Perfil. Queda la barra, que sigue mostrando el avance contra él, y
+  el rótulo, que sigue diciendo cuándo se cruza un nivel: está la forma y no
+  está el número. Es el precio, asumido a sabiendas —un techo enunciado al
+  lado del esfuerzo es un límite con el que conformarse—, y está anotado en
+  PRODUCT.md porque allí había una frase que decía justo lo contrario.
+
+## [v0.18.0] — 2026-10-22
+
+### Cambiado
+
+- **El botón del paseo dice cuál de las dos cosas está escribiendo.** Ponía
+  "Guardando…" tanto al empezar como al parar. En el vídeo del paseo esa
+  palabra estuvo en pantalla **más de nueve segundos** —el paseo se paró en
+  el ascensor del portal, sin cobertura, y la escritura se quedó colgada—,
+  así que no es una palabra que se vislumbra: es una palabra que se mira. Y
+  mientras se miraba no decía nada de lo que estaba pasando. Ahora al empezar
+  pone **"En marcha…"** y al parar **"A casa…"**, que entronca con el par que
+  la app ya usa, _"¡Vamos, Loki!"_ / _"¡Loki ya está contigo!"_. Medido con
+  el tamaño de letra al 145%: "En marcha…" ocupa lo mismo que lo que
+  sustituye y "A casa…" es **más corto**, así que al parar la medida de al
+  lado pierde menos final del que perdía. **La pega, asumida:** "En marcha…"
+  afirma el estado del perro mientras lo que ocurre es una escritura que
+  puede fallar; si falla, el botón dijo "En marcha" y vuelve a "Paseo".
+- **Los dos niveles del objetivo tienen nombre en vez de número.**
+  "Objetivo conseguido" y "Objetivo conseguido x2" eran la forma con la que
+  salió la función, y el tutor marcó la segunda como provisional: era
+  **básica y redundante**. Pasan a ser **"Día cumplido"** y **"Día de
+  campeonato"** —la segunda es la frase del propio tutor al explicar qué
+  significa el nivel de arriba, y "cumplido" dice que el día hizo lo que
+  tenía que hacer sin el tono de formulario del texto anterior—. Son las
+  palabras que se leen en **tres sitios** y que ahora coinciden en los tres:
+  la leyenda del calendario, el rótulo bajo la barra del día y el nombre
+  hablado de una celda ("10, día de campeonato"). **Y desaparece la versión
+  hablada aparte.** El nivel de arriba tenía una frase solo para el lector de
+  pantalla —"doble objetivo diario conseguido"— por un único motivo: que
+  TalkBack lee "x2" como "equis dos". Con un nombre en palabras ese motivo no
+  existe, así que lo que se ve y lo que se oye vuelven a ser la misma frase,
+  y se va con ella la segunda copia de un nombre que vive en tres sitios.
+
+### Arreglado
+
+- **Cruzar el objetivo ya no es un cambio de escena.** Al llegar al objetivo
+  pasaban **dos cosas en el mismo fotograma**: el fondo de la barra ganaba
+  color (la pista vacía a Aqua) y el relleno cambiaba de tono (Mist a
+  violeta). Comprobado en un paseo de verdad: cada una por separado se lee
+  bien, y juntas la barra deja de leerse como una barra que cambia y pasa a
+  leerse como **otra barra**. Ahora las dos se ordenan en el tiempo: el fondo
+  gira primero y el relleno le sigue **150 ms después**. Mismos dos colores,
+  mismo estado final, leído como una consecuencia en vez de como un corte.
+  **No hay nada que viaje ni que se funda**, que es como habla esta barra: un
+  color aquí es una clase sobre una capa y lo que cambia es qué capa tapa el
+  píxel, nunca el valor que lleva dentro. **No toca el cierre del paseo** —el
+  cierre pinta sus propias vueltas sobre toda la barra durante 760 ms y el
+  tutor lo describió como «genial, incluso cuando salta de tier»—; alcanza a
+  los cruces que el cierre no tapa. **Y el fondo sigue reflejando solo lo
+  guardado**: el retraso va por el lado seguro, con el relleno llevando
+  durante 150 ms el nivel que el día acaba de **dejar**, nunca al que va.
+  **Descartado y medido, para que no se vuelva a proponer:** desplazar los
+  colores un escalón (fondo Mist y barra Aqua en el primer nivel) mide
+  **1,14:1**, la peor pareja de la paleta —comparten claridad y familia de
+  tono, así que no hay distancia cromática que lo rescate—, y un día que
+  alcanza justo el objetivo quedaría entero en Mist: 119 y 120 minutos se
+  verían igual y desaparecería justo el momento que la barra existe para
+  anunciar.
+
+## [v0.17.0] — 2026-10-21
+
+### Arreglado
+
+- **El mismo error ya no se apila dos veces.** Una foto del móvil sin
+  cobertura: dos avisos idénticos, uno encima de otro, tapando el diario del
+  que hablaban, y la misma frase una tercera vez en el registro. **Que el
+  aviso se quede hasta que lo cierres no cambia**: un error que merece leerse
+  merece seguir ahí. Lo que se va es el montón. Un aviso cuyo **tipo y texto**
+  coinciden con uno que ya está en pantalla no añade otro: el que hay se queda
+  donde está y le aparece un **"×2"**, y si era de los que se van solos
+  vuelve a empezar su cuenta atrás. Es lo más discreto que todavía contesta a
+  la segunda pulsación —el botón ya ha dado su sacudida y la frase no ha
+  cambiado—, y no vuelve a entrar en pantalla ni se mueve al final de la pila:
+  lo primero se leería como un mensaje nuevo y lo segundo sacaría el botón de
+  cerrar de debajo del dedo.
+- **Cada fallo dice de qué va.** En esa misma foto el registro y el aviso
+  decían exactamente lo mismo —"Parece que no hay conexión. Inténtalo otra vez
+  cuando vuelva."— para dos cosas distintas: **el día no se pudo leer**, que
+  es un estado con su propio Reintentar, y **el paseo no se pudo empezar**,
+  que es algo que pasó una vez. Nada en pantalla permitía distinguirlas. La
+  app ya sabía desde dónde se la llamaba y solo lo usaba para el registro
+  técnico de la consola. Ahora la frase lo dice: "No hay conexión para empezar
+  el paseo", "...para leer el día", "Algo ha ido mal por nuestro lado al
+  guardar el peso". Donde no se puede nombrar con honestidad —elegir o
+  recortar una foto no toca la red— la frase se queda genérica a propósito.
+- **Y el error del registro se lee.** Las tres líneas iban enteras en rojo de
+  error: medido sobre el fondo del diario, **5,01:1** —pasa el mínimo por los
+  pelos y no llega al nivel exigente— frente a los **17,21:1** del texto
+  normal. Era el texto con menos contraste de la pantalla, y es un párrafo que
+  se encuentra cada vez que sales de casa y el móvil se suelta del wifi. El
+  aviso flotante llevaba años haciéndolo bien: **icono rojo, texto normal**.
+  Ahora el registro tiene esa misma forma. **El color no cambia** —el rojo
+  significa "la app ha fallado", y quedarse sin conexión lo es—; cambia el
+  peso. El icono, además, es lo que deja de confiar el aviso solo al color.
+
+## [v0.16.0] — 2026-10-21
+
+### Cambiado
+
+- **El control del paseo dice que está guardando, con todas las letras.**
+  Mientras se escribía el paseo solo cambiaba el icono por una ruleta y la
+  palabra se quedaba en "Paseo", para que el control no cambiase de ancho y el
+  bloque no se moviera. Está mal por una regla que esta misma app aplica en
+  todas partes: **un icono nunca es una razón**. Una ruleta sin palabra dice
+  que algo pasa, no qué pasa, y el momento en que hace falta saberlo es justo
+  ese —el móvil agarrado a una raya de wifi en el portal, el paseo tardando
+  segundos en guardarse y la mano a punto de volver a pulsar—. Ahora pone
+  **"Guardando…"** mientras escribe y vuelve a "Paseo" en cuanto el servidor
+  contesta. **Lo que cuesta, medido y aceptado a sabiendas:** con el tamaño de
+  letra al 130% el control ya llega al margen derecho —por eso su separación
+  interior es estrecha—, así que desde ahí la medida de al lado ("1h 20m de 2h
+  paseados") empieza a perder el final en puntos suspensivos, y al 200% pierde
+  bastante. A tamaños grandes hay que decidir qué tiene que seguir leyéndose y
+  qué es prescindible, y lo recortado sigue entero por el otro camino: el
+  lector de pantalla lee la medida completa, puntos suspensivos o no, y el
+  nombre del botón sigue siendo "Empezar paseo" / "Terminar paseo".
+
+### Arreglado
+
+- **Reintentar acusa la pulsación.** Dejaba el error en pantalla y no hacía
+  nada visible hasta que la lectura contestaba: sin cobertura eso son unos
+  **siete segundos** pulsando un botón que no contesta, que es exactamente
+  como se pulsa tres veces seguidas. El botón de esta app sabe hacer el ciclo
+  entero desde hace versiones —ruleta, bloqueo contra la segunda pulsación,
+  resultado y vuelta al reposo— y este no entraba nunca, porque el ciclo lo
+  enciende una promesa y la recarga no devolvía ninguna. Ahora devuelve una
+  que se resuelve cuando el día ha contestado. Si la segunda lectura también
+  falla, el botón termina en **"Sigue sin cargar"** y vuelve a "Reintentar":
+  el motivo lo cuenta la frase que hay justo encima, y esa frase la reescribe
+  la misma lectura, así que es la de ahora y no la de antes.
+- **Y la pantalla de error conserva su mensaje mientras reintenta.** Al pulsar
+  se borraba el error antes de empezar a leer, con lo que la pantalla entera
+  se cambiaba por la ruleta de carga: el botón desaparecía antes de poder
+  decir que estaba trabajando y se llevaba por delante la frase que explicaba
+  qué había pasado. El mensaje se queda hasta que una lectura lo sustituye.
+
+## [v0.15.0] — 2026-10-21
+
+### Nuevo
+
+- **El objetivo diario tiene dos niveles, y la barra pinta el que se alcanzó.**
+  Un objetivo se vuelve difícil cuando cambia el que mide, no solo cuando está
+  mal puesto: en septiembre la salida al café de las once contaba como paseo y
+  desde que no cuenta faltan los veinte o treinta minutos de ir y volver que
+  hacían la diferencia. Así que
+  la pregunta no era si 3 h eran muchas, sino cuánto vale un día normal medido
+  como se mide ahora. **El primer nivel es el objetivo que hay puesto; el
+  segundo es el doble**, y no se configura: sale del mismo número, no hay un
+  campo nuevo que rellenar, y es lo que hace que las dos vueltas de la barra
+  midan lo mismo. Un día por debajo del primero es un día por debajo de lo
+  habitual —una tormenta, una cojera, un día de reposo— y eso no es una
+  regañina: el porqué lo cuenta el propio día, con su vacuna, su medicación o
+  su incidencia al lado. El primero es lo que había que hacer. El segundo es un
+  día excepcional: la montaña, o una ciudad entera a pie.
+- **El suelo de la barra es el nivel alcanzado y el relleno es el camino al
+  siguiente.** Por debajo del objetivo, la pista vacía con el relleno en gris
+  —la barra exactamente como era—; al llegar al objetivo **toda la barra** pasa
+  a Aqua y el violeta empieza a rellenar encima; pasado el doble la barra
+  entera es violeta y ya no queda nada que rellenar. La medida cuenta contra el
+  techo: con un objetivo de 2 h pone "3h de 4h". Se probó antes la lectura
+  literal —el gris llena la primera vuelta y el Aqua la va pintando encima— y
+  se rompe en el día más común que hay: un día que llega al objetivo y se queda
+  ahí saldría **entero en gris**, y el Aqua es justo lo que significa
+  "conseguido" en la barra y en el calendario. Lo que se paga a cambio, y se
+  aceptó sabiéndolo: el Aqua deja de ser el momento de llegar y pasa a ser
+  cualquier día corriente. Lo raro es el violeta, que es donde estaba la
+  sorpresa desde el principio.
+- **El confeti se muda entero al nivel de arriba, y cae en violeta.** **El
+  primer día que cumplas el objetivo después de instalar esto no va a caer
+  confeti donde antes caía**, y durante un día eso se va a leer como que algo
+  se ha roto. No lo está: es el cambio. El sentido de los dos niveles es que
+  llegar al objetivo pase a ser lo de todos los días, y lo de todos los días no
+  se celebra —dieciocho fiestas al mes no son una fiesta—. Cumplir el objetivo
+  conserva lo que ya tenía: la barra entera en Aqua, el rótulo debajo y la
+  marca del calendario. La fiesta se guarda para el día que lo dobla. Cae **una
+  sola vez** aunque el paseo cruce los dos niveles de una vez, y cae del color
+  del nivel que celebra en vez de la mezcla de siempre, porque ese nivel ya
+  tiene color propio en la barra y en el calendario. El cumpleaños conserva la
+  mezcla: un cumpleaños no es un nivel.
+- **Un día que dobla el objetivo se marca en el calendario**, con la misma
+  barrita de 16 dp que ya marcaba el objetivo cumplido y en el mismo violeta
+  que lleva la barra ese día: una marca que vale por un registro lleva su color
+  en las dos pantallas, o es una segunda cosa que aprenderse. La leyenda gana
+  su cuarta entrada, "Objetivo conseguido x2". La colisión con el cumpleaños se
+  comprobó en vez de suponerse: la tarta es una marca de agua al 60% centrada
+  en el número y su base termina unos 3 dp por encima de la tira, así que son
+  dos formas distintas en dos sitios distintos —32 dp tenues detrás del número
+  contra una pastilla sólida de 16 × 4 dp debajo— el día del año en que coinciden.
+- **El lector de pantalla dice "doble objetivo diario conseguido".** En la
+  pantalla pone "Objetivo conseguido x2", que es corto y se entiende de un
+  vistazo; en voz alta TalkBack leía "equis dos", que no se entiende de
+  ninguna. Se cambia lo que se oye y se deja lo que se ve, en el rótulo de la
+  barra y en la leyenda del calendario.
+- **Mientras un paseo corre, el relleno da la vuelta y el suelo no.** Un paseo
+  que cruza el objetivo completa su vuelta en el tono del paseo en curso y
+  empieza otra banda desde el borde izquierdo, encima de la que acaba de
+  terminar — pero el suelo se queda en el nivel que marcan los minutos
+  **guardados** y espera a que pares. La asimetría es el mensaje y no un
+  apaño: **una barra dando vueltas en gris es la señal de que algo no se ha
+  guardado**, así que un paseo que se quedó abierto por olvido no puede
+  disfrazarse de día terminado. Solo parar de verdad cambia el suelo.
+
+### Cambiado
+
+- **Parar un paseo ya no encoge la barra antes de cerrarla.** En el vídeo del
+  paseo: la barra pintada hasta x=403 mientras el paseo corría, **x=207 durante
+  unos 400 ms** y de vuelta a x=405 ya en el tono de lo guardado — en el
+  navegador, los mismos 625,77 px cayendo a 308. El hueco era un desajuste de
+  tiempos: al parar, el tramo en curso desaparecía de inmediato y los minutos
+  cerrados no llegaban hasta que contestaba el servidor, así que durante esos
+  400 ms la barra contaba la verdad de hacía un minuto. **Ahora el tramo que ya
+  está pintado se queda y un relleno lo convierte de izquierda a derecha**,
+  desde la marca de la unión hasta donde acabó el paseo, en el tono que la
+  barra va a conservar. El fotograma del que se quejaba el vídeo deja de
+  existir en vez de taparse con una animación. **La marca de la unión viaja con
+  el borde del relleno** durante esos 760 ms, porque durante la conversión esa
+  frontera se está moviendo de verdad: es el relleno. **El engorde de 4 a 7 dp
+  y el destello se van**, los dos: existían para iluminar un tramo que se
+  ensanchaba, y una conversión que avanza en un sentido ya es su propio
+  énfasis. Si el paseo cruza un nivel, el gesto es uno solo y cambia de color
+  al pasar en vez de ser dos animaciones seguidas. **Lo que no tiene nada que decir no se
+  anima**: un paseo descartado no añadió nada, y un día que ya estaba por
+  encima del techo no tiene tramo que enseñar —el día ya está dicho—. Con las
+  animaciones del sistema quitadas la barra se pinta directamente en su estado
+  final, que es lo que hay que hacer: volver al comportamiento de antes
+  devolvería los 400 ms de hueco justo a quien ha pedido menos movimiento.
+- **El objetivo diario es de media hora como mínimo, o no hay objetivo.** Media
+  hora es el suelo de a quién sirve esta app: es lo que puede hacer un perro
+  con las patas mal o uno muy mayor, y por debajo de eso nadie lleva un diario
+  de paseos. Y con dos niveles un objetivo bajo es una puerta trasera al de
+  arriba: 15 minutos pondrían el techo en 30, alcanzado antes de comer todos
+  los días, y el confeti que acaba de mudarse ahí para que fuera raro volvería
+  a ser cosa diaria. **No hay excepción para lo que ya estaba guardado**: un
+  objetivo por debajo del suelo falla la validación como cualquier otro error,
+  y el perfil lo dice con el campo que hay que corregir en la misma pantalla.
+  Una regla que tolera en silencio sus propias infracciones viejas es una regla
+  con la que no se puede contar. No tener objetivo sigue siendo una respuesta
+  válida, y la que corresponde al día de descanso.
+
+### Arreglado
+
+- **Una acción que falla ya no se lleva el diario por delante.** Medido con el
+  móvil en modo avión: pulsar el control del paseo sacaba el aviso y sacudía el
+  botón, que es lo correcto — y **unos siete segundos después** la pantalla
+  entera se convertía en "Parece que no hay conexión". Los siete segundos son
+  la librería de datos reintentando la lectura tres veces, al segundo, a los
+  dos y a los cuatro. Es el caso más probable que hay: el móvil se queda sin el
+  WiFi de casa en cuanto sales por la puerta, o al subir las escaleras de
+  vuelta, que es justo cuando se pulsa ese botón. **Lo
+  que ya estaba cargado sigue siendo verdad**, así que se queda en pantalla y
+  el fallo lo cuenta el aviso. Lo que no se puede leer lo dice ahora la parte
+  que no se pudo leer, con su propio Reintentar, en vez de tapar el día entero.
+- **Un reintento que vuelve a fallar sigue siendo un error, no un día vacío.**
+  Pulsar Reintentar sin conexión dejaba en pantalla "Ese día no se apuntó
+  nada", que es una afirmación sobre el día del perro: dice que nadie lo paseó.
+  Una app que existe para llevar el diario de un perro no puede decir eso
+  porque le haya fallado una lectura — un error siempre es mejor que una
+  respuesta equivocada dicha con seguridad.
+- **Si la acción salió bien y la recarga no lo puede confirmar, se dice.**
+  Empezar un paseo con la escritura aceptada y la recarga cortada dejaba el
+  paseo corriendo en el servidor, el diario con cero entradas y el botón
+  bloqueado en "Terminar paseo" sin aviso ninguno: no había forma de pararlo.
+  La regla, que es la que se les escapó a los tres arreglos anteriores: **si
+  falló la acción, el diario se queda; si la acción salió bien y la recarga no
+  la pudo confirmar, sale el error.**
+- **La medida del objetivo ya no dice un número que no sabe.** Una lectura que
+  falla llega como cero filas y un error, y la parte del registro mira el error
+  antes que las filas desde el primero de estos arreglos. La línea de encima
+  no: contaba las filas y punto, así que un día que no se pudo leer salía como
+  **"0 min de 2h paseados"**, en letra más grande y más arriba en la pantalla
+  que la frase por la que se escribió esa regla. Medido con el fallo más
+  probable que hay: parar un paseo con la escritura aceptada y la lectura
+  cortada dejaba la barra pintada en 65 de 120 y "Objetivo conseguido" debajo
+  —que es lo que de verdad se había guardado— y justo encima esa línea diciendo
+  que el perro no había paseado nada. Quien lo lee no tiene forma de saber cuál
+  de las dos mitades es la buena, y la que se lee todos los días es el número:
+  lo más probable es volver a apuntar el paseo a mano y duplicarlo en el único
+  sitio que existe para tener razón sobre un animal. **Ahora "no se sabe" es un
+  estado distinto de cero**: la medida pone "Sin datos del día" —y en voz alta
+  lo dice entero—, el relleno no se pinta y no se dice "Objetivo conseguido",
+  mientras el control y la cuenta del paseo en curso se quedan donde estaban.
+  Si acaba de guardarse un cierre, esos minutos sí se saben y son los que se
+  leen. Las filas que sí llegaron siguen mandando sobre el error, que es lo que
+  hace que una acción fallida conserve el diario. Y de paso se va el desfase
+  del cierre normal: la barra y las palabras leen un solo número, así que el
+  rótulo ya no puede aparecer unas décimas antes que la cifra que lo justifica.
+- **Las horas del registro son tabulares, así que los títulos comparten
+  borde.** La columna se ajusta a su contenido y la justificación original era
+  que todas las horas de 24 h tienen cinco caracteres — cierto del número de
+  caracteres y falso del ancho: los dígitos de Outfit son proporcionales, y
+  "09:40", sin ningún 1 estrecho, resultó ser la más ancha de tres medidas en
+  el móvil y empujaba su título **2,5 dp** a la derecha. Al 170% de tamaño de
+  letra eso son unos 15 dp. Con las cifras tabulares cada dígito ocupa lo
+  mismo, así que todas las horas ocupan lo mismo.
+
+### Lo que sigue fuera
+
+Dos cosas conocidas y dejadas así a propósito. **Reintentar no dice nada
+mientras lo intenta**: el error se queda en pantalla hasta que la lectura
+contesta. Y **tras un paseo que empezó bien y cuya recarga falló, el control
+conserva su ruedecita** junto al Reintentar que sí se ve: soltarlo ofrecería un
+"parar" que no puede parar nada, porque parar necesita la fila que nunca llegó.
+Un botón que miente es peor que un botón que espera.
+
+Todo lo visual de esta versión se decidió sobre una mesa de diseño y **está
+pendiente de verse en el móvil**: los dos violetas uno contra otro, la barrita
+del nivel de arriba sobre fondo Aqua, el cierre cruzando un nivel y la leyenda
+del calendario con su cuarta entrada a tamaño de letra grande.
+
+## [v0.14.0] — 2026-10-19
+
+### Nuevo
+
+- **Mientras un paseo corre, una banda clara cruza la barra del objetivo entera
+  cada 2,4 s.** La barra no podía decir que había un paseo en marcha sin que
+  quien la mira leyera el número: el punto pulsa junto a la medida, pero la
+  barra, que es lo que se mira de reojo, estaba quieta. La banda cruza **toda
+  la pista y no el tramo del paseo**, y por una medición: contra un objetivo de
+  3 h el tramo mide 3,6 dp a los dos minutos y nada que se le haga se ve en
+  3,6 dp —el mismo agujero de la marca de la unión—. Se abre también por el
+  otro extremo: un paseo que empieza a un minuto del objetivo tampoco tiene
+  adónde crecer. **Siempre es el tono opuesto al suelo que cruza**: clara sobre
+  la pista oscura y sobre el gris, oscura sobre el Aqua cuando el objetivo ya
+  estaba cumplido antes de empezar. Un acento nuevo no hacía falta; hacía falta
+  una banda que fuera siempre un aclarado o un oscurecido de lo que hay debajo.
+  El coste, aceptado: una banda que recorre una barra de progreso es el idioma
+  habitual del progreso _indeterminado_, y esta barra sabe exactamente dónde
+  está. La marca de la unión y la medida siguen diciendo dónde; la banda solo
+  dice que sigue en marcha. 2,4 s y no 2,8 para que no se acompase con el
+  latido del punto.
+- **Parar un paseo ahora se ve: cuatro tiempos en unos 760 ms.** El momento más
+  importante del día del perro —el paseo entrando en el registro— era lo menos
+  visible que hacía la app: el tramo cambiaba a un gris algo más claro y la
+  marca desaparecía, y no había forma de distinguirlo de un parpadeo. Ahora la
+  pista se engorda de 4 a 7 dp y vuelve, un destello cruza el tramo que se
+  acaba de añadir y solo ese, y el tramo aterriza en el tono que va a
+  conservar. **Solo cuando el servidor ha dicho que sí**, y por debajo del
+  segundo para que se lea como la respuesta al botón. El énfasis sale del
+  grosor porque el ancho no puede cambiar: el tramo ya estaba dibujado con su
+  largo.
+- **El cierre anima en el tono que la barra va a conservar, no como adorno.**
+  El primer diseño iluminaba el tramo en Aqua y lo dejaba volver al gris, y eso
+  gasta el acento en algo que no es una conclusión y contradice la regla que
+  esta barra ya tenía: gris mientras se lee, Aqua como conclusión. Quedó en
+  tres casos. **Si el paseo no llega al objetivo**, del gris del paseo en curso
+  al gris de lo guardado y ni un paso más. **Si llega**, **toda la barra** pasa
+  a Aqua y no solo el tramo nuevo, porque eso es lo que ya hacía el relleno
+  guardado al cumplirse, y cae el confeti que ya existía en el mismo momento.
+  **Si el objetivo ya estaba cumplido antes del paseo**, solo el engorde y en
+  Aqua: "esto es lo que se acaba de guardar" no tiene un _esto_ al que apuntar
+  en una barra llena, porque los minutos de más se salen por el borde, pero
+  alguien ha pulsado un botón y se le debe una respuesta. Un paseo demasiado
+  corto para conservarse se descarta y no llega aquí, y un día sin objetivo no
+  tiene barra que animar. Con la animación del sistema quitada, nada de esto se
+  monta. Qué caso toca lo decide `closeMotion` en `lib/goalbar.ts`, con
+  pruebas: un caso equivocado no lanza nada, pinta la barra como cumplida
+  cuando no lo está. **La marca de la unión no es uno de los tiempos:** se
+  había decidido que se difuminara con el cierre, pero solo se dibuja mientras
+  hay un paseo en marcha y se va en el primer cuadro, sin desvanecerse.
+- **Si empezar o parar un paseo falla, el botón que se pulsó se sacude.** 4 dp
+  hacia los lados, tres vaivenes, 400 ms, con la amplitud cayendo hasta
+  quedarse en nada, así que el botón acaba donde estaba. El toast ya decía que
+  algo había ido mal; el temblor dice **qué botón** y lo dice donde está el
+  pulgar. Son 4 dp porque el paseo sigue en marcha y lo siguiente que se hará
+  es pulsar parar otra vez: es la doceava parte de un objetivo táctil de 48 dp,
+  así que el reintento durante el temblor sigue cayendo encima. Los 400 ms y
+  los tres vaivenes son un criterio y no una medida: **no se han probado en un
+  móvil todavía**, y tampoco si 760 ms se lee como una respuesta o como una
+  espera.
+
+### Arreglado
+
+- **La marca de la unión salía en el primer paseo del día, donde no hay unión.**
+  Sin nada guardado no hay nada que separar del paseo, y la marca quedaba 1 dp
+  fuera de la pista, en el borde izquierdo, leyéndose como un resto. Ahora solo
+  sale con un paseo en marcha, con objetivo, con minutos guardados y sin el
+  objetivo cumplido. Es el único caso que se quita: la marca sigue diciendo
+  cuánto está ya guardado, que es lo único que la banda no dice.
 
 ## [v0.13.0] — 2026-10-17
 

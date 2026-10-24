@@ -613,7 +613,7 @@ test("the calendar marks nothing until the events for the window arrive", async 
   await expect(
     page
       .getByTestId("home-calendar")
-      .getByLabel(`${yesterday.getDate()}, objetivo conseguido, con medicación`)
+      .getByLabel(`${yesterday.getDate()}, día cumplido, con medicación`)
       .first(),
   ).toBeVisible();
 });

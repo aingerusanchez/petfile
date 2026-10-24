@@ -4,8 +4,10 @@ import {
   resetE2EPets,
   seedE2EEvents,
   seedE2EPet,
+  seedE2ETreatments,
   seedSession,
 } from "./auth";
+import { colors } from "../components/ui/tokens";
 
 /**
  * The day view's log needs `0006_events_weights_treatments.sql` applied.
@@ -83,8 +85,12 @@ test("shows the day, the goal and a way to log each kind", async ({ page }) => {
   await expect(page.getByTestId("home-title")).toHaveText("Hoy");
   await expect(page.getByTestId("home-date")).not.toBeEmpty();
 
-  // The goal only appears once the profile has set one.
-  await expect(page.getByTestId("home-goal")).toContainText("de 1h");
+  // Nothing walked yet, and the measure says so without naming a ceiling.
+  // The goal reaches the screen as the bar, which only a pet with one gets.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+  await expect(page.getByTestId("home-goal-ground")).toBeVisible();
 
   // The kinds are behind the floating action, near the thumb, and the page
   // shows none of them until it is asked.
@@ -128,7 +134,7 @@ test("logs a walk from its two ends and counts it toward the goal", async ({
   await expect(page.getByTestId("home-title")).toContainText("Ayer");
 
   await expect(page.getByTestId("home-empty")).toBeVisible();
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
 
   await add(page, "walk");
 
@@ -156,8 +162,11 @@ test("logs a walk from its two ends and counts it toward the goal", async ({
   await expect(page.getByTestId("home-log")).toContainText("30 min");
   await expect(page.getByTestId("home-log")).toContainText("sin tirones");
 
-  // The walk's minutes are the one thing the day view computes from.
-  await expect(page.getByTestId("home-goal")).toContainText("30 min de 1h");
+  // The walk's minutes are the one thing the day view computes from, and
+  // the sentence says how many walks they came in.
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "30 min en 1 paseo",
+  );
 });
 
 test("re-derives the duration when either time is corrected", async ({
@@ -325,7 +334,9 @@ test("still logs a walk nobody timed", async ({ page }) => {
   // A walk with only an end is a valid entry: it still happened, and the end
   // is the only time anybody wrote down.
   await expect(page.getByTestId("home-log")).toContainText("08:30");
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
+  // **No length, so it is in neither half of the sentence.** The count is
+  // the walks the minutes came in, and this one brought none of either.
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
 });
 
 test("records several stools on one walk, the second in one tap", async ({
@@ -583,7 +594,7 @@ test("logs the other three kinds without touching the goal", async ({
   }
 
   // None of them has a duration, so the goal has not moved.
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
 });
 
 test("reads the day forwards", async ({ page }) => {
@@ -737,7 +748,7 @@ test("opens the calendar from the date and says what each day carried", async ({
   await expect(page.getByTestId("calendar-mark-medication")).toHaveCount(1);
 
   // The legend names all three marks, so none of them is colour alone.
-  for (const name of ["Objetivo conseguido", "Medicación", "Incidencia"]) {
+  for (const name of ["Día cumplido", "Medicación", "Incidencia"]) {
     await expect(page.getByTestId("home-calendar")).toContainText(name);
   }
 
@@ -752,13 +763,22 @@ test("opens the calendar from the date and says what each day carried", async ({
   await expect(page.getByTestId("home-title")).toHaveText("Ayer");
 });
 
-test("throws confetti for the walk that reaches the goal, and only that one", async ({
+/**
+ * **The confetti belongs to the top tier, and to nothing else.**
+ *
+ * It used to fire at the goal. The two tiers moved it: Tier 1 is what an
+ * ordinary day reaches — most days clear it — and the everyday is not
+ * celebrated. A goal met turns the bar Aqua and says so under it; the party
+ * is kept for the day that doubles it, which is the one worth marking on the
+ * calendar.
+ */
+test("throws confetti for the walk that doubles the goal, and only that one", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   // Each walk below ends at a "now" this test owns and begins that many
-  // minutes before it, so the first is 45 minutes long and has to be today.
+  // minutes before it, so the longest is 45 minutes and has to be today.
   const now = new Date();
   test.skip(
     new Date(now.getTime() - 45 * 60_000).getDate() !== now.getDate(),
@@ -775,12 +795,44 @@ test("throws confetti for the walk that reaches the goal, and only that one", as
   await page.getByTestId("entry-save").click();
   await expect(page.getByTestId("home-goal")).toContainText("45 min");
   await expect(page.getByTestId("celebration")).toBeHidden();
+  // **Waited on the rows, and the measure is no longer enough.** A walk
+  // written by hand holds the day's new total the moment the server
+  // accepts it, so the sentence above is answered before the re-read lands
+  // — and the threshold this test is about is computed from the rows. The
+  // log's entry count is the one assertion only the re-read can satisfy;
+  // without it the next entry is filed against the day before this one.
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(1);
 
-  // The walk that crosses it.
+  // The walk that reaches the goal. The bar says so and nothing falls.
   await add(page, "walk");
   await typeWalk(page, now, 15);
   await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+  // Read as it is written: neither tier has a spoken form of its own.
+  await expect(page.getByTestId("home-goal-met")).not.toHaveAttribute(
+    "aria-label",
+    /.+/,
+  );
+  await expect(page.getByTestId("celebration")).toBeHidden();
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(2);
+
+  // Most of the way through lap two, still nothing.
+  await add(page, "walk");
+  await typeWalk(page, now, 45);
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "1h 45m en 3 paseos",
+  );
+  await expect(page.getByTestId("celebration")).toBeHidden();
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(3);
+
+  // And the walk that doubles it.
+  await add(page, "walk");
+  await typeWalk(page, now, 15);
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Día de campeonato",
+  );
   await expect(page.getByTestId("celebration")).toBeVisible();
 
   // It reads as decoration, not as content: nothing to announce, nothing to
@@ -791,18 +843,20 @@ test("throws confetti for the walk that reaches the goal, and only that one", as
   );
 
   await page.reload();
-  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "Día de campeonato",
+  );
   await expect(page.getByTestId("celebration")).toBeHidden();
 
-  // A second walk on a day already won does not celebrate again.
+  // A further walk on a day already doubled does not celebrate again.
   await add(page, "walk");
   await typeWalk(page, now, 15);
   await page.getByTestId("entry-save").click();
-  await expect(page.getByTestId("home-goal")).toContainText("1h 15m");
+  await expect(page.getByTestId("home-goal")).toContainText("2h 15m");
   await expect(page.getByTestId("celebration")).toBeHidden();
 });
 
-test("does not celebrate a goal reached on a day that has passed", async ({
+test("does not celebrate a day that has passed, however far it got", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -811,15 +865,23 @@ test("does not celebrate a goal reached on a day that has passed", async ({
   await page.goto("/");
 
   await page.getByTestId("home-prev-day").click();
-  await add(page, "walk");
-  // An hour on yesterday, where any time of day has already happened.
-  await page.getByTestId("entry-from").fill("09:00");
-  await page.getByTestId("entry-to").fill("10:00");
-  await page.getByTestId("entry-save").click();
+  // Two hours on yesterday, where any time of day has already happened —
+  // double the 60-minute goal, so it reaches the one tier that celebrates.
+  for (const [from, to] of [
+    ["09:00", "10:00"],
+    ["10:00", "11:00"],
+  ]) {
+    await add(page, "walk");
+    await page.getByTestId("entry-from").fill(from);
+    await page.getByTestId("entry-to").fill(to);
+    await page.getByTestId("entry-save").click();
+  }
 
-  // Yesterday's goal is met, and filling in a day that has gone is
-  // bookkeeping rather than an achievement.
-  await expect(page.getByTestId("home-goal")).toContainText("Objetivo");
+  // Yesterday is doubled, and filling in a day that has gone is bookkeeping
+  // rather than an achievement.
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Día de campeonato",
+  );
   await expect(page.getByTestId("celebration")).toBeHidden();
 });
 
@@ -844,17 +906,13 @@ test("carries the marks with it when the month is paged", async ({ page }) => {
   await page.getByTestId("home-day").click();
   await expect(page.getByTestId("home-calendar")).toBeVisible();
   await expect(page.getByTestId("calendar-mark-incident")).toHaveCount(0);
-  // The sheet fades in, and a tap on the month arrow during that fade is
-  // swallowed — the grid stays on the month it opened at and the assertion
-  // below then blames the fetch for a click that never landed.
-  await page.waitForTimeout(600);
 
   // Page back a month with the library's own arrow, the way anybody looking
   // for "which day did he have diarrhoea?" would. That arrow changes the
   // month without calling `onMonthChange`, so a per-month fetch never learned
   // it had to run — and every cell fell through to the unlogged branch, the
   // calendar asserting that nothing happened all month.
-  await page.getByTestId("btn-prev").click();
+  await pageBackOneMonth(page);
 
   // The month on screen must be the month the marks belong to. Falling
   // through to the unlogged branch would have the calendar assert that
@@ -869,6 +927,277 @@ test("carries the marks with it when the month is paged", async ({ page }) => {
       })
       .first(),
   ).toBeVisible();
+});
+
+/**
+ * Last month's `day`th at 10:00, where any hour has already happened.
+ *
+ * The calendar specs below seed a month other than the current one, so the
+ * dates they need exist whatever day it is today — a spec that seeded
+ * "yesterday" would fall into the previous month on the 1st.
+ */
+function lastMonthAt(day: number): Date {
+  const at = new Date();
+  at.setDate(1);
+  at.setMonth(at.getMonth() - 1);
+  at.setDate(day);
+  at.setHours(10, 0, 0, 0);
+  return at;
+}
+
+/** Opens the month calendar and pages back to the month `lastMonthAt` seeds. */
+async function openLastMonth(page: Page) {
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("home-calendar")).toBeVisible();
+  await pageBackOneMonth(page);
+}
+
+/**
+ * Presses ‹ once, and does not return until the grid has actually moved.
+ *
+ * **The wait is kept, and a check is added to it.** The sheet fades in and a
+ * tap on the arrow during that fade is swallowed: the grid stays on the month
+ * it opened at, and whatever the spec asserts next blames the fetch for a
+ * click that never landed. Pressing until the header moves catches that —
+ * measured while writing this, one press in three needed a second one.
+ *
+ * **Do not delete the wait and keep only the check.** That was tried, and the
+ * spec went from failing about one run in fifteen to failing nine. The 600 ms
+ * is not padding for the fade; it is time for the year-wide marks read to
+ * land, and the reason it matters is uglier than this helper: when that read
+ * answers, the library re-derives the month on screen from `date`, which never
+ * left today, and **the grid snaps back to this month on its own**. Measured
+ * with a probe: the press lands, the header reads «septiembre», and five
+ * seconds later the calendar is on «octubre» with the navigation thrown away.
+ * `waitForLoadState("networkidle")` is not a substitute either — also tried,
+ * also nine.
+ *
+ * That snap-back is a defect in the app and not in this suite, and it is
+ * written up in `docs/specs/2026-10-23-calendario-vuelve-al-mes-de-hoy.md`
+ * rather than fixed here: the library folds the
+ * displayed month into state built once, so it cannot simply be told to stay
+ * (AGENTS.md records the measurement). Until it is decided, this helper keeps
+ * the spec testing what it means to test — that paging fetches the month it
+ * moved to — and does not pretend the race is gone.
+ *
+ * The post-press wait is deliberately longer than a frame: a press that
+ * landed and is merely slow must not be pressed again, which is the one way
+ * this could overshoot. A swallowed press is swallowed at once, not slowly.
+ */
+async function pageBackOneMonth(page: Page) {
+  await page.waitForTimeout(600);
+  const header = page.getByTestId("btn-month");
+  const opened = ((await header.textContent()) ?? "").trim();
+  await expect(async () => {
+    if (((await header.textContent()) ?? "").trim() === opened) {
+      await page.getByTestId("btn-prev").click();
+    }
+    await expect(header).not.toHaveText(opened, { timeout: 1500 });
+  }).toPass({ timeout: 15_000 });
+}
+
+/** The goal bar inside the cell the calendar labels exactly `label`. */
+function barIn(page: Page, label: string) {
+  return page
+    .getByTestId("home-calendar")
+    .getByLabel(label, { exact: true })
+    .first()
+    .getByTestId("calendar-mark-goal");
+}
+
+async function backgroundOf(locator: ReturnType<Page["getByTestId"]>) {
+  return hexOf(
+    await locator.evaluate((el) => getComputedStyle(el).backgroundColor),
+  );
+}
+
+test("marks a double day in the accent and an ordinary one in Aqua", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // Against a 120 goal: one minute short, the goal and a little over, exactly
+  // the goal, exactly double, and well past it. The two exact days are the
+  // boundaries, the ones that tell a `>=` from a `>` — and the day view says
+  // the same about each of them.
+  //
+  // **The pet is born on the 1st of January, not on its default.** The default
+  // birth date is the 14th of September, and a month that has a birthday in it
+  // draws a cake on that day — one of the five days seeded here, in the one
+  // month of the year this spec would otherwise run in.
+  await resetE2EPets();
+  const petId = await seedE2EPet({
+    birth_date: "2025-01-01",
+    exercise_goal_minutes: 120,
+  });
+  await seedE2EEvents(
+    petId,
+    [
+      [12, 119],
+      [13, 130],
+      [14, 240],
+      [15, 260],
+      [16, 120],
+    ].map(([day, minutes]) => ({
+      kind: "walk" as const,
+      occurredAt: lastMonthAt(day),
+      durationMinutes: minutes,
+    })),
+  );
+
+  await seedSession(page);
+  await page.goto("/");
+  await openLastMonth(page);
+
+  // Said in the day view's own words, so the mark is not colour alone — and
+  // the top tier is called what the day view calls it.
+  await expect(barIn(page, "13, día cumplido")).toBeVisible();
+  await expect(barIn(page, "14, día de campeonato")).toBeVisible();
+  await expect(barIn(page, "15, día de campeonato")).toBeVisible();
+  await expect(barIn(page, "16, día cumplido")).toBeVisible();
+  await expect(
+    page
+      .getByTestId("home-calendar")
+      .getByLabel("12, objetivo sin conseguir", { exact: true })
+      .first(),
+  ).toBeVisible();
+  await expect(barIn(page, "12, objetivo sin conseguir")).toHaveCount(0);
+
+  // The Shared Mark Rule: Aqua for the goal, Aurora Boreal for double — the
+  // two colours the day view's bar wears for the same two states.
+  expect(await backgroundOf(barIn(page, "13, día cumplido"))).toBe(
+    colors.accent,
+  );
+  expect(await backgroundOf(barIn(page, "14, día de campeonato"))).toBe(
+    colors.accentFocus,
+  );
+  // Exactly the goal is Tier 1, not short of it: the twin of the 240 day.
+  expect(await backgroundOf(barIn(page, "16, día cumplido"))).toBe(
+    colors.accent,
+  );
+  expect(await backgroundOf(barIn(page, "15, día de campeonato"))).toBe(
+    colors.accentFocus,
+  );
+
+  // The legend names both, in the same words and the same colours, so neither
+  // swatch is something to guess at.
+  const legend = page.getByTestId("home-calendar");
+  await expect(legend).toContainText("Día de campeonato");
+  expect(await backgroundOf(page.getByTestId("calendar-legend-goal"))).toBe(
+    colors.accent,
+  );
+  expect(await backgroundOf(page.getByTestId("calendar-legend-goal-top"))).toBe(
+    colors.accentFocus,
+  );
+});
+
+test("says the top tier in the same words it shows", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **The split is gone, and this is the test that keeps it gone.** "Objetivo
+  // conseguido x2" needed a spoken form of its own for one reason: a screen
+  // reader says "equis dos", which is not what the mark means. "Día de
+  // campeonato" is words already, so the visible and the spoken form are one
+  // string again — and a second copy of a name that lives in three places is
+  // a name that can drift in one of them. An `aria-label` anywhere on this
+  // mark is that copy coming back.
+  //
+  // Goal 60: today is 130 minutes (doubled), and last month's 13th is 70
+  // (Tier 1) beside its 14th at 130 (Tier 2). The pet is born on New Year's
+  // Day so no cake lands on a seeded day.
+  const earlier = new Date();
+  earlier.setHours(0, 1, 0, 0);
+  await resetE2EPets();
+  const petId = await seedE2EPet({
+    birth_date: "2025-01-01",
+    exercise_goal_minutes: 60,
+  });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 130 },
+    { kind: "walk", occurredAt: lastMonthAt(13), durationMinutes: 70 },
+    { kind: "walk", occurredAt: lastMonthAt(14), durationMinutes: 130 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+
+  // The bar's label: one string, seen and heard.
+  const met = page.getByTestId("home-goal-met");
+  await expect(met).toHaveText("Día de campeonato");
+  await expect(met).not.toHaveAttribute("aria-label", /.+/);
+
+  await openLastMonth(page);
+  const calendar = page.getByTestId("home-calendar");
+
+  // The cell says it in the same words, and nothing anywhere says "x2".
+  await expect(
+    calendar.getByLabel("14, día de campeonato", {
+      exact: true,
+    }),
+  ).not.toHaveCount(0);
+  await expect(calendar.getByLabel(/x2/i)).toHaveCount(0);
+  await expect(calendar.getByText(/x2/i)).toHaveCount(0);
+
+  // The legend: the same string again, with nothing spoken over it.
+  await expect(
+    calendar.getByText("Día de campeonato", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    calendar.getByText("Día de campeonato", { exact: true }),
+  ).not.toHaveAttribute("aria-label", /.+/);
+
+  // Tier 1 is unchanged, seen and heard.
+  await expect(
+    calendar.getByLabel("13, día cumplido", { exact: true }),
+  ).not.toHaveCount(0);
+  await expect(
+    calendar.getByText("Día cumplido", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    calendar.getByText("Día cumplido", { exact: true }),
+  ).not.toHaveAttribute("aria-label", /.+/);
+});
+
+test("a birthday that is also a double day reads as both", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // Both marks are Aurora Boreal, which is the point of The Shared Mark Rule
+  // and the reason to look: the cake is a watermark behind the number and the
+  // bar sits under it, and what keeps them two things is that they never
+  // share a pixel.
+  const day = lastMonthAt(14);
+  const iso = `${day.getFullYear() - 2}-${String(day.getMonth() + 1).padStart(2, "0")}-14`;
+  await resetE2EPets();
+  const petId = await seedE2EPet({
+    birth_date: iso,
+    exercise_goal_minutes: 120,
+  });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: day, durationMinutes: 260 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await openLastMonth(page);
+
+  // One cell, both facts, in words.
+  const label = "14, cumple 2 años, día de campeonato";
+  const bar = barIn(page, label);
+  await expect(bar).toBeVisible();
+  expect(await backgroundOf(bar)).toBe(colors.accentFocus);
+  await expect(page.getByTestId("calendar-mark-birthday")).toHaveCount(1);
+
+  // The cake's drawn box ends where the bar's begins. Its base line sits a
+  // few dp above that edge, so there is clear ground between the two — and
+  // this is the line that moves if the cake is ever made larger.
+  const cake = await page
+    .getByTestId("calendar-mark-birthday")
+    .locator("svg")
+    .boundingBox();
+  const under = await bar.boundingBox();
+  expect(cake).not.toBeNull();
+  expect(under).not.toBeNull();
+  expect(cake!.y + cake!.height).toBeLessThanOrEqual(under!.y + 0.5);
 });
 
 test("waits in the shape of the log, not on the day before it", async ({
@@ -1112,7 +1441,7 @@ test("forgets the length with the start it was read from", async ({ page }) => {
   await page.getByTestId("entry-save").click();
   await expect(page.getByTestId("home-log")).toContainText("09:45");
   await expect(page.getByTestId("home-log")).not.toContainText("30 min");
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
 });
 
 test("keeps every control on the 48dp floor here too", async ({ page }) => {
@@ -1171,20 +1500,24 @@ test("marks the goal met, once", async ({ page }) => {
   await typeWalk(page, now, 60);
   await page.getByTestId("entry-save").click();
 
-  await expect(page.getByTestId("home-goal")).toContainText(
-    "Objetivo conseguido",
-  );
-  // The goal reads in hours on both sides of the "de".
-  await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");
+  await expect(page.getByTestId("home-goal")).toContainText("Día cumplido");
+  // The day's own minutes and the walks they came in. No ceiling: the
+  // goal is the bar's business now, not the sentence's.
+  await expect(page.getByTestId("home-goal")).toContainText("1h en 1 paseo");
 
   // **Under the bar, not beside the measure.** The measure row's right slot
   // is the walk control's now, so the label has one home on every day. Both
   // halves are pinned: it is no longer inside the measure, and it sits below
   // the bar rather than above it.
+  //
+  // **Measured against the ground and not the fill**, because a day exactly
+  // on the goal is the foot of lap two: the fill is zero-width, which
+  // Playwright reads as invisible. The ground is the bar at its full width
+  // whatever the day did.
   await expect(page.getByTestId("home-goal-measure")).not.toContainText(
-    "Objetivo",
+    "Día cumplido",
   );
-  const bar = await page.getByTestId("home-goal-bar").boundingBox();
+  const bar = await page.getByTestId("home-goal-ground").boundingBox();
   const met = await page.getByTestId("home-goal-met").boundingBox();
   expect(bar, "the bar should be visible").not.toBeNull();
   expect(met, "the label should be visible").not.toBeNull();
@@ -1219,6 +1552,8 @@ async function typeWalk(page: Page, end: Date, minutes: number) {
  * behind it has to be handed it: the row is seeded and the device's own note
  * of which walk is running — the key and shape `lib/walk.ts` writes — is
  * planted before the page loads.
+ *
+ * Returns the row's id, for the specs that have to address that one row.
  */
 async function seedRunningWalk(page: Page, petId: string, startedAt: Date) {
   const [id] = await seedE2EEvents(petId, [
@@ -1228,6 +1563,7 @@ async function seedRunningWalk(page: Page, petId: string, startedAt: Date) {
     ([key, value]) => window.localStorage.setItem(key, value),
     ["petfile.walk.v1", JSON.stringify({ id })] as const,
   );
+  return id;
 }
 
 test("starts a walk and stops it from the goal block", async ({ page }) => {
@@ -1236,9 +1572,10 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
   await expect(page.getByTestId("home-goal-control")).toBeVisible();
-  // Nothing is running, so nothing pulses and nothing marks a junction.
+  // Nothing is running, so nothing pulses — and nothing is recorded, so
+  // there is no boundary between two walks to cut.
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
 
   const entries = page.locator('[data-testid^="home-entry-"]');
   await expect(entries).toHaveCount(0);
@@ -1251,7 +1588,8 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   // bar's segment is in the walk's first minutes.
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
-  await expect(page.getByTestId("home-goal-tick")).toBeVisible();
+  // The first walk of the day has nothing recorded before it, so no junction.
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
   await expect(entries).toHaveCount(1);
   await expect(entries.first()).toContainText("En marcha");
 
@@ -1268,13 +1606,13 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
     "De paseo",
   );
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
   await expect(entries).toHaveCount(0);
-  await expect(page.getByTestId("home-goal")).toContainText("0 min de 1h");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
 });
 
 /**
- * The two moments the tick specs hang on, derived from a "now" they own.
+ * The two moments these specs hang on, derived from a "now" they own.
  *
  * A recorded walk at one minute past midnight — the earliest start that is
  * still today, and always in the past — and a live walk begun two minutes ago.
@@ -1292,13 +1630,162 @@ function tickMoments(): { earlier: Date | null; running: Date } {
 }
 
 /**
- * **The tick is the boundary the two fills cannot draw.** Mist and the
- * segment's tone sit 1.71:1 apart, and against a 3 h goal the segment is 3.6 dp
- * wide at two minutes, so the mark at the junction is the only thing that says
- * where the recorded minutes end. The goal is 60 min here and 30 are recorded,
- * so the junction is the middle of the bar.
+ * **A day on a past date, with its walks already written down.**
+ *
+ * The cuts are read off recorded minutes, so these specs need a day of
+ * finished walks and no clock in the way: seeded on yesterday at fixed
+ * morning hours, which have already happened whatever time the suite runs
+ * at, and reached with ‹. This file's header is about why a fixed hour on
+ * *today* is a test that fails half the day.
  */
-test("marks where the recorded minutes end while a walk is running", async ({
+async function seedWalksYesterday(
+  page: Page,
+  goalMinutes: number,
+  minutes: number[],
+) {
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: goalMinutes });
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  await seedE2EEvents(
+    petId,
+    minutes.map((duration, i) => {
+      const at = new Date(yesterday);
+      at.setHours(7 + i, 0, 0, 0);
+      return {
+        kind: "walk" as const,
+        occurredAt: at,
+        durationMinutes: duration,
+      };
+    }),
+  );
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  return petId;
+}
+
+/**
+ * **The bar said how much and not in what trozos, and this is the whole
+ * feature.** Three walks, a cut at the end of each of the first two, and none
+ * at the end of the third: its end is the fill's own leading edge, which is
+ * already drawn. Counted rather than timed — nothing here waits on a clock.
+ *
+ * 20, 40 and 30 of a 180-minute goal: the cuts land at a ninth and a third of
+ * the bar, which also rules out a pair pinned to one end.
+ */
+test("marks where each walk ended, except the last", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedWalksYesterday(page, 180, [20, 40, 30]);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "1h 30m en 3 paseos",
+  );
+
+  const cuts = page.getByTestId("home-goal-cut");
+  await expect(cuts).toHaveCount(2);
+
+  const track = await page.getByTestId("home-goal-ground").boundingBox();
+  const first = await cuts.nth(0).boundingBox();
+  const second = await cuts.nth(1).boundingBox();
+  expect(track, "the track should be drawn").not.toBeNull();
+  expect((first!.x + first!.width / 2 - track!.x) / track!.width).toBeCloseTo(
+    20 / 180,
+    2,
+  );
+  expect((second!.x + second!.width / 2 - track!.x) / track!.width).toBeCloseTo(
+    60 / 180,
+    2,
+  );
+
+  // **2 dp across, and the bar's own height.** It crosses the bar rather than
+  // standing proud of it the way the tick did, because it is painted in the
+  // track's own colour: out beyond the bar that colour is nothing against the
+  // page. The width is the tick's, measured on the device — one mark, one
+  // width.
+  expect(first!.width).toBeCloseTo(2, 0);
+  expect(first!.height).toBeCloseTo(track!.height, 0);
+  expect(first!.y).toBeCloseTo(track!.y, 0);
+  // The track's own colour — "here there is nothing" said the way the bar
+  // already says it. Not white, which is what the tick was: lighter than both
+  // things it separated, about 1.4:1 against Mist.
+  const painted = await cuts
+    .first()
+    .evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(hexOf(painted)).toBe(colors.surface);
+
+  // Decoration to a reader: the measure above says "en 3 paseos", which is
+  // the same fact in better words.
+  await expect(cuts.first()).toHaveAttribute("aria-hidden", "true");
+});
+
+/**
+ * **The cuts of a completed lap stay on the bar, and that is what saves the
+ * idea in this house.** With a 2 h goal, crossing it is the ordinary day: cuts
+ * drawn *inside* the fill would be emptied along with it every time the bar
+ * lapped, and a day of four walks would show one mark. Drawn over the ground,
+ * they stay.
+ *
+ * 50, 40, 50 and 20 of a 120-minute goal. The day totals 160, so the bar is on
+ * lap two at a third; the three cuts fall at 50/120, 90/120 and — the fourth
+ * walk's own start, 140 of 120 — at 20/120, **to the left of the other two**.
+ * There is no left-to-right order to read here, and a spec that sorted them
+ * would be asserting one.
+ */
+test("keeps the cuts of a lap the day has already completed", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedWalksYesterday(page, 120, [50, 40, 50, 20]);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "2h 40m en 4 paseos",
+  );
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+
+  const cuts = page.getByTestId("home-goal-cut");
+  await expect(cuts).toHaveCount(3);
+
+  const track = await page.getByTestId("home-goal-ground").boundingBox();
+  const places = await Promise.all(
+    [0, 1, 2].map(async (i) => {
+      const box = await cuts.nth(i).boundingBox();
+      return (box!.x + box!.width / 2 - track!.x) / track!.width;
+    }),
+  );
+  // In walk order, not position order: the third cut is the second lap's and
+  // sits left of the two before it.
+  expect(places[0]).toBeCloseTo(50 / 120, 2);
+  expect(places[1]).toBeCloseTo(90 / 120, 2);
+  expect(places[2]).toBeCloseTo(20 / 120, 2);
+});
+
+test("cuts nothing on a day of one walk, which has no boundary", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // One walk is one stretch of bar with nothing to separate it from: its end
+  // is the fill's leading edge and is already drawn.
+  await seedWalksYesterday(page, 120, [45]);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "45 min en 1 paseo",
+  );
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
+});
+
+/**
+ * **The cut the tick used to be.** Mist and the live segment's tone sit
+ * 1.71:1 apart, and against a 3 h goal the segment is 3.6 dp wide at two
+ * minutes, so the mark at the junction is the only thing that says where the
+ * recorded minutes end. Retiring the tick had to keep that mark, and this is
+ * the spec that says it did: the walk in progress is the last walk of the day,
+ * so the boundary before it is the day's last cut.
+ *
+ * The goal is 60 min here and 30 are recorded, so the junction is the middle
+ * of the bar.
+ */
+test("puts the last cut on the recorded boundary while a walk runs", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -1317,31 +1804,28 @@ test("marks where the recorded minutes end while a walk is running", async ({
   await page.goto("/");
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
 
-  const tick = page.getByTestId("home-goal-tick");
-  await expect(tick).toBeVisible();
+  const cut = page.getByTestId("home-goal-cut");
+  await expect(cut).toHaveCount(1);
   const bar = await page.getByTestId("home-goal-bar").boundingBox();
-  const box = await tick.boundingBox();
+  const box = await cut.boundingBox();
   expect(bar, "the recorded fill should be drawn").not.toBeNull();
-  expect(box, "the tick should be drawn").not.toBeNull();
+  expect(box, "the cut should be drawn").not.toBeNull();
 
   // **Its position tracks the recorded proportion**: the recorded fill's right
-  // edge is the junction, and the tick is centred on it. A half-way junction
-  // also rules out a tick pinned to either end.
+  // edge is the junction, and the cut is centred on it. A half-way junction
+  // also rules out a mark pinned to either end.
   const junction = bar!.x + bar!.width;
   expect(box!.x + box!.width / 2).toBeCloseTo(junction, 0);
   expect(bar!.width).toBeGreaterThan(0);
 
-  // 2 dp wide and 12 tall, and standing proud of the 4 dp track at both ends.
   expect(box!.width).toBeCloseTo(2, 0);
-  expect(box!.height).toBeCloseTo(12, 0);
-  expect(box!.y).toBeLessThan(bar!.y);
-  expect(box!.y + box!.height).toBeGreaterThan(bar!.y + bar!.height);
+  expect(box!.height).toBeCloseTo(bar!.height, 0);
 
   // Decoration to a reader, the way the dot is.
-  await expect(tick).toHaveAttribute("aria-hidden", "true");
+  await expect(cut).toHaveAttribute("aria-hidden", "true");
 });
 
-test("moves the tick as more is recorded, and leaves the layout alone", async ({
+test("cuts the junction the moment a walk starts, and leaves the layout alone", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -1357,30 +1841,34 @@ test("moves the tick as more is recorded, and leaves the layout alone", async ({
 
   await seedSession(page);
   await page.goto("/");
-  await expect(page.getByTestId("home-goal")).toContainText("15 min de 1h");
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "15 min en 1 paseo",
+  );
+  // One recorded walk and nothing after it: no boundary. Starting a walk
+  // makes one.
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
   const idle = await page.getByTestId("home-goal").boundingBox();
 
   await page.getByTestId("home-goal-control").click();
-  const tick = page.getByTestId("home-goal-tick");
-  await expect(tick).toBeVisible();
+  const cut = page.getByTestId("home-goal-cut");
+  await expect(cut).toHaveCount(1);
 
   // A quarter of the bar: the junction is where 15 of 60 minutes end.
   const bar = await page.getByTestId("home-goal-bar").boundingBox();
-  const box = await tick.boundingBox();
+  const box = await cut.boundingBox();
   // The block is as wide as the track, so the recorded fill is a quarter of it.
   const idleWidth = idle!.width;
   expect(box!.x + box!.width / 2).toBeCloseTo(bar!.x + bar!.width, 0);
   expect(bar!.width / idleWidth).toBeCloseTo(0.25, 2);
 
-  // **It does not change the block.** The tick is absolutely placed, so the
+  // **It does not change the block.** The cut is absolutely placed, so the
   // block is the height it was when idle.
   const walking = await page.getByTestId("home-goal").boundingBox();
   expect(walking!.height).toBeCloseTo(idle!.height, 0);
   expect(walking!.y).toBeCloseTo(idle!.y, 0);
 });
 
-test("draws no tick when the goal is already met, walking or not", async ({
+test("cuts nothing on a day exactly at the goal, where lap two has recorded nothing yet", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -1398,12 +1886,1831 @@ test("draws no tick when the goal is already met, walking or not", async ({
   await seedSession(page);
   await page.goto("/");
 
-  // The bar is full and Aqua and the walk is running; there is no segment, so
-  // a mark at the right end would separate the recorded minutes from nothing.
+  // 60 of 60 is the foot of lap two: the ground is Aqua and the recorded fill
+  // over it is empty, with a walk running. The boundary between the recorded
+  // walk and the live one falls exactly on the lap line, where the ground
+  // already turns and a mark would hang off the track's left edge — so it is
+  // withheld because there is nothing there to separate, not because the goal
+  // is met. One minute further and it does draw.
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
   await expect(page.getByTestId("home-goal-met")).toBeVisible();
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
+});
+
+test("cuts nothing on the first walk of the day, where nothing is recorded yet", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // Nothing recorded, so there is no junction: the line would sit on the
+  // bar's left edge, 1 dp outside the track, separating nothing from the
+  // walk in progress.
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
+});
+
+test("sweeps the bar while a walk runs, and only then", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+  await expect(page.getByTestId("home-goal-sweep")).toHaveCount(0);
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-sweep")).toBeVisible();
+  await expect(page.getByTestId("home-goal-sweep")).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
+  // **Inside the track, so the track's rounded clip is the band's.** Beside
+  // it, the band's own square clip painted square corners into the bar's
+  // rounded ends on every pass of every walk.
+  const insideTrack = await page
+    .getByTestId("home-goal-sweep")
+    .evaluate(
+      (el) =>
+        el.parentElement ===
+        document.querySelector('[data-testid="home-goal-bar"]')?.parentElement,
+    );
+  expect(insideTrack, "the sweep should be a child of the track").toBe(true);
+});
+
+test("sweeps nothing for a tutor who asked for no animation", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  // The walk is running — the dot proves the state is real — and the band
+  // is absent rather than slow.
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await expect(page.getByTestId("home-goal-sweep")).toHaveCount(0);
+});
+
+/**
+ * **One bar, two grounds, and the band has to answer both.** Measured on the
+ * device: a pale band over the dark track lifts the red channel by 123 and
+ * over the recorded fill by 20, so on a day with minutes already banked the
+ * band crossed half the bar unseen. Cutting the tone at the junction took the
+ * weak half to −67, measured on the phone, and that is what this pins. A
+ * second answer was tried alongside it — making the band taller than the bar —
+ * and removed: it bought nothing the tone had not already bought, and it
+ * coarsened the half that was never broken.
+ *
+ * The goal is 60 min here and 30 are recorded, so there is a junction in the
+ * middle of the bar and both halves exist.
+ */
+test("takes the opposite tone of each half of the bar it crosses", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const { earlier, running } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  const sweep = page.getByTestId("home-goal-sweep");
+  await expect(sweep).toBeVisible();
+
+  // Two bands, not one: a dark one over the light recorded fill and the light
+  // one over the dark track. A single tone here is the defect coming back.
+  const tones = await sweep.evaluate((el) =>
+    [...el.querySelectorAll("stop")].map(
+      (s) => s.getAttribute("stop-color") ?? "",
+    ),
+  );
+  expect(new Set(tones)).toEqual(
+    new Set([colors.onAccent, colors.textPrimary]),
+  );
+
+  // And it stays the bar's own height. It used to be measured against the
+  // tick, which stood 4 dp proud of the track at each end; the cut that
+  // replaced the tick crosses the bar and stops, so the track itself is what
+  // the band may not exceed. It was briefly 10 dp and lens-shaped, and that
+  // is the regression this holds down.
+  const band = await sweep.boundingBox();
+  const track = await page.getByTestId("home-goal-ground").boundingBox();
+  expect(band, "the band should be drawn").not.toBeNull();
+  expect(track, "the track should be drawn").not.toBeNull();
+  expect(band!.height).toBeCloseTo(track!.height, 0);
+});
+
+/**
+ * **The bar is two tones at once, and these read them apart.**
+ *
+ * The ground is the tier the day reached and the fill is the way to the next,
+ * so a day on lap two (Aqua under violet) and a day past double (violet with
+ * nothing over it) differ only in which element carries which colour. One
+ * element each, one testID each, or the pair cannot be told apart at all.
+ *
+ * Reported as a hex string, because `tokens.ts` is where this file takes the
+ * palette from and `getComputedStyle` answers in `rgb()`.
+ */
+function hexOf(css: string): string {
+  const [r, g, b] = (css.match(/\d+/g) ?? []).slice(0, 3).map(Number);
+  return `#${[r, g, b]
+    .map((v) => v.toString(16).padStart(2, "0"))
+    .join("")}`.toUpperCase();
+}
+
+async function groundColour(page: Page): Promise<string> {
+  return hexOf(
+    await page
+      .getByTestId("home-goal-ground")
+      .evaluate((el) => getComputedStyle(el).backgroundColor),
+  );
+}
+
+async function fillColour(page: Page): Promise<string> {
+  return colourOf(page, "home-goal-bar");
+}
+
+/** The background any one part of the bar is drawn in, as a hex string. */
+async function colourOf(page: Page, id: string): Promise<string> {
+  return hexOf(
+    await page
+      .getByTestId(id)
+      .evaluate((el) => getComputedStyle(el).backgroundColor),
+  );
+}
+
+/**
+ * The drawn width of one of the bar's parts, in CSS pixels.
+ *
+ * `boundingBox()` is no use here: Playwright calls a zero-width element
+ * invisible and answers `null`, and zero width is exactly the reading that
+ * tells a day sitting on a tier from a day past it.
+ */
+function widthOf(page: Page, id: string): Promise<number> {
+  return page
+    .getByTestId(id)
+    .evaluate((el) => el.getBoundingClientRect().width);
+}
+
+test("turns Aqua at the goal and starts the second lap over it", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  const { earlier } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 180 },
+  ]);
+  await seedSession(page);
+  await page.goto("/");
+
+  // 180 of 120 is lap two, half way: the ground is Aqua and the fill violet.
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "3h en 1 paseo",
+  );
+  const ground = await groundColour(page);
+  const fill = await fillColour(page);
+  expect(ground).toBe(colors.accent);
+  expect(fill).toBe(colors.accentFocus);
+
+  // Half way along a lap that is as long as the first one, which is the
+  // whole visual argument for deriving the top tier as double.
+  const across =
+    (await widthOf(page, "home-goal-bar")) /
+    (await widthOf(page, "home-goal-ground"));
+  expect(across).toBeCloseTo(0.5, 2);
+
+  // Lap one is still said in words, because the bar no longer says it alone.
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+});
+
+test("a day exactly at the goal is Aqua with no second lap showing", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  const { earlier } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  // 120 of 120: the whole bar Aqua, the violet fill zero-width.
+  // Asserts the column the artboard settled: Aqua is still the signal for met.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 120 },
+  ]);
+  await seedSession(page);
+  await page.goto("/");
+
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "2h en 1 paseo",
+  );
+  expect(await groundColour(page)).toBe(colors.accent);
+  // **The foot of lap two, not the head of lap one.** A day that lands on the
+  // goal has nothing left for a lap-one fill to say — the whole bar is already
+  // Aqua — so the fill wraps to zero and the second lap begins empty.
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+});
+
+test("a day past double is violet throughout", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  const { earlier } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  // 260 of 120: ground violet, no further fill.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 260 },
+  ]);
+  await seedSession(page);
+  await page.goto("/");
+
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "4h 20m en 1 paseo",
+  );
+  expect(await groundColour(page)).toBe(colors.accentFocus);
+  // There is no third lap to start, so nothing is painted over the violet.
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Día de campeonato",
+  );
+});
+
+test("a day at exactly double is violet throughout, with nothing over it", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  const { earlier } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  // 240 of 120: the top of the scale, the other half of the wrap rule that
+  // 120 of 120 pins at the bottom. There is no third lap, so the fill is
+  // suppressed rather than full.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 240 },
+  ]);
+  await seedSession(page);
+  await page.goto("/");
+
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "4h en 1 paseo",
+  );
+  expect(await groundColour(page)).toBe(colors.accentFocus);
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Día de campeonato",
+  );
+});
+
+/**
+ * `TURN_MS` in `components/ui/GoalBlock.tsx`, the length of the wipe that
+ * crosses the bar at a tier.
+ *
+ * **Copied rather than imported**, because this spec drives the web build
+ * through a browser and shares no module with it. It is provisional there
+ * and so it is provisional here: a wipe that changes length changes this
+ * line, and the two assertions that read it say what the number has to buy
+ * rather than what it is. Its ceiling is pinned where it can be checked —
+ * `components/__tests__/goal-turn-under-close.test.ts` fails if the wipe
+ * grows long enough to outlive the close that covers it.
+ */
+const TURN_MS = 700;
+
+/**
+ * Samples the bar's two tones and the wipe crossing it, on every frame for
+ * `ms`, with the clock.
+ *
+ * **The crossing is the one thing on this bar that cannot be asserted
+ * settled.** Before and after are the same picture whether the new ground was
+ * substituted on one frame or wiped across the bar, so what has to be caught
+ * is the middle — the wipe part-way over a bar still wearing the lap it is
+ * leaving. `turn` is the wipe's own width as a share of the track, and −1 on a
+ * frame where it is not mounted. The timestamps come from the page's own clock
+ * rather than from Playwright's, because what is being measured is shorter
+ * than a round trip.
+ */
+function toneFrames(page: Page, ms: number) {
+  return page.evaluate(
+    ([sampleMs]) =>
+      new Promise<
+        {
+          t: number;
+          ground: string;
+          fill: string;
+          turn: number;
+          closing: boolean;
+        }[]
+      >((resolve) => {
+        const hex = (css: string): string => {
+          const rgb = (css.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+          if (rgb.length < 3) return "";
+          return `#${rgb
+            .map((v) => v.toString(16).padStart(2, "0"))
+            .join("")}`.toUpperCase();
+        };
+        const tone = (id: string) => {
+          const el = document.querySelector(`[data-testid="${id}"]`);
+          return el ? hex(getComputedStyle(el).backgroundColor) : "";
+        };
+        const share = (id: string) => {
+          const el = document.querySelector(`[data-testid="${id}"]`);
+          const track = document.querySelector(
+            '[data-testid="home-goal-ground"]',
+          );
+          if (!el || !track) return -1;
+          const width = track.getBoundingClientRect().width;
+          return width === 0 ? -1 : el.getBoundingClientRect().width / width;
+        };
+        const frames: {
+          t: number;
+          ground: string;
+          fill: string;
+          turn: number;
+          closing: boolean;
+        }[] = [];
+        const began = performance.now();
+        const step = () => {
+          frames.push({
+            t: performance.now() - began,
+            ground: tone("home-goal-ground"),
+            fill: tone("home-goal-bar"),
+            turn: share("home-goal-turn"),
+            closing:
+              document.querySelector('[data-testid="home-goal-close"]') !==
+              null,
+          });
+          if (performance.now() - began >= sampleMs) {
+            resolve(frames);
+            return;
+          }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }),
+    [ms] as const,
+  );
+}
+
+/**
+ * **Crossing the goal is a pulse that fills the bar with its new ground, left
+ * to right.**
+ *
+ * Two substitutions on one frame read as a cut — the ground gains colour (the
+ * empty track to Aqua) and the fill changes hue (Mist to Aurora Boreal) — and
+ * v0.18.0 answered that by staggering them 150 ms apart. v0.20.0 replaces the
+ * stagger with the gesture: the new ground wipes across the picture the bar
+ * had, and the lap underneath — ground and fill together — is substituted
+ * when the wipe has arrived. One mechanism for one moment, whatever moved the
+ * day over the line.
+ *
+ * The close covers its own crossing — it paints the whole bar for 760 ms —
+ * so the crossing this watches has to be one nothing is drawn over. **That
+ * used to be a walk written through the sheet, and it is not any more:** a
+ * hand edit that adds minutes now takes the close's own ceremony, grounds
+ * and all, which is the whole of the change that moved it. What is left
+ * bare is the re-read — the other tutor's walk arriving — and the walk in
+ * progress reaching the goal, which cannot be driven here without a clock.
+ *
+ * **And it watches the curve, not only the travel.** `out(cubic)` travelled
+ * too — it was a wipe by every assertion below except the two added with
+ * `TURN_MS`, and the tutor still read it as a cut, because it spent nine
+ * tenths of itself in the first third of its time.
+ */
+test("wipes the new ground across the bar when the goal is crossed", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **On yesterday, where a fixed morning hour has already happened.** The
+  // crossing has to arrive under a block that is already mounted — a tier
+  // the day lands on while nobody is looking is the day's tier and not a
+  // crossing — so the hour is written first and the 90 minutes that carry
+  // 60 of 120 over the goal to 150 come in afterwards.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("10:00");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "1h en 1 paseo",
+  );
+  expect(await groundColour(page)).toBe(colors.surface);
+  expect(await fillColour(page)).toBe(colors.textSecondary);
+  // That save has a ceremony of its own now, and it has to be over before
+  // the bare crossing is watched for.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(1);
+
+  // Written straight into the table, the way the other phone writes it.
+  const crossedAt = new Date();
+  crossedAt.setDate(crossedAt.getDate() - 1);
+  crossedAt.setHours(10, 0, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: crossedAt, durationMinutes: 90 },
+  ]);
+
+  const sampling = toneFrames(page, 4_000);
+  await comeBackToTheApp(page);
+  const frames = await sampling;
+
+  // Nothing was drawn over the bar: this is the bare crossing, not the close.
+  expect(frames.filter((f) => f.closing).length).toBe(0);
+
+  // **It travelled, which is what tells a wipe from a substitution.** The
+  // settled bar is the same picture either way; a width that is neither
+  // nothing nor the whole track can only come from the interpolation.
+  const wiping = frames.filter((f) => f.turn >= 0);
+  expect(wiping.length, "the wipe should be mounted").toBeGreaterThan(5);
+  expect(
+    wiping.filter((f) => f.turn > 0.1 && f.turn < 0.9).length,
+    "the wipe should be caught part-way across",
+  ).toBeGreaterThan(3);
+
+  // **And it is half across at half time, which is the curve and not the
+  // travel.** `Easing.out(Easing.cubic)` passed every assertion above and the
+  // tutor still read a real crossing as instant: deceleration alone covers
+  // half the bar in about a fifth of its time, so the motion is over before
+  // the eye has arrived and the rest is the last pixels crawling. Measured
+  // from the wipe's own first frame, so this is the shape of the curve rather
+  // than the lateness of the mount, and banded wide because a frame either
+  // side of the midpoint is not the point.
+  const began = wiping[0].t;
+  const middle = wiping.reduce((best, frame) =>
+    Math.abs(frame.t - began - TURN_MS / 2) <
+    Math.abs(best.t - began - TURN_MS / 2)
+      ? frame
+      : best,
+  );
+  expect(
+    middle.turn,
+    "the wipe should be near the middle of the bar at the middle of its time",
+  ).toBeGreaterThan(0.2);
+  expect(middle.turn).toBeLessThan(0.8);
+
+  // **And the bar underneath is held at the lap it is leaving, every frame of
+  // it.** The ground and the fill are two halves of one picture, so a frame
+  // where one has turned and the other has not is the cut this replaces.
+  expect(wiping.map((f) => f.ground)).toEqual(wiping.map(() => colors.surface));
+  expect(wiping.map((f) => f.fill)).toEqual(
+    wiping.map(() => colors.textSecondary),
+  );
+
+  // The substitution lands when the wipe has arrived, not before it and not
+  // half a second after: `TURN_MS`, with room for the mount and a frame of
+  // slack either side. The band is wide on purpose — what catches a wrong
+  // *curve* is the midpoint above, and what catches a wipe outliving the
+  // close is a unit test on the two constants.
+  const turned = frames.findIndex((f) => f.ground === colors.accent);
+  expect(turned, "the ground should reach Aqua").toBeGreaterThan(0);
+  expect(frames[turned].fill).toBe(colors.accentFocus);
+  expect(frames[turned].turn).toBe(-1);
+  const crossing = frames[turned].t - began;
+  expect(crossing).toBeGreaterThan(TURN_MS - 100);
+  expect(crossing).toBeLessThan(TURN_MS + 400);
+
+  // Same end state as before: Aqua under a quarter-lap of violet.
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "2h 30m en 2 paseos",
+  );
+  expect(await groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+});
+
+test("crosses the goal with no wipe for a tutor who asked for no animation", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // The same crossing with motion off. **"Absent" has to mean the whole bar
+  // substitutes at once** — the rest of the app collapses an animation to the
+  // state it was heading for, and a wipe held at half a bar, or a ground that
+  // waits 620 ms for a gesture nobody is drawing, would both be worse than
+  // the cut this replaced.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await resetE2EPets();
+  await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("10:00");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "1h en 1 paseo",
+  );
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("10:00");
+  await page.getByTestId("entry-to").fill("11:30");
+
+  const sampling = toneFrames(page, 2_500);
+  await page.getByTestId("entry-save").click();
+  const frames = await sampling;
+
+  // Nothing was ever drawn over the bar.
+  expect(frames.filter((f) => f.turn >= 0).length).toBe(0);
+
+  // And the two halves land together: no frame wears one lap's ground under
+  // the other lap's fill.
+  const split = frames.filter(
+    (f) =>
+      (f.ground === colors.accent) !== (f.fill === colors.accentFocus) &&
+      f.ground !== "" &&
+      f.fill !== "",
+  );
+  expect(split.map((f) => [f.ground, f.fill])).toEqual([]);
+
+  expect(await groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+});
+
+test("re-reads every tier when the goal is edited under a running walk", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  const { earlier } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  // Seed 150 recorded against a 120 goal (lap two), start a walk, change the
+  // goal to 300 in Perfil, come back: the bar is lap one at half and
+  // nothing is left painted violet. Every tier is derived
+  // from the goal the screen is holding right now, and a stale one would show
+  // here as a bar still wearing the old lap's colours.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 150 },
+  ]);
+  await seedSession(page);
+  await page.goto("/");
+
+  await expect(page.getByTestId("home-goal-measure")).toContainText(
+    "2h 30m en 1 paseo",
+  );
+  expect(await groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+
+  // **Started from the control, so it is under a minute old** — the stop at
+  // the end then discards it as a mis-tap and the recorded total is still the
+  // 150 that was seeded, whatever the navigation cost.
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  await page.goto("/profile");
+  await page.getByTestId("profile-edit-health").click();
+  await page.getByTestId("profile-exercise-goal").fill("300");
+  await page.getByTestId("profile-save").click();
+  await expect(page.getByTestId("profile-goal-value")).toHaveText("5h");
+
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // 150 of 300 is lap one at half: the empty track under a Mist fill, and
+  // not a trace of either violet left anywhere on the bar.
+  expect(await groundColour(page)).toBe(colors.surface);
+  expect(await fillColour(page)).toBe(colors.textSecondary);
+  const across =
+    (await widthOf(page, "home-goal-bar")) /
+    (await widthOf(page, "home-goal-ground"));
+  expect(across).toBeCloseTo(0.5, 2);
+  await expect(page.getByTestId("home-goal-met")).toHaveCount(0);
+
+  // And the measure goes back to the day's own minutes once the walk is
+  // out of the way. The goal was never in that sentence, so the edit does
+  // not reach it — the tiers above are where an edit shows. The shape is
+  // what is pinned: a navigation slow enough to close the walk at a
+  // minute adds one to each half of it.
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    /^2h 3\dm en [12] paseos?$/,
+  );
+});
+
+/**
+ * **The ground follows the walk in progress, and the label goes with it.**
+ *
+ * Until v0.20.0 the ground was the tier the *recorded* minutes had reached,
+ * and a live segment lapping in grey over an unturned ground was the signal
+ * that something had not been saved. That rule is lifted deliberately: the
+ * moment the day reaches its goal is the moment the dog did the walking, and
+ * the tutor would rather see it then than at the paperwork. A walk left
+ * running is still visible in the log's `En marcha` row and in the control's
+ * stop glyph.
+ *
+ * **The bar and the words are one clock.** v0.15.0 went entirely into making
+ * them unable to disagree, so `Día cumplido` appears with the ground or the
+ * defect is back for as long as the walk runs.
+ */
+test("follows the walk in progress over the goal, ground and label together", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // 30 min recorded against a 60-minute goal and a walk 45 minutes old: 75 of
+  // 60 is a quarter of the way into lap two, while the *recorded* total is
+  // still only half of lap one.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 45 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "45 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // **The ground is the tier the day has reached, minutes in progress and
+  // all.** The bar is whole and Aqua, and the words under it say so.
+  expect(await groundColour(page)).toBe(colors.accent);
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+
+  // Nothing is celebrated: the confetti is kept for the stop, because during
+  // a walk the phone is in a pocket.
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  const bar = await widthOf(page, "home-goal-ground");
+  // **Nothing is recorded on lap two yet**, so there is no saved fill and no
+  // junction to mark — the whole of what is drawn over the Aqua is the walk
+  // in progress, in lap two's live tone. Its width is the one reading here
+  // that moves with the clock: 75 of 60 is a quarter of lap two, and a setup
+  // that crossed a minute makes it 76.
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+  expect(await colourOf(page, "home-goal-live")).toBe(colors.accentFocusDim);
+  expectMinutes((await widthOf(page, "home-goal-live")) / bar, 15, 16, 60);
+
+  // **And lap one's cut is still on the bar.** The 30 recorded minutes ended
+  // halfway through lap one, and the day has since lapped past them; a cut
+  // drawn inside the fill would have been emptied along with it, which is the
+  // whole reason the cuts are painted over the ground instead. There is no
+  // second one: the walk in progress is the day's last walk.
+  const cut = page.getByTestId("home-goal-cut");
+  await expect(cut).toHaveCount(1);
+  const mark = await cut.boundingBox();
+  const track = await page.getByTestId("home-goal-ground").boundingBox();
+  expect((mark!.x + mark!.width / 2 - track!.x) / bar).toBeCloseTo(0.5, 2);
+
+  // **And the band over a completed lap is gone with the rule it carried.**
+  // A lap the ground has not admitted to cannot exist any more: the ground
+  // admits to everything the day has walked.
+  await expect(page.getByTestId("home-goal-lap")).toHaveCount(0);
+
+  const left = await page.getByTestId("home-goal-ground").boundingBox();
+  const segment = await page.getByTestId("home-goal-live").boundingBox();
+  expect(segment!.x).toBeCloseTo(left!.x, 0);
+});
+
+test("draws no bar at all for a pet with no goal, as before", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  const { earlier } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  // The constraint that a tutor without a goal keeps today's behaviour
+  // exactly: no bar on the day view, no underline in the calendar, and the
+  // measure says what it says on any other day. This is the regression the tiers could
+  // silently break, since every new branch keys off a goal that is there.
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: null });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 30 },
+  ]);
+  await seedSession(page);
+  await page.goto("/");
+
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+  await expect(page.getByTestId("home-goal-ground")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-bar")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveCount(0);
+
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("home-calendar")).toBeVisible();
+  await expect(page.getByLabel(/día cumplido/)).toHaveCount(0);
+  await closeCalendar(page);
+});
+
+/**
+ * **The close is asserted settled, except where noted.** It runs for 760 ms and
+ * Playwright cannot be parked inside it: this file's own header records that
+ * `page.clock.setFixedTime` stops Reanimated dead and `install` + `resume`
+ * keeps the day view from rendering at all. So what these pin is where the
+ * bar comes to rest — the overlay gone, the live marks gone, and the fill
+ * holding the tone its props give it. The overlay carries `home-goal-close`,
+ * so `toHaveCount(0)` is the settled state.
+ *
+ * The first of them stops inside the first minute, which deletes the row as a
+ * mis-tap, so it pins the other half of the rule too: a close that added no
+ * minutes says nothing. The rest write on the walk before stopping it, which
+ * closes it at the one minute the column accepts, so each of those is a real
+ * close.
+ *
+ * Where a spec has to see the overlay rather than its absence it arms
+ * `page.waitForSelector` before the tap — a settled assertion would retry
+ * straight past the 760 ms. What keeps the drawing itself from being
+ * deletable in silence is further down the file: `barFrames`, `cutFrames`
+ * and `widthInFlight` sample the bar on every frame, the way
+ * `shakeTranslation` does.
+ */
+test("lands a closed walk in the recorded tone, and clears the live segment", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  // The row went with the mis-tap, so the day holds no walks and the bar has
+  // nothing to cut.
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
+});
+
+test("lands the minute a walk that was written on recorded", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+
+  // Stopped inside the first minute, but written on — so the row is closed at
+  // the one minute the column accepts rather than deleted, and that minute is
+  // what the close animates.
+  //
+  // **The one assertion in this file that catches the close in the air, and
+  // it is here because nothing else in the suite would notice the whole
+  // animation being deleted.** Every other close spec asserts an absence,
+  // which an unbuilt overlay satisfies exactly as well as a settled one.
+  //
+  // **Armed before the tap, because the overlay no longer waits for the
+  // reload.** It mounts on the stop and is gone 760 ms later, so a settled
+  // assertion afterwards could retry straight past it.
+  const mounted = page.waitForSelector('[data-testid="home-goal-close"]', {
+    state: "attached",
+  });
+  await page.getByTestId("home-goal-control").click();
+  await mounted;
+
+  // And then it goes, leaving the fill holding the tone it already had.
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+});
+
+test("does not animate a close onto a day that is not the walk's", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  // **Written on before it is stopped, or there is no close to withhold.** A
+  // walk stopped inside its first minute is deleted as a mis-tap and adds no
+  // minutes, so nothing is recorded and this would pass over a day gate that
+  // had been deleted. Written on, the row is closed at a minute instead.
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
+
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
+  // Never, rather than "gone by the time we looked" — the same reason the
+  // replay spec below waits to be disappointed. Yesterday's bar would have
+  // animated for 760 ms, and a settled assertion would simply retry past it.
+  await expect(
+    page.waitForSelector('[data-testid="home-goal-close"]', {
+      state: "attached",
+      timeout: 2000,
+    }),
+  ).rejects.toThrow();
+});
+
+test("does not replay a close on the way back to the day it happened on", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
+
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
+  await page.getByTestId("home-next-day").click();
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
+
+  // **Never, rather than "gone by the time we looked".** The settled
+  // assertion the others make cannot tell a replay from no replay here: the
+  // overlay would stand for 760 ms and `toHaveCount(0)` would simply retry
+  // past it. The block unmounts behind the skeleton while the other day
+  // loads, so it comes back with no memory of what it has already played —
+  // the close has to have been let go of by then, which is what this waits
+  // to be disappointed by.
+  await expect(
+    page.waitForSelector('[data-testid="home-goal-close"]', {
+      state: "attached",
+      timeout: 2000,
+    }),
+  ).rejects.toThrow();
+});
+
+test("settles twice when two walks are closed in succession", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  // **Each walk is written on before it is stopped, or neither is a close.**
+  // A walk stopped inside its first minute is deleted as a mis-tap and adds
+  // nothing, so with no note on either this passed with the whole close
+  // feature removed — under the one title that claims the double close. Both
+  // are real closes now, at the one minute the column accepts, which is what
+  // the running total below counts.
+  for (const total of [1, 2]) {
+    await page.getByTestId("home-goal-control").click();
+    const row = page
+      .locator('[data-testid^="home-entry-"]')
+      .filter({ hasText: "En marcha" });
+    await expect(row).toHaveCount(1);
+    await row.click();
+    await page.getByTestId("entry-note").fill(`Paseo ${total}`);
+    await page.getByTestId("entry-save").click();
+    await expect(page.getByTestId("entry-title")).toHaveCount(0);
+    // Armed before the tap: the overlay mounts on the stop now, so it has to
+    // be waited for from before there is anything to wait for.
+    const mounted = page.waitForSelector('[data-testid="home-goal-close"]', {
+      state: "attached",
+    });
+    await page.getByTestId("home-goal-control").click();
+    // The overlay is mounted for this close, so it was one — and it goes.
+    await mounted;
+    await expect(page.getByTestId("home-goal")).toContainText(
+      `${total} min en ${total} ${total === 1 ? "paseo" : "paseos"}`,
+    );
+    await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+    await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  }
+});
+
+/**
+ * **The close that used to be about the whole bar, and now lands on lap two.**
+ *
+ * 60 min recorded against a 60 min goal, and a walk of two minutes on top. On
+ * a bar that ended at the goal these minutes fell past its edge; with a second
+ * lap above it they have somewhere to go — the fill starts at the foot of lap
+ * two, over an Aqua ground, and converts in violet.
+ */
+test("lands a close on the second lap, over a bar that is already Aqua", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const { earlier, running } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 60 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  expect(await groundColour(page)).toBe(colors.accent);
+
+  // Two minutes of a 60-minute goal is 3.3% of the bar, so the conversion is
+  // caught somewhere inside that — travelled, not simply set.
+  const travelled = widthInFlight(
+    page,
+    "home-goal-close-lap-1-fill",
+    0.004,
+    0.03,
+  );
+  await page.getByTestId("home-goal-control").click();
+  await travelled;
+
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  // And the bar is still Aqua underneath, with lap two's violet over it.
+  expect(await groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+});
+
+/**
+ * **What the close has left to do once the live minutes have turned the
+ * ground: convert the band on the lap the bar is already standing on.**
+ *
+ * 30 min recorded and a walk of 31 against a 60-minute goal. The day crossed
+ * the goal while the walk ran, so the bar is Aqua before the stop is pressed
+ * and the only thing still live is a minute of lap two. The close converts
+ * exactly that — **and may not re-paint lap one's ground on its way**, which
+ * is the one way this change could turn the close into a backwards step: a
+ * gesture that started at the recorded minutes would open by putting the
+ * empty track back over a bar that turned minutes ago.
+ *
+ * **And nothing is celebrated.** Tier 1 is the everyday now — most days clear
+ * it — and the everyday is not celebrated. The ground turning and the label
+ * under the bar are the whole of what a goal met gets.
+ */
+test("converts the live band on the lap the ground already turned", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  // **Before the stop the bar has already crossed**: 61 of 60 is a minute
+  // into lap two, live minutes and all, so the ground is Aqua and the label
+  // is under it with no walk closed.
+  await expect.poll(() => groundColour(page)).toBe(colors.accent);
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+
+  const sampling = barFrames(page, 3_000, "home-goal-close-lap-1-fill");
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+
+  // The bar is painted across its whole width from before the press — it is
+  // an Aqua ground — so the painted width cannot say where the conversion has
+  // got to. The lap's own fill can.
+  expect(Math.min(...frames.map((f) => f.painted))).toBeCloseTo(bar, 0);
+
+  // **Aqua on every frame of it.** Lap one's ground is never painted again:
+  // the close begins at the foot of lap two, where the bar already stands.
+  const ground = frames.filter((f) => f.ground !== "");
+  expect(ground.map((f) => f.ground)).toEqual(ground.map(() => colors.accent));
+  await expect(page.getByTestId("home-goal-close-lap-0-ground")).toHaveCount(0);
+
+  // And it did convert: the lap-two fill is caught somewhere inside the
+  // minute it is converting rather than simply set at the end of it.
+  expect(
+    frames.filter((f) => f.probe > 0 && f.probe < bar / 60).length,
+  ).toBeGreaterThan(3);
+
+  // It comes to rest Aqua, with a minute of lap two in violet over it, and
+  // the conclusion said under the bar.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+  await expect.poll(() => groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+  expect(await widthOf(page, "home-goal-bar")).toBeGreaterThan(0);
+
+  // The everyday is not celebrated.
+  await expect(page.getByTestId("celebration")).toBeHidden();
+});
+
+test("converts a lapped walk without dropping its second band", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // 50 min recorded against a 60-minute goal and a walk of 30 on top: 80 of
+  // 60 is a third of the way into lap two, so before the stop the left third
+  // of the bar is wearing lap two's live violet over an Aqua ground.
+  //
+  // **The painted width is blind to this.** It is the whole bar before the
+  // stop and the whole bar throughout the close, so the no-shrink spec cannot
+  // see a band inside the paint reverting to the tone underneath it. A point
+  // can: sampled at 15% of the bar, the close may hand it from lap two's live
+  // violet to lap two's saved violet and to nothing else. A frame of Aqua or
+  // of Mist there is the band having been dropped for the first slice of the
+  // animation — the smaller version of exactly the backwards step this whole
+  // gesture exists to remove.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 30 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "30 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 50 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  // The live band is there before the stop, and reaches past the point this
+  // spec watches.
+  expect(await colourOf(page, "home-goal-live")).toBe(colors.accentFocusDim);
+  expect(
+    (await widthOf(page, "home-goal-live")) /
+      (await widthOf(page, "home-goal-ground")),
+  ).toBeGreaterThan(0.25);
+
+  const sampling = barFrames(page, 3_000, "", 0.15);
+  await page.getByTestId("home-goal-control").click();
+  const { frames } = await sampling;
+
+  // **Lo que se defiende es que la banda no desaparezca**, y eso se dice
+  // nombrando los dos tonos que significarían que ha desaparecido en vez de
+  // permitiendo solo los dos violetas. La diferencia dejó de ser cosmética en
+  // la v0.25.0: la marca del cierre pasó de ser un tick de 12 dp que
+  // sobresalía **fuera** de la pista —donde este muestreo nunca la veía— a un
+  // corte de 2 dp **dentro** de ella, y durante el cierre esa marca viaja. Al
+  // cruzar el punto que este spec mira, lo tiñe del color de la pista unos
+  // pocos milisegundos.
+  //
+  // Con la lista blanca, que un fotograma cayera o no en esos milisegundos
+  // decidía si la prueba pasaba: una carrera que pasa casi siempre, que es la
+  // peor clase de prueba que hay. Nombrando los tonos prohibidos, la marca
+  // puede cruzar por donde quiera y lo que se comprueba sigue siendo lo mismo.
+  const dropped: string[] = [colors.accent, colors.textSecondary];
+  const strangers = frames.filter((f) => dropped.includes(f.tone));
+  expect(strangers.map((f) => f.tone)).toEqual([]);
+
+  // And it did convert: both tones appear, so the point was handed over
+  // rather than simply left alone.
+  expect(frames.some((f) => f.tone === colors.accentFocusDim)).toBe(true);
+  expect(frames.some((f) => f.tone === colors.accentFocus)).toBe(true);
+
+  // It settles on lap two, a third of the way along, over an Aqua ground.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect.poll(() => groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+});
+
+/**
+ * **The description follows the data; the celebration follows the viewer.**
+ *
+ * This is the one spec that holds the two clocks apart, and it is the whole
+ * reason they are allowed to differ. The bar and the label say what the day
+ * is, so they follow the minutes as they happen — a championship day is
+ * announced under the bar while the walk is still running. The confetti is an
+ * event aimed at somebody looking, and during a walk the phone is locked in a
+ * pocket: fired then it would be missed most of the times it was earned.
+ *
+ * So the accepted side effect, pinned here rather than discovered: the words
+ * arrive first and the party waits for the stop, which is the moment the
+ * tutor is certainly looking at the screen.
+ */
+test("says the championship day during the walk and keeps the confetti for the stop", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // 15 min recorded against a 30-minute goal and a walk of 46 on top: 61 of
+  // 60 is past double, so the live minutes alone carry the day over both
+  // tiers. 30 is the floor a goal can have, so the tiers cannot be made
+  // closer than this; the recorded walk is half the goal to keep lap one
+  // starting where it always did, and the live walk is what has to grow —
+  // which costs the first 47 minutes of the day, when 46 minutes ago is still
+  // yesterday.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 46 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "46 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 30 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 15 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // **The day is already said, and nothing has been saved.** The bar is
+  // violet throughout — there is no third lap to paint over it — and the
+  // label names the tier, with the walk still running.
+  await expect.poll(() => groundColour(page)).toBe(colors.accentFocus);
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Día de campeonato",
+  );
+  // And the party has not started: the phone is in a pocket.
+  await expect(page.getByTestId("celebration")).toBeHidden();
+
+  // **Armed before the tap**, because the confetti is a few seconds long and
+  // the bar assertions below would retry straight past it.
+  const party = page.waitForSelector('[data-testid="celebration"]', {
+    state: "attached",
+  });
+  await page.getByTestId("home-goal-control").click();
+
+  // **Once, on the save, at the second tier and not at the first.** The
+  // crossing happened minutes ago on the bar; the confetti is the stop's.
+  await party;
+
+  // The bar has nothing left to do — it was already at the top — and says
+  // the same thing afterwards.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect.poll(() => groundColour(page)).toBe(colors.accentFocus);
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Día de campeonato",
+  );
+
+  await expect(page.getByTestId("celebration")).toHaveCount(0);
+  await expect(
+    page.waitForSelector('[data-testid="celebration"]', {
+      state: "attached",
+      timeout: 2_000,
+    }),
+  ).rejects.toThrow();
+});
+
+test("says nothing when the day is already past the top tier", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // 65 min recorded against a 30-minute goal is already past double (60), so
+  // the minutes this walk adds fall off the end of the bar. The silence is
+  // deliberate: the day is already said. (The goal cannot go under 30, and 45
+  // would sit between the tiers, which is a different test.)
+  const { earlier, running } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 30 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier!, durationMinutes: 65 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  expect(await groundColour(page)).toBe(colors.accentFocus);
+
+  const sampling = barFrames(page, 2_500);
+  const never = neverCloses(page);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+  await never;
+
+  // No overlay mounted, and the bar did not flicker: every frame is the same
+  // violet across the same full width.
+  expect(frames.map((f) => f.ground)).toEqual(
+    frames.map(() => colors.accentFocus),
+  );
+  expect(Math.min(...frames.map((f) => f.painted))).toBeCloseTo(bar, 0);
+  await expect(page.getByTestId("home-goal-met")).toHaveText(
+    "Día de campeonato",
+  );
+});
+
+test("paints the end state at once for a tutor who asked for no animation", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // The same tier-crossing close as above, with motion off: "absent" has to
+  // mean the bar is painted at the fill's end state on the stop, not that the
+  // 400 ms hole comes back for exactly the tutors who asked for less movement.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  const sampling = barFrames(page, 2_500);
+  const never = neverCloses(page);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+  await never;
+
+  // No overlay was ever mounted, and the bar never lost the walk on the way
+  // to its end state.
+  expect(Math.min(...frames.map((f) => f.painted))).toBeGreaterThanOrEqual(
+    frames[0].painted - 0.5,
+  );
+  expect(frames[frames.length - 1].painted).toBeCloseTo(bar, 0);
+
+  // The right ground as well as the right width: 61 of 60 is a minute into
+  // lap two, so the bar is Aqua with a violet sliver over it.
+  await expect.poll(() => groundColour(page)).toBe(colors.accent);
+  expect(await fillColour(page)).toBe(colors.accentFocus);
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+});
+
+test("holds the fill when the reload never comes", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // The close succeeds and every read after it fails. The fill has animated
+  // to a value the data never confirms, and it must hold there rather than
+  // snapping back to the width from before the walk: a failed action must not
+  // take the diary away, and saying so is the toast's job, not the bar's.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // Only the reads are cut: the PATCH that closes the walk goes through.
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    route.request().method() === "GET" ? route.abort() : route.continue(),
+  );
+
+  const sampling = barFrames(page, 3_000);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+  const at = frames[0].painted;
+
+  expectMinutes(at / bar, 61, 62, 120);
+  expect(Math.min(...frames.map((f) => f.painted))).toBeGreaterThanOrEqual(
+    at - 0.5,
+  );
+
+  // And it is still there once everything has settled: 61 of 120, drawn
+  // from numbers the close carried rather than from rows that never came.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  expectMinutes(
+    (await widthOf(page, "home-goal-bar")) /
+      (await widthOf(page, "home-goal-ground")),
+    61,
+    62,
+    120,
+  );
+  // **And the measure says the same number the bar is painted at.** The rows
+  // never came, so the only minutes anybody knows are the ones the close
+  // carried — the line above the bar reads them too, rather than counting a
+  // log it could not read and announcing nought.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    /^1h [12]m en 2 paseos$/,
+  );
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **A close that commits onto a reload that never answers, and the two halves
+ * of the block must agree.** This is the shape the household actually meets:
+ * the phone drops the house wifi on the stairs, the `PATCH` gets through and
+ * the pet read does not. The bar holds what the close carried — that part was
+ * already right — and the measure used to count an empty log and state
+ * "0 min paseados" directly above a bar painted past the goal and a
+ * label reading "Día cumplido". A tutor cannot tell which half is real,
+ * and the one they read every day is the number.
+ *
+ * PRODUCT.md's rule is the same one the log's own region obeys: an empty state
+ * may never stand in for a failed read. Zero minutes is a claim about the dog's
+ * day; an unread log is a claim about the network.
+ */
+test("keeps the measure and the bar agreeing when a close lands and the reload does not", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 10 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "ten minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 55 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // Only the pet read is cut, so the walk really is closed on the server and
+  // it is the reload that cannot confirm it.
+  const pets = /\/rest\/v1\/pets\b/;
+  await page.route(pets, (route) => route.abort());
+  const gaveUp = failedReads(page, pets, 4);
+  await page.getByTestId("home-goal-control").click();
+  await gaveUp;
+  await page.waitForTimeout(750);
+
+  // The read failed and says so, and the day is not reported as empty.
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-empty")).toHaveCount(0);
+
+  // 65 of 60 is five minutes into lap two: an Aqua ground under a short
+  // violet fill, which is the close the bar is holding.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect.poll(() => groundColour(page)).toBe(colors.accent);
+  expectMinutes(
+    (await widthOf(page, "home-goal-bar")) /
+      (await widthOf(page, "home-goal-ground")),
+    5,
+    6,
+    60,
+  );
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+  // The line that used to contradict both of them.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    /^1h [56]m en 2 paseos$/,
+  );
+
+  await page.unroute(pets);
+});
+
+test("lands a close with no animation at all for a tutor who asked for none", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await seedSession(page);
+  await page.goto("/");
+  // **Written on first, so this is a close and not a mis-tap.** An immediate
+  // stop deletes the row, and a close that recorded nothing animates nothing
+  // whatever the tutor asked for — which would leave this proving the
+  // commitment against a case that never reaches it. It also leaves the fill
+  // at 0% wide, which Playwright reads as hidden.
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+  await page.getByTestId("home-goal-control").click();
+
+  // No overlay is ever mounted, and the bar is still right: the tone and
+  // the thickness come from props, which is what makes "absent" true rather
+  // than "too quick to catch".
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-bar")).toBeVisible();
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+});
+
+/**
+ * Samples the bar on every frame for `ms`, starting now: how far right it is
+ * painted, and what colour it is wearing while it is.
+ *
+ * **"Painted" is everything on the bar that is not the empty track**, which is
+ * the only definition that survives a tier crossing: at the goal the ground
+ * itself turns Aqua and carries the whole width, so a measure that looked only
+ * at the fills would read a bar that had just become whole as a bar that had
+ * emptied. Transparent boxes — the sweep's clips, the close overlay's
+ * wrapper — contribute nothing, and neither does a ground still in the
+ * track's own colour.
+ *
+ * **`ground` is the topmost ground actually drawn**, the real one or the lap
+ * the close has reached, so the pair answers the two halves of the handover
+ * in one reading: a frame whose ground has turned while the painted width is
+ * still short of the bar is a bar in two minds about its tone.
+ *
+ * `probe` is one more element to measure on every frame — a lap of the close
+ * overlay, whose own width is the only thing that says where the conversion
+ * has got to once the painted width is already the whole bar. It reads −1 on
+ * a frame where that element is not mounted.
+ *
+ * **`at` is a point on the bar, as a share of its width, and `tone` is the
+ * colour painted there** — the topmost band covering it, ticks excluded. The
+ * painted width is blind to anything that happens *inside* the paint, which
+ * is exactly where a lapped close could drop a band and step backwards
+ * without the bar getting any shorter. A point reads what an eye reads.
+ *
+ * The first frame is sampled before the promise yields, so a caller can check
+ * it began before the press rather than after it — a sampler that started
+ * late would see no drop and pass for the wrong reason.
+ */
+function barFrames(page: Page, ms: number, probe = "", at = -1) {
+  return page.evaluate(
+    ([sampleMs, track, watched, point]) =>
+      new Promise<{
+        bar: number;
+        frames: {
+          painted: number;
+          ground: string;
+          probe: number;
+          tone: string;
+        }[];
+      }>((resolve) => {
+        const hex = (css: string): string => {
+          const rgba = (css.match(/[\d.]+/g) ?? []).map(Number);
+          if (rgba.length < 3) return "";
+          if (rgba.length > 3 && rgba[3] === 0) return "";
+          return `#${rgba
+            .slice(0, 3)
+            .map((v) => v.toString(16).padStart(2, "0"))
+            .join("")}`.toUpperCase();
+        };
+        const sample = () => {
+          const bar = document.querySelector(
+            '[data-testid="home-goal-ground"]',
+          );
+          const seen = watched
+            ? document.querySelector(`[data-testid="${watched}"]`)
+            : null;
+          const measured = seen ? seen.getBoundingClientRect().width : -1;
+          if (!bar)
+            return { painted: 0, ground: "", probe: measured, tone: "" };
+          const close = document.querySelector(
+            '[data-testid="home-goal-close"]',
+          );
+          const nodes: Element[] = [bar, ...bar.querySelectorAll("*")];
+          if (close) nodes.push(...close.querySelectorAll("*"));
+          const left = bar.getBoundingClientRect().left;
+          const spot =
+            point >= 0 ? left + point * bar.getBoundingClientRect().width : NaN;
+          let painted = 0;
+          let ground = "";
+          let tone = "";
+          for (const el of nodes) {
+            const style = getComputedStyle(el);
+            if (Number(style.opacity) === 0) continue;
+            const painting = hex(style.backgroundColor);
+            if (painting === "") continue;
+            const box = el.getBoundingClientRect();
+            const id = el.getAttribute("data-testid") ?? "";
+            // The grounds are the only full-width layers, and the last one
+            // drawn is the one the eye sees.
+            if (id === "home-goal-ground" || id.endsWith("-ground")) {
+              if (box.width > 0) ground = painting;
+            }
+            // A tick is 2 dp of furniture standing over the bands rather than
+            // one of them, so it is not what is painted at a point.
+            if (
+              !id.endsWith("-tick") &&
+              box.width > 0 &&
+              box.left <= spot &&
+              box.right >= spot
+            ) {
+              tone = painting;
+            }
+            if (painting === track) continue;
+            painted = Math.max(painted, box.right - left);
+          }
+          return { painted, ground, probe: measured, tone };
+        };
+        const frames = [sample()];
+        const began = performance.now();
+        const step = () => {
+          frames.push(sample());
+          if (performance.now() - began >= sampleMs) {
+            resolve({
+              bar:
+                document
+                  .querySelector('[data-testid="home-goal-ground"]')
+                  ?.getBoundingClientRect().width ?? 0,
+              frames,
+            });
+            return;
+          }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }),
+    [ms, colors.surface, probe, at] as const,
+  );
+}
+
+/**
+ * Asserts a share of the bar is worth somewhere between `low` and `high`
+ * minutes of `goal`.
+ *
+ * **A span of whole minutes is the only promise this suite can make.** A walk
+ * seeded at `now − 31 min` is 31 minutes old until a full 60 s has passed
+ * between the seeding and the measurement, and then it is 32; a cold run is
+ * not bounded, and the component's own clock is refreshed only every 30 s, so
+ * the close can record a minute more than the segment was painted at. One
+ * minute of a two-hour goal moves the ratio by 0.0083, where
+ * `toBeCloseTo(…, 2)` admits 0.005 — the class of half-the-day failure this
+ * file's header is about. The 0.002 either side is for sub-pixel layout, not
+ * for time.
+ */
+function expectMinutes(share: number, low: number, high: number, goal: number) {
+  expect(share).toBeGreaterThan(low / goal - 0.002);
+  expect(share).toBeLessThan(high / goal + 0.002);
+}
+
+/**
+ * Samples the close's own cut against the leading edge of the fill it is
+ * supposed to be riding, on every frame for `ms`. Frames where either is
+ * absent are skipped, so the length of the result is how long the close was
+ * drawing a mark at all.
+ */
+function cutFrames(page: Page, ms: number) {
+  return page.evaluate(
+    ([sampleMs]) =>
+      new Promise<{ bar: number; frames: { cut: number; edge: number }[] }>(
+        (resolve) => {
+          const sample = () => {
+            const bar = document.querySelector(
+              '[data-testid="home-goal-ground"]',
+            );
+            const cut = document.querySelector(
+              '[data-testid="home-goal-close-cut"]',
+            );
+            const fill = document.querySelector(
+              '[data-testid="home-goal-close-lap-0-fill"]',
+            );
+            if (!bar || !cut || !fill) return null;
+            const left = bar.getBoundingClientRect().left;
+            const mark = cut.getBoundingClientRect();
+            const edge = fill.getBoundingClientRect().right;
+            return {
+              cut: mark.left + mark.width / 2 - left,
+              edge: edge - left,
+            };
+          };
+          const frames: { cut: number; edge: number }[] = [];
+          const began = performance.now();
+          const step = () => {
+            const got = sample();
+            if (got !== null) frames.push(got);
+            if (performance.now() - began >= sampleMs) {
+              resolve({
+                bar:
+                  document
+                    .querySelector('[data-testid="home-goal-ground"]')
+                    ?.getBoundingClientRect().width ?? 0,
+                frames,
+              });
+              return;
+            }
+            requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        },
+      ),
+    [ms] as const,
+  );
+}
+
+/**
+ * Resolves on the first frame where an element covers a share of the bar
+ * strictly inside `(low, high)` — travelled, not arrived.
+ *
+ * The settled state is where the bar would be with no animation at all, so it
+ * cannot tell a width that moved from one that was simply set. A reading that
+ * is neither endpoint can only come from the interpolation. Polled on every
+ * frame from before the press, the way `shakeTranslation` is, because the
+ * close cannot be parked inside.
+ */
+function widthInFlight(page: Page, id: string, low: number, high: number) {
+  return page.waitForFunction(
+    ([target, lo, hi]) => {
+      const el = document.querySelector(`[data-testid="${target}"]`);
+      const bar = document.querySelector('[data-testid="home-goal-ground"]');
+      if (!el || !bar) return false;
+      const width = bar.getBoundingClientRect().width;
+      if (width === 0) return false;
+      const share = el.getBoundingClientRect().width / width;
+      return share > lo && share < hi;
+    },
+    [id, low, high] as const,
+    { polling: "raf", timeout: 5_000 },
+  );
+}
+
+/** The close overlay, which must never be attached at all. */
+function neverCloses(page: Page) {
+  return expect(
+    page.waitForSelector('[data-testid="home-goal-close"]', {
+      state: "attached",
+      timeout: 2_000,
+    }),
+  ).rejects.toThrow();
+}
+
+test("fills from the cut without the bar ever shrinking", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **The defect this whole task replaces, and the one assertion that pins
+  // it.** Measured on the tutor's video: the bar painted to x=403 while the
+  // walk ran, dropped to x=207 for about 400 ms as the live segment unmounted
+  // ahead of the reload, and only then grew back. Nothing else in the suite
+  // notices that hole, because every other close spec asserts where the bar
+  // comes to rest.
+  //
+  // 30 min recorded and a walk of 31 against a 120-minute goal: 61 of 120 is
+  // half of lap one, so the close lands inside the lap it started on and the
+  // ground never turns. A crossing close is the next test's business.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(1);
+
+  const sampling = barFrames(page, 3_000);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+  const at = frames[0].painted;
+
+  // The sampler was running before the press: 61 of 120 minutes is half the
+  // bar, and 30 of 120 — the recorded fill alone — is a quarter. Without this
+  // a sampler that started late would measure the hole as its own baseline.
+  expectMinutes(at / bar, 61, 62, 120);
+
+  // And the bar never lost the walk.
+  expect(Math.min(...frames.map((f) => f.painted))).toBeGreaterThanOrEqual(
+    at - 0.5,
+  );
+
+  // It settles where the data says, with the live marks gone.
+  await expect(page.getByTestId("home-goal")).toHaveText(
+    /1h [12]m en 2 paseos/,
+  );
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  // Two recorded walks now, so the boundary between them is a cut — the same
+  // place the mark stood while the walk was running, left behind by it.
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(1);
+  expectMinutes(
+    (await widthOf(page, "home-goal-bar")) /
+      (await widthOf(page, "home-goal-ground")),
+    61,
+    62,
+    120,
+  );
+});
+
+test("rides a cut on the fill's leading edge while the close converts", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // The same close as above — 30 recorded and a walk of 31 against a
+  // 120-minute goal, inside one lap. During the conversion the fill's leading
+  // edge *is* the saved/live boundary, which is the one thing a cut has ever
+  // marked, so it travels with it from the junction to the end. It is the
+  // close's own element because the rows do not hold the closed walk yet.
+  // Nothing else in the file would notice the mark being pinned to a constant
+  // or deleted outright, and the headline spec above is named after it.
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  const sampling = cutFrames(page, 3_000);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+
+  // It was drawn for the length of the close, not for a frame of it.
+  expect(frames.length).toBeGreaterThan(10);
+
+  // **On the edge, every frame.** A cut a pixel off the boundary is a cut
+  // marking something else.
+  const adrift = frames.filter((f) => Math.abs(f.cut - f.edge) > 1);
+  expect(adrift.map((f) => [f.cut, f.edge])).toEqual([]);
+
+  // **And it travelled.** Wiring its position to a constant would satisfy
+  // everything above.
+  const places = frames.map((f) => f.cut);
+  expectMinutes(Math.min(...places) / bar, 30, 31, 120);
+  expectMinutes(Math.max(...places) / bar, 61, 62, 120);
+
+  // It goes with the overlay, and the bar's own cut takes the junction over:
+  // the rows now hold both walks, so the boundary between them is one of the
+  // day's own marks rather than the close's.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(1);
 });
 
 test("shows the control working while the start is being written", async ({
@@ -1429,13 +3736,20 @@ test("shows the control working while the start is being written", async ({
 
   await page.getByTestId("home-goal-control").click();
 
-  // The control stays where it was, says it is working, and cannot be pressed
-  // again: a control that is present but inert is how a walk gets started
-  // twice. The label is the same word throughout.
+  // The control says what it is doing and cannot be pressed again: a control
+  // that is present but inert is how a walk gets started twice. **The word
+  // changes with the state** — the block shifts by the difference and that was
+  // accepted, see the control's own docblock — and the accessible name does
+  // not, because `aria-busy` is what says it is working to a reader.
   const control = page.getByTestId("home-goal-control");
   await expect(page.getByTestId("home-goal-spinner")).toBeVisible();
   await expect(control).toBeDisabled();
-  await expect(control).toContainText("Paseo");
+  // **"En marcha…", not "Guardando…".** The word is on screen for as long as
+  // the write takes — nine seconds in a lift with no signal, filmed — so it
+  // is a word that gets stared at, and the house's own language is what
+  // belongs there. It also says which of the two writes is in flight, which
+  // "Guardando…" never did.
+  await expect(control).toContainText("En marcha…");
   await expect(control).toHaveAttribute("aria-label", "Empezar paseo");
   // Nothing is running until the write lands.
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
@@ -1444,8 +3758,1339 @@ test("shows the control working while the start is being written", async ({
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
   await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
   await expect(control).toBeEnabled();
+  // And back to the resting word on the answer.
+  await expect(control).toContainText("Paseo");
+  await expect(control).not.toContainText("En marcha…");
   await expect(control).toHaveAttribute("aria-label", "Terminar paseo");
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+test("says it is coming home while the stop is being written", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // **The other half of the word, and it is a different word.** A stop is not
+  // a start, and the label that sat on screen for nine seconds in the lift
+  // was the stop's. "A casa…" belongs to the pair the app already speaks —
+  // "¡Vamos, Loki!" / "¡Loki ya está contigo!" — and it is shorter than the
+  // string it replaces, so the measure beside it loses less of its tail at a
+  // large font.
+  //
+  // Thirty minutes old, so the stop writes a length rather than discarding a
+  // mis-tap: a discard is a DELETE and this spec parks the PATCH.
+  const now = new Date();
+  const running = new Date(now.getTime() - 30 * 60_000);
+  test.skip(running.getDate() !== now.getDate(), "30 minutes ago is yesterday");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // Park the close, the way the start above parks its insert: the PATCH
+  // waits and the reload that follows it does not.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/rest/v1/pet_events*", async (route) => {
+    if (route.request().method() === "PATCH") await held;
+    await route.continue();
+  });
+
+  const control = page.getByTestId("home-goal-control");
+  await control.click();
+
+  await expect(page.getByTestId("home-goal-spinner")).toBeVisible();
+  await expect(control).toBeDisabled();
+  await expect(control).toContainText("A casa…");
+  await expect(control).not.toContainText("En marcha…");
+  // The accessible name does not change with the word: the control is still
+  // the stop, and `aria-busy` is what says it is working.
+  await expect(control).toHaveAttribute("aria-label", "Terminar paseo");
+
+  release();
+  await expect(control).toBeEnabled();
+  await expect(control).toContainText("Paseo");
+  await expect(control).not.toContainText("A casa…");
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **A shake is asserted by catching it in flight, and that is the one place
+ * this file looks mid-animation on purpose.** The close is only ever checked
+ * settled, because it cannot be parked inside; the shake can be *caught*
+ * rather than parked, by polling the wrapper's computed transform on every
+ * frame from before the press. A nonzero horizontal translation is the shake,
+ * and zero is the control back at rest, which is what lets two failures in a
+ * row be told apart from one.
+ */
+function shakeTranslation(page: Page, moving: boolean) {
+  return page.waitForFunction(
+    (wantMoving) => {
+      const el = document.querySelector('[data-testid="home-goal-shake"]');
+      if (!el) return false;
+      const t = getComputedStyle(el).transform;
+      const x = t === "none" ? 0 : new DOMMatrix(t).m41;
+      return wantMoving ? Math.abs(x) > 0.01 : x === 0;
+    },
+    moving,
+    { polling: "raf", timeout: 5_000 },
+  );
+}
+
+test("shakes the control and offers it again when a stop cannot be saved", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+
+  // The close fails at the transport, which is the one failure a tutor
+  // actually meets: a stop pressed where there is no signal. **Both verbs,
+  // because a stop inside the first minute is a delete, not an update** —
+  // `walkOutcome` discards it as a mis-tap and `deleteEvent` is a DELETE, so
+  // routing only the PATCH would let this stop succeed and leave the test
+  // waiting for an error that never comes.
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    ["PATCH", "DELETE"].includes(route.request().method())
+      ? route.abort()
+      : route.continue(),
+  );
+  const first = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await first;
+
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  // **The walk is no longer running: the tutor stopped it.** It used to stay
+  // running so the control could be pressed again, and the press that
+  // eventually landed wrote the hour it was made at. The intent is queued
+  // instead and the control goes back to being the start — and no close
+  // animation ran, because nothing was saved.
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  // The spinner is the real signal that the control came back: a web
+  // Pressable renders as a div, where `toBeEnabled` passes regardless.
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Empezar paseo",
+  );
+
+  // Settled, and then a second failure is a second shake: a counter, not a
+  // flag, so the second write is a change. The second failure takes a second
+  // walk now that the first one was let go — the POST is not routed, so the
+  // start lands and only its stop fails.
+  await shakeTranslation(page, false);
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+  const second = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await second;
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **Pulsar PARAR sin cobertura cierra el paseo igualmente.** Hasta ahora el
+ * paseo seguía en marcha y el tutor tenía que volver a pulsar al llegar a
+ * casa — y esa segunda pulsación escribía *esa* hora, así que el ascensor y
+ * las escaleras entraban como paseo. Ahora la intención se guarda con la hora
+ * de la pulsación y el paseo se suelta: lo que falta es subirlo, no pararlo.
+ *
+ * **Se cortan todas las rutas, que es el modo avión de verdad**: falla el
+ * cierre y falla también la relectura que el fallo pide. El diario tiene que
+ * seguir en pantalla (un *acción* fallida no es una *navegación* fallida) y
+ * la cola tiene que estar en disco.
+ */
+test("una parada sin red deja el paseo guardado para después", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // Treinta minutos, para que la parada sea un cierre con minutos y no el
+  // borrado de un mis-tap: lo que se encola es lo que se intentó escribir.
+  const now = new Date();
+  const running = new Date(now.getTime() - 30 * 60_000);
+  test.skip(running.getDate() !== now.getDate(), "30 minutes ago is yesterday");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const [walkId] = await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: running },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  // **La nota del paseo en curso se escribe desde la página, no con un
+  // `addInitScript`.** Este test recarga, y un init script volvería a armar
+  // la clave en la recarga — justo lo que se está comprobando que ya no está.
+  await page.evaluate(
+    ([key, value]) => window.localStorage.setItem(key, value),
+    ["petfile.walk.v1", JSON.stringify({ id: walkId })] as const,
+  );
+  await page.reload();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+
+  await page.getByTestId("home-goal-control").click();
+
+  // El tutor se entera de que no hubo red —eso no cambia—…
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  // …y el paseo ya no está en marcha, porque lo paró.
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Empezar paseo",
+  );
+  // El diario sigue donde estaba: la relectura falló y las filas que ya
+  // había son la mejor respuesta que hay.
+  await expect(page.getByTestId("home-title")).toBeVisible();
+  await expect(page.getByTestId("home-retry")).toHaveCount(0);
+
+  // La intención está en disco, con la hora de la pulsación, y la nota del
+  // paseo en curso se ha ido con ella.
+  const queued = await page.evaluate(() =>
+    window.localStorage.getItem("petfile.pending.v1"),
+  );
+  expect(JSON.parse(queued ?? "[]")).toEqual([
+    {
+      kind: "close",
+      id: walkId,
+      minutes: expect.any(Number),
+      pressedAt: expect.any(String),
+    },
+  ]);
+  expect(
+    await page.evaluate(() => window.localStorage.getItem("petfile.walk.v1")),
+  ).toBeNull();
+
+  // Vuelve la red y la app se abre de cero: el paseo no ha vuelto a aparecer
+  // como en marcha, y sus minutos cuentan desde el primer render.
+  await page.unroute(supabase);
+  await page.reload();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Empezar paseo",
+  );
+  // **Aquí se comprobaba que la cola seguía en disco, y dejó de ser cierto en
+  // la v0.23.0.** Con la red de vuelta, la reproducción sube la parada y
+  // vacía la cola: eso es exactamente lo que se construyó. Entre medias la
+  // comprobación fue una carrera —se ganaba mientras la subida tardase más
+  // que este `evaluate`, y se perdió en cuanto no—, y una carrera que pasa
+  // casi siempre es peor que una prueba que falla siempre, porque nadie la
+  // mira hasta que miente.
+  //
+  // Lo que esta prueba defiende sigue en pie y está arriba: la intención
+  // sobrevive a la pulsación y al arranque en frío. La medida lo demuestra
+  // sin depender de dónde esté el dato — dice `30 min en 1 paseo` lo lleve la
+  // cola o lo lleve ya el servidor. Que suba tiene su propia prueba, «sube la
+  // parada pendiente en cuanto vuelve la red».
+});
+
+/**
+ * **La barra no puede retroceder porque la parada se haya quedado
+ * pendiente**, que es el fotograma que la v0.15.0 se gastó en eliminar.
+ * Mientras el paseo corría, sus minutos vivos ya estaban pintados; al
+ * soltarlo, los pendientes tienen que ocupar exactamente ese sitio.
+ *
+ * Se muestrea el ancho pintado a cada frame desde antes de la pulsación y no
+ * puede caer por debajo de lo que medía entonces. Solo se cortan las
+ * escrituras: la relectura llega y trae las mismas filas —la fila sigue
+ * abierta en el servidor—, así que lo que sostiene la medida son los minutos
+ * pendientes y nada más.
+ */
+test("la barra no retrocede cuando la parada se queda pendiente", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const now = new Date();
+  const earlier = new Date(now);
+  earlier.setHours(0, 1, 0, 0);
+  const running = new Date(now.getTime() - 31 * 60_000);
+  test.skip(
+    running.getDate() !== now.getDate() || running <= earlier,
+    "31 minutes ago is still yesterday, or before the recorded walk",
+  );
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 120 });
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: earlier, durationMinutes: 30 },
+  ]);
+  await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  // Solo las escrituras, y las dos: un cierre es un PATCH y un mis-tap un
+  // DELETE. La lectura del día llega, y no trae nada nuevo.
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    ["PATCH", "DELETE"].includes(route.request().method())
+      ? route.abort()
+      : route.continue(),
+  );
+
+  const sampling = barFrames(page, 3_000);
+  await page.getByTestId("home-goal-control").click();
+  const { bar, frames } = await sampling;
+  const at = frames[0].painted;
+
+  // 30 guardados y 31 en marcha sobre un objetivo de 120, antes de pulsar.
+  expectMinutes(at / bar, 61, 62, 120);
+  expect(Math.min(...frames.map((f) => f.painted))).toBeGreaterThanOrEqual(
+    at - 0.5,
+  );
+
+  // Y lo que queda pintado es lo mismo, dicho ahora por los pendientes: la
+  // medida pasa de "De paseo" a contar ese paseo como propio del día.
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  // Sin animación de cierre: no se ha guardado nada, solo se ha dejado de
+  // contar en vivo lo que ahora cuenta como pendiente.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    /^1h [12]m en 2 paseos$/,
+  );
+  expectMinutes(
+    (await widthOf(page, "home-goal-bar")) /
+      (await widthOf(page, "home-goal-ground")),
+    61,
+    62,
+    120,
+  );
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **La fila deja de decir `En marcha` en cuanto el tutor la para**, aunque el
+ * cierre no haya subido — eso ya sería mentira. Dice su duración como
+ * cualquier otra fila, y la que dice es la que la cola guardó: los mismos
+ * minutos que la medida del día ya está contando.
+ *
+ * **Solo se cortan las escrituras**, que es lo que hace esta prueba valer algo:
+ * la relectura llega y devuelve la fila tal y como el servidor la tiene —
+ * abierta y sin duración—, así que los 30 minutos que la fila enseña no pueden
+ * venir de ella.
+ *
+ * Y la marca no viaja sola: un icono no es una razón, así que la palabra está
+ * en el nombre que se dice en voz alta.
+ */
+test("un paseo sin subir lleva su marca y dice por qué", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const now = new Date();
+  const running = new Date(now.getTime() - 30 * 60_000);
+  test.skip(running.getDate() !== now.getDate(), "30 minutes ago is yesterday");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const walkId = await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  const row = page.getByTestId(`home-entry-${walkId}`);
+  await expect(row).toContainText("En marcha");
+  // Nada que marcar mientras el paseo corre: no falta ninguna subida.
+  await expect(page.getByTestId(`home-entry-pending-${walkId}`)).toHaveCount(0);
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    ["PATCH", "DELETE"].includes(route.request().method())
+      ? route.abort()
+      : route.continue(),
+  );
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+
+  // Ya no está en marcha, porque el tutor la paró, y lo que dice en su lugar
+  // es su duración — la misma que la medida, que es el punto.
+  await expect(row).not.toContainText("En marcha");
+  await expect(row).toContainText("30 min");
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+  await expect(page.getByTestId(`home-entry-pending-${walkId}`)).toBeVisible();
+  await expect(row).toHaveAttribute("aria-label", /no sincronizado/);
+
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **La cola se sube sola, y el día no se mueve al hacerlo.** Esos minutos ya
+ * estaban contados —la actualización optimista es el punto de todo esto—, así
+ * que la subida no es un cambio en la medida: es el mismo número dicho a
+ * partir de la fila en vez de a partir de la cola. Lo único que desaparece es
+ * la marca, porque ya no falta nada por subir.
+ *
+ * **El disparador es una lectura del día que termina bien**, que es por donde
+ * llegan los tres momentos del plan: volver a la app y el `Reintentar` del
+ * registro provocan exactamente esa lectura. Aquí se usa el arco de días, que
+ * es el único que se puede pulsar con el registro sano — un Reintentar solo
+ * existe donde una lectura ha fallado.
+ *
+ * **Se corta solo la escritura**, que es lo que hace que la prueba valga: la
+ * relectura que sigue a la parada fallida llega, encuentra la fila abierta en
+ * el servidor y reproduce la cola contra una ruta todavía cortada. El cierre
+ * no sube hasta que la red vuelve de verdad.
+ */
+test("sube la parada pendiente en cuanto vuelve la red", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const now = new Date();
+  const running = new Date(now.getTime() - 30 * 60_000);
+  test.skip(running.getDate() !== now.getDate(), "30 minutes ago is yesterday");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const walkId = await seedRunningWalk(page, petId, running);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    ["PATCH", "DELETE"].includes(route.request().method())
+      ? route.abort()
+      : route.continue(),
+  );
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+
+  const row = page.getByTestId(`home-entry-${walkId}`);
+  await expect(page.getByTestId(`home-entry-pending-${walkId}`)).toBeVisible();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+
+  // Vuelve la red, y la cola espera a que algo dé motivos para creerlo: ‹ es
+  // una lectura del día que termina bien. La cola no va por días —el paseo
+  // está en hoy y la lectura es la de ayer— y aun así sube.
+  await page.unroute("**/rest/v1/pet_events*");
+  await page.getByTestId("home-prev-day").click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.localStorage.getItem("petfile.pending.v1")),
+    )
+    .toBe("[]");
+
+  await page.getByTestId("home-next-day").click();
+  // La marca se ha ido porque ya no falta ninguna subida, la fila dice su
+  // duración como cualquier otra —ahora desde el servidor— y la medida es la
+  // misma que antes de subir.
+  await expect(page.getByTestId(`home-entry-pending-${walkId}`)).toHaveCount(0);
+  await expect(row).toContainText("30 min");
+  await expect(row).not.toHaveAttribute("aria-label", /no sincronizado/);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+});
+
+test("shakes the control when a start cannot be saved", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    route.request().method() === "POST" ? route.abort() : route.continue(),
+  );
+  const shook = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await shook;
+
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  // Nothing started: still an offer to start, and no walk in the measure.
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Empezar paseo",
+  );
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **Two presses of a failing control are one error, not two walls of red.**
+ * From a screenshot of the tutor's phone offline: two identical toasts
+ * stacked over the diary, one per press, saying the same sentence twice. The
+ * second press still has to be acknowledged — it is counted on the toast
+ * already on screen.
+ */
+test("does not stack a second toast for the same failure", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    route.request().method() === "POST" ? route.abort() : route.continue(),
+  );
+
+  const first = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await first;
+  const toast = page.getByTestId("toast-error");
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText("empezar el paseo");
+  await expect(page.getByTestId("toast-error-repeats")).toHaveCount(0);
+
+  // The control is back at rest, so this is a second press and not a double
+  // one — the same test the shake spec uses to tell two failures apart.
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await shakeTranslation(page, false);
+  const second = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await second;
+
+  // One toast, and it says the second press failed too.
+  await expect(page.getByTestId("toast-error")).toHaveCount(1);
+  await expect(page.getByTestId("toast-error-repeats")).toHaveText("×2");
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **A failure is read and then it goes.** It used to stay until it was
+ * dismissed by hand, which the tutor asked for and then lived with for a day:
+ * «lo que parece faltar es el desvanecimiento tras un tiempo». Eight seconds
+ * — twice what a confirmation gets — is long enough to read the sentence and
+ * see the count, and short enough that nobody has to clear the diary by hand.
+ *
+ * **And a repeat puts the clock back.** The second press is the one that
+ * needs the reading time, so the countdown it restarts is the countdown that
+ * has to matter. This is the only test that can tell a restart from a toast
+ * that simply had not run out yet, because it waits past the first window.
+ *
+ * It is a slow test — about fifteen seconds of waiting — and the waits are
+ * the subject rather than a way of settling the page.
+ */
+test("fades a failure toast, and a repeat puts its clock back", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    route.request().method() === "POST" ? route.abort() : route.continue(),
+  );
+
+  const first = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await first;
+  const toast = page.getByTestId("toast-error");
+  await expect(toast).toBeVisible();
+
+  // **It draws a countdown and offers no dismiss**, which is the component's
+  // own way of saying it is going: a bar that drains over exactly the time
+  // left, and no control for an action the toast takes itself.
+  await expect(page.getByTestId("toast-error-countdown")).toBeVisible();
+  await expect(page.getByTestId("toast-error-dismiss")).toHaveCount(0);
+
+  // Five seconds in: past the four a confirmation gets, short of the eight a
+  // failure gets, so the toast is still up and the clock is part spent.
+  await page.waitForTimeout(5_000);
+  await expect(toast).toBeVisible();
+
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await shakeTranslation(page, false);
+  const second = shakeTranslation(page, true);
+  await page.getByTestId("home-goal-control").click();
+  await second;
+  await expect(page.getByTestId("toast-error-repeats")).toHaveText("×2");
+
+  // Five seconds after the repeat — over ten since the toast appeared, which
+  // the first countdown would long since have ended. Only the restart
+  // explains a toast still on screen here.
+  await page.waitForTimeout(5_000);
+  await expect(toast).toBeVisible();
+
+  // And then it goes, with nobody dismissing it.
+  await expect(toast).toHaveCount(0, { timeout: 8_000 });
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **The region and the toast are two different failures and must not read as
+ * one.** In the same screenshot the log said "Parece que no hay conexión" and
+ * so did the toast: a day that could not be *read* and a walk that could not
+ * be *started*, wearing the same sentence.
+ */
+test("says what failed, so the log and the toast are not the same sentence", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  // Only the day's entries are cut, so the pet still arrives and the diary
+  // stays on screen with the log's own region inside it — the screenshot.
+  await page.route("**/rest/v1/pet_events*", (route) => route.abort());
+  await page.reload();
+  // Generous: `supabase-js` retries an aborted read three times before the
+  // failure reaches the screen, which is seconds rather than a frame.
+  const region = page.getByTestId("home-log-error");
+  await expect(region).toBeVisible({ timeout: 20_000 });
+  await expect(region).toContainText("leer el día");
+
+  await page.getByTestId("home-goal-control").click();
+  const toast = page.getByTestId("toast-error");
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText("empezar el paseo");
+  await expect(toast).not.toContainText("leer el día");
+  // And the region is still about the read, not about the press.
+  await expect(region).toContainText("leer el día");
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **Red is the marker, not the reading.** The region drew its whole paragraph
+ * in Error Red, which measures 5.01:1 on the diary's ground against
+ * `text-primary`'s 17.21:1 — the lowest-contrast text on a screen a tutor
+ * meets every time they leave the house. The toast had the right shape all
+ * along: a red icon beside a neutral sentence.
+ */
+test("reads the log's failure in primary text, with red only as its mark", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  await page.route("**/rest/v1/pet_events*", (route) => route.abort());
+  await page.reload();
+  // See above: the retries make this seconds, not a frame.
+  await expect(page.getByTestId("home-log-error")).toBeVisible({
+    timeout: 20_000,
+  });
+
+  const message = page.getByTestId("home-log-note-message");
+  await expect(message).toBeVisible();
+  const colour = hexOf(
+    await message.evaluate((el) => getComputedStyle(el).color),
+  );
+  expect(colour).toBe(colors.textPrimary.toUpperCase());
+  expect(colour).not.toBe(colors.error.toUpperCase());
+  // The severity is still said without colour: the same alert glyph the
+  // toast wears.
+  await expect(page.getByTestId("home-log-note").locator("svg")).toHaveCount(1);
+  await page.unroute("**/rest/v1/pet_events*");
+});
+
+/**
+ * **A failed action is not a failed navigation.** Found on a phone in
+ * airplane mode: the toast and the shake were right, and about seven seconds
+ * later the whole diary was replaced by the connection error, because the
+ * failure bumps `attempt` and the refetch includes the pet read, which fails
+ * offline too.
+ *
+ * **This cuts every Supabase route, not the write.** The specs around it abort
+ * one verb on `pet_events`, so the pet read always survived and the screen
+ * could never fall over — which is exactly why none of them saw this.
+ */
+test("keeps the diary on screen when a walk cannot be saved offline", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const { earlier } = tickMoments();
+  test.skip(earlier === null, "the first minutes of the day have no room");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "meal", occurredAt: earlier!, what: "Pienso" },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  const entries = page.locator('[data-testid^="home-entry-"]');
+  await expect(entries).toHaveCount(1);
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  // Every route, so the refetch the failure triggers cannot read the pet.
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  // **The read is retried, which is where the seven seconds come from.**
+  // postgrest-js retries a failed GET three times, after 1, 2 and 4 seconds,
+  // so the pet read reports its failure to the screen only once the fourth
+  // attempt has failed. Waiting for the first one would end the test before
+  // the old defect had happened.
+  let petReads = 0;
+  const petReadGaveUp = new Promise<void>((resolve) => {
+    page.on("requestfailed", (request) => {
+      if (/\/rest\/v1\/pets\b/.test(request.url()) && ++petReads === 4) {
+        resolve();
+      }
+    });
+  });
+
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+
+  // The pet read was attempted again and gave up — the moment the old screen
+  // fell over — and a beat later is when its state would have committed.
+  await petReadGaveUp;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-retry")).toHaveCount(0);
+  await expect(page.getByTestId("home-title")).toBeVisible();
+  await expect(entries).toHaveCount(1);
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Empezar paseo",
+  );
+  await page.unroute(supabase);
+});
+
+/**
+ * **The other half of the rule: a failed *navigation* must still say so.**
+ * The gate above keeps the diary when an action fails, and it must not turn
+ * into silence for the arrows. Pressing ‹ offline asks for a new day, the pet
+ * read fails, and with a pet already loaded there is no error screen to show —
+ * so the failure belongs to the log, which is the part that could not be
+ * loaded. Without that the tutor sat on the skeleton with no message and no
+ * Reintentar, and it did not recover when the connection came back.
+ */
+test("says the day could not be loaded when ‹ is pressed offline, and recovers", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  // Four attempts, as above: the failure reaches the screen after the last.
+  let petReads = 0;
+  const petReadGaveUp = new Promise<void>((resolve) => {
+    page.on("requestfailed", (request) => {
+      if (/\/rest\/v1\/pets\b/.test(request.url()) && ++petReads === 4) {
+        resolve();
+      }
+    });
+  });
+
+  await page.getByTestId("home-prev-day").click();
+  await petReadGaveUp;
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  // **And the measure withholds the number rather than inventing one.** With
+  // no close to lean on there is no total anybody knows, so the one line of
+  // the block that states minutes says it could not read them.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "Sin datos del día",
+  );
+  // The shell is fine: the header and the actions are still there.
+  await expect(page.getByTestId("home-title")).toBeVisible();
+  await expect(page.getByTestId("home-retry")).toHaveCount(0);
+
+  // And it comes back when the connection does.
+  await page.unroute(supabase);
+  await page.getByTestId("home-log-retry").click();
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await expect(page.getByTestId("home-title")).toBeVisible();
+});
+
+/**
+ * Resolves when `count` requests matching `url` have failed from now on.
+ *
+ * postgrest-js retries a failed GET three times, so a read reports its failure
+ * to the screen only on the fourth. Register it before the press that causes
+ * the read.
+ */
+function failedReads(page: Page, url: RegExp, count: number) {
+  let seen = 0;
+  return new Promise<void>((resolve) => {
+    page.on("requestfailed", (request) => {
+      if (url.test(request.url()) && ++seen === count) resolve();
+    });
+  });
+}
+
+/**
+ * **A retry that fails again is still a failure, never an empty day.** The
+ * empty state says "Ese día no se apuntó nada", which is a claim about the
+ * dog: nobody walked him. A network read that failed is not evidence of that.
+ * Pressing Reintentar offline used to land on exactly that sentence, because
+ * the failed day was remembered as one the log had something to say about, and
+ * the second failure was then skipped as if it were a failed action.
+ */
+test("keeps saying the day could not be loaded when Reintentar fails too", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  const pets = /\/rest\/v1\/pets\b/;
+  const first = failedReads(page, pets, 4);
+  await page.getByTestId("home-prev-day").click();
+  await first;
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+
+  const second = failedReads(page, pets, 4);
+  await page.getByTestId("home-log-retry").click();
+  await second;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-empty")).toHaveCount(0);
+  await page.unroute(supabase);
+});
+
+test("keeps saying the day could not be loaded when only the log failed and Reintentar fails too", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  // First only the log: the pet reads, the day's rows do not.
+  const events = /\/rest\/v1\/pet_events\b/;
+  await page.route(events, (route) => route.abort());
+  const first = failedReads(page, events, 4);
+  await page.getByTestId("home-prev-day").click();
+  await first;
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+
+  // Then the pet too, as when the signal drops entirely before the retry.
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  const second = failedReads(page, /\/rest\/v1\/pets\b/, 4);
+  await page.getByTestId("home-log-retry").click();
+  await second;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-empty")).toHaveCount(0);
+  await page.unroute(supabase);
+  await page.unroute(events);
+});
+
+/**
+ * Makes every GET of `url` answer 500, and resolves nothing: the caller
+ * un-routes it.
+ *
+ * **Refused rather than aborted.** A 500 is an answer, so the read fails at
+ * once; an aborted one goes through postgrest's three retries first, and the
+ * branch under test is the same either way. Only GETs, so a write still lands.
+ */
+async function refuseReads(page: Page, url: string) {
+  await page.route(url, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "e2e: this cannot be read" }),
+    });
+  });
+}
+
+/**
+ * **A button that waits on the server says it is waiting.** PRODUCT.md,
+ * 2026-10-21: Reintentar left the error on screen and did nothing visible
+ * until the read answered — offline that is about seven seconds of pressing a
+ * button that never acknowledges the press. `Button` has owned the whole
+ * cycle for a while and this one never entered it, because the cycle is
+ * engaged by a promise and `reload` returned `void`.
+ */
+test("the log's Reintentar says it is working while the day is read again", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  // A day that could not be read, which is what puts the Reintentar up.
+  const events = "**/rest/v1/pet_events*";
+  await refuseReads(page, events);
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await page.unroute(events);
+
+  // **Park the pet read, so the busy state is a state and not a flicker** —
+  // the same trick the start's spinner is caught with. The read the retry
+  // waits on starts with the pet.
+  const pets = "**/rest/v1/pets*";
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(pets, async (route) => {
+    await held;
+    await route.continue();
+  });
+
+  const retry = page.getByTestId("home-log-retry");
+  await retry.click();
+
+  await expect(page.getByTestId("home-log-retry-loading")).toBeVisible();
+  await expect(retry).toBeDisabled();
+  await expect(retry).toHaveAttribute("aria-busy", "true");
+  // And the message stays up: the day is still the day that could not be
+  // read until an answer replaces it.
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+
+  release();
+  // The day loaded, so the error region and its button go with it.
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await expect(page.getByTestId("home-log-retry")).toHaveCount(0);
+  await expect(page.getByTestId("home-log-skeleton")).toHaveCount(0);
+  await page.unroute(pets);
+});
+
+/**
+ * **A retry that fails again ends on the failure**, rather than returning to
+ * rest as if nothing had been pressed. The last beat of the cycle is what
+ * tells the tutor the press was heard and did not work; the sentence above
+ * the button says why, and the button comes back to Reintentar so the next
+ * press is there when the signal is.
+ */
+test("the log's Reintentar ends on the error when the day fails again", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const events = "**/rest/v1/pet_events*";
+  await refuseReads(page, events);
+  await page.getByTestId("home-prev-day").click();
+  const retry = page.getByTestId("home-log-retry");
+  await expect(retry).toBeVisible();
+
+  await retry.click();
+
+  await expect(page.getByTestId("home-log-retry-error")).toBeVisible();
+  await expect(retry).toContainText("Sigue sin cargar");
+  // …and back to rest, pressable again, over a day that still says it could
+  // not be read. Never the empty state: that is a claim about the dog.
+  await expect(retry).toContainText("Reintentar");
+  await expect(retry).toBeEnabled();
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-empty")).toHaveCount(0);
+  await page.unroute(events);
+});
+
+/**
+ * **The effect that answers a retry runs for four other reasons**, and the
+ * press must come back to rest whichever of them gets there first. This is
+ * the one that can overtake it while the button is still on screen: a walk
+ * started mid-retry writes its row and asks for the same day again, which
+ * cancels the read the press was waiting on. The record is claimed by the run
+ * that replaces it, so the answer arrives; keying it to the attempt number it
+ * was created for is what would have left it spinning for ever.
+ */
+test("a Reintentar the walk's own reload overtakes still comes back to rest", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  // Today's log unreadable — ‹ and back — so the error, its Reintentar and
+  // the walk control are all on screen at once. Only reads are refused, so
+  // the walk below is still written.
+  const events = "**/rest/v1/pet_events*";
+  await refuseReads(page, events);
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await page.getByTestId("home-next-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Hoy");
+  const retry = page.getByTestId("home-log-retry");
+  await expect(retry).toBeVisible();
+
+  // **Both halves are parked, and the order is the whole test.** The walk's
+  // write has to land *while* the retry's read is still out, or its bump
+  // arrives after the answer and overtakes nothing — which is what the first
+  // draft of this test measured, passing against an implementation that
+  // cannot do what it says.
+  const pets = "**/rest/v1/pets*";
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(pets, async (route) => {
+    await held;
+    await route.continue();
+  });
+  let releaseWrite = () => {};
+  const write = new Promise<void>((resolve) => {
+    releaseWrite = resolve;
+  });
+  await page.route(events, async (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "e2e: this cannot be read" }),
+      });
+    }
+    await write;
+    await route.continue();
+  });
+
+  await retry.click();
+  await expect(page.getByTestId("home-log-retry-loading")).toBeVisible();
+
+  // The walk goes in while the retry is still waiting, and asks for the same
+  // day again on its way out.
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-spinner")).toBeVisible();
+  // The walk's own reload is the second read of the pet: waiting for it is
+  // what says the bump has landed and the press's read has been cancelled.
+  // (The control's spinner is no use here — it spans the gap between the
+  // write and the row arriving, which in this test it never does.)
+  const walksReload = page.waitForRequest(
+    (request) =>
+      request.method() === "GET" && request.url().includes("/rest/v1/pets"),
+  );
+  releaseWrite();
+  await walksReload;
+
+  release();
+  // The day still cannot be read, so the press ends on the alert — and then
+  // back on Reintentar, which is the part that would never have come.
+  await expect(page.getByTestId("home-log-retry-error")).toBeVisible();
+  await expect(retry).toContainText("Reintentar");
+  await expect(retry).toBeEnabled();
+  await page.unroute(pets);
+  await page.unroute(events);
+});
+
+/**
+ * **And the press can outlive the button.** Pressing ‹ while the retry is
+ * waiting takes the whole error region off screen — the new day is loading,
+ * so there is nothing to retry — and the read still answers afterwards, into
+ * a resolver whose button is gone. Nothing may throw, and the day that was
+ * asked for has to arrive.
+ */
+test("a Reintentar whose button is gone before the day answers throws nothing", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const thrown: string[] = [];
+  page.on("pageerror", (error) => thrown.push(error.message));
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const events = "**/rest/v1/pet_events*";
+  await refuseReads(page, events);
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await page.unroute(events);
+
+  const pets = "**/rest/v1/pets*";
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(pets, async (route) => {
+    await held;
+    await route.continue();
+  });
+
+  await page.getByTestId("home-log-retry").click();
+  await expect(page.getByTestId("home-log-retry-loading")).toBeVisible();
+  // Two days back: the region the button lives in goes with the day.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-log-retry")).toHaveCount(0);
+
+  release();
+  await expect(page.getByTestId("home-log-skeleton")).toHaveCount(0);
+  await expect(page.getByTestId("home-title")).toBeVisible();
+  expect(thrown).toEqual([]);
+  await page.unroute(pets);
+});
+
+/**
+ * **The same press on the screen's own Reintentar**, where there is no pet and
+ * the failure has the whole screen. It used to clear the message on the way
+ * into the read, so the screen swapped itself for the full-screen spinner —
+ * an acknowledgement of a sort, and one that threw away the sentence saying
+ * what had happened and where it happened. The message stays and the button
+ * says it is working.
+ */
+test("the screen's Reintentar says it is working, with the message still up", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  // The diary mounted on its own, with no pet: the root's own check is not in
+  // the way, so the first pet read this screen makes is the one that fails.
+  const pets = "**/rest/v1/pets*";
+  let reads = 0;
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(pets, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    if (++reads === 1) {
+      return route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "e2e: the pet cannot be read" }),
+      });
+    }
+    await held;
+    await route.continue();
+  });
+  await page.goto("/(tabs)");
+
+  const retry = page.getByTestId("home-retry");
+  await expect(retry).toBeVisible();
+  const message = page.getByText("Algo ha ido mal por nuestro lado");
+  await expect(message).toBeVisible();
+
+  await retry.click();
+  await expect(page.getByTestId("home-retry-loading")).toBeVisible();
+  await expect(message).toBeVisible();
+
+  release();
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+  await expect(page.getByTestId("home-retry")).toHaveCount(0);
+  await page.unroute(pets);
+});
+
+/**
+ * **Going back to a day that loaded is still a navigation.** A loaded, ‹ to a
+ * day that fails, › back to the day that loaded — all offline. The log then
+ * holds the failed day's error, not the loaded day's rows, so the first day is
+ * not on screen either, and the screen has to say so. It sat on its skeleton,
+ * with no message and no Reintentar, because the guard remembered the first day
+ * as loaded and took the failure for a failed action.
+ */
+test("says the day could not be loaded going back offline too", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  const pets = /\/rest\/v1\/pets\b/;
+  await page.route(supabase, (route) => route.abort());
+  const out = failedReads(page, pets, 4);
+  await page.getByTestId("home-prev-day").click();
+  await out;
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+
+  const back = failedReads(page, pets, 4);
+  await page.getByTestId("home-next-day").click();
+  await back;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await expect(page.getByTestId("home-log-skeleton")).toHaveCount(0);
+  await page.unroute(supabase);
+});
+
+test("says the day could not be loaded going back offline, when the first failure was only the log", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const events = /\/rest\/v1\/pet_events\b/;
+  await page.route(events, (route) => route.abort());
+  const out = failedReads(page, events, 4);
+  await page.getByTestId("home-prev-day").click();
+  await out;
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  const back = failedReads(page, /\/rest\/v1\/pets\b/, 4);
+  await page.getByTestId("home-next-day").click();
+  await back;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-log-skeleton")).toHaveCount(0);
+  await page.unroute(supabase);
+  await page.unroute(events);
+});
+
+/**
+ * **An action that succeeded and a reload that could not confirm it is not a
+ * failed action.** The diary is kept when the *action* fails; here the write
+ * landed — the walk exists on the server — and the screen is waiting on a read
+ * that will not answer. Keeping the old rows left a diary with no walk in it
+ * and the control disabled over a spinner, with no message and no Reintentar:
+ * the tutor could not stop a walk the screen did not know it had started.
+ * Only the pet read is cut, so the start itself succeeds.
+ */
+test("offers Reintentar when a walk was started and the reload cannot confirm it", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const pets = /\/rest\/v1\/pets\b/;
+  await page.route(pets, (route) => route.abort());
+  const gaveUp = failedReads(page, pets, 4);
+  await page.getByTestId("home-goal-control").click();
+  await gaveUp;
+  await page.waitForTimeout(750);
+
+  // Said, with a way out — not a spinner that never ends.
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await expect(page.getByTestId("home-title")).toBeVisible();
+  // A start adds no minutes, so there is nothing held and nothing known: the
+  // measure says so instead of reporting a day with no walks in it.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "Sin datos del día",
+  );
+
+  // And the way out works: the walk the server holds comes back, running.
+  await page.unroute(pets);
+  await page.getByTestId("home-log-retry").click();
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+  await expect(page.getByTestId("home-goal-control")).toHaveAttribute(
+    "aria-label",
+    "Terminar paseo",
+  );
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(1);
+});
+
+/**
+ * **The inverse risk: a day that really is empty stays empty.** Every guard
+ * above exists to stop a failure being shown as "nothing happened", and the
+ * guard must not overcorrect into never saying "nothing happened". A day
+ * that loaded with no rows, then a failed action reloading it offline, keeps
+ * its empty state: the rows it holds are real.
+ */
+test("keeps a genuinely empty day empty when an action fails offline", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  await page.route(supabase, (route) => route.abort());
+  const gaveUp = failedReads(page, /\/rest\/v1\/pets\b/, 4);
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  await gaveUp;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await page.unroute(supabase);
+});
+
+/**
+ * **A pet that never arrived still takes the whole screen.** With no pet there
+ * is no day to show, which is what the gate keeps. `app/index.tsx` reads the
+ * pet once before the tabs mount, so the first read is let through and every
+ * one after it — the home screen's own, with its retries — is cut.
+ */
+test("shows the connection error when the pet never loads, and recovers", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  let petReads = 0;
+  let failedReads = 0;
+  const supabase = /\/rest\/v1\/pets\b/;
+  await page.route(supabase, (route) =>
+    ++petReads === 1 ? route.continue() : route.abort(),
+  );
+  const gaveUp = new Promise<void>((resolve) => {
+    page.on("requestfailed", (request) => {
+      if (supabase.test(request.url()) && ++failedReads === 4) resolve();
+    });
+  });
+
+  await page.goto("/");
+  await gaveUp;
+  await expect(page.getByTestId("home-retry")).toBeVisible();
+  await expect(page.getByTestId("home-title")).toHaveCount(0);
+
+  await page.unroute(supabase);
+  await page.getByTestId("home-retry").click();
+  await expect(page.getByTestId("home-title")).toBeVisible();
+  await expect(page.getByTestId("home-retry")).toHaveCount(0);
+});
+
+test("mounts no shake for a tutor who asked for no animation", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeVisible();
+
+  await page.route("**/rest/v1/pet_events*", (route) =>
+    route.request().method() === "POST" ? route.abort() : route.continue(),
+  );
+  await page.getByTestId("home-goal-control").click();
+
+  // The failure is still said — in the toast, which is not motion — and the
+  // wrapper that would carry the shake is absent rather than still. The
+  // normal-motion test above is what proves this testID exists to be absent.
+  await expect(page.getByTestId("toast-error")).toBeVisible();
+  await expect(page.getByTestId("home-goal-spinner")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-shake")).toHaveCount(0);
   await page.unroute("**/rest/v1/pet_events*");
 });
 
@@ -1708,7 +5353,9 @@ test("saves a stored walk that crossed midnight, and saves it again after an edi
   await expect(page.getByTestId("entry-title")).toHaveCount(0);
   await expect(page.getByTestId("home-log")).toContainText("23:30");
   await expect(page.getByTestId("home-log")).toContainText("30 min");
-  await expect(page.getByTestId("home-goal")).toContainText("30 min de 1h");
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "30 min en 1 paseo",
+  );
 });
 
 test("saves a stored walk with both its times, changing only its note", async ({
@@ -1745,7 +5392,9 @@ test("saves a stored walk with both its times, changing only its note", async ({
   await expect(page.getByTestId("home-log")).toContainText(
     "Con el perro del vecino",
   );
-  await expect(page.getByTestId("home-goal")).toContainText("45 min de 1h");
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "45 min en 1 paseo",
+  );
 });
 
 test("re-reads the duration when a time is set on the clock face", async ({
@@ -1787,7 +5436,7 @@ test("re-reads the duration when a time is set on the clock face", async ({
   await expect(page.getByTestId("entry-title")).toHaveCount(0);
   await expect(page.getByTestId("home-log")).toContainText("10:00");
   await expect(page.getByTestId("home-log")).toContainText("1h");
-  await expect(page.getByTestId("home-goal")).toContainText("1h de 1h");
+  await expect(page.getByTestId("home-goal")).toContainText("1h en 1 paseo");
 
   // And DESDE's own dial reads the same way round.
   await page.locator('[data-testid^="home-entry-"]').first().click();
@@ -1850,7 +5499,9 @@ test("keeps a crossed walk's length while its real end is tried in HASTA", async
   await expect(page.getByTestId("entry-title")).toHaveCount(0);
   await expect(page.getByTestId("home-log")).toContainText("23:40");
   await expect(page.getByTestId("home-log")).toContainText("30 min");
-  await expect(page.getByTestId("home-goal")).toContainText("30 min de 1h");
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "30 min en 1 paseo",
+  );
 });
 
 test("refuses a typed return time that does not parse, instead of dropping it", async ({
@@ -1923,9 +5574,12 @@ test("shows the goal block for a pet with no goal, and still starts a walk", asy
   await seedSession(page);
   await page.goto("/");
 
-  // "paseados", without the day: the block renders on past days too now, and
-  // the header is what names the day.
-  await expect(page.getByTestId("home-goal")).toContainText("paseados");
+  // The day's own minutes with no count clause at all, and nothing saying
+  // "hoy": a tutor with no goal reads the same sentence as everybody else,
+  // and the block renders on past days too, where the header names the day.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
   await expect(page.getByTestId("home-goal")).not.toContainText("hoy");
   // No goal, so no bar and nothing to have met.
   await expect(page.getByTestId("home-goal-bar")).toHaveCount(0);
@@ -1936,10 +5590,10 @@ test("shows the goal block for a pet with no goal, and still starts a walk", asy
   await expect(
     page.locator('[data-testid^="home-entry-"]').first(),
   ).toContainText("En marcha");
-  // The dot says the walk is live; the tick marks a junction on a bar, and
+  // The dot says the walk is live; a cut marks a junction on a bar, and
   // there is no bar to have one.
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
 
   // Stopped inside a minute, so nothing is left behind in the log.
   await page.getByTestId("home-goal-control").click();
@@ -2049,4 +5703,614 @@ test("keeps a minute the clock has no number for", async ({ page }) => {
   await expect(page.getByTestId("timepicker-preview")).toContainText("09:47");
   await page.getByTestId("timepicker-confirm").click();
   await expect(page.getByTestId("entry-time")).toHaveValue("09:47");
+});
+
+/**
+ * **Five characters is not five widths.** Outfit's digits are proportional, so
+ * the time column sized to its content was wider for `09:40` — no narrow `1`
+ * in it — than for `10:20` or `13:51`, and pushed its title right. Measured on
+ * the device: titles at x=288, 280 and 280. The hours are yesterday's, so the
+ * spec holds at any hour it runs.
+ */
+test("starts every entry's title at the same place whatever the hour", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const at = (hours: number, minutes: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    d.setHours(hours, minutes, 0, 0);
+    return d;
+  };
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: at(9, 40), durationMinutes: 20 },
+    { kind: "walk", occurredAt: at(10, 20), durationMinutes: 20 },
+    { kind: "walk", occurredAt: at(13, 51), durationMinutes: 20 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+
+  const entries = page.locator('[data-testid^="home-entry-"]');
+  await expect(entries).toHaveCount(3);
+  // The read side is 24-hour by default, which is what makes the three times
+  // the ones named above rather than whatever the locale would print.
+  await expect(entries.nth(0)).toContainText("09:40");
+  await expect(entries.nth(1)).toContainText("10:20");
+  await expect(entries.nth(2)).toContainText("13:51");
+
+  const xs: number[] = [];
+  for (let i = 0; i < 3; i++) {
+    const box = await entries
+      .nth(i)
+      .getByText("Paseo", { exact: true })
+      .boundingBox();
+    expect(box, `entry ${i}'s title should be drawn`).not.toBeNull();
+    xs.push(box!.x);
+  }
+  expect(
+    Math.max(...xs) - Math.min(...xs),
+    `titles start at ${xs.join(", ")}`,
+  ).toBeLessThan(0.5);
+});
+
+/**
+ * The app goes away and comes back.
+ *
+ * `AppState` on the web target is `document.visibilityState` plus the
+ * `visibilitychange` event — that is all react-native-web's `AppState` reads —
+ * and Playwright cannot truly background a tab, so the property is overridden
+ * and the event dispatched by hand. Hidden first and visible after, because
+ * the handler acts on the arrival and the departure is what makes it one.
+ */
+async function comeBackToTheApp(page: Page) {
+  await page.evaluate(() => {
+    const show = (state: string) => {
+      Object.defineProperty(document, "visibilityState", {
+        value: state,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+    show("hidden");
+    show("visible");
+  });
+}
+
+test("re-reads the day when the app comes back to the foreground", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+
+  // The other tutor's phone writes while this one has the app in the
+  // background. The seed in the middle is what makes this test say anything:
+  // without it a re-read and a screen that did nothing look identical.
+  await seedE2EEvents(petId, [
+    { kind: "meal", occurredAt: new Date(), what: "Pienso del otro móvil" },
+  ]);
+
+  // And nothing on this screen has changed, which is the whole bug: a stale
+  // diary looks exactly like one that is up to date.
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+
+  await comeBackToTheApp(page);
+
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Pienso del otro móvil",
+  );
+});
+
+/**
+ * **La relectura al volver alcanza también a los tratamientos.**
+ *
+ * v0.22.0 lo arregló para las entradas del día y los dejó fuera: cuelgan de
+ * `useFocusEffect`, que responde a cambiar de pestaña y no al ciclo de vida
+ * de la app. Es el mismo fallo que el tutor reportó, para otra clase de fila
+ * — uno apunta la vacuna desde su móvil y el otro no la ve al volver.
+ *
+ * La siembra va **entre** dos comprobaciones, igual que en la prueba de las
+ * entradas: sin ella, «releyó» y «no hizo nada» se ven exactamente igual.
+ */
+test("relee los tratamientos al volver a la app, no solo las entradas", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const today = new Date();
+  const administeredOn = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  await seedSession(page);
+  await page.goto("/");
+  // El día ya ha contestado. Sin esperar aquí, la siembra correría contra la
+  // primera lectura y la sección aparecería sin que nadie hubiera releído.
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+  await expect(page.getByTestId("home-treatments")).toHaveCount(0);
+
+  // El otro móvil apunta la vacuna mientras éste tiene la app detrás.
+  await seedE2ETreatments(petId, [
+    { kind: "vaccine", name: "Rabia", administeredOn, nextDueOn: null },
+  ]);
+  // Y en esta pantalla no ha cambiado nada, que es justo el fallo.
+  await expect(page.getByTestId("home-treatments")).toHaveCount(0);
+
+  await comeBackToTheApp(page);
+
+  await expect(page.getByTestId("home-treatments")).toContainText("Rabia");
+});
+
+test("stays on the day it was left on when the app comes back", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(10, 0, 0, 0);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+  // The read of yesterday has answered before the other phone writes, or the
+  // seed would race it and the assertion below would pass without a re-read.
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+
+  await seedE2EEvents(petId, [
+    { kind: "meal", occurredAt: yesterday, what: "Pienso de ayer" },
+  ]);
+  await comeBackToTheApp(page);
+
+  // A re-read, not a navigation: somebody who left the app reading yesterday
+  // comes back to yesterday, with yesterday's entries read again.
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+  await expect(page.getByTestId("home-log")).toContainText("Pienso de ayer");
+});
+
+test("keeps the diary on screen when the re-read on return fails", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "meal", occurredAt: new Date(), what: "Pienso de la mañana" },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Pienso de la mañana",
+  );
+
+  const supabase = /\/(rest|auth|storage)\/v1\//;
+  const petReadGaveUp = failedReads(page, /\/rest\/v1\/pets\b/, 4);
+  await page.route(supabase, (route) => route.abort());
+  await comeBackToTheApp(page);
+  await petReadGaveUp;
+  // `failedReads` resolves on the `requestfailed` event, which is ahead of
+  // the rejection reaching React. Two of the three assertions below are
+  // absences, and an absence passes trivially against a screen that has not
+  // re-rendered yet — so settle first, as every sibling asserting an absence
+  // after a failed read does.
+  await page.waitForTimeout(750);
+
+  // **Nobody pressed anything.** The tutor opened their phone, and what was
+  // already loaded is still true: a read they did not ask for coming back
+  // empty-handed is no reason to take the day away from them. A failed
+  // *navigation* still shows the error — `says the day could not be loaded
+  // when ‹ is pressed offline, and recovers` — and so does the gesture,
+  // because that one was asked for.
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Pienso de la mañana",
+  );
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-measure")).not.toHaveText(
+    "Sin datos del día",
+  );
+  await page.unroute(supabase);
+});
+
+/**
+ * **An unasked read may not weaken a read somebody asked for.**
+ *
+ * The overlap, which is the whole of the precedence rule: a walk is started,
+ * the server accepts it, the reload that has to confirm it is in flight — and
+ * the phone comes out of a pocket in the middle of it, which re-reads the day
+ * on its own. The run doing the confirming is cancelled and another takes its
+ * place; if that one counted as "nobody asked", the diary would be kept over
+ * a walk the screen does not know about: no row, no message, no Reintentar,
+ * and the control disabled over `En marcha…` for a walk nobody can stop.
+ *
+ * The control arm of this is `offers Reintentar when a walk was started and
+ * the reload cannot confirm it`, which is the same test without the return.
+ * The return has to land **after** the write is accepted — hence the wait on
+ * the reload's own first failed read — or it precedes the reload entirely and
+ * proves nothing.
+ */
+test("keeps the unconfirmed write's error when the app returns mid-reload", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+
+  const pets = /\/rest\/v1\/pets\b/;
+  await page.route(pets, (route) => route.abort());
+  const reloadStarted = failedReads(page, pets, 1);
+  const gaveUp = failedReads(page, pets, 8);
+  await page.getByTestId("home-goal-control").click();
+  await reloadStarted;
+  await comeBackToTheApp(page);
+  await gaveUp;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log-error")).toBeVisible();
+  await expect(page.getByTestId("home-log-retry")).toBeVisible();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "Sin datos del día",
+  );
+
+  // And the way out still works, with the walk the server has been holding.
+  await page.unroute(pets);
+  await page.getByTestId("home-log-retry").click();
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-control")).toBeEnabled();
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(1);
+});
+
+/**
+ * The same keep on the other half of the read: the pet answers and the day
+ * does not. It is a separate branch in the code and it needs its own test,
+ * because the spec above cuts everything and never reaches it — the pet read
+ * fails first. Shaped on `says the day could not be loaded going back
+ * offline, when the first failure was only the log`, which cuts the entries
+ * alone.
+ */
+test("keeps the diary when only the entries fail on the return", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedE2EEvents(petId, [
+    { kind: "meal", occurredAt: new Date(), what: "Pienso de la tarde" },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Pienso de la tarde",
+  );
+
+  const events = /\/rest\/v1\/pet_events\b/;
+  const eventsGaveUp = failedReads(page, events, 4);
+  await page.route(events, (route) => route.abort());
+  await comeBackToTheApp(page);
+  await eventsGaveUp;
+  await page.waitForTimeout(750);
+
+  await expect(page.getByTestId("home-log")).toContainText(
+    "Pienso de la tarde",
+  );
+  await expect(page.getByTestId("home-log-error")).toHaveCount(0);
+  await page.unroute(events);
+});
+
+test("offers the pull-to-refresh on the diary and nowhere else", async ({
+  page,
+}) => {
+  await seedSession(page);
+  await page.goto("/");
+  await expect(page.getByTestId("home-title")).toBeVisible();
+
+  // The gesture serves the moment you already suspect the diary is behind,
+  // which is the diary's moment and not Salud's or the file's.
+  await expect(page.getByTestId("home-refresh")).toBeAttached();
+
+  await page.goto("/health");
+  await expect(page.getByTestId("health-title")).toBeVisible();
+  await expect(page.getByTestId("home-refresh")).toHaveCount(0);
+
+  await page.goto("/profile");
+  await expect(page.getByTestId("profile-title")).toBeVisible();
+  await expect(page.getByTestId("home-refresh")).toHaveCount(0);
+});
+
+/**
+ * **The bar moves for a hand edit too, and which way it moves is the sign of
+ * the change.**
+ *
+ * Up — a forgotten walk written in, a duration lengthened — is the close's
+ * own ceremony, because the dog walked and what was wrong was the record.
+ * Down — a duplicate deleted, a duration shortened — is the journey back and
+ * nothing else: removing a walk is removing something that never happened,
+ * and giving it the gesture that marks reaching the goal would dramatise the
+ * bookkeeping.
+ *
+ * **What these pin is that the movement exists**, not how long it lasts. An
+ * assertion against a clock cost this suite a whole run and two rounds of
+ * wrong diagnosis; what makes the drawing undeletable is the same thing that
+ * does it for the close — `waitForSelector` armed before the press, because
+ * a settled assertion would retry straight past 700 ms, and the samplers
+ * further up for the shape of it.
+ *
+ * **They work on yesterday**, where a fixed morning hour has already
+ * happened whatever time the suite runs at. The whole of this file's header
+ * is about why.
+ */
+test("walks the bar back when a walk is deleted by hand", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  // **Waited for, and not out of caution.** The bar animates only what this
+  // tutor did to minutes the screen actually knows, so the gate is "the rows
+  // on screen answer the current request" — and until yesterday's read lands
+  // the goal block is behind its skeleton with nothing to animate. An add
+  // fired into that gap is a jump, correctly.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("09:30");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await page.getByTestId("entry-delete").click();
+
+  // **Sampled rather than waited for, because a mount is not a journey.**
+  // The fills on this bar are recomputed per render and jump; the one thing
+  // this change adds is a width that travels, and an overlay that mounted
+  // and painted its end state would satisfy a `waitForSelector` exactly as
+  // well as one that moved. Armed before the confirm, the way the close's
+  // own in-flight assertion is.
+  const sampling = barFrames(page, 3_000, "home-goal-travel-lap-0-fill");
+  await page.getByTestId("entry-delete-confirm").click();
+  const { bar, frames } = await sampling;
+
+  // Half the bar is where 30 of 60 minutes stops, and nothing is where the
+  // day ends up. Caught between the two, several times over, is the travel.
+  expect(
+    frames.filter((f) => f.probe >= 0).length,
+    "the journey should be mounted",
+  ).toBeGreaterThan(5);
+  expect(
+    frames.filter((f) => f.probe > bar * 0.1 && f.probe < bar * 0.4).length,
+    "the fill should be caught part-way back",
+  ).toBeGreaterThan(3);
+
+  // And it lands on the picture it was already painting: the day empty, the
+  // fill gone, nothing left mounted over the bar.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+  await expect(page.getByTestId("home-goal-travel")).toHaveCount(0);
+  expect(await widthOf(page, "home-goal-bar")).toBe(0);
+});
+
+test("gives a walk written in by hand the close's own ceremony", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  // **Waited for, and not out of caution.** The bar animates only what this
+  // tutor did to minutes the screen actually knows, so the gate is "the rows
+  // on screen answer the current request" — and until yesterday's read lands
+  // the goal block is behind its skeleton with nothing to animate. An add
+  // fired into that gap is a jump, correctly.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("09:30");
+
+  // The same overlay the stop mounts, fed from the sheet instead. What makes
+  // this the close and not something shaped like it is that nothing new was
+  // built for it: `editMotion` hands over a `fill` and the block draws it.
+  const mounted = page.waitForSelector('[data-testid="home-goal-close"]', {
+    state: "attached",
+  });
+  await page.getByTestId("entry-save").click();
+  await mounted;
+
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-travel")).toHaveCount(0);
+});
+
+test("walks the bar back when a duration is corrected down", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  // **Waited for, and not out of caution.** The bar animates only what this
+  // tutor did to minutes the screen actually knows, so the gate is "the rows
+  // on screen answer the current request" — and until yesterday's read lands
+  // the goal block is behind its skeleton with nothing to animate. An add
+  // fired into that gap is a jump, correctly.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("09:45");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "45 min en 1 paseo",
+  );
+
+  // **A correction, not a deletion, and the same journey.** The rule is the
+  // sign of the change and not the action that caused it, which is the whole
+  // of the decision: three ways of taking minutes off a day are one number
+  // going down.
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await page.getByTestId("entry-to").fill("09:20");
+  const mounted = page.waitForSelector('[data-testid="home-goal-travel"]', {
+    state: "attached",
+  });
+  await page.getByTestId("entry-save").click();
+  await mounted;
+
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "20 min en 1 paseo",
+  );
+  await expect(page.getByTestId("home-goal-travel")).toHaveCount(0);
+});
+
+test("lengthens a duration with the ceremony, not with the journey", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  // **Waited for, and not out of caution.** The bar animates only what this
+  // tutor did to minutes the screen actually knows, so the gate is "the rows
+  // on screen answer the current request" — and until yesterday's read lands
+  // the goal block is behind its skeleton with nothing to animate. An add
+  // fired into that gap is a jump, correctly.
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "0 min paseados",
+  );
+
+  await add(page, "walk");
+  await page.getByTestId("entry-from").fill("09:00");
+  await page.getByTestId("entry-to").fill("09:20");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "20 min en 1 paseo",
+  );
+
+  await page.locator('[data-testid^="home-entry-"]').first().click();
+  await page.getByTestId("entry-to").fill("09:50");
+  const mounted = page.waitForSelector('[data-testid="home-goal-close"]', {
+    state: "attached",
+  });
+  await page.getByTestId("entry-save").click();
+  await mounted;
+
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "50 min en 1 paseo",
+  );
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+});
+
+/**
+ * Whether either overlay was ever mounted over the bar, sampled every frame
+ * for as long as the window lasts.
+ *
+ * **It asserts an existence over a window, which is not an assertion against
+ * a clock.** Nothing here reads a duration or a position: the question is
+ * only whether a gesture was built at all, and the only way to answer it in
+ * the negative is to be watching while the thing that must not animate
+ * happens. The same shape as `toneFrames` above, with everything but the
+ * mounts taken out.
+ */
+function movedAtAll(page: Page, ms: number) {
+  return page.evaluate(
+    ([sampleMs]) =>
+      new Promise<boolean>((resolve) => {
+        const began = performance.now();
+        let moved = false;
+        const step = () => {
+          moved ||=
+            document.querySelector('[data-testid="home-goal-close"]') !==
+              null ||
+            document.querySelector('[data-testid="home-goal-travel"]') !== null;
+          if (performance.now() - began >= sampleMs) {
+            resolve(moved);
+            return;
+          }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }),
+    [ms] as const,
+  );
+}
+
+/**
+ * **A read nobody asked for does not behave like an action**, which is the
+ * boundary this branch has spent three versions defending.
+ *
+ * The other phone's walk arrives inside a reload. The whole screen changes
+ * at once in that moment, and animating a piece of it would point at
+ * something nobody on this side has done — the bar is a description and it
+ * follows the data, but the gesture is an acknowledgement and it follows the
+ * press.
+ */
+test("does not move the bar for a walk the other tutor wrote", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: 60 });
+  const morning = new Date();
+  morning.setDate(morning.getDate() - 1);
+  morning.setHours(9, 0, 0, 0);
+  await seedE2EEvents(petId, [
+    { kind: "walk", occurredAt: morning, durationMinutes: 30 },
+  ]);
+
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "30 min en 1 paseo",
+  );
+
+  // Written straight into the table, the way the other phone writes it, and
+  // brought in by the re-read a return to the foreground asks for.
+  await seedE2EEvents(petId, [
+    {
+      kind: "walk",
+      occurredAt: new Date(morning.getTime() + 2 * 60 * 60_000),
+      durationMinutes: 30,
+    },
+  ]);
+
+  const watching = movedAtAll(page, 3_000);
+  await comeBackToTheApp(page);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "1h en 2 paseos",
+  );
+  expect(await watching, "a reload is not an action").toBe(false);
 });
