@@ -1,7 +1,7 @@
 import * as Linking from "expo-linking";
 import { Redirect, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Button, LoadingScreen, Screen, Text } from "../../components/ui";
+import { Button, ErrorNote, LoadingScreen, Screen } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 
 /**
@@ -58,12 +58,7 @@ export default function AuthCallback() {
   if (failure) {
     return (
       <Screen center>
-        <Text
-          accessibilityLiveRegion="polite"
-          className="mb-5 text-center text-error"
-        >
-          {failure}
-        </Text>
+        <ErrorNote message={failure} />
         {/* Back to the login screen rather than a retry here: whatever went
             wrong happened in the browser, and the only way to try again is to
             start the flow over. */}

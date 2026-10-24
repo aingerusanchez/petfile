@@ -9,6 +9,7 @@ import {
   Chip,
   ChipGroup,
   DateField,
+  ErrorNote,
   Group,
   LoadingScreen,
   Screen,
@@ -305,12 +306,7 @@ export default function Onboarding() {
   if (petCheckError) {
     return (
       <Screen center>
-        <Text
-          accessibilityLiveRegion="polite"
-          className="mb-5 text-center text-error"
-        >
-          {petCheckError}
-        </Text>
+        <ErrorNote message={petCheckError} />
         <Button testID="onboarding-retry" label="Reintentar" onPress={retry} />
       </Screen>
     );

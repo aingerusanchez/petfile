@@ -4,6 +4,7 @@ import { ScrollView, useWindowDimensions, View } from "react-native";
 import Svg, { Circle, Line, Path } from "react-native-svg";
 import {
   colors,
+  ErrorNote,
   LoadingScreen,
   Screen,
   ScreenHeader,
@@ -102,13 +103,7 @@ export default function Weights() {
       />
 
       {error ? (
-        <Text
-          testID="weights-error"
-          accessibilityLiveRegion="polite"
-          className="text-error"
-        >
-          {error}
-        </Text>
+        <ErrorNote testID="weights-error" message={error} className="" />
       ) : rows === null ? (
         <LoadingScreen />
       ) : points.length === 0 ? (
