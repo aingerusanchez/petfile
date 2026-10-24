@@ -71,7 +71,12 @@ export default function Index() {
     return (
       <Screen center>
         <ErrorNote message={petCheckError} />
-        <Button testID="index-retry" label="Reintentar" onPress={retry} />
+        <Button
+          testID="index-retry"
+          label="Reintentar"
+          loadingLabel="Reconectando…"
+          onPress={retry}
+        />
       </Screen>
     );
   }

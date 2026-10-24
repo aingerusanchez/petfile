@@ -1735,6 +1735,7 @@ export default function Home() {
         <Button
           testID="home-retry"
           label="Reintentar"
+          loadingLabel="Reconectando…"
           errorLabel="Sigue sin cargar"
           onPress={reload}
         />
@@ -2029,6 +2030,7 @@ export default function Home() {
             <Button
               testID="home-log-retry"
               label="Reintentar"
+              loadingLabel="Reconectando…"
               // See the screen's own Reintentar above: the reason is the line
               // of text directly over this button.
               errorLabel="Sigue sin cargar"

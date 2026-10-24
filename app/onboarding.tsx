@@ -307,7 +307,12 @@ export default function Onboarding() {
     return (
       <Screen center>
         <ErrorNote message={petCheckError} />
-        <Button testID="onboarding-retry" label="Reintentar" onPress={retry} />
+        <Button
+          testID="onboarding-retry"
+          label="Reintentar"
+          loadingLabel="Reconectando…"
+          onPress={retry}
+        />
       </Screen>
     );
   }

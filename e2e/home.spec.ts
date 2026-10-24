@@ -4653,6 +4653,12 @@ test("the log's Reintentar says it is working while the day is read again", asyn
   await retry.click();
 
   await expect(page.getByTestId("home-log-retry-loading")).toBeVisible();
+  // **Y dice qué está intentando.** La ruleta sola era el único de los tres
+  // estados del botón sin palabra: el éxito y el fallo emparejan glifo y
+  // frase, y la espera —que offline dura los siete segundos del tiempo de
+  // espera— no decía nada. Lo que se lee en voz alta cambia con ella.
+  await expect(retry).toContainText("Reconectando…");
+  await expect(retry).toHaveAttribute("aria-label", "Reconectando…");
   await expect(retry).toBeDisabled();
   await expect(retry).toHaveAttribute("aria-busy", "true");
   // And the message stays up: the day is still the day that could not be
@@ -4884,6 +4890,7 @@ test("the screen's Reintentar says it is working, with the message still up", as
 
   await retry.click();
   await expect(page.getByTestId("home-retry-loading")).toBeVisible();
+  await expect(retry).toContainText("Reconectando…");
   await expect(message).toBeVisible();
 
   release();

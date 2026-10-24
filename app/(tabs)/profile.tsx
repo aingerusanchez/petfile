@@ -401,6 +401,7 @@ export default function Profile() {
         <Button
           testID="profile-retry"
           label="Reintentar"
+          loadingLabel="Reconectando…"
           onPress={() => {
             setLoadError(null);
             setAttempt((n) => n + 1);

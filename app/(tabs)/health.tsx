@@ -199,7 +199,12 @@ export default function Health() {
     return (
       <Screen center edges={["top"]}>
         <ErrorNote message={petError} />
-        <Button testID="health-retry" label="Reintentar" onPress={reload} />
+        <Button
+          testID="health-retry"
+          label="Reintentar"
+          loadingLabel="Reconectando…"
+          onPress={reload}
+        />
       </Screen>
     );
   }

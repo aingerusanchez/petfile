@@ -144,6 +144,7 @@ export default function Treatments() {
           <Button
             testID="treatments-retry"
             label="Reintentar"
+            loadingLabel="Reconectando…"
             onPress={reload}
           />
         </View>
