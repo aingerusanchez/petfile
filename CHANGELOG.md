@@ -18,6 +18,34 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.25.0] — 2026-10-24
+
+### Nuevo
+
+- **La barra dice ahora en cuántos trozos fue el día, no solo cuánto.** Las
+  palabras de encima ya contaban los paseos —«1h 25m en 3 paseos»— y la barra
+  de debajo no los distinguía: un día de un paseo largo y otro de tres cortos
+  se dibujaban igual. Un corte fino marca dónde acabó cada uno. El último no
+  lleva: su final es el filo del relleno, que ya se ve.
+
+  **No es una marca nueva, es la que ya había.** La barra dibujaba un tick
+  mientras un paseo corría, en el punto donde acababan los minutos grabados —
+  que es, exactamente, la frontera entre ese paseo y el anterior. Dibujaba una
+  sola y solo durante un rato; ahora están todas y siempre. La app tiene un
+  mecanismo menos, no uno más.
+
+  **Los cortes de una vuelta cumplida se quedan.** Van pintados sobre el
+  fondo y no dentro del relleno, porque el relleno se vacía al cruzar el
+  objetivo y se habría llevado con él los paseos que lo llenaron — tres
+  paseos y una sola marca, en una casa donde cruzar las 2h es el día normal.
+  Así, cuando el día va por la segunda vuelta, los paseos de la primera
+  siguen marcados.
+
+  Una consecuencia que conviene saber: con dos vueltas en una pista, el
+  cuarto paseo del día puede acabar **a la izquierda** del primero. No hay un
+  orden de izquierda a derecha que leer; cada corte dice dónde acabó un
+  paseo, no en qué puesto fue.
+
 ## [v0.24.0] — 2026-10-23
 
 ### Cambiado

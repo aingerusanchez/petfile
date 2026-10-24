@@ -1,8 +1,9 @@
 # Dónde acaba cada paseo — diseño
 
-**Estado:** acordado con el tutor el 24 de octubre de 2026. Sin construir.
-Las tres variantes están dibujadas en el tablero, en la columna de
-experimentos, con los tres días que las deciden.
+**Estado:** construido en la v0.25.0 y verificado en el teléfono el 24 de
+octubre de 2026, sobre el día real de Loki. Las medidas están al pie. Las
+tres variantes siguen dibujadas en el tablero, en la columna de
+experimentos, con los tres días que las decidieron.
 
 **Origen:** idea del tutor al cerrar la v0.24.0. La propuso como marcadores
 sobre la barra —«tipo los de Google Maps pero minimalistas»— y la conversación
@@ -162,3 +163,45 @@ tick.
   vueltas. Una frontera calculada por segunda vía es una barra que corta
   donde la medida dice otra cosa.
 - No se prueba una animación contra un reloj en Playwright.
+
+## Lo medido en el teléfono
+
+Cuatro paseos reales (59 + 48 + 15 + 3 = 125 min contra un objetivo de 120),
+tres cortes, dos vueltas, todo en una sola captura:
+
+| adyacencia                              | contraste                               |
+| --------------------------------------- | --------------------------------------- |
+| corte contra Mist                       | **11,4:1**                              |
+| corte contra el tono del tramo en curso | **6,5:1**                               |
+| corte contra el fondo Aqua              | **9,9:1**                               |
+| corte dentro del relleno violeta        | **5,0:1** en movimiento, 6,2:1 asentado |
+
+Para comparar, el tick blanco que esto sustituye medía **1,36:1 contra
+Mist**: era más claro que las dos cosas que separaba, y por el lado que más
+importaba apenas se veía. La sospecha que esta spec escribió antes de
+construir —«el cambio es a mejor y conviene decir por qué»— queda medida.
+
+El corte mide **6–7 px** a 520 dpi, o sea los 2 dp que pedía, y el centro de
+cada uno cae en el minuto que le toca con un error de uno o dos píxeles.
+
+**Las tres preguntas que este documento dejó abiertas, contestadas:**
+
+- **Cuatro cortes no leen como barra a rayas.** Tres en pantalla a la vez,
+  repartidos en dos vueltas, con el día real de la casa. Era el riesgo que
+  esta variante arrastraba desde que se propuso.
+- Dos paseos cuyos cortes caigan a menos de 2 dp no se han llegado a dar en
+  el día medido. Sigue abierto, y ahora se sabe que hace falta buscarlo a
+  propósito.
+- **El barrido del paseo en marcha pasa por encima de un corte sin
+  borrarlo**, que era el requisito de dibujarlos sobre las capas animadas.
+  Visto: el gradiente se interrumpe en el corte y vuelve.
+
+## Una cosa que no estaba escrita y hay que saber
+
+**Un corte que cae en el filo del relleno es invisible**, porque está
+pintado al color de la pista y lo que sigue es la pista. Pasa durante el
+primer minuto de un paseo, cuando el tramo en curso aún no tiene anchura.
+
+No es un fallo: un corte en el filo no tiene nada que separar, y lo que se
+lee —«el relleno acaba aquí»— es cierto. Se escribe porque es exactamente la
+clase de cosa que alguien descubre dentro de seis meses y toma por un error.
