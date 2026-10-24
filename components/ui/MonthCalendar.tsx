@@ -1,4 +1,5 @@
 import { Cake, Syringe } from "lucide-react-native";
+import { useCallback } from "react";
 import { Pressable, View } from "react-native";
 import DateTimePicker from "react-native-ui-datepicker";
 import { birthdayOn } from "../../lib/dates";
@@ -233,6 +234,30 @@ export function MonthCalendar({
   // the same call the forward arrow makes in the header above.
   const atToday = dayKey(value) === dayKey(maxDate);
 
+  /**
+   * **Estable, y de eso depende que el calendario se quede donde lo dejaste.**
+   *
+   * `react-native-ui-datepicker` guarda el mes que muestra en `currentDate`, y
+   * su reducer lo reescribe entero al cambiar la selección:
+   * `{ ...prev, date: selectedDate, currentDate: selectedDate }`. El efecto que
+   * despacha eso lleva `onChange` entre sus dependencias — así que **una flecha
+   * en línea aquí hacía que cualquier render tirase la navegación** y devolviera
+   * la rejilla al mes del día seleccionado, que no se ha movido.
+   *
+   * Medido: se abre el calendario, se pulsa ‹, y al volver a la app —que relee
+   * el día— la rejilla salta de septiembre a octubre mientras el tutor está
+   * mirando. Quien lo sufre estaba buscando qué día cojeaba el perro.
+   *
+   * Por eso `onSelect` también llega memoizado desde el día: una cadena de
+   * `useCallback` solo vale lo que valga su eslabón más flojo.
+   */
+  const handleChange = useCallback(
+    ({ date }: { date: unknown }) => {
+      if (date) onSelect(new Date(date as string | number | Date));
+    },
+    [onSelect],
+  );
+
   return (
     <View testID={testID}>
       <DateTimePicker
@@ -243,9 +268,7 @@ export function MonthCalendar({
         locale="es"
         firstDayOfWeek={1}
         classNames={NORDIC_ICE}
-        onChange={({ date }) => {
-          if (date) onSelect(new Date(date as string | number | Date));
-        }}
+        onChange={handleChange}
         // The library's own arrows change the month without calling either
         // of these — `onMonthChange` fires from the month *list* alone — which
         // is why the caller reads a window instead of a month.
