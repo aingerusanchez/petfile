@@ -2988,10 +2988,21 @@ test("converts a lapped walk without dropping its second band", async ({
   await page.getByTestId("home-goal-control").click();
   const { frames } = await sampling;
 
-  // Violet throughout — the live one while the band is still unconverted, the
-  // saved one once the fill has passed. Never the tone of the lap underneath.
-  const violets: string[] = [colors.accentFocusDim, colors.accentFocus];
-  const strangers = frames.filter((f) => !violets.includes(f.tone));
+  // **Lo que se defiende es que la banda no desaparezca**, y eso se dice
+  // nombrando los dos tonos que significarían que ha desaparecido en vez de
+  // permitiendo solo los dos violetas. La diferencia dejó de ser cosmética en
+  // la v0.25.0: la marca del cierre pasó de ser un tick de 12 dp que
+  // sobresalía **fuera** de la pista —donde este muestreo nunca la veía— a un
+  // corte de 2 dp **dentro** de ella, y durante el cierre esa marca viaja. Al
+  // cruzar el punto que este spec mira, lo tiñe del color de la pista unos
+  // pocos milisegundos.
+  //
+  // Con la lista blanca, que un fotograma cayera o no en esos milisegundos
+  // decidía si la prueba pasaba: una carrera que pasa casi siempre, que es la
+  // peor clase de prueba que hay. Nombrando los tonos prohibidos, la marca
+  // puede cruzar por donde quiera y lo que se comprueba sigue siendo lo mismo.
+  const dropped: string[] = [colors.accent, colors.textSecondary];
+  const strangers = frames.filter((f) => dropped.includes(f.tone));
   expect(strangers.map((f) => f.tone)).toEqual([]);
 
   // And it did convert: both tones appear, so the point was handed over
