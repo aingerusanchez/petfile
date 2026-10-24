@@ -283,3 +283,65 @@ export function travelLaps(from: number, to: number): CloseLap[] {
       fill: [lap.fill[1], lap.fill[0]],
     }));
 }
+
+/**
+ * Where each walk of the day ends on the track, 0–100 of its width — one
+ * position per boundary *between* two walks, in the order they happened.
+ *
+ * **It is the tick, generalised, and that is why it lives here.** The mark the
+ * bar draws while a walk runs sits where the recorded minutes end, which is
+ * exactly the boundary between the previous walk and the one in progress; once
+ * the walk is saved, that same point is the boundary between two recorded
+ * ones. A position computed wrongly does not throw: it draws a cut where no
+ * walk ended, and nobody sees it until they count the cuts against the
+ * measure. So the position is not new arithmetic. Each running total goes
+ * through `barProgress` and comes back through `barStateAt`, which is the
+ * pair that already decides which lap a point is on and how far along it —
+ * a boundary computed a second way is a bar that cuts where the measure says
+ * otherwise, the rule this whole file keeps.
+ *
+ * **The track is one lap and the day is up to two, so a cut is a position
+ * within its own lap.** A boundary at 129 of a 120 goal is 9 minutes into the
+ * second lap — 7.5% of the track, to the *left* of one at 58. There is no
+ * left-to-right order to read; the result is in the order the walks happened,
+ * not the order the positions fall, and a caller must not sort it.
+ *
+ * **The last walk gets no cut.** Its end is the leading edge of the fill,
+ * which is already drawn. That is also why one walk has no boundaries at all.
+ *
+ * **Three boundaries are dropped rather than drawn, and none of them is
+ * clamped.**
+ * - *No goal* is no scale: `barProgress` has nothing to say, and neither does
+ *   this.
+ * - *A junction between laps* (a running total of exactly the goal, or zero)
+ *   reads a fill of 0. There is nothing there to separate — the ground turns
+ *   on that line already — and a mark would sit on the track's left edge,
+ *   hanging off it.
+ * - *Past the top* — double the goal or more — is where `barProgress` clamps,
+ *   and a clamped boundary is a lie about where the walk ended. Pinned to the
+ *   right edge, several walks that overshot would pile up there as one thick
+ *   mark that says the day finished somewhere it did not. Exactly double is
+ *   dropped with them: it is the right edge of the track, the same
+ *   no-man's-land as the left one.
+ *
+ * One consequence worth knowing, recorded in the design spec rather than
+ * built against: two walks that end the same distance into their own laps
+ * share an x and read as one cut, so the bar counts a walk fewer.
+ */
+export function walkCuts(
+  walkMinutes: number[],
+  goalMinutes: number | null,
+): number[] {
+  const cuts: number[] = [];
+  let recorded = 0;
+  for (const minutes of walkMinutes.slice(0, -1)) {
+    recorded += minutes;
+    const progress = barProgress(recorded, goalMinutes);
+    if (progress === null) return [];
+    if (progress >= TOP_TIER) continue;
+    const { fill } = barStateAt(progress);
+    if (fill === 0) continue;
+    cuts.push(fill);
+  }
+  return cuts;
+}

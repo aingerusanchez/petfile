@@ -6,6 +6,7 @@ import {
   editMotion,
   lapFill,
   travelLaps,
+  walkCuts,
 } from "../goalbar";
 
 describe("barProgress", () => {
@@ -252,5 +253,64 @@ describe("travelLaps", () => {
   it("clamps a journey reaching past either end of the scale", () => {
     expect(travelLaps(3, 0.5)).toEqual(travelLaps(2, 0.5));
     expect(travelLaps(0.5, -1)).toEqual(travelLaps(0.5, 0));
+  });
+});
+
+describe("walkCuts", () => {
+  it("marca las fronteras y no el final del último paseo", () => {
+    // Objetivo 120. Tres paseos: 58, 27, 20. Fronteras en 58 y 85.
+    expect(walkCuts([58, 27, 20], 120)).toEqual([
+      expect.closeTo(48.33, 1),
+      expect.closeTo(70.83, 1),
+    ]);
+  });
+
+  it("un solo paseo no tiene fronteras", () => {
+    expect(walkCuts([58], 120)).toEqual([]);
+  });
+
+  it("sin objetivo no hay escala, así que no hay cortes", () => {
+    expect(walkCuts([58, 27], null)).toEqual([]);
+  });
+
+  it("sitúa en su vuelta los paseos que pasan del objetivo", () => {
+    // 58, 27, 44, 35 → fronteras en 58, 85 y 129. La tercera es la segunda
+    // vuelta: 9 de 120, el 7,5% de la pista, a la izquierda de las otras dos.
+    expect(walkCuts([58, 27, 44, 35], 120)).toEqual([
+      expect.closeTo(48.33, 1),
+      expect.closeTo(70.83, 1),
+      expect.closeTo(7.5, 1),
+    ]);
+  });
+
+  it("descarta la frontera que cae justo en la junta de dos vueltas", () => {
+    // 58 + 62 = 120 exactos: ahí no hay nada que separar, y el corte caería
+    // sobre el filo de la pista.
+    expect(walkCuts([58, 62, 30], 120)).toEqual([expect.closeTo(48.33, 1)]);
+  });
+
+  it("descarta lo que no cabe en la escala", () => {
+    // La barra llega al doble del objetivo y no más. Un paseo que acaba más
+    // allá no se amontona en el filo derecho: no se dibuja.
+    expect(walkCuts([130, 130, 60], 120)).toEqual([expect.closeTo(8.33, 1)]);
+  });
+
+  it("descarta la frontera que cae justo en el techo de la escala", () => {
+    // 120 + 120 = 240 exactos: el doble del objetivo es el filo derecho de la
+    // pista, que no es un sitio donde acabara un paseo que se pueda separar.
+    expect(walkCuts([120, 120, 10], 120)).toEqual([]);
+  });
+
+  it("no pone corte donde no se anduvo nada", () => {
+    // Un paseo de cero minutos acaba donde empezó el día: el filo izquierdo.
+    expect(walkCuts([0, 40, 20], 120)).toEqual([expect.closeTo(33.33, 1)]);
+  });
+
+  it("sin paseos no hay fronteras", () => {
+    expect(walkCuts([], 120)).toEqual([]);
+  });
+
+  it("con un objetivo de cero no hay escala", () => {
+    expect(walkCuts([58, 27], 0)).toEqual([]);
   });
 });
