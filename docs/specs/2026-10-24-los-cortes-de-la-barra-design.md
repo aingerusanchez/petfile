@@ -85,10 +85,24 @@ casa, con un objetivo de 2h, cruzar es el día normal.
 
 Dibujados **sobre el fondo**, se quedan. Y entonces:
 
-**La capa desambigua la vuelta.** Un corte dentro del relleno de la vuelta en
-curso es esta vuelta; un corte sobre el fondo de la vuelta cumplida es la
-anterior. La misma x no significa dos cosas, que era la objeción de fondo
-contra marcar posiciones sobre una escala que gira.
+**La capa ayuda a leer la vuelta, y no siempre.** Un corte sobre el fondo
+desnudo es de una vuelta cumplida; uno dentro del relleno es de la vuelta en
+curso. Eso funciona mientras el relleno sea corto — y **deja de funcionar
+cuando crece por encima de ellos**: con la segunda vuelta al 80%, los cortes
+de la primera al 48% y al 70% quedan debajo del violeta y se leen como de
+esta vuelta.
+
+**Se acepta, y conviene saber exactamente qué se acepta.** Lo que el corte
+dice es «aquí acabó un paseo», y la posición sigue siendo cierta en la escala
+de la barra; lo que se pierde es a qué vuelta pertenecía, que no es lo que
+nadie va a mirar. Es la misma compresión que la barra ya hace con el relleno
+al dibujar dos vueltas en una pista.
+
+**El caso que sí cuesta algo:** un corte de cada vuelta en la misma x se
+funden en uno, y entonces se cuenta un paseo de menos. Hace falta que dos
+paseos acaben a la misma distancia del principio de su vuelta — raro con tres
+o cuatro al día, y no vale la pena construir contra ello. Queda escrito para
+que, si alguien lo ve, sepa que está visto.
 
 Eso resuelve el caso que el tutor mismo vio venir: con dos vueltas, el cuarto
 paseo acaba **a la izquierda** del primero. No es un desorden que haya que
