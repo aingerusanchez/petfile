@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ActivityIndicator, Pressable } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import Animated, { ZoomIn, useReducedMotion } from "react-native-reanimated";
 import { colors, TOUCH_TARGET } from "./tokens";
 import { Text } from "./Text";
@@ -43,6 +43,22 @@ type ButtonProps = {
    */
   successLabel?: string;
   errorLabel?: string;
+  /**
+   * What the button says *while* it waits, beside the spinner.
+   *
+   * **Sin esto el estado de carga era el único de los tres sin palabra.** El
+   * éxito y el fallo emparejan glifo y frase —por la razón que dice
+   * `successLabel` ahí arriba: un icono no es una explicación— y la espera
+   * mostraba una ruleta a secas. En `Reintentar` eso eran siete segundos de
+   * un botón que ni siquiera decía qué estaba intentando.
+   *
+   * **Sin valor por defecto, a propósito.** Una palabra genérica aparecería
+   * de golpe en todos los botones asíncronos de la app sin que nadie la
+   * hubiera elegido, y la palabra correcta la sabe quien llama: «Guardando…»
+   * y «Reconectando…» no son intercambiables. Un botón que no la pasa se
+   * queda como estaba.
+   */
+  loadingLabel?: string;
   /**
    * What a screen reader announces, when the visible label is written in the
    * app's voice rather than as an action.
@@ -98,6 +114,7 @@ export function Button({
   leading,
   successLabel = "¡Listo!",
   errorLabel = "Algo no ha salido bien",
+  loadingLabel,
   accessibilityLabel,
   tone = "default",
   disabled = false,
@@ -235,7 +252,9 @@ export function Button({
       ? successLabel
       : status === "error"
         ? errorLabel
-        : restingName;
+        : status === "loading" && loadingLabel
+          ? loadingLabel
+          : restingName;
 
   return (
     <Pressable
@@ -252,10 +271,17 @@ export function Button({
       className={`${shape} active:opacity-70`}
     >
       {status === "loading" ? (
-        <ActivityIndicator
-          testID={testID ? `${testID}-loading` : undefined}
-          color={iconColor}
-        />
+        <View className="flex-row items-center gap-2">
+          <ActivityIndicator
+            testID={testID ? `${testID}-loading` : undefined}
+            color={iconColor}
+          />
+          {loadingLabel ? (
+            <Text numberOfLines={1} className={labelClass}>
+              {loadingLabel}
+            </Text>
+          ) : null}
+        </View>
       ) : status === "success" ? (
         <Animated.View
           testID={testID ? `${testID}-success` : undefined}

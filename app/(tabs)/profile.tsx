@@ -17,15 +17,16 @@ import {
   Checkbox,
   Chip,
   ChipGroup,
+  colors,
   DateField,
+  ErrorNote,
   Group,
   LoadingScreen,
   Screen,
   Sheet,
   Text,
-  TOUCH_TARGET,
   TextField,
-  colors,
+  TOUCH_TARGET,
   useCelebration,
   useToast,
 } from "../../components/ui";
@@ -396,15 +397,11 @@ export default function Profile() {
   if (loadError) {
     return (
       <Screen center edges={["top"]}>
-        <Text
-          accessibilityLiveRegion="polite"
-          className="mb-5 text-center text-error"
-        >
-          {loadError}
-        </Text>
+        <ErrorNote message={loadError} />
         <Button
           testID="profile-retry"
           label="Reintentar"
+          loadingLabel="Reconectando…"
           onPress={() => {
             setLoadError(null);
             setAttempt((n) => n + 1);

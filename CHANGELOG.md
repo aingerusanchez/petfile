@@ -18,6 +18,28 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.26.0] — 2026-10-24
+
+### Arreglado
+
+- **El calendario se queda en el mes al que vas.** Abrirlo, pulsar ‹ y ver
+  cómo la rejilla vuelve sola al mes de hoy unos segundos después. Lo sufría
+  quien estaba buscando algo —«¿qué día cojeaba?»— y lo perdía sin un aviso.
+  El disparador real era volver a la app: relee el día y el calendario se iba
+  mientras lo estabas mirando.
+
+- **Los errores se leen.** Nueve mensajes repartidos por ocho pantallas
+  estaban escritos enteros en rojo, que sobre el fondo de la app mide
+  **5,01:1** — con lo que las frases que explican por qué falta algo eran el
+  texto con menos contraste que hay, y son justo las que te encuentras al
+  salir de casa y perder el wifi. Ahora el rojo lo lleva una marca al lado y
+  la frase va en el color normal, a **17,21:1**. Es lo que el diario ya hacía
+  desde la v0.22.0 y el resto de la app no.
+
+- **Reintentar dice qué está intentando.** Mostraba una ruleta muda; ahora
+  pone «Reconectando…» mientras espera, que offline son unos siete segundos.
+  De los tres estados del botón, el de espera era el único sin palabra.
+
 ## [v0.25.0] — 2026-10-24
 
 ### Nuevo

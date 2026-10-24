@@ -6,6 +6,7 @@ import {
   Button,
   colors,
   DateField,
+  ErrorNote,
   Fab,
   Group,
   LoadingScreen,
@@ -17,8 +18,8 @@ import {
   Text,
   TextField,
   TREATMENT_ICONS,
-  TreatmentSkeleton,
   TreatmentSheet,
+  TreatmentSkeleton,
   useToast,
   VetCard,
   WeightLine,
@@ -197,13 +198,13 @@ export default function Health() {
   if (petError) {
     return (
       <Screen center edges={["top"]}>
-        <Text
-          accessibilityLiveRegion="polite"
-          className="mb-5 text-center text-error"
-        >
-          {petError}
-        </Text>
-        <Button testID="health-retry" label="Reintentar" onPress={reload} />
+        <ErrorNote message={petError} />
+        <Button
+          testID="health-retry"
+          label="Reintentar"
+          loadingLabel="Reconectando…"
+          onPress={reload}
+        />
       </Screen>
     );
   }
@@ -259,13 +260,7 @@ export default function Health() {
       </Text>
 
       {dataError ? (
-        <Text
-          testID="health-error"
-          accessibilityLiveRegion="polite"
-          className="mb-5 text-error"
-        >
-          {dataError}
-        </Text>
+        <ErrorNote testID="health-error" message={dataError} />
       ) : null}
 
       {/* **What is pending comes first, and most of the year it is nothing.**

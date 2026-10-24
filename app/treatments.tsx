@@ -6,15 +6,16 @@ import {
   Button,
   Chip,
   colors,
+  ErrorNote,
   Markdown,
   PLACEHOLDER_COLOR,
   Screen,
   ScreenHeader,
   Text,
   TOUCH_TARGET,
-  TreatmentSkeleton,
   TREATMENT_ICONS,
   TreatmentSheet,
+  TreatmentSkeleton,
   useToast,
 } from "../components/ui";
 import { MONTHS_ES, parseISO } from "../lib/dates";
@@ -139,15 +140,11 @@ export default function Treatments() {
 
       {error ? (
         <View className="items-center">
-          <Text
-            accessibilityLiveRegion="polite"
-            className="mb-5 text-center text-error"
-          >
-            {error}
-          </Text>
+          <ErrorNote message={error} />
           <Button
             testID="treatments-retry"
             label="Reintentar"
+            loadingLabel="Reconectando…"
             onPress={reload}
           />
         </View>

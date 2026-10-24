@@ -4653,6 +4653,12 @@ test("the log's Reintentar says it is working while the day is read again", asyn
   await retry.click();
 
   await expect(page.getByTestId("home-log-retry-loading")).toBeVisible();
+  // **Y dice qué está intentando.** La ruleta sola era el único de los tres
+  // estados del botón sin palabra: el éxito y el fallo emparejan glifo y
+  // frase, y la espera —que offline dura los siete segundos del tiempo de
+  // espera— no decía nada. Lo que se lee en voz alta cambia con ella.
+  await expect(retry).toContainText("Reconectando…");
+  await expect(retry).toHaveAttribute("aria-label", "Reconectando…");
   await expect(retry).toBeDisabled();
   await expect(retry).toHaveAttribute("aria-busy", "true");
   // And the message stays up: the day is still the day that could not be
@@ -4884,6 +4890,7 @@ test("the screen's Reintentar says it is working, with the message still up", as
 
   await retry.click();
   await expect(page.getByTestId("home-retry-loading")).toBeVisible();
+  await expect(retry).toContainText("Reconectando…");
   await expect(message).toBeVisible();
 
   release();
@@ -5849,6 +5856,44 @@ test("relee los tratamientos al volver a la app, no solo las entradas", async ({
   await comeBackToTheApp(page);
 
   await expect(page.getByTestId("home-treatments")).toContainText("Rabia");
+});
+
+/**
+ * **El calendario se queda en el mes al que el tutor fue.**
+ *
+ * `react-native-ui-datepicker` guarda el mes que muestra en `currentDate`, y
+ * su reducer lo reescribe entero en `CHANGE_SELECTED_DATE`:
+ * `{ ...prev, date: selectedDate, currentDate: selectedDate }`. El efecto que
+ * despacha eso lleva `onChange` en sus dependencias — así que cualquier
+ * render que le pase un manejador nuevo tira la navegación y vuelve al mes
+ * del día seleccionado, que nunca se movió.
+ *
+ * Volver a la app es el disparador que lo provoca de verdad: relee el día,
+ * el bloque se renderiza y el calendario se va al mes de hoy mientras el
+ * tutor está mirando septiembre.
+ */
+test("se queda en el mes al que fuiste cuando llega una lectura", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await resetE2EPets();
+  await seedE2EPet({ exercise_goal_minutes: 60 });
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-day").click();
+  await expect(page.getByTestId("home-calendar")).toBeVisible();
+
+  await pageBackOneMonth(page);
+  const header = page.getByTestId("btn-month");
+  const month = ((await header.textContent()) ?? "").trim();
+
+  // Una lectura que nadie pidió, que es como pasa en la calle: el móvil sale
+  // del bolsillo con el calendario abierto.
+  await comeBackToTheApp(page);
+
+  await expect(header).toHaveText(month);
+  await expect(page.getByTestId("home-calendar")).toBeVisible();
 });
 
 test("stays on the day it was left on when the app comes back", async ({

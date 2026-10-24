@@ -1,7 +1,11 @@
 # El calendario vuelve solo al mes de hoy — hallazgo
 
-**Estado:** medido el 23 de octubre de 2026, **sin arreglar**. Pendiente de que
-el tutor decida si se acomete y con qué versión.
+**Estado:** arreglado el 24 de octubre de 2026 en la v0.26.0.
+
+**Y los cuatro caminos que este documento proponía eran soluciones a un
+problema que no existía.** Se dejan escritos abajo, tachados, porque el error
+que cometieron vale más que las opciones en sí: ver «Lo que estaba mal en
+este documento».
 
 Salió persiguiendo un test inestable, no buscándolo. El test se arregló por
 otro camino; esto es lo que había debajo.
@@ -83,3 +87,34 @@ comentario dice esto mismo y apunta aquí.
 Dos intentos de quitar esa espera están medidos y documentados allí: sin ella,
 el test pasa de fallar una vez de cada quince a fallar nueve, y
 `waitForLoadState("networkidle")` tampoco la sustituye.
+
+## Lo que estaba mal en este documento
+
+Este documento daba por supuesto que **la librería recalcula el mes al
+re-renderizar**, y a partir de ahí buscó cómo evitar los re-renders
+(congelar las marcas) o cómo cambiar la semántica de la selección. Los
+cuatro caminos razonaban sobre esa premisa, y la premisa era falsa.
+
+La causa está treinta líneas más abajo de donde ya habíamos mirado dos
+veces, en el reducer de `react-native-ui-datepicker`:
+
+```js
+case CHANGE_SELECTED_DATE:
+  return { ...prev, date: selectedDate, currentDate: selectedDate };
+```
+
+`currentDate` es el mes que se muestra, y el efecto que despacha esa acción
+lleva **`onChange`** entre sus dependencias. `MonthCalendar` se lo pasaba
+como flecha en línea: manejador nuevo en cada render, efecto re-ejecutado,
+mes de vuelta al del día seleccionado — que no se había movido.
+
+**El arreglo son dos `useCallback` en cadena**, uno en el día y otro en
+`MonthCalendar`, porque una cadena de memoizaciones vale lo que valga su
+eslabón más flojo. Ninguna de las cuatro opciones de arriba hacía falta.
+
+**La frase de este documento que más caro salió** fue: «no hay una forma
+documentada de decirle "quédate donde el tutor te dejó"». Era cierta sobre
+la documentación y falsa sobre el problema, y cerró la puerta a mirar el
+código de la librería durante un día entero. Cuando una dependencia se
+comporta de una forma que no se entiende, el `node_modules` está ahí y se
+lee en diez minutos.

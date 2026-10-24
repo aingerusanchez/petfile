@@ -1115,6 +1115,22 @@ export default function Home() {
   const petId = pet?.id ?? null;
 
   /**
+   * **Memoizados porque el calendario no sobrevive a un manejador nuevo.**
+   * `MonthCalendar` construye su `onChange` sobre éste, y la librería tira el
+   * mes que muestra cuando ese manejador cambia de identidad — ver su
+   * docblock. Una flecha en línea aquí devolvía la rejilla al mes de hoy cada
+   * vez que el día se renderizaba, que es cada vez que una lectura aterriza.
+   */
+  const pickDay = useCallback((picked: Date) => {
+    setDay(picked);
+    setPicking(false);
+  }, []);
+  const goToToday = useCallback(() => {
+    setDay(today);
+    setPicking(false);
+  }, [today]);
+
+  /**
    * The treatments, read again every time the diary comes back into focus.
    *
    * **On focus rather than once, because they are written two tabs away.** The
@@ -1735,6 +1751,7 @@ export default function Home() {
         <Button
           testID="home-retry"
           label="Reintentar"
+          loadingLabel="Reconectando…"
           errorLabel="Sigue sin cargar"
           onPress={reload}
         />
@@ -2029,6 +2046,7 @@ export default function Home() {
             <Button
               testID="home-log-retry"
               label="Reintentar"
+              loadingLabel="Reconectando…"
               // See the screen's own Reintentar above: the reason is the line
               // of text directly over this button.
               errorLabel="Sigue sin cargar"
@@ -2106,14 +2124,8 @@ export default function Home() {
             maxDate={today}
             birthDate={pet.birth_date}
             error={marksError}
-            onSelect={(picked) => {
-              setDay(picked);
-              setPicking(false);
-            }}
-            onToday={() => {
-              setDay(today);
-              setPicking(false);
-            }}
+            onSelect={pickDay}
+            onToday={goToToday}
           />
         </Sheet>
       ) : null}

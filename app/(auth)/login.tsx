@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Button, GoogleMark, Screen, Text, Version } from "../../components/ui";
+import {
+  Button,
+  ErrorNote,
+  GoogleMark,
+  Screen,
+  Text,
+  Version,
+} from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 
 export default function Login() {
@@ -22,13 +29,7 @@ export default function Login() {
       <Text className="mb-10 text-text-tertiary">El diario de tu compi</Text>
 
       {error ? (
-        <Text
-          testID="login-error"
-          accessibilityLiveRegion="polite"
-          className="mb-3 text-error"
-        >
-          {error}
-        </Text>
+        <ErrorNote testID="login-error" message={error} className="mb-3" />
       ) : null}
 
       {/* Outlined, not accent-filled: signing in with Google is the third

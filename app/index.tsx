@@ -1,6 +1,6 @@
 import { Redirect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Button, LoadingScreen, Screen, Text } from "../components/ui";
+import { Button, ErrorNote, LoadingScreen, Screen } from "../components/ui";
 import { useAuth } from "../lib/auth";
 import { getMyPet } from "../lib/pets";
 
@@ -70,13 +70,13 @@ export default function Index() {
   if (petCheckError) {
     return (
       <Screen center>
-        <Text
-          accessibilityLiveRegion="polite"
-          className="mb-5 text-center text-error"
-        >
-          {petCheckError}
-        </Text>
-        <Button testID="index-retry" label="Reintentar" onPress={retry} />
+        <ErrorNote message={petCheckError} />
+        <Button
+          testID="index-retry"
+          label="Reintentar"
+          loadingLabel="Reconectando…"
+          onPress={retry}
+        />
       </Screen>
     );
   }
