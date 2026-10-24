@@ -402,6 +402,41 @@ export function walkCount(events: PetEventRow[]): number {
   );
 }
 
+/**
+ * Each of those walks on its own, in the order the day happened: the third
+ * reading of the very rows `walkedMinutes` sums and `walkCount` counts.
+ *
+ * **It exists because the goal bar now says what the measure says, in
+ * trozos.** "1h 25m en 3 paseos" is two scalars; the cuts on the bar need the
+ * three lengths behind them, and a list built from a different idea of what a
+ * walk is would draw a mark where no walk ended. So the rule is the one the
+ * other two keep — a walk contributes when it has minutes to contribute — and
+ * `lib/__tests__/events.test.ts` pins the three together rather than trusting
+ * them to go on agreeing: the sum of this is `walkedMinutes` and its length is
+ * `walkCount`, by test and not by eye.
+ *
+ * **`queued` is how a stop the server has not heard about keeps its place.**
+ * The day's total adds `pendingMinutes` on the end and nobody can tell; a list
+ * cannot, because a queued walk is a walk that happened at an hour, between
+ * two others. Its row already exists with no length — that is what makes it
+ * queueable at all — so the length is substituted in the row's own position
+ * and the order stays the order of the day. The map is `id → minutes`, plain
+ * data, so this module goes on knowing nothing about the queue.
+ */
+export function walkLengths(
+  events: PetEventRow[],
+  queued?: ReadonlyMap<string, number>,
+): number[] {
+  const lengths: number[] = [];
+  for (const event of events) {
+    if (event.kind !== "walk") continue;
+    const minutes = event.duration_minutes ?? queued?.get(event.id) ?? null;
+    if (minutes === null) continue;
+    lengths.push(minutes);
+  }
+  return lengths;
+}
+
 export async function logEvent(
   petId: string,
   event: NewEvent,

@@ -1572,9 +1572,10 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
   await expect(page.getByTestId("home-goal-control")).toBeVisible();
-  // Nothing is running, so nothing pulses and nothing marks a junction.
+  // Nothing is running, so nothing pulses — and nothing is recorded, so
+  // there is no boundary between two walks to cut.
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
 
   const entries = page.locator('[data-testid^="home-entry-"]');
   await expect(entries).toHaveCount(0);
@@ -1588,7 +1589,7 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
   // The first walk of the day has nothing recorded before it, so no junction.
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
   await expect(entries).toHaveCount(1);
   await expect(entries.first()).toContainText("En marcha");
 
@@ -1605,13 +1606,13 @@ test("starts a walk and stops it from the goal block", async ({ page }) => {
     "De paseo",
   );
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
   await expect(entries).toHaveCount(0);
   await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
 });
 
 /**
- * The two moments the tick specs hang on, derived from a "now" they own.
+ * The two moments these specs hang on, derived from a "now" they own.
  *
  * A recorded walk at one minute past midnight — the earliest start that is
  * still today, and always in the past — and a live walk begun two minutes ago.
@@ -1629,13 +1630,162 @@ function tickMoments(): { earlier: Date | null; running: Date } {
 }
 
 /**
- * **The tick is the boundary the two fills cannot draw.** Mist and the
- * segment's tone sit 1.71:1 apart, and against a 3 h goal the segment is 3.6 dp
- * wide at two minutes, so the mark at the junction is the only thing that says
- * where the recorded minutes end. The goal is 60 min here and 30 are recorded,
- * so the junction is the middle of the bar.
+ * **A day on a past date, with its walks already written down.**
+ *
+ * The cuts are read off recorded minutes, so these specs need a day of
+ * finished walks and no clock in the way: seeded on yesterday at fixed
+ * morning hours, which have already happened whatever time the suite runs
+ * at, and reached with ‹. This file's header is about why a fixed hour on
+ * *today* is a test that fails half the day.
  */
-test("marks where the recorded minutes end while a walk is running", async ({
+async function seedWalksYesterday(
+  page: Page,
+  goalMinutes: number,
+  minutes: number[],
+) {
+  await resetE2EPets();
+  const petId = await seedE2EPet({ exercise_goal_minutes: goalMinutes });
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  await seedE2EEvents(
+    petId,
+    minutes.map((duration, i) => {
+      const at = new Date(yesterday);
+      at.setHours(7 + i, 0, 0, 0);
+      return {
+        kind: "walk" as const,
+        occurredAt: at,
+        durationMinutes: duration,
+      };
+    }),
+  );
+  await seedSession(page);
+  await page.goto("/");
+  await page.getByTestId("home-prev-day").click();
+  return petId;
+}
+
+/**
+ * **The bar said how much and not in what trozos, and this is the whole
+ * feature.** Three walks, a cut at the end of each of the first two, and none
+ * at the end of the third: its end is the fill's own leading edge, which is
+ * already drawn. Counted rather than timed — nothing here waits on a clock.
+ *
+ * 20, 40 and 30 of a 180-minute goal: the cuts land at a ninth and a third of
+ * the bar, which also rules out a pair pinned to one end.
+ */
+test("marks where each walk ended, except the last", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedWalksYesterday(page, 180, [20, 40, 30]);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "1h 30m en 3 paseos",
+  );
+
+  const cuts = page.getByTestId("home-goal-cut");
+  await expect(cuts).toHaveCount(2);
+
+  const track = await page.getByTestId("home-goal-ground").boundingBox();
+  const first = await cuts.nth(0).boundingBox();
+  const second = await cuts.nth(1).boundingBox();
+  expect(track, "the track should be drawn").not.toBeNull();
+  expect((first!.x + first!.width / 2 - track!.x) / track!.width).toBeCloseTo(
+    20 / 180,
+    2,
+  );
+  expect((second!.x + second!.width / 2 - track!.x) / track!.width).toBeCloseTo(
+    60 / 180,
+    2,
+  );
+
+  // **2 dp across, and the bar's own height.** It crosses the bar rather than
+  // standing proud of it the way the tick did, because it is painted in the
+  // track's own colour: out beyond the bar that colour is nothing against the
+  // page. The width is the tick's, measured on the device — one mark, one
+  // width.
+  expect(first!.width).toBeCloseTo(2, 0);
+  expect(first!.height).toBeCloseTo(track!.height, 0);
+  expect(first!.y).toBeCloseTo(track!.y, 0);
+  // The track's own colour — "here there is nothing" said the way the bar
+  // already says it. Not white, which is what the tick was: lighter than both
+  // things it separated, about 1.4:1 against Mist.
+  const painted = await cuts
+    .first()
+    .evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(hexOf(painted)).toBe(colors.surface);
+
+  // Decoration to a reader: the measure above says "en 3 paseos", which is
+  // the same fact in better words.
+  await expect(cuts.first()).toHaveAttribute("aria-hidden", "true");
+});
+
+/**
+ * **The cuts of a completed lap stay on the bar, and that is what saves the
+ * idea in this house.** With a 2 h goal, crossing it is the ordinary day: cuts
+ * drawn *inside* the fill would be emptied along with it every time the bar
+ * lapped, and a day of four walks would show one mark. Drawn over the ground,
+ * they stay.
+ *
+ * 50, 40, 50 and 20 of a 120-minute goal. The day totals 160, so the bar is on
+ * lap two at a third; the three cuts fall at 50/120, 90/120 and — the fourth
+ * walk's own start, 140 of 120 — at 20/120, **to the left of the other two**.
+ * There is no left-to-right order to read here, and a spec that sorted them
+ * would be asserting one.
+ */
+test("keeps the cuts of a lap the day has already completed", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  await seedWalksYesterday(page, 120, [50, 40, 50, 20]);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "2h 40m en 4 paseos",
+  );
+  await expect(page.getByTestId("home-goal-met")).toHaveText("Día cumplido");
+
+  const cuts = page.getByTestId("home-goal-cut");
+  await expect(cuts).toHaveCount(3);
+
+  const track = await page.getByTestId("home-goal-ground").boundingBox();
+  const places = await Promise.all(
+    [0, 1, 2].map(async (i) => {
+      const box = await cuts.nth(i).boundingBox();
+      return (box!.x + box!.width / 2 - track!.x) / track!.width;
+    }),
+  );
+  // In walk order, not position order: the third cut is the second lap's and
+  // sits left of the two before it.
+  expect(places[0]).toBeCloseTo(50 / 120, 2);
+  expect(places[1]).toBeCloseTo(90 / 120, 2);
+  expect(places[2]).toBeCloseTo(20 / 120, 2);
+});
+
+test("cuts nothing on a day of one walk, which has no boundary", async ({
+  page,
+}) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  // One walk is one stretch of bar with nothing to separate it from: its end
+  // is the fill's leading edge and is already drawn.
+  await seedWalksYesterday(page, 120, [45]);
+  await expect(page.getByTestId("home-goal-measure")).toHaveText(
+    "45 min en 1 paseo",
+  );
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
+});
+
+/**
+ * **The cut the tick used to be.** Mist and the live segment's tone sit
+ * 1.71:1 apart, and against a 3 h goal the segment is 3.6 dp wide at two
+ * minutes, so the mark at the junction is the only thing that says where the
+ * recorded minutes end. Retiring the tick had to keep that mark, and this is
+ * the spec that says it did: the walk in progress is the last walk of the day,
+ * so the boundary before it is the day's last cut.
+ *
+ * The goal is 60 min here and 30 are recorded, so the junction is the middle
+ * of the bar.
+ */
+test("puts the last cut on the recorded boundary while a walk runs", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -1654,31 +1804,28 @@ test("marks where the recorded minutes end while a walk is running", async ({
   await page.goto("/");
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
 
-  const tick = page.getByTestId("home-goal-tick");
-  await expect(tick).toBeVisible();
+  const cut = page.getByTestId("home-goal-cut");
+  await expect(cut).toHaveCount(1);
   const bar = await page.getByTestId("home-goal-bar").boundingBox();
-  const box = await tick.boundingBox();
+  const box = await cut.boundingBox();
   expect(bar, "the recorded fill should be drawn").not.toBeNull();
-  expect(box, "the tick should be drawn").not.toBeNull();
+  expect(box, "the cut should be drawn").not.toBeNull();
 
   // **Its position tracks the recorded proportion**: the recorded fill's right
-  // edge is the junction, and the tick is centred on it. A half-way junction
-  // also rules out a tick pinned to either end.
+  // edge is the junction, and the cut is centred on it. A half-way junction
+  // also rules out a mark pinned to either end.
   const junction = bar!.x + bar!.width;
   expect(box!.x + box!.width / 2).toBeCloseTo(junction, 0);
   expect(bar!.width).toBeGreaterThan(0);
 
-  // 2 dp wide and 12 tall, and standing proud of the 4 dp track at both ends.
   expect(box!.width).toBeCloseTo(2, 0);
-  expect(box!.height).toBeCloseTo(12, 0);
-  expect(box!.y).toBeLessThan(bar!.y);
-  expect(box!.y + box!.height).toBeGreaterThan(bar!.y + bar!.height);
+  expect(box!.height).toBeCloseTo(bar!.height, 0);
 
   // Decoration to a reader, the way the dot is.
-  await expect(tick).toHaveAttribute("aria-hidden", "true");
+  await expect(cut).toHaveAttribute("aria-hidden", "true");
 });
 
-test("moves the tick as more is recorded, and leaves the layout alone", async ({
+test("cuts the junction the moment a walk starts, and leaves the layout alone", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -1697,29 +1844,31 @@ test("moves the tick as more is recorded, and leaves the layout alone", async ({
   await expect(page.getByTestId("home-goal")).toContainText(
     "15 min en 1 paseo",
   );
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  // One recorded walk and nothing after it: no boundary. Starting a walk
+  // makes one.
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
   const idle = await page.getByTestId("home-goal").boundingBox();
 
   await page.getByTestId("home-goal-control").click();
-  const tick = page.getByTestId("home-goal-tick");
-  await expect(tick).toBeVisible();
+  const cut = page.getByTestId("home-goal-cut");
+  await expect(cut).toHaveCount(1);
 
   // A quarter of the bar: the junction is where 15 of 60 minutes end.
   const bar = await page.getByTestId("home-goal-bar").boundingBox();
-  const box = await tick.boundingBox();
+  const box = await cut.boundingBox();
   // The block is as wide as the track, so the recorded fill is a quarter of it.
   const idleWidth = idle!.width;
   expect(box!.x + box!.width / 2).toBeCloseTo(bar!.x + bar!.width, 0);
   expect(bar!.width / idleWidth).toBeCloseTo(0.25, 2);
 
-  // **It does not change the block.** The tick is absolutely placed, so the
+  // **It does not change the block.** The cut is absolutely placed, so the
   // block is the height it was when idle.
   const walking = await page.getByTestId("home-goal").boundingBox();
   expect(walking!.height).toBeCloseTo(idle!.height, 0);
   expect(walking!.y).toBeCloseTo(idle!.y, 0);
 });
 
-test("draws no tick on a day exactly at the goal, where lap two has recorded nothing yet", async ({
+test("cuts nothing on a day exactly at the goal, where lap two has recorded nothing yet", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -1738,17 +1887,18 @@ test("draws no tick on a day exactly at the goal, where lap two has recorded not
   await page.goto("/");
 
   // 60 of 60 is the foot of lap two: the ground is Aqua and the recorded fill
-  // over it is empty, with a walk running. The tick marks where recorded
-  // minutes end, and on an empty fill that is the left edge, separating nothing
-  // from the walk — so it is withheld because nothing is recorded on this lap,
-  // not because the goal is met. One minute further and it does draw.
+  // over it is empty, with a walk running. The boundary between the recorded
+  // walk and the live one falls exactly on the lap line, where the ground
+  // already turns and a mark would hang off the track's left edge — so it is
+  // withheld because there is nothing there to separate, not because the goal
+  // is met. One minute further and it does draw.
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
   await expect(page.getByTestId("home-goal-met")).toBeVisible();
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
 });
 
-test("draws no tick on the first walk of the day, where nothing is recorded yet", async ({
+test("cuts nothing on the first walk of the day, where nothing is recorded yet", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
@@ -1760,7 +1910,7 @@ test("draws no tick on the first walk of the day, where nothing is recorded yet"
   await page.goto("/");
   await page.getByTestId("home-goal-control").click();
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
 });
 
 test("sweeps the bar while a walk runs, and only then", async ({ page }) => {
@@ -1850,13 +2000,16 @@ test("takes the opposite tone of each half of the bar it crosses", async ({
     new Set([colors.onAccent, colors.textPrimary]),
   );
 
-  // And it stays the bar's own height: the tick is the one mark that rises
-  // above the track, and nothing that merely passes may compete with it.
+  // And it stays the bar's own height. It used to be measured against the
+  // tick, which stood 4 dp proud of the track at each end; the cut that
+  // replaced the tick crosses the bar and stops, so the track itself is what
+  // the band may not exceed. It was briefly 10 dp and lens-shaped, and that
+  // is the regression this holds down.
   const band = await sweep.boundingBox();
-  const tick = await page.getByTestId("home-goal-tick").boundingBox();
+  const track = await page.getByTestId("home-goal-ground").boundingBox();
   expect(band, "the band should be drawn").not.toBeNull();
-  expect(tick, "the tick should be drawn").not.toBeNull();
-  expect(band!.height).toBeLessThan(tick!.height);
+  expect(track, "the track should be drawn").not.toBeNull();
+  expect(band!.height).toBeCloseTo(track!.height, 0);
 });
 
 /**
@@ -2421,7 +2574,17 @@ test("follows the walk in progress over the goal, ground and label together", as
   expect(await widthOf(page, "home-goal-bar")).toBe(0);
   expect(await colourOf(page, "home-goal-live")).toBe(colors.accentFocusDim);
   expectMinutes((await widthOf(page, "home-goal-live")) / bar, 15, 16, 60);
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+
+  // **And lap one's cut is still on the bar.** The 30 recorded minutes ended
+  // halfway through lap one, and the day has since lapped past them; a cut
+  // drawn inside the fill would have been emptied along with it, which is the
+  // whole reason the cuts are painted over the ground instead. There is no
+  // second one: the walk in progress is the day's last walk.
+  const cut = page.getByTestId("home-goal-cut");
+  await expect(cut).toHaveCount(1);
+  const mark = await cut.boundingBox();
+  const track = await page.getByTestId("home-goal-ground").boundingBox();
+  expect((mark!.x + mark!.width / 2 - track!.x) / bar).toBeCloseTo(0.5, 2);
 
   // **And the band over a completed lap is gone with the rule it carried.**
   // A lap the ground has not admitted to cannot exist any more: the ground
@@ -2483,7 +2646,7 @@ test("draws no bar at all for a pet with no goal, as before", async ({
  * Where a spec has to see the overlay rather than its absence it arms
  * `page.waitForSelector` before the tap — a settled assertion would retry
  * straight past the 760 ms. What keeps the drawing itself from being
- * deletable in silence is further down the file: `barFrames`, `tickFrames`
+ * deletable in silence is further down the file: `barFrames`, `cutFrames`
  * and `widthInFlight` sample the bar on every frame, the way
  * `shakeTranslation` does.
  */
@@ -2499,7 +2662,9 @@ test("lands a closed walk in the recorded tone, and clears the live segment", as
   await page.getByTestId("home-goal-control").click();
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  // The row went with the mis-tap, so the day holds no walks and the bar has
+  // nothing to cut.
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
 });
 
 test("lands the minute a walk that was written on recorded", async ({
@@ -3324,36 +3489,36 @@ function expectMinutes(share: number, low: number, high: number, goal: number) {
 }
 
 /**
- * Samples the close's tick against the leading edge of the fill it is
+ * Samples the close's own cut against the leading edge of the fill it is
  * supposed to be riding, on every frame for `ms`. Frames where either is
  * absent are skipped, so the length of the result is how long the close was
- * drawing a tick at all.
+ * drawing a mark at all.
  */
-function tickFrames(page: Page, ms: number) {
+function cutFrames(page: Page, ms: number) {
   return page.evaluate(
     ([sampleMs]) =>
-      new Promise<{ bar: number; frames: { tick: number; edge: number }[] }>(
+      new Promise<{ bar: number; frames: { cut: number; edge: number }[] }>(
         (resolve) => {
           const sample = () => {
             const bar = document.querySelector(
               '[data-testid="home-goal-ground"]',
             );
-            const tick = document.querySelector(
-              '[data-testid="home-goal-close-tick"]',
+            const cut = document.querySelector(
+              '[data-testid="home-goal-close-cut"]',
             );
             const fill = document.querySelector(
               '[data-testid="home-goal-close-lap-0-fill"]',
             );
-            if (!bar || !tick || !fill) return null;
+            if (!bar || !cut || !fill) return null;
             const left = bar.getBoundingClientRect().left;
-            const mark = tick.getBoundingClientRect();
+            const mark = cut.getBoundingClientRect();
             const edge = fill.getBoundingClientRect().right;
             return {
-              tick: mark.left + mark.width / 2 - left,
+              cut: mark.left + mark.width / 2 - left,
               edge: edge - left,
             };
           };
-          const frames: { tick: number; edge: number }[] = [];
+          const frames: { cut: number; edge: number }[] = [];
           const began = performance.now();
           const step = () => {
             const got = sample();
@@ -3413,7 +3578,7 @@ function neverCloses(page: Page) {
   ).rejects.toThrow();
 }
 
-test("fills from the tick without the bar ever shrinking", async ({ page }) => {
+test("fills from the cut without the bar ever shrinking", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   // **The defect this whole task replaces, and the one assertion that pins
@@ -3445,7 +3610,7 @@ test("fills from the tick without the bar ever shrinking", async ({ page }) => {
   await seedSession(page);
   await page.goto("/");
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
-  await expect(page.getByTestId("home-goal-tick")).toBeVisible();
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(1);
 
   const sampling = barFrames(page, 3_000);
   await page.getByTestId("home-goal-control").click();
@@ -3468,7 +3633,9 @@ test("fills from the tick without the bar ever shrinking", async ({ page }) => {
   );
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  // Two recorded walks now, so the boundary between them is a cut — the same
+  // place the mark stood while the walk was running, left behind by it.
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(1);
   expectMinutes(
     (await widthOf(page, "home-goal-bar")) /
       (await widthOf(page, "home-goal-ground")),
@@ -3478,17 +3645,18 @@ test("fills from the tick without the bar ever shrinking", async ({ page }) => {
   );
 });
 
-test("rides the tick on the fill's leading edge while the close converts", async ({
+test("rides a cut on the fill's leading edge while the close converts", async ({
   page,
 }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   // The same close as above — 30 recorded and a walk of 31 against a
   // 120-minute goal, inside one lap. During the conversion the fill's leading
-  // edge *is* the saved/live boundary, which is the one thing the tick has
-  // ever marked, so it travels with it from the junction to the end. Nothing
-  // else in the file would notice the mark being pinned to a constant or
-  // deleted outright, and the headline spec above is named after it.
+  // edge *is* the saved/live boundary, which is the one thing a cut has ever
+  // marked, so it travels with it from the junction to the end. It is the
+  // close's own element because the rows do not hold the closed walk yet.
+  // Nothing else in the file would notice the mark being pinned to a constant
+  // or deleted outright, and the headline spec above is named after it.
   const now = new Date();
   const earlier = new Date(now);
   earlier.setHours(0, 1, 0, 0);
@@ -3509,27 +3677,29 @@ test("rides the tick on the fill's leading edge while the close converts", async
   await page.goto("/");
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
 
-  const sampling = tickFrames(page, 3_000);
+  const sampling = cutFrames(page, 3_000);
   await page.getByTestId("home-goal-control").click();
   const { bar, frames } = await sampling;
 
   // It was drawn for the length of the close, not for a frame of it.
   expect(frames.length).toBeGreaterThan(10);
 
-  // **On the edge, every frame.** A tick a pixel off the boundary is a tick
+  // **On the edge, every frame.** A cut a pixel off the boundary is a cut
   // marking something else.
-  const adrift = frames.filter((f) => Math.abs(f.tick - f.edge) > 1);
-  expect(adrift.map((f) => [f.tick, f.edge])).toEqual([]);
+  const adrift = frames.filter((f) => Math.abs(f.cut - f.edge) > 1);
+  expect(adrift.map((f) => [f.cut, f.edge])).toEqual([]);
 
   // **And it travelled.** Wiring its position to a constant would satisfy
   // everything above.
-  const places = frames.map((f) => f.tick);
+  const places = frames.map((f) => f.cut);
   expectMinutes(Math.min(...places) / bar, 30, 31, 120);
   expectMinutes(Math.max(...places) / bar, 61, 62, 120);
 
-  // It goes with the overlay, leaving a bar with nothing left to separate.
+  // It goes with the overlay, and the bar's own cut takes the junction over:
+  // the rows now hold both walks, so the boundary between them is one of the
+  // day's own marks rather than the close's.
   await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(1);
 });
 
 test("shows the control working while the start is being written", async ({
@@ -5409,10 +5579,10 @@ test("shows the goal block for a pet with no goal, and still starts a walk", asy
   await expect(
     page.locator('[data-testid^="home-entry-"]').first(),
   ).toContainText("En marcha");
-  // The dot says the walk is live; the tick marks a junction on a bar, and
+  // The dot says the walk is live; a cut marks a junction on a bar, and
   // there is no bar to have one.
   await expect(page.getByTestId("home-goal-dot")).toBeVisible();
-  await expect(page.getByTestId("home-goal-tick")).toHaveCount(0);
+  await expect(page.getByTestId("home-goal-cut")).toHaveCount(0);
 
   // Stopped inside a minute, so nothing is left behind in the log.
   await page.getByTestId("home-goal-control").click();

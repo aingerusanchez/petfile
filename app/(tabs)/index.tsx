@@ -75,6 +75,7 @@ import {
   updateEvent,
   walkCount,
   walkedMinutes,
+  walkLengths,
   type EventKind,
   type PetEventRow,
 } from "../../lib/events";
@@ -1361,6 +1362,28 @@ export default function Home() {
    */
   const walks = walkCount(events) + pendingWalks(pendingHere);
   /**
+   * The same rows again, one length each: what the bar cuts the day into.
+   *
+   * **The third reading of one day, and it travels beside the other two
+   * rather than replacing them.** `walked` and `walks` are the measure's
+   * sentence and nothing about them changes here; this is the list behind it,
+   * and `walkLengths` is pinned against both in Jest so the three cannot drift
+   * into saying different things about the same rows.
+   *
+   * **The queued stops go in by id, not on the end.** A total may add them
+   * last and be right; a list may not — a walk closed on a phone with no
+   * signal happened at the hour its row says, between two others, and the
+   * cuts are read against the day in order.
+   */
+  const walkMinutes = walkLengths(
+    events,
+    new Map(
+      pendingHere.flatMap((stop) =>
+        stop.kind === "close" ? [[stop.id, stop.minutes] as const] : [],
+      ),
+    ),
+  );
+  /**
    * The day's minutes **as the goal block is allowed to state them**, which is
    * null when nobody knows.
    *
@@ -1872,6 +1895,9 @@ export default function Home() {
         <GoalBlock
           testID="home-goal"
           walked={measured}
+          // Additive: the measure goes on reading `measured`, and this is the
+          // same day cut into the walks it came in, for the marks on the bar.
+          walkMinutes={walkMinutes}
           goalMinutes={goal}
           durationFormat={settings.durationFormat}
           walkingSince={walkingSince}

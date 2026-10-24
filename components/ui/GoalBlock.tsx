@@ -28,6 +28,7 @@ import {
   editMotion,
   lapFill,
   travelLaps,
+  walkCuts,
 } from "../../lib/goalbar";
 import type { DurationFormat } from "../../lib/settings";
 import { elapsedMinutes } from "../../lib/walk";
@@ -296,16 +297,31 @@ const SHAKE_DP = 4;
 const SHAKE_SWINGS = 3;
 
 /**
- * The mark at the junction of the bar, in dp: how wide, how tall, and how far
- * it stands above the track.
+ * The cut at a junction of the bar, in dp: how wide it is.
  *
- * **2 dp by 12 dp, centred on the junction**, so it stands 4 dp proud of the
- * 4 dp track above and below. `TICK_RISE` is that overhang; the track's own
- * height is spelled `h-[4px]` in the class list, for the reason given there.
+ * **2 dp, centred on the junction, and it was 2 before.** This is the tick
+ * generalised rather than a new mark — the tick stood 2 dp wide at the one
+ * junction a running walk makes, measured and verified on the device, and the
+ * cuts stand at all of them. The prototype drew 2.5; inventing a second width
+ * for the same mark would be having two marks.
+ *
+ * **It no longer stands proud of the track, and that follows from the
+ * colour.** The tick was 12 dp tall and `text-primary` white, overhanging the
+ * 4 dp track by 4 at each end, because it only ever had to read against the
+ * two light tones *inside* the bar — and against Mist that is about 1.4:1,
+ * the mark being lighter than both things it separated. The cut is the
+ * track's own `surface`, the colour this bar already uses for "nothing here",
+ * which reads against all four surfaces it can land on: Mist, the in-progress
+ * tone, the Aqua of a met day and the violet of the second lap. Against the
+ * Polar Night page *behind* the bar it would read as nothing at all, so the
+ * cut crosses the bar and stops there. Its height is the wrapper's own 4 dp,
+ * taken with `top-0 bottom-0` rather than spelled a second time.
+ *
+ * **Painted and not a hole.** A transparent cut would show what is under it,
+ * which on the second lap is the Aqua ground behind the violet — little
+ * contrast, and a mark whose colour changes with the layer it falls on.
  */
-const TICK_WIDTH = 2;
-const TICK_HEIGHT = 12;
-const TICK_RISE = 4;
+const CUT_WIDTH = 2;
 
 /**
  * The transport glyph's box, in dp: the size of the Play and Square icons, and
@@ -339,7 +355,7 @@ const UNREAD = "Sin datos del día";
  * over it. A day past double is row 2, violet throughout, and its `saved` and
  * `live` are never drawn because there is no third lap to start.
  *
- * **Saved and in-progress stay a tone apart on every lap**, with the tick
+ * **Saved and in-progress stay a tone apart on every lap**, with a cut
  * between them — the tiers are orthogonal to that, and all that changes is
  * which pair the lap wears.
  *
@@ -467,13 +483,13 @@ function lapFillAt(
  * **The minutes of the walk in progress are a dimmer segment at the head of
  * the fill.** They are not stored, so the saved fill keeps measuring what is
  * recorded and the segment shows what is merely happening, a tone apart with
- * the tick between them. That holds on either lap; only the pair of tones
+ * a cut between them. That holds on either lap; only the pair of tones
  * changes.
  *
  * **What laps is the whole bar, not a band inside it.** A walk that carries
  * the day past the goal takes the ground with it: the bar turns, and the lap
  * it opens begins with nothing recorded on it, so the live segment is the
- * only thing drawn over the new ground and there is no junction to tick. The
+ * only thing drawn over the new ground and there is no junction to cut. The
  * band that used to be drawn over a completed lap went with the rule that
  * made it necessary — there is no lap the ground has not admitted to any
  * more.
@@ -486,51 +502,60 @@ function lapFillAt(
  * pulse moved there — before the measure, the way a session that is still
  * working is marked. The segment stays because it shows how much is accruing.
  *
- * **A tick marks where the recorded minutes end, and the segment alone could
- * not.** Mist (`text-secondary`) and the segment's tone (`text-tertiary`)
- * measure **1.71:1 against each other**, and on a real walk the tutor could not
- * see where one stopped and the other began — DESIGN.md already records a
- * 1.64:1 element as one that "did not read as a measure of anything". **A
- * different colour is ruled out, by measurement rather than taste:** this bar
- * speaks one pair of tones per lap (the saved one and the live one), Aurora
- * Boreal is spoken for on this very bar — it is the top tier — and every
- * other tonal step in
+ * **A cut marks where each walk ended, and the fills alone could not.** This
+ * began as one mark at one junction — a tick where the recorded minutes
+ * stopped while a walk ran — and the measurement that forced it is still the
+ * reason the mark exists: Mist (`text-secondary`) and the live segment's tone
+ * (`text-tertiary`) measure **1.71:1 against each other**, and on a real walk
+ * the tutor could not see where one stopped and the other began. DESIGN.md
+ * already records a 1.64:1 element as one that "did not read as a measure of
+ * anything". **A different colour is ruled out, by measurement rather than
+ * taste:** this bar speaks one pair of tones per lap, Aurora Boreal is spoken
+ * for on this very bar — it is the top tier — and every other tonal step in
  * the palette lands in the same 1.16–1.71:1 band that already failed here and
  * forced the chips to carry a weight change instead of a fill. **Nor can any
  * treatment of the segment do it:** against a 3 h goal on a 327 dp bar it is
  * 3.6 dp wide at two minutes, and colour, height or texture cannot be seen in
  * 3.6 dp. A mark at the junction is visible whatever the segment's width.
  *
- * **A tick and not a round thumb, which was proposed first and rejected.**
+ * **What the cuts add is the trozos.** The measure says "1h 25m en 3 paseos"
+ * and the bar under it said only the hour and twenty-five; three walks and
+ * one long one are the same bar. The marks are not new — the tick was already
+ * a cut, drawn at one boundary and only while a walk ran, so the feature is
+ * that boundary drawn at all of them and all the time. `walkCuts` decides
+ * where they go, in `lib/goalbar.ts`, because a position computed wrongly
+ * does not throw: it draws a mark where no walk ended.
+ *
+ * **A line and not a round thumb, which was proposed first and rejected.**
  * `Slider` draws the app's real slider as a thin track, an Aqua fill and a
  * round 20 dp thumb at the end of that fill. A circle at the end of a fill on
  * a thin track is the shape language for "drag me", and this bar does not
  * drag. A 2 dp line is not a handle: on a track it reads as a point of
  * reference, which is what it is. Do not round it off.
  *
- * **The tick does not pulse.** The dot before the measure does, and the band
- * crosses the track, and both say the same thing: the walk is live. The tick
- * answers a different question — how much of this is already recorded — and a
- * pulse on it would say "live" a third time. It is the one fixed mark among
- * the moving ones, which is what lets it be read as a measurement. It draws
- * only while a walk runs and only where there is a bar, **not before anything
- * is recorded on the current lap** — there is no junction to mark, and the
- * line would hang off the bar's left edge. **It does not move when the
- * segment laps**, either: it marks the saved/live boundary, and that is still
- * where the recorded minutes stop.
+ * **A cut does not pulse.** The dot before the measure does, and the band
+ * crosses the track, and both say the same thing: the walk is live. A cut
+ * answers a different question — where did something end — and a pulse on it
+ * would say "live" a third time. They are the fixed marks among the moving
+ * ones, which is what lets them be read as measurements. **There is no cut
+ * where there is no junction**: not at the end of the day's last walk, whose
+ * end is the fill's own leading edge, and not where nothing is recorded on
+ * the lap, where the mark would hang off the bar's left edge. Both rules came
+ * from the tick and both are `walkCuts`'s now.
  *
- * **The one time it travels is the close**, where the fill's leading edge
- * *is* that boundary for 760 ms. That tick is `CloseLanding`'s own, because
- * this one is gone with the walk by then; the rule it follows is the same.
+ * **A cut from a lap already completed stays on the bar**, over the ground
+ * rather than inside the fill, which is what saves the whole idea in this
+ * house: with a 2 h goal, crossing it is the ordinary day, and cuts drawn
+ * inside the fill would be emptied along with it every time the bar lapped.
+ * The cost, accepted and written up in the spec: once the new lap's fill
+ * grows past them they stop reading as belonging to the old one, and two
+ * walks that end the same distance into their own laps share an x and read as
+ * one cut.
  *
- * **That one rule now covers the case "the goal is met" used to need its own
- * clause for.** A day exactly on the goal is the foot of lap two with an
- * empty fill, so there is nothing recorded on the lap and no tick — the bar
- * is whole and Aqua and a mark at either end would separate the recorded
- * minutes from nothing. A day *past* the goal with a walk running does have a
- * junction on lap two, and the tick marks it by the same rule it always had;
- * the first draft of the tiers claimed the tick moved to the lap boundary,
- * and it does not. Past double there is no fill at all, so again no tick.
+ * **The one cut that travels is the close's**, where the fill's leading edge
+ * *is* the saved/live boundary for 760 ms. That one is `CloseLanding`'s, for
+ * the plain reason that the rows do not hold the closed walk yet; the rule it
+ * follows is this one.
  *
  * **The close is the one moment this block speaks, and `justClosed` is how it
  * is told.** Which of three things it then does is `closeMotion`'s decision,
@@ -549,6 +574,7 @@ function lapFillAt(
  */
 export function GoalBlock({
   walked,
+  walkMinutes = [],
   goalMinutes,
   durationFormat,
   walkingSince,
@@ -577,6 +603,18 @@ export function GoalBlock({
    * is a number the bar underneath would not add up to. See `Walked`.
    */
   walked: Walked | null;
+  /**
+   * The same day as a list: each recorded walk's minutes, in the order they
+   * happened. The walk in progress is not in it — it has no recorded minutes
+   * — and this block adds it on the end itself.
+   *
+   * **Additive, and the block is whole without it.** A caller that hands over
+   * only the total gets the bar it always had, minus the marks: the cuts
+   * describe a list, and an empty list is a day with nothing to separate.
+   * `app/(tabs)/index.tsx` builds it from the very rows `walked` is summed
+   * from, so the two cannot be two different days.
+   */
+  walkMinutes?: number[];
   goalMinutes: number | null;
   durationFormat: DurationFormat;
   /** The walk in progress's start, or null when none is running. */
@@ -1035,7 +1073,7 @@ export function GoalBlock({
    * **`recorded` is where the saved minutes stop on this lap, and it can be
    * zero on a lap the day is standing on** — the walk in progress carried it
    * here and nothing has been saved up here yet. That is also why there is
-   * no tick then: there is no junction, which is the rule the mark already
+   * no cut there: there is no junction, which is the rule the mark already
    * had. `inProgress` is the rest of the lap's fill, which is the walk.
    *
    * During a wipe both are read against the lap being left, which the day has
@@ -1050,6 +1088,37 @@ export function GoalBlock({
     : drawn === 2
       ? 0
       : Math.max(0, state.fill - recorded);
+  /**
+   * Where each walk of the day ended, 0–100 of the track — the marks the bar
+   * draws over everything else.
+   *
+   * **The walk in progress goes on the end of the list, and that is what
+   * retires the tick.** The tick stood where the recorded minutes stopped
+   * while a walk ran, which is the boundary between the last saved walk and
+   * the one running. Append the running walk and `walkCuts` returns exactly
+   * that position as its last cut, under exactly the two rules the tick had:
+   * nothing at the end of the last walk, and nothing where the lap has
+   * recorded nothing. So the tick is not replaced here, it is subsumed — and
+   * a day exactly on the goal with a walk running still draws no mark, for
+   * the reason it never did.
+   *
+   * **It reads the rows, and a hold does not reach it.** `shown` runs ahead
+   * of `walkMinutes` for the length of a close, and that costs nothing: a
+   * close adds a walk at the *end* of the day, so the only cut this list is
+   * missing is the one `CloseLanding` is drawing itself, on the fill's
+   * leading edge. A hand edit can disagree in the middle for the 700 ms
+   * before the reload lands — a deleted walk's cut is still standing — and
+   * that is accepted rather than solved: the cuts are a description of the
+   * rows, with no animation of their own, and the rows are about to agree.
+   *
+   * **Not sorted, and it must not be.** On a day of two laps a later walk can
+   * end to the *left* of an earlier one; `walkCuts` returns walk order and
+   * there is no left-to-right reading to restore.
+   */
+  const cuts = walkCuts(
+    walkingSince ? [...walkMinutes, running] : walkMinutes,
+    goalMinutes,
+  );
 
   return (
     <View testID={testID} className="mb-8">
@@ -1227,10 +1296,12 @@ export function GoalBlock({
       </View>
 
       {goalMinutes !== null ? (
-        // The wrapper is the bar's own 4 dp and nothing else: the track keeps
-        // its `overflow-hidden`, which would clip the tick, so the tick is the
-        // wrapper's child and the track's sibling. It is absolutely placed, so
-        // it cannot move the bar or the block.
+        // The wrapper is the bar's own 4 dp and nothing else. The track keeps
+        // the `overflow-hidden` its fills and its sweep need; anything that
+        // has to paint *over* the track — the close, and the cuts over the
+        // close — is the wrapper's child and the track's sibling, in that
+        // order. All of it is absolutely placed, so none of it can move the
+        // bar or the block.
         <View className="relative h-[4px]">
           {/* `h-[4px]`, not `h-1`: the calendar draws this bar in miniature
               and sizes it in literal pixels, and 0.25rem resolves to 3.38dp
@@ -1284,11 +1355,11 @@ export function GoalBlock({
             ) : null}
             {travelling !== null ? (
               // **Inside the track, unlike the close, because it carries no
-              // tick.** The close's mark stands 4 dp proud of a 4 dp track
-              // and has to escape the `overflow-hidden`; a journey back has
-              // no saved/live junction to mark — everything it moves is
-              // recorded — so it can live in here and inherit the bar's
-              // rounded ends for nothing.
+              // cut.** A journey back has no saved/live junction to mark —
+              // everything it moves is recorded — so it lives in here and
+              // inherits the bar's rounded ends for nothing. The bar's own
+              // cuts are painted outside, over the top of it, which is where
+              // they have to be anyway.
               //
               // Keyed by the gesture, for the reason the close is: a second
               // deletion inside the first one's 700 ms would otherwise
@@ -1318,13 +1389,17 @@ export function GoalBlock({
               />
             ) : null}
           </View>
-          {/* **The close is the track's sibling, not its child, because it
-              carries the tick.** The track keeps the `overflow-hidden` its
-              fills and the sweep need, and a 12 dp mark standing 4 dp proud of
-              a 4 dp track would be cut to the track. Out here it is clipped by
-              nothing. The cost, accepted: the close's overlays do not inherit
-              the track's `rounded-xl`, so for 760 ms the bar's two extreme
-              ends are square rather than carrying their 2 dp cap. */}
+          {/* **The close is the track's sibling, and the reason it had for
+              being one is gone.** It was out here because it carried a 12 dp
+              tick standing 4 dp proud of a 4 dp `overflow-hidden` track,
+              which would have cut it; the mark is a 2 dp cut now and crosses
+              nothing. What is still true is the cost — the close's overlays
+              do not inherit the track's `rounded-xl`, so for 760 ms the bar's
+              two extreme ends are square rather than carrying their 2 dp cap
+              — and moving the close inside the track would now pay that
+              back. Left alone deliberately: this change is about the cuts,
+              and the close is the one gesture here the tutor called
+              «genial». */}
           {closing !== null ? (
             <CloseLanding
               // Keyed by the close, not by the position: a second close
@@ -1339,35 +1414,42 @@ export function GoalBlock({
               testID={testID ? `${testID}-close` : undefined}
             />
           ) : null}
-          {walkingSince && recorded > 0 ? (
-            // Hidden from a reader the way the dot is: the measure says what
-            // the walk is, and a line has nothing to announce. Positioned from
-            // the same percentage the recorded fill is drawn at, so the two
-            // cannot disagree.
-            //
-            // **Not drawn at zero recorded**: nothing recorded on this lap is
-            // nothing to separate the walk from, and at zero the tick sat 1 dp
-            // outside the track — the centring offset is unclamped. Zero is
-            // the only place that is exactly true: at a very small positive
-            // proportion the tick still hangs out by under 1 dp, which it
-            // accepts. The right edge never arises: a lap's fill wraps to zero
-            // at the tier rather than reaching 100, and past the top tier
-            // there is no fill at all.
+          {/* **Last, so they are painted over everything — the close
+              included.** The ceremony paints its own laps across the whole
+              bar for 760 ms, and cuts underneath would go out for that long
+              and come back. Nobody asked for that blink, and it is exactly
+              the kind of defect a code review cannot see.
+
+              **One element each, with no box around them.** A box over the
+              bar is a box that can swallow a tap, and `pointerEvents` is the
+              prop in this project with three wrong answers and one right one
+              (AGENTS.md) — not a price worth paying to group marks that
+              share nothing but a parent.
+
+              Centred on their junction, the way the tick was. The offset is
+              unclamped, so a cut very near the left edge hangs out by under
+              1 dp; the edge itself never arises, because `walkCuts` drops a
+              boundary whose fill reads 0 — and the right edge cannot either,
+              since a lap's fill wraps to zero at the tier.
+
+              Decoration to a reader, the way the dot is: the measure above
+              already says "en 3 paseos", which is this same fact in better
+              words. */}
+          {cuts.map((at, i) => (
             <View
-              testID={testID ? `${testID}-tick` : undefined}
+              key={`${i}:${at}`}
+              testID={testID ? `${testID}-cut` : undefined}
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
               aria-hidden
               style={{
-                left: `${recorded}%`,
-                marginLeft: -TICK_WIDTH / 2,
-                top: -TICK_RISE,
-                width: TICK_WIDTH,
-                height: TICK_HEIGHT,
+                left: `${at}%`,
+                marginLeft: -CUT_WIDTH / 2,
+                width: CUT_WIDTH,
               }}
-              className="absolute rounded-[1px] bg-text-primary"
+              className="absolute top-0 bottom-0 bg-surface"
             />
-          ) : null}
+          ))}
         </View>
       ) : null}
 
@@ -1661,14 +1743,15 @@ function Band({
  * and the same hole opens from the other end when a walk starts a minute short
  * of the goal. A band over the track is the same size whatever the walk's
  * length. **The cost, accepted:** a sweep is the idiom for _indeterminate_
- * progress, drawn on a bar that knows exactly where it is. The tick and the
+ * progress, drawn on a bar that knows exactly where it is. The cuts and the
  * segment still say where; the band says only "live".
  *
  * **Two bands, one crossing.** The bar has two grounds and the rule is that
  * the sweep takes the opposite tone of the ground it crosses, so the band is
  * cut at the **junction** — the `recorded` percentage, which is exactly where
- * the tick stands, so the tone change and the fixed mark coincide rather than
- * giving the eye a second boundary to explain. Left of it, over the light
+ * the day's last cut stands while a walk runs, so the tone change and the
+ * fixed mark coincide rather than giving the eye a second boundary to
+ * explain. Left of it, over the light
  * recorded fill, the band is dark; right of it, over the dark track and the
  * in-progress segment, it is light. Both halves read one shared value, and the
  * right-hand one's translation is offset by the junction's own pixel position,
@@ -1704,7 +1787,7 @@ function Sweep({
   testID,
 }: {
   met: boolean;
-  /** Where the junction is, as a percentage of the bar: the tick's own place. */
+  /** Where the junction is, as a percentage of the bar: the last cut's place. */
   recorded: number;
   testID?: string;
 }) {
@@ -1859,12 +1942,14 @@ function GroundTurn({ tier, testID }: { tier: 0 | 1 | 2; testID?: string }) {
  * let the destination's colour show through from the first frame, which is the
  * half of the handover a builder who fixed only the width would ship.
  *
- * **The tick rides the fill's leading edge**, because during the conversion
- * that edge *is* the saved/live boundary. It is the close's own element rather
- * than the bar's: the bar's tick is drawn only while a walk runs, and the walk
- * has ended. A new lap has nothing saved on it, so the mark is withheld at
- * zero and reappears as the fill advances — which is the same rule the bar's
- * own tick follows, not a second one.
+ * **A cut rides the fill's leading edge**, because during the conversion that
+ * edge *is* the junction between what is saved and what is not — the one
+ * junction on this bar that moves. It is the close's own element for a plain
+ * reason: the bar's cuts are read off the rows, and the rows do not hold the
+ * walk that has just closed. So this is the cut that boundary is missing, not
+ * a second kind of mark — same 2 dp, same `surface`, same rule about where it
+ * may not be drawn. A new lap has nothing saved on it, so it is withheld at
+ * zero and reappears as the fill advances.
  *
  * **Nothing jumps when it is taken away.** The bar beneath is held at the
  * close's end for as long as the data is short of it, and the last frame of
@@ -1893,7 +1978,7 @@ function CloseLanding({ laps, testID }: { laps: CloseLap[]; testID?: string }) {
     lap.fill[1],
   ]);
 
-  const tickStyle = useAnimatedStyle(() => {
+  const cutStyle = useAnimatedStyle(() => {
     let drawn = 0;
     for (let i = 0; i < bounds.length; i++) {
       const lap = bounds[i];
@@ -1926,17 +2011,9 @@ function CloseLanding({ laps, testID }: { laps: CloseLap[]; testID?: string }) {
         />
       ))}
       <Animated.View
-        testID={testID ? `${testID}-tick` : undefined}
-        style={[
-          {
-            marginLeft: -TICK_WIDTH / 2,
-            top: -TICK_RISE,
-            width: TICK_WIDTH,
-            height: TICK_HEIGHT,
-          },
-          tickStyle,
-        ]}
-        className="absolute rounded-[1px] bg-text-primary"
+        testID={testID ? `${testID}-cut` : undefined}
+        style={[{ marginLeft: -CUT_WIDTH / 2, width: CUT_WIDTH }, cutStyle]}
+        className="absolute top-0 bottom-0 bg-surface"
       />
     </View>
   );
@@ -2020,7 +2097,7 @@ function CloseLapPaint({
  * fills are recomputed on every render and jump; the only thing that
  * animated before this was the ground. So the journey is not the close with
  * its ceremony taken off — it is a new piece, and a smaller one: no swell,
- * no sheen, no tick, no band held in the live tone. A walk removed is a walk
+ * no sheen, no cut riding an edge, no band held in the live tone. A walk removed is a walk
  * that never happened, and dramatising the bookkeeping is the one thing the
  * spec ruled out.
  *
