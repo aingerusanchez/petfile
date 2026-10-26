@@ -108,12 +108,25 @@ Loki_ se sostiene donde _Julen es invitado de Loki_ sonaba a visita y
 _seguidor_ a Instagram. El borde conocido es que un amigo que no es de la
 familia también cae aquí; se acepta, porque describe a quien va a usarlo.
 
-**Esa prueba es para elegir la palabra, no para escribirla en pantalla**, y es
-mi criterio: la lista pone etiquetas —`Tutor`, `Cuidador`, `Familiar`— y no
-frases. En cuanto el rol entra en una oración hay que concordarlo —_Laura es
-cuidadora_— y la app no sabe el género de nadie: Google da un nombre para
-mostrar, no un género, y adivinarlo por el nombre es justo lo que no se hace.
-`Familiar` no tiene ese problema; `Cuidador` y `Tutor` sí.
+**Esa prueba es para elegir la palabra, no para escribirla en pantalla**, y de
+ahí sale la convención, acordada: **la etiqueta va en masculino genérico y
+nunca con barra.** `Tutor`, `Cuidador`, `Familiar`; jamás `Tutor/a`.
+
+Tres razones, en orden de peso:
+
+- **La barra es el registro de un impreso**, y esta app dice «¡Vamos, Loki!» y
+  «¿Todavía no habéis vuelto?». Son dos voces que no caben en la misma
+  pantalla.
+- **No se queda en la lista.** Si el rol lleva barra, la lleva en todos los
+  sitios donde aparezca, y dentro de una frase `Cuidador/a` es ilegible.
+- **En la lista el rol va al lado del nombre, no dentro de una oración sobre
+  la persona.** `Laura — Tutor` es una categoría, como una cabecera de tabla,
+  y es el único sitio donde los cuatro roles se escriben.
+
+**La salida, si algún día molesta, no es la barra: son palabras invariables.**
+`Familiar` ya lo es, y para la primera existe una que el tutor consideró y
+descartó por otro motivo — `Responsable`. Queda escrito para no volver a
+buscarla.
 
 ### 2. «Tutor» es la palabra que este proyecto ya usa
 
@@ -130,22 +143,39 @@ como una regla que solo conoce la base de datos.
 
 **No es un rol más del selector**, porque no se reparte: dárselo a alguien es
 transferir el perro, que es un no-objetivo de este documento. Es una marca
-sobre un rol que ya existe. La palabra «administrador» se queda fuera por
-donde vino —nadie es administrador de un perro— y lo que la sustituye es
-decir qué hizo:
+sobre un rol que ya existe.
+
+**Y la marca es un icono con una leyenda, no una palabra en cada fila:**
 
 ```
-Aingeru   Tutor · abrió la ficha           (tú)
-Laura     Tutor
-Julen     Cuidador · hasta el dom 12:00    editar
-Ane       Familiar                         editar
+Aingeru  🔑   Tutor                             (tú)
+Laura         Tutor
+Julen         Cuidador · hasta el dom 12:00    editar
+Ane           Familiar                         editar
+Mikel         Cuidador · invitación pendiente  anular
+
+🔑 reparte los accesos
 ```
+
+**`Propietario` se descartó, y la razón no es solo que tenga femenino.** Es
+que reintroduce el vocabulario que la §2 acaba de quitar: el documento
+argumenta que nadie es administrador de un perro, y _propietario_ dice lo
+mismo con otra palabra, pegada además a `Tutor`, que es la que se eligió para
+decir lo contrario. El icono solo tampoco vale — `Button.tsx` lleva escrito
+que un icono no es una explicación —, así que la llave la explica una línea, y
+una sola para toda la lista. Lo que se nombra es **la capacidad**, que es lo
+único que esa marca tiene que comunicar, y de paso es invariable.
 
 **Y esa lista no es informativa: es el mando.** Es donde se cambia un rol, se
-prorroga una ventana y se retira un acceso, y de paso donde se ve de un
-vistazo quién puede hacerlo. Hoy no existe ninguna pantalla así, y es la que
-convierte «dar acceso» en algo que también se puede deshacer — que es el
-tercero de los tres problemas de la fila metida a mano.
+prorroga una caducidad, se anula una invitación que nadie ha reclamado y se
+retira un acceso. Hoy no existe ninguna pantalla así, y es la que convierte
+«dar acceso» en algo que también se puede deshacer — que es el tercero de los
+tres problemas de la fila metida a mano.
+
+**Tiene filas de dos clases**, y eso importa al construirla: personas con
+acceso, e invitaciones que todavía no ha reclamado nadie. La segunda clase es
+lo único que queda de la idea de «cuándo empieza» (§7): no hay fecha de
+inicio, hay un código entregado que alguien ha canjeado o no.
 
 **Esa lista no se puede dibujar hoy, y conviene saberlo antes de empezar.**
 Son dos políticas que no existen: `pet_owners` solo deja ver _tu propia_
@@ -221,6 +251,21 @@ acceso»**— y los dos caminos acaban en el mismo campo de texto:
 introducirlo, y escanear es siempre opcional: un código que solo entra por la
 cámara es un código que falla cuando la cámara no enfoca.
 
+**Las dos mitades del QR cuestan cosas muy distintas, y por eso se construyen
+por separado.** Dibujarlo es casi gratis: `react-native-svg` ya es una
+dependencia de este proyecto, así que encima solo va una librería JS pequeña —
+sin módulo nativo, sin permiso, sin recompilar, y funciona en el target web
+donde corre la suite. Escanearlo pide cámara, que es otra historia (ver «lo
+que hay que respetar»).
+
+**El orden acordado es código, luego dibujar, luego escanear** — y la última
+puede caerse a la versión siguiente sin arrastrar nada, porque teclear o pegar
+el código funciona siempre. Lo que **no** se pospone es el QR entero a la
+versión de Play: allí sirve de menos, no de más. Lo que de verdad espera a
+Play es el paseo completo enlace → tienda → login → aceptar, y el QR es justo
+lo que no lo necesita, porque ya asume la app instalada — que es la condición
+que esta casa cumple hoy, con las dos instalaciones puestas a mano por ADB.
+
 **«Pedir acceso» no pide nada**, y hay que decirlo porque el nombre invita a
 construir otra cosa. No hay cola de solicitudes ni aprobación al otro lado:
 quien tiene el código ya está autorizado, y esa pantalla es solo donde se
@@ -249,10 +294,10 @@ una llave maestra corta:
 2. **Un solo uso.** Se consume al canjearlo, dentro de la misma transacción
    que crea la membresía.
 3. **Caduca en horas, no en días.** El caso real es «te lo mando ahora».
-   **Y no es la ventana de acceso:** son dos relojes distintos y conviene no
-   confundirlos al construir. Éste mide cuánto vive una invitación _sin usar_;
-   el de §7 mide cuánto dura el acceso que concede, y puede empezar días
-   después de canjearse.
+   **Y no es la caducidad del acceso:** son dos relojes distintos y conviene
+   no confundirlos al construir. Éste mide cuánto vive una invitación _sin
+   usar_; el de §7 mide hasta cuándo dura el acceso que concede, una vez
+   usada.
 4. **Límite de intentos**, por código y por cuenta que prueba. Sin esto, 1 y 3
    solo suben el precio de la fuerza bruta; no la impiden.
 5. **Revocable y visible.** Quien invita ve las invitaciones pendientes y
@@ -262,38 +307,54 @@ una llave maestra corta:
 Si algún día se quiere la versión fuerte, es un campo: atar el código a un
 correo de Google. Queda escrito para no tener que redescubrir que era barato.
 
-### 7. El acceso tiene ventana, y al terminar baja de rol
+### 7. El acceso tiene fecha-hora de fin, y al terminar baja de rol
 
-Un acceso se concede **desde una fecha-hora hasta otra fecha-hora**,
-prorrogable. No «hasta el domingo»: hasta el domingo a las 12:00.
+Un acceso se concede **hasta una fecha-hora**, prorrogable. No «hasta el
+domingo»: hasta el domingo a las 12:00. **Empieza cuando se canjea el código**,
+y eso no se configura: es un hecho que la fila ya guarda.
 
-**La referencia la trajo el tutor y es la correcta:** la cerradura Nuki
-reparte así sus accesos temporales —un interruptor que activa la ventana, y
-debajo inicio y fin con día y hora cada uno—, que es exactamente la forma de
-este problema. **Lo recurrente de esa misma pantalla queda fuera**: «todos los
+**Hubo un inicio en este documento y se quitó, con el razonamiento escrito
+porque es más útil que la decisión.** La referencia era buena —la cerradura
+Nuki reparte sus accesos temporales con un interruptor y dos fecha-hora, que
+es exactamente la forma de este problema— y aun así el extremo izquierdo no
+servía aquí. Una cerradura necesita inicio porque la llave se entrega el lunes
+a quien llega el martes a las nueve; **Petfile no puede tener ese caso**, por
+algo que dice el propio documento dos secciones más arriba: la invitación
+caduca en horas, porque «el caso real es te lo mando ahora». Si el código no
+sobrevive al día, un acceso no puede abrirse el viernes que viene: el campo
+solo podría contener «más o menos ahora», siempre. Ceremonia sin trabajo, y
+pagando un estado entero —«canjeado pero aún no»— con su pantalla, su
+comparación en la política y una prueba por cada borde. **Vuelve el día que se
+quiera conceder con antelación, y ese día será un campo.**
+
+**Lo que sí interesa saber de ese lado es otra cosa: si la persona ha
+reclamado el acceso o la invitación sigue pendiente.** Eso no es una fecha, es
+el estado del código, y vive en la lista (§3).
+
+**Lo recurrente de la pantalla de Nuki también queda fuera**: «todos los
 sábados de 10:00 a 14:00» no describe a nadie de esta casa, y es la clase de
 campo que se añade el día que alguien lo pide.
 
-**La ventana es opcional**, como ese interruptor. Un tutor no la lleva; un
-cuidador de fin de semana sí.
+**El fin es opcional**, como ese interruptor. Un tutor no lo lleva; un cuidador
+de fin de semana sí.
 
 **Al vencer no desaparece: pasa a familiar.** Así la caducidad deja de ser
 una pérdida y es un cambio de rol — que es lo que el tutor describe de su
 hermano: mientras cuida, escribe; el resto del año, mira los paseos. La única
-excepción se explica sola: un familiar con ventana no tiene a dónde bajar, así
-que al terminar pierde el acceso. **Es mi criterio** decir la regla en ese
-orden —la caída primero, el suelo después—, porque al revés son dos reglas y
-así es una con un borde.
+excepción se explica sola: un familiar con fecha de fin no tiene a dónde
+bajar, así que al terminar pierde el acceso. **Es mi criterio** decir la regla
+en ese orden —la caída primero, el suelo después—, porque al revés son dos
+reglas y así es una con un borde.
 
-**Y con fecha-hora de inicio existe un estado nuevo: la ventana que aún no ha
-empezado.** La misma regla lo cubre sin inventar nada: **antes de abrirse,
-familiar; dentro, el rol concedido; después, familiar otra vez.** El hermano
-puede canjear el código el martes para un acceso que abre el viernes, y hasta
-el viernes ve los paseos sin poder escribirlos.
+**Una semana es el mismo mecanismo que un fin de semana**, lo cual contesta al
+caso del cuidador profesional: solo cambia la fecha. Y la observación del
+tutor sobre ese caso es la que debe gobernar el diseño — **esto está pensado
+para familia y gente de confianza**, y por eso bajar a familiar al vencer
+tiene sentido como suelo. Para alguien que no lo es, la respuesta no es otro
+rol: es retirar el acceso desde la lista, que ahora se puede.
 
 **La caducidad se aplica en la política de base de datos, no en la pantalla.**
-Es la diferencia entre una promesa y un decorado — y con dos extremos son dos
-comparaciones, no una.
+Es la diferencia entre una promesa y un decorado.
 
 **Un rol se puede cambiar sin un código nuevo.** Estaba implícito en
 «prorrogar» y no escrito: subir a un familiar a cuidador el viernes es la
@@ -431,12 +492,13 @@ contrario, el documento no depende de ello.
   la ficha es el primero— y conviene no descubrirlo en producción.
 - **`created_by` se fija en la política** (§8): escribible hoy, columna de
   seguridad mañana.
-- **Escanear un QR es un módulo nativo; dibujarlo no.** Pintarlo es una
-  librería JS y no cambia nada. Leerlo pide cámara: dependencia nativa, permiso
-  en el manifiesto, y **un dev build recompilado** (`pnpm android`) en vez de
-  recargado — la misma lección que dejó `expo-image-manipulator`. Como teclear
-  el código es siempre posible (§6), la cámara puede llegar la última sin
-  bloquear nada.
+- **Escanear un QR es un módulo nativo; dibujarlo no.** Pintarlo se apoya en
+  `react-native-svg`, que ya está en `package.json`, así que es una librería JS
+  encima y no cambia nada. Leerlo pide cámara: dependencia nativa, permiso en
+  el manifiesto, y **un dev build recompilado** (`pnpm android`) en vez de
+  recargado — la misma lección que dejó `expo-image-manipulator`. Por eso el
+  orden acordado deja escanear para el final, y por eso puede caerse a la
+  versión siguiente sin arrastrar nada (§6).
 - **La suite e2e necesita una segunda cuenta.** Todo lo que este documento
   describe ocurre entre dos personas, y `e2e/auth.ts` siembra una. Sin la
   segunda no hay forma de probar que un cuidador _no_ puede hacer algo, que es
