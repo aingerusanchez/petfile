@@ -148,11 +148,12 @@ sobre un rol que ya existe.
 **Y la marca es un icono con una leyenda, no una palabra en cada fila:**
 
 ```
-Aingeru  🔑   Tutor                             (tú)
+Aingeru  🔑   Tutor                              (tú)
 Laura         Tutor
-Julen         Cuidador · hasta el dom 12:00    editar
-Ane           Familiar                         editar
-Mikel         Cuidador · invitación pendiente  anular
+Julen         Cuidador · hasta el dom 12:00     editar
+Ane           Familiar                          editar
+Mikel         Cuidador · invitación pendiente   anular
+Unai          Cuidador · invitación caducada    volver a invitar
 
 🔑 reparte los accesos
 ```
@@ -173,9 +174,30 @@ retira un acceso. Hoy no existe ninguna pantalla así, y es la que convierte
 tres problemas de la fila metida a mano.
 
 **Tiene filas de dos clases**, y eso importa al construirla: personas con
-acceso, e invitaciones que todavía no ha reclamado nadie. La segunda clase es
-lo único que queda de la idea de «cuándo empieza» (§7): no hay fecha de
-inicio, hay un código entregado que alguien ha canjeado o no.
+acceso, e invitaciones. La segunda clase es lo único que queda de la idea de
+«cuándo empieza» (§7): no hay fecha de inicio, hay un código entregado que
+alguien ha canjeado o no.
+
+**Y una invitación tiene tres finales, no dos.** Se reclama —y entonces deja
+de ser una invitación y pasa a ser una persona—, se anula, o **caduca sin que
+nadie la use**, que es lo que pasa cuando mandas el código y el otro lo lee al
+día siguiente. Ese tercer caso **tiene que verse en la lista**: una invitación
+que desaparece en silencio es exactamente cómo se acaba creyendo que alguien
+tiene acceso cuando no lo tiene. Caducada se queda, con otro botón.
+
+**El botón dice «volver a invitar», y no «reactivar» ni «reenviar».** No es
+una preferencia de estilo: las tres palabras describen tres mecanismos
+distintos y solo una es la que ocurre. _Reenviar_ dice que la app manda algo,
+y no manda nada — el código se enseña o se copia. _Reactivar_ dice que el
+código muerto vuelve a la vida, y eso es justo lo que no debe pasar: ese
+código lleva un día en un hilo de WhatsApp, y darle una segunda vida es
+regalar a quien lo tenga la ventana que ya se le había cerrado. Lo que hace el
+botón es **emitir uno nuevo con el mismo rol y la misma caducidad** —el ajuste
+ya estaba hecho, así que es una pulsación— y el viejo se queda muerto para
+siempre. _Volver a invitar_ es lo único que describe eso.
+
+Una caducada también se puede **anular**, que ahí solo significa quitarla de
+la lista.
 
 **Esa lista no se puede dibujar hoy, y conviene saberlo antes de empezar.**
 Son dos políticas que no existen: `pet_owners` solo deja ver _tu propia_
@@ -300,9 +322,12 @@ una llave maestra corta:
    usada.
 4. **Límite de intentos**, por código y por cuenta que prueba. Sin esto, 1 y 3
    solo suben el precio de la fuerza bruta; no la impiden.
-5. **Revocable y visible.** Quien invita ve las invitaciones pendientes y
-   puede anular una antes de que se use. Un código dado por error hoy no se
-   puede retirar de ninguna manera.
+5. **Revocable y visible.** Quien invita ve sus invitaciones en la lista de
+   accesos —pendientes y caducadas— y puede anular una antes de que se use. Un
+   código dado por error hoy no se puede retirar de ninguna manera. Y porque
+   el punto 3 hace que caducar sea lo normal y no la excepción, la caducada
+   **se queda a la vista con un botón para volver a invitar** (§3), en vez de
+   desaparecer y dejar al tutor preguntándose si su hermano entró.
 
 Si algún día se quiere la versión fuerte, es un campo: atar el código a un
 correo de Google. Queda escrito para no tener que redescubrir que era barato.
