@@ -79,11 +79,11 @@ Lo que haría fracasar esto aunque funcionara:
 | **Tutor** _(abrió la ficha)_ | leer · escribir     | leer · escribir | leer · escribir        | leer · editar | **reparte, retira, caduca** |
 | **Tutor**                    | leer · escribir     | leer · escribir | leer · escribir        | leer · editar | —                           |
 | **Cuidador**                 | leer · **escribir** | solo leer       | solo leer              | solo leer     | —                           |
-| **Invitado**                 | solo leer           | solo leer       | —                      | solo leer     | —                           |
+| **Familiar**                 | solo leer           | solo leer       | —                      | solo leer     | —                           |
 
 Y lo que cada uno añade sobre el anterior, que es como se explica:
 
-- **Invitado** — ve cómo le va: los paseos con sus notas, la foto, el
+- **Familiar** — ve cómo le va: los paseos con sus notas, la foto, el
   cumpleaños, la curva del peso.
 - **Cuidador** — además apunta lo que pasa mientras lo tiene, y lee la pauta
   de medicación para poder seguirla.
@@ -92,15 +92,28 @@ Y lo que cada uno añade sobre el anterior, que es como se explica:
 
 **Los veterinarios los ve todo el mundo**, y es una decisión del tutor que
 además quita el único problema caro de esta tabla. La primera versión de este
-documento se los escondía al invitado, y el revisor señaló por qué eso no se
+documento se los escondía al familiar, y el revisor señaló por qué eso no se
 puede: `vet_primary` y `vet_emergency` son dos columnas `jsonb` de la fila del
-perro —la misma fila que el invitado necesita leer para ver nombre, foto y
+perro —la misma fila que el familiar necesita leer para ver nombre, foto y
 cumpleaños— y Postgres protege filas, no columnas. Habría hecho falta una
 vista o una función `security definer` solo para esas dos columnas, es decir
 reescribir el camino de lectura más usado de la app. **Con esta decisión la
 fila del perro se lee entera y por igual**, y el reparto solo gobierna
-escrituras más una tabla completa (`pet_treatments`, que el invitado no lee).
+escrituras más una tabla completa (`pet_treatments`, que el familiar no lee).
 Esa simetría es la que hace que lo demás quepa.
+
+**«Familiar» es la palabra del tutor, y la eligió con una prueba que vale
+para las cuatro:** «[Persona] es [Rol] de [Mascota]». _Julen es familiar de
+Loki_ se sostiene donde _Julen es invitado de Loki_ sonaba a visita y
+_seguidor_ a Instagram. El borde conocido es que un amigo que no es de la
+familia también cae aquí; se acepta, porque describe a quien va a usarlo.
+
+**Esa prueba es para elegir la palabra, no para escribirla en pantalla**, y es
+mi criterio: la lista pone etiquetas —`Tutor`, `Cuidador`, `Familiar`— y no
+frases. En cuanto el rol entra en una oración hay que concordarlo —_Laura es
+cuidadora_— y la app no sabe el género de nadie: Google da un nombre para
+mostrar, no un género, y adivinarlo por el nombre es justo lo que no se hace.
+`Familiar` no tiene ese problema; `Cuidador` y `Tutor` sí.
 
 ### 2. «Tutor» es la palabra que este proyecto ya usa
 
@@ -108,20 +121,31 @@ No se inventa vocabulario: `PRODUCT.md` y todos los documentos de diseño
 llevan meses llamando _tutor_ a quien lleva al perro. Lo que había era dos
 palabras para lo mismo.
 
-### 3. «Admin» no se renombra: se quita
+### 3. Los dos son tutores, y uno además abrió la ficha
 
-El rol de quien abrió la ficha **no se reparte** — dárselo a alguien es
-transferir el perro. Y si no se reparte, no tiene por qué estar en el
-selector; y si no está en el selector, no necesita nombre de rol, necesita
-una frase. La lista de accesos dice lo que cada uno es:
+El tutor lo zanjó así: su pareja y él son **los dos tutores** de Loki, y lo
+que los separa no es el rango sino el origen — **uno abrió la ficha**, y es el
+único que reparte accesos. Y eso **tiene que verse en la app**, no quedarse
+como una regla que solo conoce la base de datos.
+
+**No es un rol más del selector**, porque no se reparte: dárselo a alguien es
+transferir el perro, que es un no-objetivo de este documento. Es una marca
+sobre un rol que ya existe. La palabra «administrador» se queda fuera por
+donde vino —nadie es administrador de un perro— y lo que la sustituye es
+decir qué hizo:
 
 ```
-Aingeru   Tutor · abriste la ficha        (tú)
-Pareja    Tutor
-Hermano   Cuidador · hasta el domingo
+Aingeru   Tutor · abrió la ficha           (tú)
+Laura     Tutor
+Julen     Cuidador · hasta el dom 12:00    editar
+Ane       Familiar                         editar
 ```
 
-Nadie es «administrador» de un perro.
+**Y esa lista no es informativa: es el mando.** Es donde se cambia un rol, se
+prorroga una ventana y se retira un acceso, y de paso donde se ve de un
+vistazo quién puede hacerlo. Hoy no existe ninguna pantalla así, y es la que
+convierte «dar acceso» en algo que también se puede deshacer — que es el
+tercero de los tres problemas de la fila metida a mano.
 
 **Esa lista no se puede dibujar hoy, y conviene saberlo antes de empezar.**
 Son dos políticas que no existen: `pet_owners` solo deja ver _tu propia_
@@ -164,13 +188,13 @@ constructor que busque dónde engancharla no la va a encontrar.
 ### 5. La app esconde acciones, no sitios
 
 Las tres pestañas están para los cuatro roles. Lo que cambia es qué bloques
-traen y qué se puede tocar. Para el invitado, lo único que desaparece es el
+traen y qué se puede tocar. Para el familiar, lo único que desaparece es el
 bloque de vacunas y tratamientos dentro de Salud.
 
 Es del tutor esta regla, y la razón es práctica: dos personas con mapas
 distintos de la app no pueden ayudarse por teléfono.
 
-### 6. La invitación es un código; el QR y el enlace son comodidades
+### 6. La invitación es un código, y el QR lo lleva dentro
 
 **Un enlace de esquema propio no sobrevive a la instalación.**
 `petfile://pet-share/00072` solo funciona si la app ya está puesta; si no, el
@@ -180,13 +204,29 @@ Android no lo arrastra hasta la primera apertura salvo montando el Install
 Referrer de Play o un servicio de enlaces diferidos. O sea que falla justo en
 el camino más común — quien recibe la invitación no tiene la app.
 
-Lo que sobrevive a cualquier camino es **un código**:
+**El tutor lo cerró por el otro lado, y así se cierra entero:** el QR se
+dibuja en la pantalla de quien invita, y quien lo escanea **ya tiene la app
+puesta**. Eso no resuelve el problema del enlace — lo hace desaparecer. No hay
+nada que arrastrar a través de Play porque no hay enlace.
+
+A cambio, la app gana una puerta por el lado de quien entra —**«Pedir
+acceso»**— y los dos caminos acaban en el mismo campo de texto:
+
+- **Delante del otro:** quien invita enseña el QR; el otro lo escanea.
+- **Por WhatsApp:** quien invita copia el código; el otro lo pega.
 
 > Dale esto a quien vaya a cuidar a Loki: **7K4P-2M9X-R3TD**
 
-Instala como sea, entra con Google, lo teclea. **El QR y el enlace llevan ese
-mismo código dentro**: escanear lo rellena, teclearlo es siempre el plan B, y
-solo hay un mecanismo que mantener.
+**El QR no lleva nada que el código no lleve.** Un mecanismo, dos formas de
+introducirlo, y escanear es siempre opcional: un código que solo entra por la
+cámara es un código que falla cuando la cámara no enfoca.
+
+**«Pedir acceso» no pide nada**, y hay que decirlo porque el nombre invita a
+construir otra cosa. No hay cola de solicitudes ni aprobación al otro lado:
+quien tiene el código ya está autorizado, y esa pantalla es solo donde se
+escribe. El nombre funciona desde el lado de quien entra —«quiero acceso al
+perro de mi hermano»— y es exactamente la parte que hay que vigilar al
+construirla.
 
 ### 6.1 El código no va atado a una persona, y eso fija cinco requisitos
 
@@ -201,10 +241,18 @@ una llave maestra corta:
 
 1. **Largo y de alfabeto no ambiguo.** Doce caracteres sobre un alfabeto sin
    `0/O` ni `1/I/L`. Un código de cinco dígitos como el del boceto
-   (`pet-share/00072`) se agota probando.
+   (`pet-share/00072`) se agota probando. El tutor dejó el alfabeto de mi
+   cuenta con una condición que resulta ser la que manda: **tiene que poder
+   pegarse desde el portapapeles.** Un código que hay que transcribir mirando
+   obliga a ser corto; uno que se pega puede ser tan largo como haga falta. La
+   longitud no sale de la criptografía, sale de ahí.
 2. **Un solo uso.** Se consume al canjearlo, dentro de la misma transacción
    que crea la membresía.
 3. **Caduca en horas, no en días.** El caso real es «te lo mando ahora».
+   **Y no es la ventana de acceso:** son dos relojes distintos y conviene no
+   confundirlos al construir. Éste mide cuánto vive una invitación _sin usar_;
+   el de §7 mide cuánto dura el acceso que concede, y puede empezar días
+   después de canjearse.
 4. **Límite de intentos**, por código y por cuenta que prueba. Sin esto, 1 y 3
    solo suben el precio de la fuerza bruta; no la impiden.
 5. **Revocable y visible.** Quien invita ve las invitaciones pendientes y
@@ -214,21 +262,43 @@ una llave maestra corta:
 Si algún día se quiere la versión fuerte, es un campo: atar el código a un
 correo de Google. Queda escrito para no tener que redescubrir que era barato.
 
-### 7. El acceso tiene fecha de fin, y al terminar baja de rol
+### 7. El acceso tiene ventana, y al terminar baja de rol
 
-Un cuidador se invita **hasta una fecha**, prorrogable.
+Un acceso se concede **desde una fecha-hora hasta otra fecha-hora**,
+prorrogable. No «hasta el domingo»: hasta el domingo a las 12:00.
 
-**Al vencer no desaparece: pasa a invitado.** Así la caducidad deja de ser
+**La referencia la trajo el tutor y es la correcta:** la cerradura Nuki
+reparte así sus accesos temporales —un interruptor que activa la ventana, y
+debajo inicio y fin con día y hora cada uno—, que es exactamente la forma de
+este problema. **Lo recurrente de esa misma pantalla queda fuera**: «todos los
+sábados de 10:00 a 14:00» no describe a nadie de esta casa, y es la clase de
+campo que se añade el día que alguien lo pide.
+
+**La ventana es opcional**, como ese interruptor. Un tutor no la lleva; un
+cuidador de fin de semana sí.
+
+**Al vencer no desaparece: pasa a familiar.** Así la caducidad deja de ser
 una pérdida y es un cambio de rol — que es lo que el tutor describe de su
-hermano: mientras cuida, escribe; el resto del año, mira los paseos.
+hermano: mientras cuida, escribe; el resto del año, mira los paseos. La única
+excepción se explica sola: un familiar con ventana no tiene a dónde bajar, así
+que al terminar pierde el acceso. **Es mi criterio** decir la regla en ese
+orden —la caída primero, el suelo después—, porque al revés son dos reglas y
+así es una con un borde.
+
+**Y con fecha-hora de inicio existe un estado nuevo: la ventana que aún no ha
+empezado.** La misma regla lo cubre sin inventar nada: **antes de abrirse,
+familiar; dentro, el rol concedido; después, familiar otra vez.** El hermano
+puede canjear el código el martes para un acceso que abre el viernes, y hasta
+el viernes ve los paseos sin poder escribirlos.
 
 **La caducidad se aplica en la política de base de datos, no en la pantalla.**
-Es la diferencia entre una promesa y un decorado.
+Es la diferencia entre una promesa y un decorado — y con dos extremos son dos
+comparaciones, no una.
 
 **Un rol se puede cambiar sin un código nuevo.** Estaba implícito en
-«prorrogar» y no escrito: subir a un invitado a cuidador el viernes es la
+«prorrogar» y no escrito: subir a un familiar a cuidador el viernes es la
 misma operación que prorrogarlo, y obligar a generar otro código para eso
-sería un mecanismo de más. Quien abrió la ficha edita la fila; el invitado no
+sería un mecanismo de más. Quien abrió la ficha edita la fila; el familiar no
 se entera más que por lo que la app le deja hacer.
 
 ### 8. Cada entrada guarda quién la apuntó
@@ -289,7 +359,7 @@ Y la carrera ya está resuelta: `closeWalk` cierra con `is("duration_minutes",
 null)`, lo que su propio comentario llama «la regla de los dos tutores» —
 gana el cierre que llegue primero y nadie pisa a nadie.
 
-### 12. Un invitado que ya tiene su propio perro
+### 12. Alguien invitado que ya tiene su propio perro
 
 Decisión del tutor: **se construye el selector de perro.** La alternativa era
 rechazar la invitación, y la descartó.
@@ -311,19 +381,16 @@ contrario, el documento no depende de ello.
 
 ## Lo que este documento no decide
 
-- **El nombre «Invitado».** Es el único de los tres que no convence del todo.
-  Se consideraron «Allegado» (suena a notaría) y «Seguidor» (suena a
-  Instagram). Queda como decisión del tutor.
-- El alfabeto exacto del código y cuántas horas dura una invitación sin usar
-  (§6.1 fija los mínimos: doce caracteres, horas y no días).
+- Cuántas horas exactamente vive una invitación sin usar. §6.1 fija el orden
+  de magnitud y no el número.
 - Qué ve quien invita mientras la invitación está pendiente, más allá de poder
   anularla.
-- Si el QR se dibuja en la app o se comparte como imagen.
-- Si el segundo tutor puede repartir y retirar accesos. Hoy el documento dice
-  que no, siguiendo al tutor. Lo que hay debajo y conviene mirar una vez:
-  `pet_owners` cae con `on delete cascade` sobre `auth.users`, así que si la
-  cuenta de Google de quien abrió la ficha se pierde, **el perro se queda sin
-  nadie que pueda dar ni quitar accesos**, y sin nadie que pueda borrarlo.
+- **Qué pasa si se pierde la cuenta de quien abrió la ficha.** El tutor ya
+  confirmó que el segundo tutor no reparte ni administra accesos, y así está
+  escrito. Lo que cuelga de esa decisión y conviene mirar una vez:
+  `pet_owners` cae con `on delete cascade` sobre `auth.users`, así que si esa
+  cuenta de Google se pierde, **el perro se queda sin nadie que pueda dar ni
+  quitar accesos**, y sin nadie que pueda borrarlo.
 
 ## Lo que hay que respetar al construirlo
 
@@ -346,20 +413,30 @@ contrario, el documento no depende de ello.
   sí.** Era el único sitio donde le decía al constructor que no hiciera nada, y
   era el peor sitio para equivocarse: `0005_pet_photos_bucket.sql` define
   cuatro políticas —leer, subir, reemplazar, borrar— y **las cuatro preguntan
-  solo si existes en `pet_owners`**. Tal cual, un invitado puede reemplazar o
+  solo si existes en `pet_owners`**. Tal cual, un familiar puede reemplazar o
   borrar la foto del perro. Leer sí se hereda; escribir hay que cerrarlo a
   tutor. La cabecera de esa migración promete que compartir «gives them the
   photo too without touching storage» — es verdad a medias y hay que
   reescribirla, porque es de donde salió el error.
 - **El `check` de `role` solo admite dos valores.** `role text not null default
-'owner' check (role in ('owner', 'member'))`. Cuatro roles son una migración
-  de la restricción, y hay que decidir qué pasa con `'member'`.
+'owner' check (role in ('owner', 'member'))`. Cuatro son una migración de la
+  restricción, y `'member'` no sobrevive a ella: hoy lo lleva —o debería— la
+  fila metida a mano, que es un tutor. Los cuatro valores los nombra quien
+  construya; lo que no puede pasar es que el de quien abrió la ficha y el del
+  segundo tutor sean el mismo, porque es justo la distinción que la lista de
+  accesos tiene que enseñar (§3).
 - **La fila metida a mano hay que migrarla**, y no se puede distinguir por el
   rol: lo más probable es que las dos digan `'owner'`, porque el insert a mano
   habrá tomado el valor por defecto. Se distingue por `joined_at` —quien abrió
   la ficha es el primero— y conviene no descubrirlo en producción.
 - **`created_by` se fija en la política** (§8): escribible hoy, columna de
   seguridad mañana.
+- **Escanear un QR es un módulo nativo; dibujarlo no.** Pintarlo es una
+  librería JS y no cambia nada. Leerlo pide cámara: dependencia nativa, permiso
+  en el manifiesto, y **un dev build recompilado** (`pnpm android`) en vez de
+  recargado — la misma lección que dejó `expo-image-manipulator`. Como teclear
+  el código es siempre posible (§6), la cámara puede llegar la última sin
+  bloquear nada.
 - **La suite e2e necesita una segunda cuenta.** Todo lo que este documento
   describe ocurre entre dos personas, y `e2e/auth.ts` siembra una. Sin la
   segunda no hay forma de probar que un cuidador _no_ puede hacer algo, que es
@@ -368,7 +445,7 @@ contrario, el documento no depende de ello.
   cuenta de Supabase.
 - **La cola de pendientes puede sobrevivir al acceso.** `lib/pending.ts`
   reintenta siempre y no descarta nunca, así que un cierre de paseo guardado
-  con el móvil sin cobertura puede subir cuando el cuidador ya es invitado. La
+  con el móvil sin cobertura puede subir cuando el cuidador ya es familiar. La
   política lo rechazará, y `flushPending` tiene que leer eso como `gone` —algo
   que ya no puede ocurrir— y no como un fallo que se reintenta para siempre.
 - Las preferencias de dispositivo —formatos de hora y duración, el cumpleaños
