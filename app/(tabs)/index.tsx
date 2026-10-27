@@ -422,7 +422,9 @@ export default function Home() {
    * The log, **and the day it belongs to**.
    *
    * Carrying the key is what lets the screen know its rows are stale without
-   * a second flag: `log.day !== dayKey(day)` is derived, and derived is what
+   * a second flag: `log.day !== dayKey(day)` is derived — and so, since the
+   * pet became a second axis, is `log.petId`: see its own docblock below, and
+   * `loading` where the two are read together. Derived is what
    * `react-hooks/set-state-in-effect` asks for. Before this the rows simply
    * stayed put while the header changed, so tapping ‹ showed "Ayer" over
    * today's four entries for as long as the network took — a tutor checking
@@ -569,7 +571,7 @@ export default function Home() {
    */
   const [writtenToId, setWrittenToId] = useState<string | null>(null);
   /**
-   * The walk this device has just closed, and the day it was closed on.
+   * The walk this device has just closed, and the day and pet it was closed on.
    *
    * **The goal bar's animation, and nothing else.** It is set only where the
    * server has said yes, it carries the minutes the close actually added, and
@@ -578,6 +580,12 @@ export default function Home() {
    *
    * **The day travels with it** so that a walk closed just before the arrows
    * are pressed cannot animate the day they land on.
+   *
+   * **And so does the pet**, for the same reason on the other axis. Choosing
+   * another pet keeps the day on purpose, so the day gate below never fires
+   * for it, and the goal block unmounts behind the skeleton while the other
+   * dog's log loads: it comes back with this close still standing and plays
+   * A's ceremony on B's bar, from A's totals to B's measure.
    */
   const [closed, setClosed] = useState<{
     id: string;
@@ -585,6 +593,8 @@ export default function Home() {
     /** The day before this walk was counted into it: minutes and walks. */
     before: Walked;
     day: string;
+    /** The pet it was closed for, `null` only while none is on screen. */
+    pet: string | null;
   } | null>(null);
   // **Dropped the moment the day in view leaves it**, in React's own "adjust
   // state when an input changes" shape — the one `?day=` uses above — rather
@@ -593,7 +603,15 @@ export default function Home() {
   // day loads, and comes back with no memory of which closes it has already
   // played, so a walk closed minutes ago would animate again on the way back
   // to its own day, and again on every return after that.
-  if (closed !== null && closed.day !== dayKey(day)) setClosed(null);
+  //
+  // **The pet is the other half of the gate**, read from `pet` rather than
+  // `petId` because that is derived further down and this has to sit here.
+  if (
+    closed !== null &&
+    (closed.day !== dayKey(day) || closed.pet !== (pet?.id ?? null))
+  ) {
+    setClosed(null);
+  }
   /**
    * The day's minutes as this tutor just rewrote them by hand, and the day
    * they were rewritten on.
@@ -625,10 +643,14 @@ export default function Home() {
     after: Walked;
     overClose: string | null;
     day: string;
+    /** The pet it was rewritten for. See `closed`. */
+    pet: string | null;
   } | null>(null);
   if (
     edited !== null &&
-    (edited.day !== dayKey(day) || (closed?.id ?? null) !== edited.overClose)
+    (edited.day !== dayKey(day) ||
+      edited.pet !== (pet?.id ?? null) ||
+      (closed?.id ?? null) !== edited.overClose)
   ) {
     setEdited(null);
   }
@@ -1157,7 +1179,8 @@ export default function Home() {
       // A failed read leaves this null, not an empty list: the grid then
       // marks nothing and says it could not look, instead of drawing every
       // treatment day over a window nobody read. A reopen is untouched — the
-      // previous rows stay until this answer replaces them.
+      // previous rows stay until this answer replaces them, **when they are
+      // this pet's**: another pet's are held by `marksFor` and not drawn.
       setMarkedEvents(marksWindowRows(read));
       setMarksError(read.error);
       setMarksFor(pet.id);
@@ -1186,7 +1209,7 @@ export default function Home() {
       // have no reason to doubt.
       //
       // Silent on purpose: the rows stay up while the read runs (the log's
-      // waiting state keys on the day, not on the attempt), because a
+      // waiting state keys on the day and the pet, not on the attempt), because a
       // skeleton every time the app came forward would be worse than the bug.
       reread();
       const now = new Date();
@@ -1902,6 +1925,7 @@ export default function Home() {
           // contains this walk depends on a request still in flight.
           before: { minutes: walked, walks },
           day: dayKey(day),
+          pet: petId,
         });
       }
       setRunningId(null);
@@ -2432,6 +2456,7 @@ export default function Home() {
                 after,
                 overClose: closed?.id ?? null,
                 day: dayKey(day),
+                pet: petId,
               });
             }
 
