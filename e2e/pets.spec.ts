@@ -11,17 +11,27 @@ import {
  * which one every screen is talking about.**
  *
  * The first five cases came from the plan. The last two came from the
- * branch itself — a walk running on the wrong dog's button, and a closing
- * ceremony replayed over a bar it had nothing to do with. Both were latent
- * the moment a second sheet could exist, and neither of them throws: they
- * show the tutor a confident wrong answer, which is exactly the kind of
- * defect that needs a test rather than an eye.
+ * branch itself — a walk open on one dog thrown away by a look at the
+ * other, and a closing ceremony replayed over a bar it had nothing to do
+ * with. Both were latent the moment a second sheet could exist, and neither
+ * of them throws: they show the tutor a confident wrong answer, which is
+ * exactly the kind of defect that needs a test rather than an eye. Both
+ * were checked by putting the defect back and watching the test go red,
+ * because an assertion of absence nobody has seen fail proves nothing.
  *
  * **Nothing here types a fixed clock time onto today.** `e2e/home.spec.ts`
  * paid for that lesson: the entry sheet refuses a time in the future, so
  * 10:45 is a failing test until a quarter to eleven. The two walk cases use
  * the goal block's own start and stop, which take their instant from the
  * app, and the day case moves with ‹ rather than with the clock.
+ *
+ * **Three traps measured here, each one a red run before it was understood,
+ * and each commented where it bites.** A loading skeleton satisfies every
+ * assertion of absence, so a dog is only looked at once its own log has
+ * landed (see `home-empty` below); the close overlay stays mounted while the
+ * tab changes, so it has to be let go of before a replay can be waited for;
+ * and registering a second pet leaves the screen it was started from mounted
+ * and hidden, where `getByTestId` finds two of everything (see `visible`).
  */
 
 /** The goal-bar cases need `0006_events_weights_treatments.sql` applied. */
@@ -38,21 +48,6 @@ test.beforeEach(async () => {
 test.afterAll(async () => {
   await resetE2EPets();
 });
-
-/**
- * Today's month and day, `years` ago.
- *
- * **Which is what makes the day view say a pet's name at all.** The headline
- * is "Hoy" for every ordinary day, and the only thing that replaces it is a
- * birthday — so a pet born on this date is the one way to ask `home-title`
- * which dog the diary is about. Derived from a "now" the test owns, so it is
- * the same answer at 01:00 as at 17:00.
- */
-function birthdayToday(years: number): string {
-  const born = new Date();
-  born.setFullYear(born.getFullYear() - years);
-  return `${born.getFullYear()}-${String(born.getMonth() + 1).padStart(2, "0")}-${String(born.getDate()).padStart(2, "0")}`;
-}
 
 /**
  * The two sheets these specs switch between, oldest first.
@@ -164,50 +159,47 @@ test("lists both dogs and marks the one on screen", async ({ page }) => {
 test("lands on the dog just registered, and the sheet goes back to the other", async ({
   page,
 }) => {
-  const loki = await seedE2EPet({
-    name: "Loki",
-    birth_date: birthdayToday(3),
-  });
+  const loki = await seedE2EPet({ name: "Loki" });
   await seedSession(page);
   await page.goto("/");
 
-  // One pet, and it is Loki's birthday, so the diary says his name.
-  await expect(page.getByTestId("home-title")).toContainText(
-    "Cumpleaños de Loki",
-  );
+  // **The empty log is where this screen says a name, and `home-title` is
+  // not.** The headline reads "Hoy" whoever the dog is — only a birthday
+  // replaces it — so asking the title whose diary this is would mean giving
+  // both dogs a birthday today, and this test would then break the day
+  // somebody touches birthdays, for a reason that has nothing to do with the
+  // switcher. The empty state says the name in plain words, and both halves
+  // here are on today with a sheet that was just created, which is exactly
+  // when it speaks.
+  await expect(page.getByTestId("home-empty")).toContainText("Loki");
 
   await page.getByRole("tab", { name: /Perfil/ }).click();
   await page.getByTestId("profile-add-pet").click();
   await expect(page.getByTestId("onboarding-name")).toBeVisible();
 
   await page.getByTestId("onboarding-name").fill("Nala");
-  // Born today: the picker opens on today and today is the one day `maxDate`
-  // still allows, so this is both the simplest date to pick and the one that
-  // makes the diary read her name back.
+  // The 1st, which is the only day guaranteed to be in the past whatever
+  // month the picker opens on: `maxDate` disables the future, so a fixed
+  // mid-month number fails whenever the suite runs early in a month. The
+  // date itself is not this test's subject.
   await page.getByTestId("onboarding-birthdate-picker").click();
-  await page
-    .getByRole("button", { name: String(new Date().getDate()), exact: true })
-    .first()
-    .click();
+  await page.getByRole("button", { name: "1", exact: true }).first().click();
   await page.getByTestId("datepicker-confirm").click();
   await page.getByTestId("onboarding-submit").click();
 
   // **The registration is the switch.** Nobody is asked to choose afterwards,
   // so the diary has to arrive already talking about her — this is the door
   // the wrong-dog defect came in through.
-  await expect(visible(page, "home-title")).toContainText(
-    "Nala nació este día",
-    {
-      timeout: 15_000,
-    },
-  );
+  await expect(visible(page, "home-empty")).toContainText("Nala", {
+    timeout: 15_000,
+  });
 
   // And the other half: the sheet takes the diary back, which is what the
   // registration alone can never prove.
   await switchTo(page, loki);
   await expect(visible(page, "profile-title")).toHaveText("Loki");
   await page.getByRole("tab", { name: /Diario/ }).click();
-  await expect(visible(page, "home-title")).toContainText("Cumpleaños de Loki");
+  await expect(visible(page, "home-empty")).toContainText("Loki");
 });
 
 test("keeps the day you were reading when the dog changes", async ({
@@ -269,7 +261,22 @@ test("falls back to the remaining dog when the one on screen is deleted", async 
   await expect(page.getByTestId("profile-add-pet")).toBeVisible();
 });
 
-test("keeps a walk running on the dog it was started for", async ({ page }) => {
+/**
+ * **A walk left open on one dog survives a look at the other.**
+ *
+ * The title says survives and not "does not show on the wrong dog", because
+ * the second is not what this can catch and promising it would send the next
+ * person after the wrong defect. The diary looks its running walk up among
+ * the day's rows (`events.find(e => e.id === runningId)`), so a stale id
+ * belonging to the other dog simply finds nothing and his button stays
+ * quiet: **breaking only the read does not fail this test, and that is
+ * measured.** What did the damage was the write — one slot on the device for
+ * "the walk that is running" — because the effect that clears a walk the
+ * server does not have then removed Nala's from under Loki's screen, and it
+ * was gone when she came back. The last three assertions are the ones that
+ * bite.
+ */
+test("keeps a walk left open on the dog whose walk it is", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
   const { loki, nala } = await seedTwoPets();
@@ -293,14 +300,15 @@ test("keeps a walk running on the dog it was started for", async ({ page }) => {
   await expect(entries).toHaveCount(1);
   await expect(entries.first()).toContainText("En marcha");
 
-  // **The defect this protects: one slot for "the walk that is running".**
-  // With a single dog that had one answer. With two, Loki's button showed
-  // Nala's walk as his — the wrong dog, with no error, and a stop that would
-  // have closed a walk nobody started for him.
+  // Loki's screen is quiet, which is worth saying but is not the catch: it
+  // would be quiet with the defect in place too, because his day has no such
+  // row to find. What matters is that this visit is where the clearing effect
+  // used to reach across and delete her walk.
   await switchTo(page, loki);
   await page.getByRole("tab", { name: /Diario/ }).click();
-  // Same reason, and a sharper one: the three assertions below are all
-  // absences, and a skeleton satisfies every one of them.
+  // The empty log again, for the same reason as above and a sharper one: the
+  // three assertions below are all absences, and a skeleton satisfies every
+  // one of them.
   await expect(page.getByTestId("home-empty")).toContainText("Loki");
   await expect(page.getByTestId("home-goal-measure")).not.toContainText(
     "De paseo",
@@ -308,8 +316,10 @@ test("keeps a walk running on the dog it was started for", async ({ page }) => {
   await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
   await expect(entries).toHaveCount(0);
 
-  // And it is still hers when she comes back, rather than having been lost
-  // with the screen that was showing it.
+  // **And here is the whole test.** Her walk is still open, rather than
+  // having been thrown away while nobody was looking at it. Against a device
+  // store with one slot for every dog, this is where it fails — measured, by
+  // putting that store back and watching it go red here.
   await switchTo(page, nala);
   await page.getByRole("tab", { name: /Diario/ }).click();
   await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
