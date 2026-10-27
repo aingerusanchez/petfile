@@ -392,6 +392,24 @@ export default function Home() {
    * at once while the new window loads — and with two pets, "the previous
    * rows" can belong to the one the tutor just left. Derived against
    * `petId` where the calendar is drawn, never cleared by an effect.
+   *
+   * **And this is the first of the two shapes "whose rows are these?" takes
+   * in this file, so here is why there are two.** `log.petId` and
+   * `treatmentsRead.petId` carry the owner *inside* the state; `marksFor`
+   * and `readFor` carry it in a second state *beside* it. The rule is not
+   * taste: the owner goes inside when the state is a single object that is
+   * written in one go, because then there is exactly one write and the two
+   * halves cannot be set apart from each other — the bug that cost three
+   * rounds elsewhere in this file was a copy of a fact kept in a ref and
+   * updated at some of the writes. It goes beside when the state it
+   * describes is not ours to reshape that way: `markedEvents` is a bare
+   * `PetEventRow[] | null` the calendar reads, and `runningId` is a bare
+   * id, and wrapping either in an object to carry one string would move the
+   * unwrapping into every reader. **Both forms are derived at the point of
+   * use and neither is ever cleared by an effect** — that part does not
+   * vary, and it is what `react-hooks/set-state-in-effect` asks for. Keep a
+   * new one in whichever shape its state already has; do not unify them for
+   * symmetry.
    */
   const [marksFor, setMarksFor] = useState<string | null>(null);
   /**
@@ -2182,7 +2200,10 @@ export default function Home() {
           // total it started from, so both ends of the fill are known the
           // moment the server says yes and nothing has to be waited for. The
           // day it belongs to is still checked, and that is settled above:
-          // `closed` is dropped as the day in view leaves it.
+          // `closed` is dropped as the day in view leaves it — **and as the
+          // pet does**, which is the half added when a second dog became
+          // possible, because a switch deliberately keeps the day and would
+          // otherwise have replayed one dog's close over the other's bar.
           //
           // **Masked by a hand edit, so the block is only ever told one
           // thing.** The two are one decision — what this phone last did to
