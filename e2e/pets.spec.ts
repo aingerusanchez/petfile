@@ -1,0 +1,379 @@
+import { expect, test, type Page } from "@playwright/test";
+import {
+  eventsTableExists,
+  resetE2EPets,
+  seedE2EPet,
+  seedSession,
+} from "./auth";
+
+/**
+ * **The switcher's own suite: one account, two dogs, and the question of
+ * which one every screen is talking about.**
+ *
+ * The first five cases came from the plan. The last two came from the
+ * branch itself — a walk running on the wrong dog's button, and a closing
+ * ceremony replayed over a bar it had nothing to do with. Both were latent
+ * the moment a second sheet could exist, and neither of them throws: they
+ * show the tutor a confident wrong answer, which is exactly the kind of
+ * defect that needs a test rather than an eye.
+ *
+ * **Nothing here types a fixed clock time onto today.** `e2e/home.spec.ts`
+ * paid for that lesson: the entry sheet refuses a time in the future, so
+ * 10:45 is a failing test until a quarter to eleven. The two walk cases use
+ * the goal block's own start and stop, which take their instant from the
+ * app, and the day case moves with ‹ rather than with the clock.
+ */
+
+/** The goal-bar cases need `0006_events_weights_treatments.sql` applied. */
+let ready = false;
+
+test.beforeAll(async () => {
+  ready = await eventsTableExists();
+});
+
+test.beforeEach(async () => {
+  await resetE2EPets();
+});
+
+test.afterAll(async () => {
+  await resetE2EPets();
+});
+
+/**
+ * Today's month and day, `years` ago.
+ *
+ * **Which is what makes the day view say a pet's name at all.** The headline
+ * is "Hoy" for every ordinary day, and the only thing that replaces it is a
+ * birthday — so a pet born on this date is the one way to ask `home-title`
+ * which dog the diary is about. Derived from a "now" the test owns, so it is
+ * the same answer at 01:00 as at 17:00.
+ */
+function birthdayToday(years: number): string {
+  const born = new Date();
+  born.setFullYear(born.getFullYear() - years);
+  return `${born.getFullYear()}-${String(born.getMonth() + 1).padStart(2, "0")}-${String(born.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * The two sheets these specs switch between, oldest first.
+ *
+ * Order matters: `pickActivePet` falls back to the oldest, and a fresh
+ * browser context has no stored choice, so the first one returned here is
+ * the one every test starts on.
+ */
+async function seedTwoPets(): Promise<{ loki: string; nala: string }> {
+  const loki = await seedE2EPet({
+    name: "Loki",
+    exercise_goal_minutes: 60,
+  });
+  const nala = await seedE2EPet({
+    name: "Nala",
+    sex: "female",
+    breed_primary: "Border Collie",
+    exercise_goal_minutes: 60,
+  });
+  return { loki, nala };
+}
+
+/**
+ * Picks a pet the way a tutor does: from Perfil, through the sheet.
+ *
+ * The switcher lives on one screen, so every switch in this file is three
+ * taps and a tab. Driven rather than planted in storage on purpose — the
+ * stored id is `lib/pet.tsx`'s business and the point of these specs is that
+ * the screens follow it.
+ */
+async function switchTo(page: Page, petId: string) {
+  await page.getByRole("tab", { name: /Perfil/ }).click();
+  await visible(page, "pet-switcher").click();
+  await expect(visible(page, "pet-switcher-sheet")).toBeVisible();
+  await visible(page, `pet-choice-${petId}`).click();
+  await expect(page.getByTestId("pet-switcher-sheet")).toHaveCount(0);
+}
+
+/**
+ * The one on screen, when the navigator is holding more than one copy.
+ *
+ * Registering a second pet pushes onboarding over the tab navigator and then
+ * replaces it, which leaves the screen it was pushed from still mounted and
+ * hidden underneath — so `getByTestId` finds two of everything and the first
+ * of them can never be clicked. `getByRole` does not have the problem (the
+ * hidden half is `aria-hidden`, so it is out of the accessibility tree
+ * altogether), which is why only the testID locators need this.
+ */
+function visible(page: Page, testId: string) {
+  return page.getByTestId(testId).filter({ visible: true });
+}
+
+test("offers no switcher to a household with one dog, and the door to a second", async ({
+  page,
+}) => {
+  await seedE2EPet({ name: "Loki" });
+  await seedSession(page);
+  await page.goto("/profile");
+
+  await expect(page.getByTestId("profile-title")).toHaveText("Loki");
+
+  // Nothing to switch between, so the control is absent rather than present
+  // and useless: a chevron beside the name would invite a tap that opens a
+  // sheet with one option in it.
+  await expect(page.getByTestId("pet-switcher")).toHaveCount(0);
+
+  // And the way to a second one is here all the same — hiding it until there
+  // are two would be a door that opens once you are already through it.
+  await expect(page.getByTestId("profile-add-pet")).toBeVisible();
+});
+
+test("lists both dogs and marks the one on screen", async ({ page }) => {
+  const { loki, nala } = await seedTwoPets();
+  await seedSession(page);
+  await page.goto("/profile");
+
+  // The row says what pressing it would change, not just whose file this is.
+  const row = page.getByTestId("pet-switcher");
+  await expect(row).toBeVisible();
+  await expect(row).toHaveAttribute(
+    "aria-label",
+    "Cambiar de mascota. Ahora: Loki",
+  );
+
+  await row.click();
+  await expect(page.getByTestId("pet-switcher-sheet")).toBeVisible();
+
+  // An exclusive single-select, in the dialect the chips already speak: a
+  // radiogroup of radios, with the state on `aria-checked` because
+  // react-native-web renders the role and drops `accessibilityState`.
+  const options = page.getByRole("radio");
+  await expect(options).toHaveCount(2);
+  await expect(page.getByTestId(`pet-choice-${loki}`)).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(page.getByTestId(`pet-choice-${nala}`)).toHaveAttribute(
+    "aria-checked",
+    "false",
+  );
+  await expect(page.getByTestId(`pet-choice-${nala}`)).toContainText("Nala");
+
+  // Closing without choosing leaves the file where it was.
+  await page.getByTestId("pet-switcher-close").click();
+  await expect(page.getByTestId("pet-switcher-sheet")).toBeHidden();
+  await expect(page.getByTestId("profile-title")).toHaveText("Loki");
+});
+
+test("lands on the dog just registered, and the sheet goes back to the other", async ({
+  page,
+}) => {
+  const loki = await seedE2EPet({
+    name: "Loki",
+    birth_date: birthdayToday(3),
+  });
+  await seedSession(page);
+  await page.goto("/");
+
+  // One pet, and it is Loki's birthday, so the diary says his name.
+  await expect(page.getByTestId("home-title")).toContainText(
+    "Cumpleaños de Loki",
+  );
+
+  await page.getByRole("tab", { name: /Perfil/ }).click();
+  await page.getByTestId("profile-add-pet").click();
+  await expect(page.getByTestId("onboarding-name")).toBeVisible();
+
+  await page.getByTestId("onboarding-name").fill("Nala");
+  // Born today: the picker opens on today and today is the one day `maxDate`
+  // still allows, so this is both the simplest date to pick and the one that
+  // makes the diary read her name back.
+  await page.getByTestId("onboarding-birthdate-picker").click();
+  await page
+    .getByRole("button", { name: String(new Date().getDate()), exact: true })
+    .first()
+    .click();
+  await page.getByTestId("datepicker-confirm").click();
+  await page.getByTestId("onboarding-submit").click();
+
+  // **The registration is the switch.** Nobody is asked to choose afterwards,
+  // so the diary has to arrive already talking about her — this is the door
+  // the wrong-dog defect came in through.
+  await expect(visible(page, "home-title")).toContainText(
+    "Nala nació este día",
+    {
+      timeout: 15_000,
+    },
+  );
+
+  // And the other half: the sheet takes the diary back, which is what the
+  // registration alone can never prove.
+  await switchTo(page, loki);
+  await expect(visible(page, "profile-title")).toHaveText("Loki");
+  await page.getByRole("tab", { name: /Diario/ }).click();
+  await expect(visible(page, "home-title")).toContainText("Cumpleaños de Loki");
+});
+
+test("keeps the day you were reading when the dog changes", async ({
+  page,
+}) => {
+  const { nala } = await seedTwoPets();
+  await seedSession(page);
+  await page.goto("/");
+
+  // ‹ rather than a typed date: the day the tutor stepped back to is the
+  // subject here, and yesterday is the one that is always behind us.
+  await page.getByTestId("home-prev-day").click();
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+  const yesterday = await page.getByTestId("home-date").textContent();
+  expect(yesterday).toBeTruthy();
+
+  await switchTo(page, nala);
+  await expect(page.getByTestId("profile-title")).toHaveText("Nala");
+  await page.getByRole("tab", { name: /Diario/ }).click();
+
+  // **Read after the other dog's day has landed, never over the skeleton.**
+  // The header keeps its date while the log below reloads, so a date checked
+  // mid-flight is the old screen's answer and would hold even if the day were
+  // reset a moment later.
+  await expect(page.getByTestId("home-goal-skeleton")).toHaveCount(0);
+  await expect(page.getByTestId("home-empty")).toBeVisible();
+
+  // Changing dog answers "whose diary", never "which day". Snapping back to
+  // today would lose the place of a tutor comparing two animals' Sundays.
+  await expect(page.getByTestId("home-date")).toHaveText(yesterday!);
+  await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+});
+
+test("falls back to the remaining dog when the one on screen is deleted", async ({
+  page,
+}) => {
+  const { nala } = await seedTwoPets();
+  await seedSession(page);
+  await page.goto("/profile");
+
+  await switchTo(page, nala);
+  await expect(page.getByTestId("profile-title")).toHaveText("Nala");
+
+  await page.getByTestId("profile-edit-main").click();
+  await page.getByTestId("profile-delete").click();
+  await page.getByTestId("profile-delete-name").fill("Nala");
+  await page.getByTestId("profile-delete-confirm").click();
+
+  // The stored id now names nothing, and that is already answered: the
+  // fallback is the oldest sheet left. What must not happen is the blank
+  // screen or the trip to onboarding that a single-pet app would make.
+  await expect(page.getByTestId("profile-title")).toHaveText("Loki", {
+    timeout: 15_000,
+  });
+  await expect(page.getByTestId("onboarding-name")).toHaveCount(0);
+
+  // One sheet left, so the switcher is gone again with it.
+  await expect(page.getByTestId("pet-switcher")).toHaveCount(0);
+  await expect(page.getByTestId("profile-add-pet")).toBeVisible();
+});
+
+test("keeps a walk running on the dog it was started for", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const { loki, nala } = await seedTwoPets();
+  await seedSession(page);
+  await page.goto("/");
+
+  await switchTo(page, nala);
+  await page.getByRole("tab", { name: /Diario/ }).click();
+  // **Her empty log is the proof the switch has landed.** The control is on
+  // screen throughout — it belongs to the header, not to the load — so
+  // waiting for it to be visible waits for nothing, and the first run of this
+  // test started the walk on Loki's bar a moment before Nala's arrived. The
+  // empty state is the one line on this screen that says a name.
+  await expect(page.getByTestId("home-empty")).toContainText("Nala");
+
+  await page.getByTestId("home-goal-control").click();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(page.getByTestId("home-goal-dot")).toBeVisible();
+
+  const entries = page.locator('[data-testid^="home-entry-"]');
+  await expect(entries).toHaveCount(1);
+  await expect(entries.first()).toContainText("En marcha");
+
+  // **The defect this protects: one slot for "the walk that is running".**
+  // With a single dog that had one answer. With two, Loki's button showed
+  // Nala's walk as his — the wrong dog, with no error, and a stop that would
+  // have closed a walk nobody started for him.
+  await switchTo(page, loki);
+  await page.getByRole("tab", { name: /Diario/ }).click();
+  // Same reason, and a sharper one: the three assertions below are all
+  // absences, and a skeleton satisfies every one of them.
+  await expect(page.getByTestId("home-empty")).toContainText("Loki");
+  await expect(page.getByTestId("home-goal-measure")).not.toContainText(
+    "De paseo",
+  );
+  await expect(page.getByTestId("home-goal-dot")).toHaveCount(0);
+  await expect(entries).toHaveCount(0);
+
+  // And it is still hers when she comes back, rather than having been lost
+  // with the screen that was showing it.
+  await switchTo(page, nala);
+  await page.getByRole("tab", { name: /Diario/ }).click();
+  await expect(page.getByTestId("home-goal-measure")).toContainText("De paseo");
+  await expect(entries).toHaveCount(1);
+  await expect(entries.first()).toContainText("En marcha");
+});
+
+test("does not replay a close over the other dog's bar", async ({ page }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
+  const { loki, nala } = await seedTwoPets();
+  await seedSession(page);
+  await page.goto("/");
+
+  // **Written on before it is stopped, or there is no close to withhold.** A
+  // walk stopped inside its first minute is deleted as a mis-tap and records
+  // nothing, so this would pass over a gate that had been removed.
+  await page.getByTestId("home-goal-control").click();
+  const row = page.locator('[data-testid^="home-entry-"]').first();
+  await expect(row).toContainText("En marcha");
+  await row.click();
+  await page.getByTestId("entry-note").fill("Ha bebido en la fuente");
+  await page.getByTestId("entry-save").click();
+  await expect(page.getByTestId("entry-title")).toHaveCount(0);
+
+  // Armed before the tap, because the overlay mounts on the stop and is gone
+  // 760 ms later: a settled assertion afterwards would retry straight past
+  // it, and then the rest of this test would be proving nothing.
+  const mounted = page.waitForSelector('[data-testid="home-goal-close"]', {
+    state: "attached",
+  });
+  await page.getByTestId("home-goal-control").click();
+  await mounted;
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
+  // **And let go of before the switch, or the rest of this proves nothing.**
+  // The diary's screen stays mounted behind Perfil, so an overlay still
+  // standing from his own close would satisfy the wait below without any
+  // replay having happened — which is exactly how the first run of this test
+  // failed.
+  await expect(page.getByTestId("home-goal-close")).toHaveCount(0);
+
+  // **Never, rather than "gone by the time we looked".** Nala's bar holds no
+  // minutes at all, and a close let go of with the pet it belonged to is the
+  // only thing that keeps her ground from animating a lap she never walked.
+  // `toHaveCount(0)` cannot tell that apart from a 760 ms replay, so this
+  // waits to be disappointed instead.
+  await switchTo(page, nala);
+  const onHers = page.waitForSelector('[data-testid="home-goal-close"]', {
+    state: "attached",
+    timeout: 4000,
+  });
+  await page.getByRole("tab", { name: /Diario/ }).click();
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
+  await expect(onHers).rejects.toThrow();
+
+  // Nor on the way back to the dog it did happen to, for the same reason the
+  // day view does not replay one: the block unmounts behind the skeleton and
+  // comes back with no memory of what it has already played.
+  await switchTo(page, loki);
+  const again = page.waitForSelector('[data-testid="home-goal-close"]', {
+    state: "attached",
+    timeout: 4000,
+  });
+  await page.getByRole("tab", { name: /Diario/ }).click();
+  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
+  await expect(again).rejects.toThrow();
+});
