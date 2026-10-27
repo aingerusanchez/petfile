@@ -25,6 +25,16 @@ import {
  * this provider knows nothing about either: it never asks the database.
  * `pickActivePet` in `lib/pets.ts` decides who is active, and each screen
  * calls it with the list it already holds.
+ *
+ * **`null` means two things, and `loading` is what tells them apart.**
+ * - `loading` true: the disk has not been read yet. `null` here says nothing
+ *   about the tutor, so a screen must not fall back to the first pet or
+ *   conclude that nobody chose — it waits. A non-null id is already a real
+ *   choice (made this session, before the read landed) and can be trusted.
+ * - `loading` false and `null`: the read is over and there is no choice on
+ *   record — a tutor who never picked, a blob that could not be understood, or
+ *   storage that could not be read. This is when falling back to the first pet
+ *   is right.
  */
 
 /** Versioned like the settings key, so a future shape can leave this one alone. */
@@ -50,18 +60,22 @@ export function serializeActivePetId(id: string): string {
 }
 
 type ActivePetContext = {
-  /** The id last chosen on this device, or null if none is known yet. */
+  /** The id last chosen on this device. Null is ambiguous while `loading`. */
   activePetId: string | null;
+  /** True until the stored value has been read, so `null` is not yet an answer. */
+  loading: boolean;
   setActivePetId: (id: string) => void;
 };
 
 const Context = createContext<ActivePetContext>({
   activePetId: null,
+  loading: false,
   setActivePetId: () => {},
 });
 
 export function ActivePetProvider({ children }: { children: ReactNode }) {
   const [activePetId, setId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   // A pick made before the stored value has been read must not be overwritten
   // when the read lands a moment later.
   const chosen = useRef(false);
@@ -70,11 +84,14 @@ export function ActivePetProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     AsyncStorage.getItem(ACTIVE_PET_STORAGE_KEY)
       .then((raw) => {
-        if (cancelled || chosen.current) return;
-        setId(parseActivePetId(raw));
+        if (cancelled) return;
+        if (!chosen.current) setId(parseActivePetId(raw));
+        setLoading(false);
       })
       .catch(() => {
-        // Storage that cannot be read is no choice on record, silently.
+        // Storage that cannot be read is no choice on record, silently — but
+        // it is an answer, so loading ends.
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -93,8 +110,8 @@ export function ActivePetProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ activePetId, setActivePetId }),
-    [activePetId, setActivePetId],
+    () => ({ activePetId, loading, setActivePetId }),
+    [activePetId, loading, setActivePetId],
   );
 
   return <Context.Provider value={value}>{children}</Context.Provider>;
