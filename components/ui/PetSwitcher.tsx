@@ -32,6 +32,18 @@ type PetSwitcherProps = {
 const FACE = 40;
 
 /**
+ * Below this there is nothing to switch between and the component draws
+ * nothing — see the docblock below for why.
+ *
+ * Exported because a caller has to know it too: the switcher renders a
+ * fragment, so the gap between it and whatever follows belongs to the screen,
+ * and a screen that always reserved that gap would leave 24dp of nothing on
+ * the single-pet profile. One constant rather than two hard-coded `2`s that
+ * could drift apart.
+ */
+export const MIN_SWITCHABLE_PETS = 2;
+
+/**
  * The control that says which pet you are looking at, and changes it.
  *
  * **With one pet it draws nothing at all.** A household with a single dog has
@@ -67,7 +79,7 @@ export function PetSwitcher({ pets, activeId, onSelect }: PetSwitcherProps) {
   // returns in `app/(tabs)/index.tsx`.
   const [open, setOpen] = useState(false);
 
-  if (pets.length < 2) return null;
+  if (pets.length < MIN_SWITCHABLE_PETS) return null;
 
   // An `activeId` naming no pet is a caller's bug — a pet deleted on another
   // phone, say. The row falls back to the first of the list rather than
@@ -89,10 +101,28 @@ export function PetSwitcher({ pets, activeId, onSelect }: PetSwitcherProps) {
         // `self-start` so the pressable hugs the name: stretched across a
         // header it would turn the empty space beside the chevron into a tap
         // that opens the sheet.
+        //
+        // Kept when the switcher was actually placed, in Perfil. Full width
+        // with the chevron against the right edge is the list-row idiom — it
+        // promises a screen to navigate to — and this opens a menu in place.
+        // A name with a chevron immediately after it is the shape that says
+        // so, and it lines up with the portrait-and-name block directly
+        // below, which is left-hugging too.
         className="flex-row items-center gap-3 self-start pr-1 active:opacity-70"
       >
         <Avatar uri={active.photoUri} name={active.name} size={FACE} />
-        <Text numberOfLines={1} className="font-semibold text-text-primary">
+        {/* `shrink`, not just `numberOfLines`. `flexShrink` is 0 by default in
+            React Native, so without it the name takes whatever width it wants
+            and the chevron is pushed off the right edge — the name field
+            accepts 40 characters, which is already wider than the row has.
+            `numberOfLines` only ellipsizes a box that has been made narrower;
+            it does not make one narrower. `shrink` rather than the sheet's
+            `flex-1` because the row is `self-start` and must keep hugging its
+            content at ordinary lengths. */}
+        <Text
+          numberOfLines={1}
+          className="shrink font-semibold text-text-primary"
+        >
           {active.name}
         </Text>
         <ChevronDown size={20} strokeWidth={2} color={colors.textTertiary} />
