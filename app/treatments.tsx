@@ -96,6 +96,18 @@ export default function Treatments() {
       if (cancelled) return;
       if (failure) return setError(failure);
       if (!row) return setError("Todavía no hay ninguna mascota");
+      // **Cleared when the pet lands, not when its list does.** `error` takes
+      // the whole screen, and the only thing that used to clear it was the
+      // press on Reintentar; a pet change re-runs this effect without going
+      // near `reload`, so the answer that arrived would have sat behind the
+      // old sentence for a whole round trip. `rows` is derived against
+      // `pet.id` just above, so what shows in that gap is this screen's
+      // skeleton and not the other dog's doses. The same line and the same
+      // reason as `app/(tabs)/health.tsx` — unreachable from today's
+      // navigation in both, since the switcher is a tab away and this is a
+      // push over it, and written anyway so the one decision is not taken
+      // both ways in one branch.
+      setError(null);
       setPet(row);
 
       const { treatments, error: listError } = await treatmentsFor(row.id);

@@ -53,8 +53,10 @@ export default function Weights() {
   // tutor left.
   //
   // Nothing here writes, and `rows` are only ever set from the pet this very
-  // run read, so there is no mixed state to guard — the screen is a push over
-  // the tabs, so the pet cannot change under it in practice.
+  // run read, so there is no mixed state that could reach the server — the
+  // screen is a push over the tabs, so the pet cannot change under it in
+  // practice. What a switch *could* leave on screen is handled inside the
+  // `then` below.
   useEffect(() => {
     if (activePetLoading && activePetId === null) return;
 
@@ -62,6 +64,23 @@ export default function Weights() {
     getMyPet(activePetId).then(async ({ pet, error: failure }) => {
       if (cancelled) return;
       if (failure || !pet) return setError(failure ?? "No hay ninguna mascota");
+      // **Back to the skeleton the moment the pet lands, error and rows
+      // together.** `error` takes the whole screen and nothing but this
+      // effect ever clears it, so after a pet change the old sentence would
+      // have covered the new dog for a whole round trip — the line
+      // `app/(tabs)/health.tsx` and `app/treatments.tsx` already carry, for
+      // the same reason.
+      //
+      // `rows` goes with it, and here that is not symmetry for its own sake:
+      // those two screens derive their rows against the pet, so clearing the
+      // error uncovers a skeleton. This screen holds a bare array, so on its
+      // own the cleared error would uncover the *previous* dog's chart —
+      // which is what the gap already shows when there is no error to cover
+      // it. Two lines buy the skeleton in both cases, where identifying the
+      // rows would mean keeping a pet in state this screen has no other use
+      // for. On mount both are already null, so this costs nothing there.
+      setError(null);
+      setRows(null);
       const { weights, error: listError } = await weightsFor(pet.id, 200);
       if (cancelled) return;
       setRows(weights);
