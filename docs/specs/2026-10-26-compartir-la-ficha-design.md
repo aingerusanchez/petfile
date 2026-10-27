@@ -452,7 +452,8 @@ rechazar la invitación, y la descartó.
 
 **Esto es lo más grande que hay en este documento, y no es compartir.** Hoy la
 app resuelve «el perro» como «el primero que creaste» —`order by created_at
-asc limit 1` en `lib/pets.ts`— y seis pantallas lo preguntan por su cuenta.
+asc limit 1` en `getMyPet`, `lib/pets.ts`— y **siete pantallas lo preguntan
+por su cuenta**, cada una con su propio efecto.
 `PRODUCT.md` tenía varias mascotas aparcado para la v2. Esta decisión lo trae
 a la v1 porque sin él la funcionalidad se rompe en silencio: quien ya tenga
 ficha propia y canjee un código aterriza en uno de los dos animales sin aviso
@@ -464,6 +465,53 @@ necesita un camino de rechazo que luego habría que borrar, y porque un cambio
 en cómo la app entera decide de qué perro habla merece instalarse y vivirse
 unos días sin un reparto de permisos nuevo encima. Si el tutor prefiere lo
 contrario, el documento no depende de ello.
+
+#### 12.1 Qué forma tiene, decidido en el tablero
+
+El tutor pidió «un switcher, dropdown o avatar-thumbnail como los de Google», y
+preguntó si ese avatar podía ser el icono de la pestaña de Perfil. Las cuatro
+variantes están dibujadas a tamaño de teléfono en el artboard `Selector` del
+tablero, y la conclusión es **el avatar que pedía, con el tamaño cambiado de
+sitio**:
+
+- **Una fila arriba de Perfil**: avatar de 40 dp, el nombre, y un chevron.
+  Pulsarla abre una hoja con las mascotas. Es la única de las cuatro que no
+  toca ninguna pantalla existente — va arriba de la pantalla que ya trata de
+  ese animal.
+- **La huella se queda como icono de pestaña.** No es gusto: `tabBarIcon`
+  recibe un `color` del navegador y lo aplica al trazo —Aqua activa, gris
+  inactiva—, y **una foto no se puede teñir**, así que la pestaña activa
+  dejaría de leerse como activa y habría que inventarle un anillo. A 24 dp
+  una cara de perro es además una mancha, y la inicial sin foto lee como un
+  fallo de carga.
+- **Descartada la cabecera del Diario**, que era el sitio obvio: es un
+  paginador con la frase centrada entre dos flechas, y el código ya lleva
+  escrito que un icono al lado «se pasó del ancho entre las dos flechas y
+  rompió la línea».
+
+**Y la regla que gobierna las cuatro: con una sola mascota nada de esto
+existe.** Ni fila, ni chevron, ni cambio de icono. Es lo que permite
+construirlo antes de compartir sin que en casa cambie nada hasta el día que
+haga falta.
+
+#### 12.2 Tres decisiones que el dibujo no contesta
+
+Son mías, y se escriben aquí porque el plan las necesita:
+
+- **Al cambiar de mascota, el Diario se queda en el día que estuviera.** La
+  mascota y el día son dos ejes independientes, y reponer uno porque el otro
+  se mueve es la app decidiendo por el tutor. Que el segundo animal no
+  existiera ese día es una respuesta honesta, no un error.
+- **El paseo en curso pasa a guardarse por mascota.** Hoy `lib/walk.ts` tiene
+  una sola ranura —`petfile.walk.v1`, con el id del paseo dentro—, y con dos
+  animales esa ranura guardaría el paseo del otro: empiezas con Loki, cambias
+  a Nala y su botón aparece en marcha. **Es un defecto latente que el selector
+  activa**, no una funcionalidad nueva, y el almacenamiento viejo hay que
+  migrarlo en vez de descartarlo. Que el paseo del primero siga corriendo sin
+  decirlo desde la ficha del segundo se acepta en esta versión.
+- **La hoja lleva «Añadir otra mascota» al pie**, reutilizando la ruta de alta
+  que ya existe. Sin eso la funcionalidad es inalcanzable: no hay forma de
+  tener un segundo animal más que canjeando el código de otro.
 
 ## Lo que este documento no decide
 
