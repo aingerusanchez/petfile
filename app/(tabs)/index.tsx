@@ -472,16 +472,28 @@ export default function Home() {
    * a counter bumped inside a listener.
    */
   const reread = useCallback(() => setUnasked((n) => n + 1), []);
-  /** The walk this device has open, or null. Read once, then kept in step. */
+  /**
+   * The walk this device has open for the pet on screen, or null. Read from
+   * the device whenever the pet is known or changes, then kept in step by
+   * `start`, `stop` and the staleness rule.
+   *
+   * **Only meaningful while `walkChecked` is true.** It is not cleared when
+   * the pet changes, and the read that brings it up to date is asynchronous,
+   * so for a moment it holds the previous pet's walk.
+   */
   const [runningId, setRunningId] = useState<string | null>(null);
+  /**
+   * Which pet `runningId` was last read for. See `walkChecked`.
+   */
+  const [readFor, setReadFor] = useState<string | null>(null);
   /**
    * The stops this device pressed and could not yet tell the server about.
    *
    * **A stop that fails is not a stop that did not happen.** The tutor
    * pressed, the phone recorded the hour, and what is missing is the upload —
    * so the walk is released and the intent waits here and on disk. Read once
-   * at mount beside the running walk, and written by the one branch that
-   * queues. See `lib/pending.ts` for why `pressedAt` is the datum that
+   * at mount, by its own effect and apart from the running walk's, and written
+   * by the one branch that queues. See `lib/pending.ts` for why `pressedAt` is the datum that
    * justifies the whole arrangement.
    */
   const [pending, setPending] = useState<PendingStop[]>([]);
@@ -1118,6 +1130,22 @@ export default function Home() {
   const isToday = daysAgo(day, today) === 0;
   const birthdayYears = birthdayOn(day, pet?.birth_date ?? null);
   const petId = pet?.id ?? null;
+  /**
+   * **Whether `runningId` has been read for the pet on screen.** Derived, not
+   * an effect keeping one state in step with another: the read below records
+   * which pet it answered for, and this compares.
+   *
+   * It exists for two defects, and both are the same gap. React commits the
+   * first render with a pet before any effect runs, so that frame has
+   * `runningId === null` *always* — and a start offered there opens a second
+   * walk over a first the device has not been asked about, whose id the write
+   * then overwrites. And when the pet changes, `runningId` still holds the
+   * previous pet's walk until the read lands: the staleness rule, running with
+   * pet A's id over pet B's rows, would find A's walk missing, call it stale
+   * and clear B's note. So the block is withheld (`busy`) and the staleness
+   * rule does not run until this is true.
+   */
+  const walkChecked = readFor === petId;
 
   // **The running walk is read once the pet is known, and again whenever the
   // pet is another.** The device's note holds every pet's walk, so there is
@@ -1151,12 +1179,23 @@ export default function Home() {
         // built since mount (a stop released this session, then the pet
         // changing) looks like before the disk has caught up. A walk in
         // either one is not running.
+        //
+        // **Do not replace either half with the `pending` state, and do not
+        // drop either.** Nothing tests this — it lives in the screen — so this
+        // comment is the whole net. With only the state, a read that lands
+        // before the queue's effect sees an empty queue and counts a queued
+        // walk as running *and* as pending: the double count above, silently.
+        // With only the disk, a stop queued in this session and not yet
+        // written reads as running. Remove either and nothing fails.
         const queued = [...parsePending(queue), ...pendingRef.current];
         setRunningId(
           running !== null && queued.some((stop) => stop.id === running)
             ? null
             : running,
         );
+        // **Together with `runningId`, in the same batch**, so no render sees
+        // one without the other.
+        setReadFor(petId);
       },
     );
     return () => {
@@ -1525,7 +1564,8 @@ export default function Home() {
   // the day the walk belongs to, or paging back a week would clear a walk that
   // is running fine.
   useEffect(() => {
-    if (!runningId || !petId || !fresh || logError || !isToday) return;
+    if (!walkChecked || !runningId || !petId) return;
+    if (!fresh || logError || !isToday) return;
     const row = events.find((event) => event.id === runningId);
     const stale =
       !row ||
@@ -1543,7 +1583,7 @@ export default function Home() {
         // The row is the fact; the device's note is only a note.
       })
       .finally(() => setRunningId(null));
-  }, [runningId, petId, events, fresh, logError, isToday]);
+  }, [walkChecked, runningId, petId, events, fresh, logError, isToday]);
 
   const start = useCallback(async () => {
     if (!petId || walkInFlight.current) return;
@@ -1702,7 +1742,7 @@ export default function Home() {
         //
         // **The queue goes down before the note is cleared**, so a process
         // killed between the two leaves a walk that is queued and still
-        // marked as running, which the mount read resolves, rather than one
+        // marked as running, which the running walk's read resolves, rather than one
         // that is neither. Both writes are best-effort, as everywhere else
         // here: the queue in memory is what this session counts.
         try {
@@ -1990,7 +2030,14 @@ export default function Home() {
           // offering it before one arrives is safe; `isToday` is what keeps a
           // day reached with the arrows free of it, and a walk running past
           // midnight keeps its stop through `walkingSince`.
-          busy={walkBusy || (isToday && runningId !== null && !walkingSince)}
+          // **And across the read of the device's note** (`walkChecked`): the
+          // control stays where it is, disabled, instead of offering Empezar
+          // over a walk nobody has asked the device about yet.
+          busy={
+            walkBusy ||
+            (isToday && !walkChecked) ||
+            (isToday && runningId !== null && !walkingSince)
+          }
           onStart={isToday && !runningId ? start : undefined}
           onStop={
             walkingSince || (isToday && runningId !== null) ? stop : undefined
