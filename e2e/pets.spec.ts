@@ -101,9 +101,19 @@ function visible(page: Page, testId: string) {
   return page.getByTestId(testId).filter({ visible: true });
 }
 
-/** How long the close overlay is watched for, and how much of that must be spare. */
-const WATCH_MS = 6000;
-const WATCH_MARGIN_MS = 3000;
+/** How long the close overlay is watched for. */
+const WATCH_MS = 10_000;
+/**
+ * By when the bar has to be up for the watch above to have covered it.
+ *
+ * **Derived from the window, never a ceiling of its own.** The subtraction is
+ * what the overlay needs to be seen — 760 ms and room to spare — so moving
+ * the window moves this with it. A fixed number here was the previous round's
+ * defect in a quieter form: at 3 s it was stricter than Playwright's own 5 s
+ * default, so a load of four seconds, which the watch covered perfectly well,
+ * would have failed a correct test.
+ */
+const WATCH_DEADLINE_MS = WATCH_MS - 1500;
 
 /**
  * Whether the close overlay ever mounts in the next `ms`, as a value.
@@ -388,6 +398,18 @@ test("keeps a walk left open on the dog whose walk it is", async ({ page }) => {
   await expect(entries.first()).toContainText("En marcha");
 });
 
+/**
+ * **A walk closed on one dog does not play its ceremony over the other's bar.**
+ *
+ * **And one thing this case has never been seen to do.** The mutation that
+ * proves it bites — dropping the pet half of the gate in `app/(tabs)/index.tsx`
+ * — turns it red through the *measure*, not through the watch: a `closed`
+ * that outlives the switch is handed to Nala's block with Loki's totals, and
+ * `toContainText("0 min paseados")` fails before the quiet watch is ever
+ * read. So the overlay assertions below have never failed on their own
+ * account, and nobody should assume they are what caught a regression here
+ * until they have seen them do it.
+ */
 test("does not replay a close over the other dog's bar", async ({ page }) => {
   test.skip(!ready, "requires 0006_events_weights_treatments.sql");
 
@@ -428,17 +450,26 @@ test("does not replay a close over the other dog's bar", async ({ page }) => {
   // `toHaveCount(0)` cannot tell that apart from a 760 ms replay, so the
   // watch is armed before the navigation and read as a value at the end.
   //
-  // The elapsed check is the other half: "quiet" only means something if the
-  // watch was still open while her bar was actually on screen. Her bar
-  // normally lands in about a second, so the margin is three times that —
-  // and when it is not met the test says the watch missed the window rather
-  // than passing for a reason nobody intended.
+  // The elapsed check is the other half: "quiet" means nothing if her bar
+  // landed after the watch had already closed, and this is what says so when
+  // it happens.
+  //
+  // **It covers a late arrival and not an early one.** The diary starts
+  // reloading the moment the option inside `switchTo` is pressed, which is
+  // before the watch is armed here, so a bar that landed in that gap would
+  // take a replay with it unseen. The race is a narrow one on any ordinary
+  // connection and it predates this watch, so it is left open deliberately
+  // rather than closed with machinery — but "quiet" is "nobody replayed
+  // while we were looking", not "nobody replayed".
   await switchTo(page, nala);
   const armedForHers = Date.now();
   const onHers = closeOverlayWithin(page, WATCH_MS);
   await page.getByRole("tab", { name: /Diario/ }).click();
   await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
-  expect(Date.now() - armedForHers).toBeLessThan(WATCH_MARGIN_MS);
+  expect(
+    Date.now() - armedForHers,
+    "her bar landed after the watch had closed, so a quiet watch here would mean nobody was looking",
+  ).toBeLessThan(WATCH_DEADLINE_MS);
   expect(await onHers).toBe("quiet");
 
   // Nor on the way back to the dog it did happen to, for the same reason the
@@ -449,6 +480,9 @@ test("does not replay a close over the other dog's bar", async ({ page }) => {
   const again = closeOverlayWithin(page, WATCH_MS);
   await page.getByRole("tab", { name: /Diario/ }).click();
   await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
-  expect(Date.now() - armedForHis).toBeLessThan(WATCH_MARGIN_MS);
+  expect(
+    Date.now() - armedForHis,
+    "his bar landed after the watch had closed, so a quiet watch here would mean nobody was looking",
+  ).toBeLessThan(WATCH_DEADLINE_MS);
   expect(await again).toBe("quiet");
 });
