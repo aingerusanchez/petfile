@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   eventsTableExists,
   resetE2EPets,
+  seedE2EEvents,
   seedE2EPet,
   seedSession,
 } from "./auth";
@@ -100,6 +101,42 @@ function visible(page: Page, testId: string) {
   return page.getByTestId(testId).filter({ visible: true });
 }
 
+/** How long the close overlay is watched for, and how much of that must be spare. */
+const WATCH_MS = 6000;
+const WATCH_MARGIN_MS = 3000;
+
+/**
+ * Whether the close overlay ever mounts in the next `ms`, as a value.
+ *
+ * **A value, not a rejection, and settled the instant it is created.** The
+ * watch has to be armed before the navigation — the overlay stands for 760 ms
+ * and a settled assertion afterwards would retry straight past it — but a
+ * bare `waitForSelector` left unawaited while an `expect` runs is a promise
+ * that can reject with nobody listening, which Playwright turns into a failed
+ * test on perfectly good code. This project's own suite waits 15 s elsewhere
+ * because Supabase sometimes takes its time, so that is not a hypothetical.
+ * Attaching both handlers here makes the rejection harmless and turns the
+ * question into a string the caller asserts on.
+ *
+ * **The timeout is told apart from every other failure**, because a page that
+ * has gone down also fails to find the overlay, and passing for that reason
+ * is passing for the wrong one.
+ */
+function closeOverlayWithin(page: Page, ms: number): Promise<string> {
+  return page
+    .waitForSelector('[data-testid="home-goal-close"]', {
+      state: "attached",
+      timeout: ms,
+    })
+    .then(
+      () => "replayed",
+      (cause: unknown) => {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        return /Timeout/i.test(message) ? "quiet" : `broke: ${message}`;
+      },
+    );
+}
+
 test("offers no switcher to a household with one dog, and the door to a second", async ({
   page,
 }) => {
@@ -138,7 +175,9 @@ test("lists both dogs and marks the one on screen", async ({ page }) => {
   // An exclusive single-select, in the dialect the chips already speak: a
   // radiogroup of radios, with the state on `aria-checked` because
   // react-native-web renders the role and drops `accessibilityState`.
-  const options = page.getByRole("radio");
+  // Scoped to the sheet, not to the page: Perfil's own chips are radios too,
+  // and they are only absent today because every edit section is closed.
+  const options = page.getByTestId("pet-switcher-sheet").getByRole("radio");
   await expect(options).toHaveCount(2);
   await expect(page.getByTestId(`pet-choice-${loki}`)).toHaveAttribute(
     "aria-checked",
@@ -205,7 +244,27 @@ test("lands on the dog just registered, and the sheet goes back to the other", a
 test("keeps the day you were reading when the dog changes", async ({
   page,
 }) => {
+  test.skip(!ready, "requires 0006_events_weights_treatments.sql");
+
   const { nala } = await seedTwoPets();
+
+  // **One row that only Nala has, and only on yesterday**, because without it
+  // this test had nothing on the day view that could tell the two dogs apart
+  // there. A past day's empty state names nobody — "Ese día no se apuntó
+  // nada" is the same sentence for both — so every wait this case made was
+  // satisfied just as well by Loki's screen or by the skeleton, and it was
+  // the one case in this file nobody had ever seen go red. Her meal makes
+  // "whose yesterday is on screen" a question with an answer.
+  //
+  // Noon yesterday, built from a "now" the test owns: it is behind us at
+  // every hour the suite can run, including the first minutes of the day.
+  const noon = new Date();
+  noon.setDate(noon.getDate() - 1);
+  noon.setHours(12, 0, 0, 0);
+  await seedE2EEvents(nala, [
+    { kind: "meal", occurredAt: noon, what: "Pienso" },
+  ]);
+
   await seedSession(page);
   await page.goto("/");
 
@@ -213,6 +272,9 @@ test("keeps the day you were reading when the dog changes", async ({
   // subject here, and yesterday is the one that is always behind us.
   await page.getByTestId("home-prev-day").click();
   await expect(page.getByTestId("home-title")).toHaveText("Ayer");
+  // The other half of what makes her row a discriminator: his yesterday is
+  // empty, so one entry on screen can only be hers.
+  await expect(page.getByTestId("home-empty")).toBeVisible();
   const yesterday = await page.getByTestId("home-date").textContent();
   expect(yesterday).toBeTruthy();
 
@@ -220,12 +282,11 @@ test("keeps the day you were reading when the dog changes", async ({
   await expect(page.getByTestId("profile-title")).toHaveText("Nala");
   await page.getByRole("tab", { name: /Diario/ }).click();
 
-  // **Read after the other dog's day has landed, never over the skeleton.**
-  // The header keeps its date while the log below reloads, so a date checked
-  // mid-flight is the old screen's answer and would hold even if the day were
-  // reset a moment later.
-  await expect(page.getByTestId("home-goal-skeleton")).toHaveCount(0);
-  await expect(page.getByTestId("home-empty")).toBeVisible();
+  // **Her meal is the proof that what is on screen is her yesterday**: not
+  // the skeleton, not his day, and not today — she has nothing today. A day
+  // snapped back to today fails right here, before the two assertions below
+  // get their turn.
+  await expect(page.locator('[data-testid^="home-entry-"]')).toHaveCount(1);
 
   // Changing dog answers "whose diary", never "which day". Snapping back to
   // today would lose the place of a tutor comparing two animals' Sundays.
@@ -364,26 +425,30 @@ test("does not replay a close over the other dog's bar", async ({ page }) => {
   // **Never, rather than "gone by the time we looked".** Nala's bar holds no
   // minutes at all, and a close let go of with the pet it belonged to is the
   // only thing that keeps her ground from animating a lap she never walked.
-  // `toHaveCount(0)` cannot tell that apart from a 760 ms replay, so this
-  // waits to be disappointed instead.
+  // `toHaveCount(0)` cannot tell that apart from a 760 ms replay, so the
+  // watch is armed before the navigation and read as a value at the end.
+  //
+  // The elapsed check is the other half: "quiet" only means something if the
+  // watch was still open while her bar was actually on screen. Her bar
+  // normally lands in about a second, so the margin is three times that —
+  // and when it is not met the test says the watch missed the window rather
+  // than passing for a reason nobody intended.
   await switchTo(page, nala);
-  const onHers = page.waitForSelector('[data-testid="home-goal-close"]', {
-    state: "attached",
-    timeout: 4000,
-  });
+  const armedForHers = Date.now();
+  const onHers = closeOverlayWithin(page, WATCH_MS);
   await page.getByRole("tab", { name: /Diario/ }).click();
   await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
-  await expect(onHers).rejects.toThrow();
+  expect(Date.now() - armedForHers).toBeLessThan(WATCH_MARGIN_MS);
+  expect(await onHers).toBe("quiet");
 
   // Nor on the way back to the dog it did happen to, for the same reason the
   // day view does not replay one: the block unmounts behind the skeleton and
   // comes back with no memory of what it has already played.
   await switchTo(page, loki);
-  const again = page.waitForSelector('[data-testid="home-goal-close"]', {
-    state: "attached",
-    timeout: 4000,
-  });
+  const armedForHis = Date.now();
+  const again = closeOverlayWithin(page, WATCH_MS);
   await page.getByRole("tab", { name: /Diario/ }).click();
   await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
-  await expect(again).rejects.toThrow();
+  expect(Date.now() - armedForHis).toBeLessThan(WATCH_MARGIN_MS);
+  expect(await again).toBe("quiet");
 });
