@@ -24,9 +24,15 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe("getMyPet", () => {
+  // The `.order` is asserted and not just the answer: the mock resolves to
+  // the array this test hands it, so a `getMyPet` that asked Postgres for
+  // `descending` would still return `loki` here and the whole suite would
+  // stay green while seven screens showed the newest sheet. Confirmed by
+  // mutation before this line existed.
   it("still answers with the oldest pet when called with no argument", async () => {
     mockOrder.mockResolvedValue({ data: [loki, nala], error: null });
     expect(await getMyPet()).toEqual({ pet: loki, error: null });
+    expect(mockOrder).toHaveBeenCalledWith("created_at", { ascending: true });
   });
 
   it("answers with the stored pet when there is one", async () => {

@@ -424,6 +424,16 @@ export function pickActivePet(
 // sentence is named by the operation, and the tutor looking at one dog's diary
 // is reading their own pet's sheet, not "las fichas". Three repeated lines cost
 // less than the wrong phrase on every screen that calls this.
+//
+// **And the ordering is one of the three, for the same reason it is there in
+// `listMyPets`.** Without it Postgres answers in whatever order it finds the
+// rows, so `pickActivePet`'s fallback — the oldest sheet — would be a
+// different dog between calls, and every screen that has no stored choice
+// yet would disagree with the next. Flipping it to `descending` is the
+// mutation to fear: nothing throws, nothing looks broken, and the seven
+// screens that call this quietly start showing the newest sheet.
+// `lib/__tests__/pets.read.test.ts` asserts the arguments, because the
+// behaviour here cannot.
 export async function getMyPet(storedId: string | null = null): Promise<{
   pet: PetRow | null;
   error: string | null;
