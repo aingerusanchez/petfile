@@ -453,6 +453,9 @@ test("keeps every control on the 48dp floor here too", async ({ page }) => {
     "profile-avatar",
     "profile-edit-main",
     "profile-edit-health",
+    // The door to a second sheet, at the foot of the screen. It arrived with
+    // the switcher and was the one control on this screen nothing measured.
+    "profile-add-pet",
     "profile-signout",
   ]);
 
