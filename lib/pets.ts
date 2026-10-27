@@ -420,11 +420,24 @@ export function pickActivePet(
   return pets.find((pet) => pet.id === storedId) ?? pets[0];
 }
 
+// Reads the list itself rather than delegating to `listMyPets`: the failure
+// sentence is named by the operation, and the tutor looking at one dog's diary
+// is reading their own pet's sheet, not "las fichas". Three repeated lines cost
+// less than the wrong phrase on every screen that calls this.
 export async function getMyPet(storedId: string | null = null): Promise<{
   pet: PetRow | null;
   error: string | null;
 }> {
-  const { pets, error } = await listMyPets();
-  if (error) return { pet: null, error };
-  return { pet: pickActivePet(pets, storedId), error: null };
+  const query = supabase
+    .from("pets")
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  try {
+    const { data, error } = await withTimeout(query, "getMyPet");
+    if (error) return { pet: null, error: describeFailure(error, "getMyPet") };
+    return { pet: pickActivePet(data ?? [], storedId), error: null };
+  } catch (cause) {
+    return { pet: null, error: describeFailure(cause, "getMyPet") };
+  }
 }
