@@ -1,7 +1,9 @@
 import {
+  pickActivePet,
   validatePetDraft,
   withApproximateBirthDate,
   type PetDraft,
+  type PetRow,
 } from "../pets";
 
 // `pets` reaches for the client at module scope, so the mock has to be in
@@ -140,5 +142,27 @@ describe("withApproximateBirthDate", () => {
       name: "Loki",
       isMixed: true,
     });
+  });
+});
+
+describe("pickActivePet", () => {
+  const loki = { id: "p1", name: "Loki" } as PetRow;
+  const nala = { id: "p2", name: "Nala" } as PetRow;
+
+  it("sin fichas no hay activa", () => {
+    expect(pickActivePet([], "p1")).toBeNull();
+  });
+
+  it("sin id guardado toma la primera, que es la más antigua", () => {
+    expect(pickActivePet([loki, nala], null)).toBe(loki);
+  });
+
+  it("con id guardado toma esa", () => {
+    expect(pickActivePet([loki, nala], "p2")).toBe(nala);
+  });
+
+  // Review Focus 1: la ficha guardada se borró desde el otro teléfono.
+  it("con un id que ya no existe cae a la más antigua, no a null", () => {
+    expect(pickActivePet([loki, nala], "p9")).toBe(loki);
   });
 });
