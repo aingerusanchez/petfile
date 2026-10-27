@@ -102,10 +102,12 @@ import {
   type PendingStop,
 } from "../../lib/pending";
 import {
+  NO_RUNNING_WALKS,
   parseRunningWalk,
-  serialiseRunningWalk,
   walkOutcome,
   WALK_STORAGE_KEY,
+  withoutRunningWalk,
+  withRunningWalk,
 } from "../../lib/walk";
 import {
   describeStools,
@@ -198,6 +200,24 @@ const ORDER: EventKind[] = ["walk", "meal", "medication", "incident"];
  * marks stop rather than lying, which the calendar says in words.
  */
 const MARKED_MONTHS = 12;
+
+/**
+ * Takes one pet's walk out of the device's note and leaves the others.
+ *
+ * **Read, modify, write, because the blob is every pet's.** A bare
+ * `removeItem` would clear the walk of a pet nobody was stopping. It throws
+ * when storage does, and every caller treats the note as best-effort.
+ */
+async function clearRunningWalk(petId: string | null): Promise<void> {
+  if (!petId) return;
+  const raw = await AsyncStorage.getItem(WALK_STORAGE_KEY);
+  const next = withoutRunningWalk(raw, petId);
+  // **The key goes when its last walk does**, as it did when the note held one:
+  // nothing in storage is what a phone that never started a walk looks like.
+  if (next === NO_RUNNING_WALKS)
+    await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+  else await AsyncStorage.setItem(WALK_STORAGE_KEY, next);
+}
 
 /** The same clock time, `by` days away. */
 function shiftDays(day: Date, by: number): Date {
@@ -854,35 +874,20 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    // **Per key, so one unreadable value does not take the other with it.** A
-    // read that fails is a device with no note, which is what a phone that
-    // has never started a walk looks like: the block offers Empezar. The same
-    // best-effort bargain `start` and `stop` already make.
-    const read = (key: string) => AsyncStorage.getItem(key).catch(() => null);
-    void Promise.all([read(WALK_STORAGE_KEY), read(PENDING_STORAGE_KEY)]).then(
-      ([walk, queue]) => {
+    // Best-effort, as `start` and `stop` are: a read that fails is a device
+    // with no queue.
+    void AsyncStorage.getItem(PENDING_STORAGE_KEY)
+      .catch(() => null)
+      .then((queue) => {
         if (cancelled) return;
         const stops = parsePending(queue);
-        const running = parseRunningWalk(walk);
         setPending(stops);
         pendingRef.current = stops;
-        // **A walk the queue already holds is not running.** The release
-        // writes the queue and only then clears the note, so a process killed
-        // between the two comes back with both on disk — and a walk counted
-        // live *and* as pending is counted twice, on the one screen whose
-        // whole job is a single total. The queue is the later fact, so it
-        // wins.
-        setRunningId(
-          running !== null && stops.some((stop) => stop.id === running)
-            ? null
-            : running,
-        );
         // **The other order of the same pair.** A day read that already ended
         // well has supplied the reason to believe the network is there, and
         // this is the queue it was missing: see `dayRead`.
         if (stops.length > 0 && dayRead.current) void replayQueue();
-      },
-    );
+      });
     return () => {
       cancelled = true;
     };
@@ -1113,6 +1118,51 @@ export default function Home() {
   const isToday = daysAgo(day, today) === 0;
   const birthdayYears = birthdayOn(day, pet?.birth_date ?? null);
   const petId = pet?.id ?? null;
+
+  // **The running walk is read once the pet is known, and again whenever the
+  // pet is another.** The device's note holds every pet's walk, so there is
+  // nothing to read until there is a pet to ask about — which is why this is
+  // not part of the queue's mount read, which sits higher up.
+  useEffect(() => {
+    if (!petId) return;
+    let cancelled = false;
+    // **Per key, so one unreadable value does not take the other with it.** A
+    // read that fails is a device with no note, which is what a phone that
+    // has never started a walk looks like: the block offers Empezar. The same
+    // best-effort bargain `start` and `stop` already make.
+    const read = (key: string) => AsyncStorage.getItem(key).catch(() => null);
+    void Promise.all([read(WALK_STORAGE_KEY), read(PENDING_STORAGE_KEY)]).then(
+      ([walk, queue]) => {
+        if (cancelled) return;
+        const running = parseRunningWalk(walk, petId);
+        // **A walk the queue already holds is not running.** The release
+        // writes the queue and only then clears the note, so a process killed
+        // between the two comes back with both on disk — and a walk counted
+        // live *and* as pending is counted twice, on the one screen whose
+        // whole job is a single total. The queue is the later fact, so it
+        // wins.
+        //
+        // **The queue is asked here, from disk, and not taken from state.**
+        // This read used to share a `Promise.all` with the queue's own, so the
+        // two arrived together and the question could not be asked before the
+        // answer. Now they are two effects, and whichever lands first must
+        // not decide: this one reads the queue itself, so it never waits for
+        // the other, and it also checks `pendingRef` — which is what a queue
+        // built since mount (a stop released this session, then the pet
+        // changing) looks like before the disk has caught up. A walk in
+        // either one is not running.
+        const queued = [...parsePending(queue), ...pendingRef.current];
+        setRunningId(
+          running !== null && queued.some((stop) => stop.id === running)
+            ? null
+            : running,
+        );
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [petId]);
 
   /**
    * **Memoizados porque el calendario no sobrevive a un manejador nuevo.**
@@ -1475,7 +1525,7 @@ export default function Home() {
   // the day the walk belongs to, or paging back a week would clear a walk that
   // is running fine.
   useEffect(() => {
-    if (!runningId || !fresh || logError || !isToday) return;
+    if (!runningId || !petId || !fresh || logError || !isToday) return;
     const row = events.find((event) => event.id === runningId);
     const stale =
       !row ||
@@ -1488,12 +1538,12 @@ export default function Home() {
     // change — so the block went on offering a stop for a walk that is gone,
     // on a day the screen will not leave, since the `AppState` pin keys on
     // `runningId`. The write is best-effort, as in `start` and `stop`.
-    AsyncStorage.removeItem(WALK_STORAGE_KEY)
+    clearRunningWalk(petId)
       .catch(() => {
         // The row is the fact; the device's note is only a note.
       })
       .finally(() => setRunningId(null));
-  }, [runningId, events, fresh, logError, isToday]);
+  }, [runningId, petId, events, fresh, logError, isToday]);
 
   const start = useCallback(async () => {
     if (!petId || walkInFlight.current) return;
@@ -1525,7 +1575,14 @@ export default function Home() {
       // and the block offers Empezar over a live walk. The walk runs for this
       // session either way.
       try {
-        await AsyncStorage.setItem(WALK_STORAGE_KEY, serialiseRunningWalk(id));
+        await AsyncStorage.setItem(
+          WALK_STORAGE_KEY,
+          withRunningWalk(
+            await AsyncStorage.getItem(WALK_STORAGE_KEY),
+            petId,
+            id,
+          ),
+        );
       } catch {
         // Not worth interrupting a walk for.
       }
@@ -1657,7 +1714,7 @@ export default function Home() {
           // Not worth a second failure on top of the one being reported.
         }
         try {
-          await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+          await clearRunningWalk(petId);
         } catch {
           // See above.
         }
@@ -1667,7 +1724,7 @@ export default function Home() {
       // a length (or is gone) by the next load and the staleness effect drops
       // it.
       try {
-        await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+        await clearRunningWalk(petId);
       } catch {
         // See above.
       }
@@ -1728,6 +1785,7 @@ export default function Home() {
     }
   }, [
     runningWalk,
+    petId,
     writtenToId,
     toast,
     celebrate,
