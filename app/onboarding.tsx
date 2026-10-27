@@ -20,6 +20,7 @@ import {
   useToast,
 } from "../components/ui";
 import { useAuth } from "../lib/auth";
+import { useActivePet } from "../lib/pet";
 import {
   createPet,
   getMyPet,
@@ -87,6 +88,7 @@ export default function Onboarding() {
   const router = useRouter();
   const toast = useToast();
   const { celebrate } = useCelebration();
+  const { setActivePetId } = useActivePet();
   /**
    * Whether this form was asked for or arrived at.
    *
@@ -391,12 +393,29 @@ export default function Onboarding() {
     try {
       const { petId, error: failure } = await createPet(draft);
       if (petId) {
+        /**
+         * **The pet you just filled in is the pet you land on.**
+         *
+         * Without this the choice stays unmade and every screen falls back to
+         * the oldest sheet, so a tutor who had just registered Toby arrived at
+         * Luna's diary — the wrong-dog defect this whole change exists to
+         * remove, coming in through the one door nobody had looked at.
+         *
+         * **Unconditional, not only for the second pet.** On the very first
+         * registration there is one sheet and `pickActivePet` would land on it
+         * anyway, so the call changes nothing visible — it records the choice
+         * instead of leaning on the fallback to guess right, and it leaves one
+         * path to understand here rather than two. A branch that is not needed
+         * is a branch somebody will break.
+         */
+        setActivePetId(petId);
         // The toast host lives above the Stack, so this survives the
         // navigation that immediately unmounts this screen — which is the
         // whole reason the flow no longer has to stall to be understood.
-        // Once in an account's life: v0 is single-pet, and onboarding
-        // redirects away for good afterwards. That is what earns the effect —
-        // it can never become the repeated noise that usually ruins one.
+        // Once per pet, which is as rare as it sounds: a household registers
+        // one dog, and a second only when a second arrives. That is what earns
+        // the effect — it can never become the repeated noise that usually
+        // ruins one.
         celebrate();
         toast.show({
           variant: "success",
