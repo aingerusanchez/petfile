@@ -432,14 +432,32 @@ export default function Profile() {
     setConfirmingDelete(false);
     setEditing(null);
 
-    if (pets.length > 1) {
-      // Another sheet is left, so there is nowhere to navigate to. The stored
-      // id now points at nothing, and that is already answered: `pickActivePet`
-      // falls back to the oldest of what remains, so reloading the list is the
-      // whole move. Clearing the stored id would throw away a choice this
-      // tutor may yet come back to on another device, and it would buy
-      // nothing — an id naming no pet is exactly the case the fallback exists
-      // for.
+    const survivor = pets.find((row) => row.id !== pet.id);
+    if (survivor) {
+      // Another sheet is left, so there is nowhere to navigate to — and the
+      // choice has to be *moved*, not merely reloaded.
+      //
+      // **Reloading only ever fixed this screen.** `pickActivePet` falls back
+      // to the oldest of what remains, so Perfil recovers the moment its list
+      // comes back whatever the stored id says. The other four screens never
+      // ask again: their reads hang off `activePetId`, and the tabs of Expo
+      // Router stay mounted behind this one, so an id still naming the
+      // deleted dog leaves the Diario headed "Nala" with a FAB writing
+      // against a `pet_id` the server no longer has. Measured by reading:
+      // nothing throws and nothing reloads until the app next comes back to
+      // the foreground.
+      //
+      // **So this points the id at the survivor, which is the one thing all
+      // five screens listen to.** Not the same act as leaving it alone: the
+      // fallback answers "who is active" for whoever asks again, and this
+      // answers it for everyone, now. The survivor is the oldest sheet left
+      // — `pets` is ordered oldest first — which is the same dog the
+      // fallback would have chosen, so nothing about Perfil changes.
+      //
+      // `setAttempt` stays beside it: both land in one render, so the list is
+      // re-read once, and the reload no longer depends on the id having
+      // moved to do its work.
+      setActivePetId(survivor.id);
       setAttempt((n) => n + 1);
       return true;
     }
@@ -452,7 +470,7 @@ export default function Profile() {
     // covers the case where the list in hand was a moment out of date.
     router.replace("/onboarding");
     return true;
-  }, [pet, pets, router, toast]);
+  }, [pet, pets, router, setActivePetId, toast]);
 
   if (loadError) {
     return (
