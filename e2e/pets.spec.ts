@@ -112,6 +112,14 @@ const WATCH_MS = 10_000;
  * defect in a quieter form: at 3 s it was stricter than Playwright's own 5 s
  * default, so a load of four seconds, which the watch covered perfectly well,
  * would have failed a correct test.
+ *
+ * **And the wait in front of it carries the same number, or this one is
+ * decoration.** The elapsed check only ever runs once the bar has been read,
+ * so whatever deadline that read uses is the real floor: on Playwright's 5 s
+ * default a slow load failed one line earlier, with a message about missing
+ * text, and nothing here could ever have fired. Both `expect`s below pass
+ * this explicitly so the two agree — a bar that takes longer than the watch
+ * can cover is reported as what it is, by the assertion that says so.
  */
 const WATCH_DEADLINE_MS = WATCH_MS - 1500;
 
@@ -304,6 +312,21 @@ test("keeps the day you were reading when the dog changes", async ({
   await expect(page.getByTestId("home-title")).toHaveText("Ayer");
 });
 
+/**
+ * **Deleting the dog on screen leaves the account on the other one —
+ * everywhere, not only on the screen that did the deleting.**
+ *
+ * **The diary is opened before the delete on purpose, and that is the whole
+ * difference between this catching the defect and missing it.** A tab
+ * mounted *after* the fact reads the stored id fresh, and an id naming a
+ * sheet that no longer exists is already answered — `pickActivePet` falls
+ * back to the oldest — so a Diario first opened here shows the survivor
+ * however little Perfil did. What stayed wrong was a tab that was already
+ * alive: Expo Router does not unmount it, its read hangs off `activePetId`,
+ * and nothing re-runs until that id moves. Measured in red by taking the
+ * fix back out: the last assertion still read "Nala", under a FAB writing
+ * against a `pet_id` the server had dropped.
+ */
 test("falls back to the remaining dog when the one on screen is deleted", async ({
   page,
 }) => {
@@ -313,6 +336,16 @@ test("falls back to the remaining dog when the one on screen is deleted", async 
 
   await switchTo(page, nala);
   await expect(page.getByTestId("profile-title")).toHaveText("Nala");
+
+  // Her diary, looked at and left behind the tabs. The empty log is where
+  // this screen says a name — see the registration case for why not
+  // `home-title` — and waiting for it is also what keeps the skeleton from
+  // satisfying the assertion at the end of this test.
+  await page.getByRole("tab", { name: /Diario/ }).click();
+  await expect(page.getByTestId("home-empty")).toContainText("Nala", {
+    timeout: 15_000,
+  });
+  await page.getByRole("tab", { name: /Perfil/ }).click();
 
   await page.getByTestId("profile-edit-main").click();
   await page.getByTestId("profile-delete").click();
@@ -330,6 +363,16 @@ test("falls back to the remaining dog when the one on screen is deleted", async 
   // One sheet left, so the switcher is gone again with it.
   await expect(page.getByTestId("pet-switcher")).toHaveCount(0);
   await expect(page.getByTestId("profile-add-pet")).toBeVisible();
+
+  // **And the tab that was never told.** This is the half the recovering
+  // reload above cannot reach: the diary has been mounted since before the
+  // delete, so it only reads again if the stored id moves to the survivor.
+  // A dog on a header is the mild version of the failure — the FAB under it
+  // writes against the id this screen is holding.
+  await page.getByRole("tab", { name: /Diario/ }).click();
+  await expect(page.getByTestId("home-empty")).toContainText("Loki", {
+    timeout: 15_000,
+  });
 });
 
 /**
@@ -465,7 +508,9 @@ test("does not replay a close over the other dog's bar", async ({ page }) => {
   const armedForHers = Date.now();
   const onHers = closeOverlayWithin(page, WATCH_MS);
   await page.getByRole("tab", { name: /Diario/ }).click();
-  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados");
+  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados", {
+    timeout: WATCH_DEADLINE_MS,
+  });
   expect(
     Date.now() - armedForHers,
     "her bar landed after the watch had closed, so a quiet watch here would mean nobody was looking",
@@ -479,7 +524,12 @@ test("does not replay a close over the other dog's bar", async ({ page }) => {
   const armedForHis = Date.now();
   const again = closeOverlayWithin(page, WATCH_MS);
   await page.getByRole("tab", { name: /Diario/ }).click();
-  await expect(page.getByTestId("home-goal")).toContainText("1 min en 1 paseo");
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "1 min en 1 paseo",
+    {
+      timeout: WATCH_DEADLINE_MS,
+    },
+  );
   expect(
     Date.now() - armedForHis,
     "his bar landed after the watch had closed, so a quiet watch here would mean nobody was looking",
