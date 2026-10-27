@@ -80,6 +80,7 @@ import {
   type PetEventRow,
 } from "../../lib/events";
 import { barProgress, barStateAt } from "../../lib/goalbar";
+import { useActivePet } from "../../lib/pet";
 import { getMyPet, type PetRow } from "../../lib/pets";
 import {
   describeTreatment,
@@ -322,6 +323,7 @@ export default function Home() {
   const toast = useToast();
   const { celebrate } = useCelebration();
   const { settings } = useSettings();
+  const { activePetId, loading: activePetLoading } = useActivePet();
   /**
    * The day on screen, and the boundary it cannot pass.
    *
@@ -383,6 +385,16 @@ export default function Home() {
    */
   const [markedEvents, setMarkedEvents] = useState<PetEventRow[] | null>(null);
   /**
+   * Which pet `markedEvents` and `marksError` were read for.
+   *
+   * **Without it a reopened calendar draws the other dog's year.** The marks
+   * are deliberately kept between openings, so that a reopen shows the grid
+   * at once while the new window loads — and with two pets, "the previous
+   * rows" can belong to the one the tutor just left. Derived against
+   * `petId` where the calendar is drawn, never cleared by an effect.
+   */
+  const [marksFor, setMarksFor] = useState<string | null>(null);
+  /**
    * Every treatment the pet has had, for the day's TRATAMIENTOS section and
    * the calendar.
    *
@@ -398,7 +410,9 @@ export default function Home() {
    * does not wait for it. A failed read draws nothing either, and keeps the
    * rows it had for the calendar: see `readTreatments`.
    */
-  const [treatments, setTreatments] = useState<{
+  const [treatmentsRead, setTreatmentsRead] = useState<{
+    /** The pet these rows belong to. See `treatments`, which derives from it. */
+    petId: string;
     rows: PetTreatmentRow[];
     error: string | null;
   } | null>(null);
@@ -416,6 +430,22 @@ export default function Home() {
    */
   const [log, setLog] = useState<{
     day: string;
+    /**
+     * **The pet these rows are, and the second half of the key.** `null` is a
+     * read that failed, which is no pet's rows and is said under whichever pet
+     * is showing.
+     *
+     * A day alone cannot tell the log of one dog from another's: switching
+     * pets keeps the day on purpose, so the rows of the pet just left carry
+     * the right day, the right `attempt` and no error — and are
+     * indistinguishable from fresh ones. Measured by reading, not on a
+     * device: between `setPet` and the log landing, the new pet's header sat
+     * over the old pet's entries, and the staleness rule, finding the new
+     * pet's running walk among none of them, cleared it from the device's
+     * note. Derived in `loading`, like the day, so there is nothing to keep in
+     * step.
+     */
+    petId: string | null;
     /** The `attempt` this read answered, so a stale log can be told apart. */
     attempt: number;
     events: PetEventRow[];
@@ -658,8 +688,17 @@ export default function Home() {
    *
    * It starts on no day at all, so the first run — the one opening the screen
    * asked for — counts as a bump.
+   *
+   * **The pet is part of what a run serves.** Choosing another pet moves
+   * neither `attempt` nor the day, so without it the switch would read as the
+   * unasked re-read — and that one keeps whatever is on screen when its read
+   * fails, which here would be the other dog's day.
    */
-  const lastRequest = useRef({ attempt: 0, day: "" });
+  const lastRequest = useRef<{
+    attempt: number;
+    day: string;
+    pet: string | null;
+  }>({ attempt: 0, day: "", pet: null });
   /**
    * The terms of the read in flight, until a run answers with a log.
    *
@@ -906,6 +945,17 @@ export default function Home() {
   }, [replayQueue]);
 
   useEffect(() => {
+    // **It waits while the stored choice is still being read.** `activePetId`
+    // is `null` in two different ways (see `lib/pet.tsx`): while `loading` is
+    // up it only means the disk has not answered, and resolving on it would
+    // show the oldest pet and swap the diary for the tutor's own a moment
+    // later. A non-null id is already a real choice — made this session,
+    // before the read landed — and is safe to resolve on, which is why the
+    // guard tests both. **It sits above everything else on purpose**: the
+    // lines below consume `keepDiaryOnFailedRead` and `awaitingReload`, and a
+    // run that goes no further must not have spent them.
+    if (activePetLoading && activePetId === null) return;
+
     let cancelled = false;
     // Taken at the start of the run, so it belongs to this run and to no
     // other: the reload a failed action asked for, and nothing later.
@@ -921,8 +971,9 @@ export default function Home() {
      * nothing at all and coming back to the app with no coverage cost them
      * the day.
      *
-     * A press, a navigation, `Reintentar` and the pull gesture all move
-     * `attempt` or the day. The return to the foreground moves neither, only
+     * A press, a navigation, `Reintentar`, the pull gesture and choosing
+     * another pet all move `attempt`, the day or the pet. The return to the
+     * foreground moves none of them, only
      * `unasked`. So a bump is somebody asking, and a run with no bump behind
      * it is the unasked re-read — **except that it may be standing in for a
      * run it cancelled, and then it is bound by that run's terms.** That is
@@ -943,8 +994,9 @@ export default function Home() {
      */
     const bumped =
       attempt !== lastRequest.current.attempt ||
-      dayKey(day) !== lastRequest.current.day;
-    lastRequest.current = { attempt, day: dayKey(day) };
+      dayKey(day) !== lastRequest.current.day ||
+      activePetId !== lastRequest.current.pet;
+    lastRequest.current = { attempt, day: dayKey(day), pet: activePetId };
     const terms = bumped
       ? { asked: true, keep: afterFailedAction }
       : (unanswered.current ?? { asked: false, keep: false });
@@ -957,7 +1009,23 @@ export default function Home() {
     // `awaitingReload`.
     const answering = awaitingReload.current;
 
-    getMyPet().then(async ({ pet: row, error: failure }) => {
+    // **`getMyPet(activePetId)` and not the list.** The diary draws no
+    // switcher, so it has no use for the other sheets; the stored id goes
+    // through `pickActivePet` inside, with the same fall back to the oldest,
+    // and the failure keeps saying «leer la ficha» — which is the sentence
+    // the list read would have changed on this screen.
+    //
+    // **`cancelled` is what keeps the answers in order.** With `activePetId`
+    // in the dependencies a switch fires a second read while the first is in
+    // flight, and the slower of the two would otherwise paint the pet the
+    // tutor just left over the one they chose. It was already here for the
+    // day; the pet is now the second axis that needs it.
+    //
+    // **The day is not in this effect's gift to reset.** The pet and the day
+    // are independent axes: another dog having nothing on the day the tutor
+    // was reading is an answer, not an error, and moving them to today
+    // because the pet changed would be the app deciding for them.
+    getMyPet(activePetId).then(async ({ pet: row, error: failure }) => {
       if (cancelled) return;
       if (failure || !row) {
         const unreadable = failure ?? NO_PET;
@@ -986,7 +1054,13 @@ export default function Home() {
           prev.day === dayKey(day) &&
           !prev.error
             ? prev
-            : { day: dayKey(day), attempt, events: [], error: unreadable },
+            : {
+                day: dayKey(day),
+                petId: null,
+                attempt,
+                events: [],
+                error: unreadable,
+              },
         );
         answerReload(answering, false);
         return;
@@ -1024,6 +1098,7 @@ export default function Home() {
           ? prev
           : {
               day: dayKey(day),
+              petId: row.id,
               attempt,
               events: rows ?? [],
               error: eventError,
@@ -1047,7 +1122,15 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [day, attempt, unasked, answerReload, replayQueue]);
+  }, [
+    day,
+    attempt,
+    unasked,
+    answerReload,
+    replayQueue,
+    activePetId,
+    activePetLoading,
+  ]);
 
   /**
    * Lazily, and only while the calendar is open: most visits to the diary
@@ -1077,6 +1160,7 @@ export default function Home() {
       // previous rows stay until this answer replaces them.
       setMarkedEvents(marksWindowRows(read));
       setMarksError(read.error);
+      setMarksFor(pet.id);
     });
     return () => {
       cancelled = true;
@@ -1146,6 +1230,20 @@ export default function Home() {
    * rule does not run until this is true.
    */
   const walkChecked = readFor === petId;
+  /**
+   * The treatments of the pet on screen, or nothing yet.
+   *
+   * **Derived from `petId` rather than cleared when it changes.** The rows in
+   * state belong to whichever pet was read last, and for the length of one
+   * request after a switch that is the other one: the day's TRATAMIENTOS
+   * section and the calendar's vaccine watermarks would show a dose the dog
+   * on screen never had.
+   */
+  const treatments =
+    treatmentsRead && treatmentsRead.petId === petId ? treatmentsRead : null;
+  /** The calendar's window, on the same terms: this pet's or none. */
+  const marked = marksFor === petId ? markedEvents : null;
+  const marksFailure = marksFor === petId ? marksError : null;
 
   // **The running walk is read once the pet is known, and again whenever the
   // pet is another.** The device's note holds every pet's walk, so there is
@@ -1240,11 +1338,15 @@ export default function Home() {
       if (!petId) return;
       const { treatments: rows, error } = await treatmentsFor(petId);
       if (isCancelled()) return;
-      setTreatments((held) => ({
+      setTreatmentsRead((held) => ({
+        petId,
         // A read that failed keeps the rows it had rather than blanking the
         // calendar: a stale mark beats a grid that claims nothing was given.
         // The day's section does not draw while `error` is set.
-        rows: error && held ? held.rows : rows,
+        //
+        // **Only this pet's, though.** Held rows of the pet just left are not
+        // a stale mark, they are another dog's vaccines.
+        rows: error && held?.petId === petId ? held.rows : rows,
         error,
       }));
     },
@@ -1406,7 +1508,10 @@ export default function Home() {
 
   // Hoisted for the same reason: the walk's hooks below read them, and a hook
   // cannot sit after the early returns. Every one is safe before the pet loads.
-  const loading = log === null || log.day !== dayKey(day);
+  const loading =
+    log === null ||
+    log.day !== dayKey(day) ||
+    (log.petId !== null && log.petId !== petId);
   const events = loading ? NO_EVENTS : log.events;
   /** Not fatal: the header, the goal and the actions all still work. */
   const logError = loading ? null : log.error;
@@ -2218,7 +2323,7 @@ export default function Home() {
             // at all until the window has answered: `marksForMonths` owns
             // both halves of that rule and is tested on them.
             marks={marksForMonths(
-              markedEvents,
+              marked,
               treatments?.rows ?? [],
               today,
               MARKED_MONTHS,
@@ -2228,7 +2333,7 @@ export default function Home() {
             value={day}
             maxDate={today}
             birthDate={pet.birth_date}
-            error={marksError}
+            error={marksFailure}
             onSelect={pickDay}
             onToday={goToToday}
           />
