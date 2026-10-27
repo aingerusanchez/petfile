@@ -261,8 +261,8 @@ dibuja en la pantalla de quien invita, y quien lo escanea **ya tiene la app
 puesta**. Eso no resuelve el problema del enlace — lo hace desaparecer. No hay
 nada que arrastrar a través de Play porque no hay enlace.
 
-A cambio, la app gana una puerta por el lado de quien entra —**«Pedir
-acceso»**— y los dos caminos acaban en el mismo campo de texto:
+A cambio, la app gana una puerta por el lado de quien entra —**«Tengo un
+código de acceso»**— y los dos caminos acaban en el mismo campo de texto:
 
 - **Delante del otro:** quien invita enseña el QR; el otro lo escanea.
 - **Por WhatsApp:** quien invita copia el código; el otro lo pega.
@@ -288,12 +288,58 @@ Play es el paseo completo enlace → tienda → login → aceptar, y el QR es ju
 lo que no lo necesita, porque ya asume la app instalada — que es la condición
 que esta casa cumple hoy, con las dos instalaciones puestas a mano por ADB.
 
-**«Pedir acceso» no pide nada**, y hay que decirlo porque el nombre invita a
-construir otra cosa. No hay cola de solicitudes ni aprobación al otro lado:
-quien tiene el código ya está autorizado, y esa pantalla es solo donde se
-escribe. El nombre funciona desde el lado de quien entra —«quiero acceso al
-perro de mi hermano»— y es exactamente la parte que hay que vigilar al
-construirla.
+**La puerta se llamó «Pedir acceso» durante dos días y ya no.** Se cambia
+porque el nombre describía mal el mecanismo —no hay cola de solicitudes ni
+aprobación al otro lado; quien tiene el código ya está autorizado— y el
+documento tenía que llevar un aviso para que nadie construyera esa cola. Con
+**«Tengo un código de acceso»** el aviso sobra: la frase es del que entra,
+está en primera persona como el resto de la voz de la app, y no promete una
+respuesta de nadie. **El título de la pantalla repite esas mismas palabras**,
+que es mi criterio y la razón es tonta y vale: quien pulsa una frase y
+aterriza en otra duda si llegó donde quería.
+
+### 6.2 Dónde está esa puerta: en el alta, y es la única entrada
+
+**Hoy la pantalla de alta no tiene segunda puerta, y ese es el agujero.** Quien
+canjea un código entra con Google, aterriza en `Preséntame a tu compi 🐶` con
+el formulario entero debajo —nombre, sexo, fecha, raza, salud— y **la única
+salida es inventarse un perro**. Es el caso del hermano, y hoy se rompe en
+silencio.
+
+La forma es la de una pantalla de inicio de sesión, que es donde todo el mundo
+la ha visto: **una acción primaria y un enlace secundario.** Dar de alta tu
+mascota es lo primario —es el camino por defecto de quien se descarga la app
+por su cuenta— y quien llega con un código llega buscándolo.
+
+**El enlace va arriba, bajo el titular, y no al pie.** En una pantalla de login
+el «¿no tienes cuenta?» va abajo porque encima hay dos campos; aquí encima hay
+un formulario largo, y al pie obligaría a recorrerlo entero para encontrar la
+puerta de salida. Se mantiene la jerarquía y se invierte la posición, por el
+tamaño del formulario.
+
+```
+Preséntame a tu compi 🐶
+
+Tengo un código de acceso  →
+
+  Nombre
+  ┌────────────────────────┐
+```
+
+**Y entonces el alta es la única entrada, con dos salidas.** «Añadir otra
+mascota» (§12.2) lleva aquí, y el arranque sin ficha lleva aquí. Una pantalla,
+un sitio al que llegar, y las dos puertas dentro — la misma economía que el QR
+llevando el código dentro en vez de ser otro mecanismo.
+
+**Lo que no hay que construir**, y conviene saberlo antes de presupuestarlo:
+qué pasa después de canjear. Quien canjea queda en `pet_owners`, y como las
+fichas se leen _a través_ de esa tabla, para la app ya tiene mascota y entra
+en las pestañas como cualquiera. Ningún caso especial. Si algún día saca su
+propio perro, tendrá dos y le aparecerá el conmutador de la §12.
+
+**Lo que sí:** si el código falla o ha caducado, esa persona se queda en la
+pantalla del código **sin ficha y sin salida**. Tiene que poder volver al
+formulario. Es solo navegación, pero sin escribirlo no se construye.
 
 ### 6.1 El código no va atado a una persona, y eso fija cinco requisitos
 
