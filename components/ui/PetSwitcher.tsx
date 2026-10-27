@@ -148,7 +148,13 @@ export function PetSwitcher({ pets, activeId, onSelect }: PetSwitcherProps) {
                 // A literal square, not `h-12 w-12`: those are 3rem, which
                 // native resolves to 42dp.
                 style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
-                className="-mr-3 items-center justify-center rounded-xl active:opacity-70"
+                // **No negative margin here.** `-mr-3` is the optical
+                // alignment the rest of the app's sheet headers use, and on
+                // the device it costs the touch target: the 10.5dp it pushes
+                // the square past the `ScrollView`'s content box get clipped,
+                // and a clipped pixel takes no touch. Measured at 37.5×48dp
+                // with it, 48×48 without.
+                className="items-center justify-center rounded-xl active:opacity-70"
               >
                 <X size={20} color={colors.textTertiary} />
               </Pressable>
