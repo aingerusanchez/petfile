@@ -326,10 +326,44 @@ Tengo un código de acceso  →
   ┌────────────────────────┐
 ```
 
-**Y entonces el alta es la única entrada, con dos salidas.** «Añadir otra
-mascota» (§12.2) lleva aquí, y el arranque sin ficha lleva aquí. Una pantalla,
-un sitio al que llegar, y las dos puertas dentro — la misma economía que el QR
-llevando el código dentro en vez de ser otro mecanismo.
+### 6.3 Las cuatro casillas, y la que faltaba
+
+El tutor las ordenó así, y el cuadro vale la pena porque hace comprobable la
+cobertura:
+
+|                            | Mascota propia                      | Ya registrada por otra persona            |
+| -------------------------- | ----------------------------------- | ----------------------------------------- |
+| **Primer acceso a la app** | el formulario de alta               | el enlace del alta (§6.2)                 |
+| **Ya tiene una mascota**   | «Añadir otra mascota», desde Perfil | «Tengo un código de acceso», desde Perfil |
+
+**La cuarta no estaba**, y es la que describe a quien ya entró por invitación
+—el hermano con acceso a Loki— y mañana recibe el código de otro animal.
+Desde Perfil solo había una puerta y daba al formulario.
+
+**Desde Perfil son dos enlaces hermanos, no uno con el otro escondido
+detrás.** En el primer acceso la jerarquía de la §6.2 está ganada: quien se
+descarga la app por su cuenta viene a dar de alta su perro, abrumadoramente.
+**Desde Perfil esa mayoría no existe** — quien navega a propósito hasta ahí
+puede estar en cualquiera de los dos casos por igual, y una jerarquía que no
+se ha ganado es una preferencia disfrazada de diseño. Van juntos y por encima
+de lo que ya hay:
+
+```
+  Añadir otra mascota
+  Tengo un código de acceso
+  ──────────────
+  Ajustes
+  Cerrar sesión
+```
+
+**Eso no cuesta mecanismo nuevo**, que es lo que había que cuidar: los dos
+destinos ya existen y la pantalla del código se enlaza desde dos sitios. Lo
+que la §6.2 evita es un segundo _mecanismo_, no un segundo enlace.
+
+**Y es trabajo del plan de compartir, no del selector.** El plan del selector
+pone «Añadir otra mascota» en Perfil porque lo necesita para existir; su
+hermano llega después, cuando haya una pantalla de código a la que llevar. Que
+el pie de Perfil se toque dos veces es correcto: son dos razones distintas.
 
 **Lo que no hay que construir**, y conviene saberlo antes de presupuestarlo:
 qué pasa después de canjear. Quien canjea queda en `pet_owners`, y como las
