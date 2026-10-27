@@ -11,6 +11,7 @@ import {
   Text,
 } from "../components/ui";
 import { MONTHS_ES_SHORT, parseISO } from "../lib/dates";
+import { useActivePet } from "../lib/pet";
 import { getMyPet } from "../lib/pets";
 import { fromDateKey } from "../lib/treatments";
 import { formatWeight, weightsFor, type PetWeightRow } from "../lib/weights";
@@ -37,13 +38,28 @@ import { formatWeight, weightsFor, type PetWeightRow } from "../lib/weights";
 export default function Weights() {
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
+  const { activePetId, loading: activePetLoading } = useActivePet();
 
   const [rows, setRows] = useState<PetWeightRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // **It waits while the stored choice is still being read**, and resolves on
+  // a non-null id at once: `null` is "the disk has not answered" while
+  // `loading` is up and "nobody chose" once it is down, and only the second
+  // may fall back to the oldest pet (see `lib/pet.tsx`). **`getMyPet`, not the
+  // list** — this screen draws no switcher, and the failure keeps saying
+  // «leer la ficha». **`cancelled` keeps the answers in order** now that the
+  // pet is a dependency: the slower of two reads must not paint the dog the
+  // tutor left.
+  //
+  // Nothing here writes, and `rows` are only ever set from the pet this very
+  // run read, so there is no mixed state to guard — the screen is a push over
+  // the tabs, so the pet cannot change under it in practice.
   useEffect(() => {
+    if (activePetLoading && activePetId === null) return;
+
     let cancelled = false;
-    getMyPet().then(async ({ pet, error: failure }) => {
+    getMyPet(activePetId).then(async ({ pet, error: failure }) => {
       if (cancelled) return;
       if (failure || !pet) return setError(failure ?? "No hay ninguna mascota");
       const { weights, error: listError } = await weightsFor(pet.id, 200);
@@ -54,7 +70,7 @@ export default function Weights() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activePetId, activePetLoading]);
 
   const points = [...(rows ?? [])]
     .reverse()

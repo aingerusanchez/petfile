@@ -19,6 +19,7 @@ import {
   useToast,
 } from "../components/ui";
 import { MONTHS_ES, parseISO } from "../lib/dates";
+import { useActivePet } from "../lib/pet";
 import { getMyPet, type PetRow } from "../lib/pets";
 import {
   searchTreatments,
@@ -47,8 +48,26 @@ export default function Treatments() {
   const router = useRouter();
   const toast = useToast();
 
+  const { activePetId, loading: activePetLoading } = useActivePet();
   const [pet, setPet] = useState<PetRow | null>(null);
-  const [rows, setRows] = useState<PetTreatmentRow[] | null>(null);
+  /**
+   * The treatments, **and the pet they are of**.
+   *
+   * **The pet and its rows arrive in two reads**, `pet` first, so for one
+   * request after the pet changes the sheet's `petId` is the dog the tutor
+   * chose and the row it opens on is the one they left — and
+   * `updateTreatment` writes `pet_id` along with the rest, so saving it
+   * would move that dose to the other dog. Found by reading rather than on a
+   * device, and unlikely here (the screen is a push over the tabs, where the
+   * switcher is not), but the same state that makes it impossible costs
+   * three lines. `rows` below is derived against `pet`, `null` — the
+   * skeleton — until this pet's own are here; a reload after a save is the
+   * same pet and keeps what it has.
+   */
+  const [read, setRead] = useState<{
+    petId: string;
+    rows: PetTreatmentRow[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [kind, setKind] = useState<TreatmentKind | null>(null);
@@ -59,10 +78,21 @@ export default function Treatments() {
 
   const reload = useCallback(() => setAttempt((count) => count + 1), []);
 
+  const rows = read && pet && read.petId === pet.id ? read.rows : null;
+
+  // **It waits while the stored choice is still being read**, and resolves on
+  // a non-null id at once: `null` is "the disk has not answered" while
+  // `loading` is up and "nobody chose" once it is down, and only the second
+  // may fall back to the oldest pet (see `lib/pet.tsx`). **`getMyPet`, not the
+  // list** — no switcher here, and the failure keeps saying «leer la ficha».
+  // **`cancelled` keeps the answers in order** now that the pet is a
+  // dependency: the slower of two reads must not paint the dog the tutor left.
   useEffect(() => {
+    if (activePetLoading && activePetId === null) return;
+
     let cancelled = false;
 
-    getMyPet().then(async ({ pet: row, error: failure }) => {
+    getMyPet(activePetId).then(async ({ pet: row, error: failure }) => {
       if (cancelled) return;
       if (failure) return setError(failure);
       if (!row) return setError("Todavía no hay ninguna mascota");
@@ -70,14 +100,14 @@ export default function Treatments() {
 
       const { treatments, error: listError } = await treatmentsFor(row.id);
       if (cancelled) return;
-      setRows(treatments);
+      setRead({ petId: row.id, rows: treatments });
       setError(listError);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [attempt]);
+  }, [attempt, activePetId, activePetLoading]);
 
   const shown = searchTreatments(rows ?? [], { kind, text });
   const filtering = kind !== null || text.trim().length > 0;
