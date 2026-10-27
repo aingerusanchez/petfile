@@ -509,9 +509,19 @@ Son mías, y se escriben aquí porque el plan las necesita:
   activa**, no una funcionalidad nueva, y el almacenamiento viejo hay que
   migrarlo en vez de descartarlo. Que el paseo del primero siga corriendo sin
   decirlo desde la ficha del segundo se acepta en esta versión.
-- **La hoja lleva «Añadir otra mascota» al pie**, reutilizando la ruta de alta
-  que ya existe. Sin eso la funcionalidad es inalcanzable: no hay forma de
-  tener un segundo animal más que canjeando el código de otro.
+- **«Añadir otra mascota» va al pie de Perfil, no dentro de la hoja.** Ésta
+  la escribí al revés y la corrige la regla de arriba: si la fila está oculta
+  mientras haya un solo animal, y la única forma de añadir otro vive dentro de
+  su hoja, **nunca se puede tener un segundo**. Va donde Perfil ya guarda sus
+  acciones de una vez en la vida —junto a `Ajustes`, `Cerrar sesión` y el
+  borrado de la ficha—, visible siempre, y la hoja no la duplica. La regla de
+  invisibilidad es sobre el conmutador: lo único que tiene que existir con una
+  sola mascota es el camino a la segunda.
+
+  Reutiliza `app/onboarding.tsx`, y eso pide tocar una guarda: esa ruta hoy
+  **rechaza** a quien ya tenga mascota, con un comentario que dice por qué
+  —evitar un duplicado por navegación hacia atrás—. Tiene que distinguir
+  llegar por accidente de pedirlo a propósito.
 
 ## Lo que este documento no decide
 
