@@ -120,10 +120,23 @@ export default function Health() {
     error: string | null;
   } | null>(null);
   const petId = pet?.id ?? null;
-  const weights = read && read.petId === petId ? read.weights : null;
-  const treatments = read && read.petId === petId ? read.treatments : null;
-  const incidents = read && read.petId === petId ? read.incidents : NO_EVENTS;
-  const dataError = read && read.petId === petId ? read.error : null;
+  /**
+   * The read above **only if it is this pet's**, and the one place that is
+   * decided.
+   *
+   * Written once rather than per field on purpose. The same check repeated
+   * on four lines is four chances to forget it, and a fifth field added
+   * tomorrow would compile, pass and quietly show one dog's row under the
+   * other's name — the whole class of defect the `petId` above this exists
+   * to close, walking back in through a line nobody reviewed. With the
+   * ownership settled here there is nothing left for a new field to get
+   * wrong: it reads from `current` or it reads from nothing.
+   */
+  const current = read && read.petId === petId ? read : null;
+  const weights = current?.weights ?? null;
+  const treatments = current?.treatments ?? null;
+  const incidents = current?.incidents ?? NO_EVENTS;
+  const dataError = current?.error ?? null;
   const [attempt, setAttempt] = useState(0);
   const [weighing, setWeighing] = useState<PetWeightRow | "new" | null>(null);
   const [treating, setTreating] = useState<PetTreatmentRow | "new" | null>(
