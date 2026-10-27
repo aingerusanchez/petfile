@@ -13,6 +13,7 @@ import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { CelebrationProvider, ToastProvider, colors } from "../components/ui";
 import { AuthProvider } from "../lib/auth";
+import { ActivePetProvider } from "../lib/pet";
 import { SettingsProvider } from "../lib/settings";
 
 SplashScreen.preventAutoHideAsync();
@@ -42,19 +43,24 @@ export default function RootLayout() {
             thing a screen needs: a date or a duration rendered in the wrong
             format and then corrected is a visible flicker. */}
         <SettingsProvider>
-          {/* Above the Stack on purpose: a toast rendered by a screen would be
-            unmounted by its own success navigation. */}
-          <ToastProvider>
-            <CelebrationProvider>
-              <StatusBar style="light" />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: colors.base },
-                }}
-              />
-            </CelebrationProvider>
-          </ToastProvider>
+          {/* A session fact, not a presentation one, so it sits beside the
+              settings, above the toast: which pet this phone is
+              looking at is what every screen below asks first. */}
+          <ActivePetProvider>
+            {/* Above the Stack on purpose: a toast rendered by a screen would be
+              unmounted by its own success navigation. */}
+            <ToastProvider>
+              <CelebrationProvider>
+                <StatusBar style="light" />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: colors.base },
+                  }}
+                />
+              </CelebrationProvider>
+            </ToastProvider>
+          </ActivePetProvider>
         </SettingsProvider>
       </AuthProvider>
     </SafeAreaProvider>
