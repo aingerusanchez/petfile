@@ -115,6 +115,7 @@ components/ui/            → the design-system primitives every screen composes
   Text.tsx                → text in the app's typeface; the only Text app code imports
   Avatar.tsx              → the pet's photo, or its initial when there is none
   AvatarEditor.tsx        → framing that photo against the circle it appears in
+  PetSwitcher.tsx         → which pet is on screen, and the sheet that changes it
   Button.tsx              → primary / outlined / secondary / link, with a danger tone
   LoadingScreen.tsx       → full-screen busy state
   tokens.ts               → Nordic Ice values for RN props className can't reach
@@ -122,6 +123,7 @@ lib/                      → domain logic and data access
   supabase.ts             → the only import site for @supabase/supabase-js in app code
   auth.tsx                → session context / Google OAuth
   settings.tsx            → how this tutor wants the app to read, on their device
+  pet.tsx                 → which of the household's pets this phone is attending to
   pets.ts                 → pet validation, create, edit and delete
   photos.ts               → the pet's photo: pick, upload, and sign a read URL
   failures.ts             → the timeout on every request, and its message in the app's voice
