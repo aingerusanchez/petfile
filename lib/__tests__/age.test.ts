@@ -56,11 +56,22 @@ describe("lifeStage", () => {
 });
 
 describe("formatAge", () => {
-  it("uses months for the first two years", () => {
+  it("uses months for the first year", () => {
     expect(formatAge(1)).toBe("1 mes");
     expect(formatAge(5)).toBe("5 meses");
-    expect(formatAge(15)).toBe("15 meses");
-    expect(formatAge(23)).toBe("23 meses");
+    expect(formatAge(11)).toBe("11 meses");
+  });
+
+  it("says the year out loud on the birthday", () => {
+    // The reason this function exists in its current shape: "12 meses" is
+    // not what anybody says the day after the first birthday.
+    expect(formatAge(12)).toBe("1 año");
+  });
+
+  it("carries the months alongside the first year", () => {
+    expect(formatAge(13)).toBe("1 año y 1 mes");
+    expect(formatAge(14)).toBe("1 año y 2 meses");
+    expect(formatAge(23)).toBe("1 año y 11 meses");
   });
 
   it("switches to whole years at two, and truncates them", () => {
@@ -74,6 +85,14 @@ describe("formatAge", () => {
     expect(formatAge(24, true)).toBe("unos 2 años");
     // "unos 1 mes" is not Spanish.
     expect(formatAge(1, true)).toBe("un mes");
+  });
+
+  it("drops the months from an approximate first year", () => {
+    // The day is unknown, so the age is right to within a month — which is
+    // exactly the precision "1 año y 1 mes" claims to have.
+    expect(formatAge(12, true)).toBe("alrededor de un año");
+    expect(formatAge(13, true)).toBe("alrededor de un año");
+    expect(formatAge(23, true)).toBe("alrededor de un año");
   });
 
   it("does not round a newborn up to a month", () => {
