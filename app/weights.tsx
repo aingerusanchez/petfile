@@ -42,6 +42,10 @@ export default function Weights() {
 
   const [rows, setRows] = useState<PetWeightRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Solo para el estado vacío, que nombra al perro. Se fija en el mismo paso
+  // que las filas y bajo el mismo `cancelled`, así que no puede quedar
+  // nombrando a uno mientras la gráfica dibuja a otro.
+  const [petName, setPetName] = useState<string | null>(null);
 
   // **It waits while the stored choice is still being read**, and resolves on
   // a non-null id at once: `null` is "the disk has not answered" while
@@ -77,10 +81,12 @@ export default function Weights() {
       // own the cleared error would uncover the *previous* dog's chart —
       // which is what the gap already shows when there is no error to cover
       // it. Two lines buy the skeleton in both cases, where identifying the
-      // rows would mean keeping a pet in state this screen has no other use
-      // for. On mount both are already null, so this costs nothing there.
+      // rows would mean identifying them against a pet the chart itself
+      // never reads. On mount both are already null, so this costs nothing
+      // there.
       setError(null);
       setRows(null);
+      setPetName(pet.name);
       const { weights, error: listError } = await weightsFor(pet.id, 200);
       if (cancelled) return;
       setRows(weights);
@@ -142,8 +148,15 @@ export default function Weights() {
       ) : rows === null ? (
         <LoadingScreen />
       ) : points.length === 0 ? (
+        // **Enuncia, no pregunta.** Esta pantalla es de solo lectura: no
+        // tiene con qué apuntar un peso, así que «¿Cuánto pesa Loki?» —la
+        // frase que sí usa la tarjeta de Salud, donde hay acción— sería aquí
+        // un callejón. Dice para qué sirve la pantalla, como el estado vacío
+        // de tratamientos.
         <Text testID="weights-empty" className="text-text-tertiary">
-          Todavía no le has pesado.
+          {petName
+            ? `Aquí aparecerán los pesajes de ${petName}.`
+            : "Aquí aparecerán los pesajes."}
         </Text>
       ) : (
         <>

@@ -51,7 +51,7 @@ test("opens on what is pending, and says so when nothing is", async ({
   // is good news that has to be said rather than a gap on the screen.
   await expect(page.getByTestId("health-due")).toContainText("Nada pendiente");
   await expect(page.getByTestId("health-weight")).toContainText(
-    "Todavía no le has pesado",
+    "¿Cuánto pesa Loki?",
   );
 });
 

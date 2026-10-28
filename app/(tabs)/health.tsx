@@ -364,9 +364,14 @@ export default function Health() {
             <Skeleton width="100%" height={72} />
           </View>
         ) : latest === null ? (
+          // **Una pregunta, no el informe de un hueco.** «Todavía no le has
+          // pesado» dice lo que no has hecho; esta dice lo que la app quiere
+          // saber, que es además la única pregunta que hay aquí y tiene un
+          // solo número por respuesta, con la acción flotante a mano para
+          // darla. La segunda frase se queda porque es la que explica por
+          // qué molestarse.
           <Text className="mb-4 text-text-tertiary">
-            Todavía no le has pesado. El primer peso es el que da sentido a
-            todos los demás.
+            {`¿Cuánto pesa ${pet.name}? El primer peso es el que da sentido a todos los demás.`}
           </Text>
         ) : (
           <Pressable

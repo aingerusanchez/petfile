@@ -57,6 +57,6 @@ test("says nothing rather than drawing nothing", async ({ page }) => {
   await seedE2EPet();
   await page.goto("/weights");
   await expect(page.getByTestId("weights-empty")).toContainText(
-    "Todavía no le has pesado",
+    "Aquí aparecerán los pesajes de Loki",
   );
 });
