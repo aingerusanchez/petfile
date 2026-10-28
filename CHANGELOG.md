@@ -18,6 +18,72 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.27.0] — 2026-10-27
+
+### Nuevo
+
+- **La app atiende a más de un perro.** Arriba de Perfil hay una fila con la
+  foto, el nombre y un chevrón; al pulsarla se abre una hoja con las fichas de
+  la casa y se marca la que estás mirando. **La fila no existe mientras haya
+  una sola mascota**, que es el caso de hoy: lo que no se puede cambiar no
+  merece un control.
+
+  Lo que sí está siempre es **«Añadir otra mascota»**, al pie de Perfil. Tenía
+  que estarlo: si se ocultara con una sola ficha, no habría forma de llegar
+  nunca a la segunda.
+
+- **Diario, Salud, pesos y tratamientos leen de la mascota activa.** Seis
+  pantallas preguntaban cada una por su cuenta «¿cuál es el perro?» y todas
+  contestaban lo mismo —la ficha más antigua— porque no había otra. Ahora la
+  pregunta la contesta un sitio, y la elección **vive en el dispositivo**,
+  igual que los formatos de hora: la casa son dos tutores con un móvil cada
+  uno, y a qué perro está mirando cada cual es asunto de quien sostiene el
+  teléfono.
+
+- **Cambiar de perro no cambia de día.** Si estabas mirando el martes pasado,
+  sigues en el martes pasado con el otro animal. Son dos ejes distintos y
+  mezclarlos obligaría a volver a navegar en cada cambio.
+
+### Arreglado
+
+Los cuatro de abajo **no los ha sufrido nadie**, y conviene decir por qué: no
+se podía tener una segunda mascota, así que ninguno era alcanzable. Son los
+que habrían aparecido el primer día que hubiera dos, en silencio y sin un
+mensaje de error, que es la peor forma de aparecer.
+
+- **Una dosis se movía de perro.** Corregir la hora de un tratamiento buscaba
+  la fila solo por su identificador, sin comprobar de quién era, y borrarla
+  borraba la del otro animal.
+
+- **Un peso se escribía encima del de otro animal**, y borrarlo borraba el
+  suyo, por la misma razón.
+
+- **El paseo en curso se guardaba en una sola ranura.** Empezar un paseo con
+  un perro y abrir la ficha del otro mostraba el cronómetro corriendo sobre el
+  que estaba en casa. Ahora el almacenamiento guarda un paseo por mascota, y
+  el botón espera a saber cuál es el suyo antes de decidir qué dice.
+
+- **La regla de obsolescencia podía borrar la nota de la mascota equivocada.**
+  Cerrar o corregir un paseo arrastraba una conclusión que no decía de qué
+  animal era, y la ceremonia de cierre se repetía sobre la barra del otro.
+
+Y tres más que sí son de esta versión:
+
+- **Borrar la mascota activa deja la superviviente activa**, en vez de dejar
+  apuntado un identificador que ya no existe.
+
+- **Un error de hace un rato no tapa a la mascota nueva.** Al cambiar de
+  ficha, el aviso de que algo había fallado se quedaba en pantalla sobre unos
+  datos que sí habían cargado.
+
+- **Las dos X de cerrar una hoja vuelven a medir 48 dp.** El margen negativo
+  que las alinea con el borde del panel no las desplaza: los 10,5 dp que las
+  empujan fuera de la caja de contenido quedan recortados, y un píxel
+  recortado no recibe toque. Medido en el teléfono: 37,5 × 48 dp antes,
+  48 × 48 después. Eran los dos únicos sitios con ese patrón — la hoja del
+  conmutador, que entra en esta versión, y la ayuda de formato de las notas,
+  que lo arrastraba desde que existe.
+
 ## [v0.26.0] — 2026-10-24
 
 ### Arreglado
