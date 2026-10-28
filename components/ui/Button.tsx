@@ -210,28 +210,38 @@ export function Button({
       // leerse como dos respuestas a una pregunta.
       "flex-row items-center justify-center gap-2 self-start py-3"
     : variant === "primary"
-      ? `flex-row items-center justify-center gap-2 rounded-xl py-4 ${fill}`
+      ? // `px-4` is the room a shrunk label needs: without it the ellipsis
+        // lands on the border instead of short of it.
+        `flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${fill}`
       : isOutlined
-        ? `flex-row items-center justify-center gap-3 rounded-xl border py-4 ${danger ? "border-error" : "border-border-strong"} ${status === "error" ? fill : ""}`
+        ? `flex-row items-center justify-center gap-3 rounded-xl border px-4 py-4 ${danger ? "border-error" : "border-border-strong"} ${status === "error" ? fill : ""}`
         : "flex-row items-center justify-center gap-2 rounded-xl border border-border-strong px-6 py-3";
 
   // On both the accent fill and the error fill the readable colour is the dark
   // navy, not the light text: #0B1120 measures 14.88:1 on Ice Blue Glacial and
   // 5.00:1 on Error Red, while #F1F5F9 on Error Red is 3.44:1 and fails AA.
   const onFill = (variant === "primary" && !disabled) || status === "error";
-  const labelClass = disabled
-    ? "text-text-tertiary"
-    : isLink
-      ? danger
-        ? "font-semibold text-error"
-        : "font-semibold text-accent"
-      : onFill
-        ? "font-semibold text-on-accent"
-        : isOutlined
-          ? danger
-            ? "font-semibold text-error"
-            : "font-semibold text-text-primary"
-          : "text-text-secondary";
+  // **`shrink` is what makes `numberOfLines` mean anything.** `flexShrink` is
+  // 0 by default in React Native, so a label wider than its button does not
+  // get ellipsized — it walks straight out of the Pressable and past the
+  // border. Seen on the device with a 30-character pet name: the red outline
+  // of «Borrar la ficha de …» ended halfway through the word. The separator
+  // stays outside the quotes; see `class-strings.test.ts`.
+  const labelClass = `shrink ${
+    disabled
+      ? "text-text-tertiary"
+      : isLink
+        ? danger
+          ? "font-semibold text-error"
+          : "font-semibold text-accent"
+        : onFill
+          ? "font-semibold text-on-accent"
+          : isOutlined
+            ? danger
+              ? "font-semibold text-error"
+              : "font-semibold text-text-primary"
+            : "text-text-secondary"
+  }`;
   const iconColor =
     (isLink || isOutlined) && danger && !onFill
       ? colors.error

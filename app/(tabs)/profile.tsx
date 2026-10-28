@@ -816,7 +816,17 @@ export default function Profile() {
               variant="outlined"
               tone="danger"
               icon={Trash2}
-              label={`Borrar la ficha de ${name}`}
+              // **The name is spoken, not printed.** It used to be in the
+              // visible label, which put a 40-character field inside a
+              // button: «Borrar la ficha de Wolfgang Amadeus Montenegro»
+              // overflowed its own red outline on the device. Truncating it
+              // would be worse than leaving it out — a half-written name on
+              // the one control that cannot be undone. The sheet that opens
+              // next asks «¿Borrar la ficha de …?» in a heading that has the
+              // room, and the accessible name keeps it for a reader who has
+              // no other way to tell which dog this button is about.
+              label="Borrar esta ficha"
+              accessibilityLabel={`Borrar la ficha de ${name}`}
               onPress={() => {
                 setTypedName("");
                 setConfirmingDelete(true);
