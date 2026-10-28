@@ -33,7 +33,7 @@ Cinco cosas que la spec implica, que ninguna tarea probaría por su cuenta, y qu
 
 1. **La mascota activa guardada ya no existe** —borrada desde el otro teléfono, o por el propio tutor—: hay que caer a la más antigua, no devolver `null` ni dejar la pantalla vacía. → tarea 1.
 2. **Hay un paseo abierto al actualizar la app**, con el blob viejo de una sola ranura en el almacenamiento: tiene que seguir siendo el paseo en curso y no desaparecer. → tarea 2.
-3. **Cambiar de mascota con un paseo en marcha**: el botón de la segunda no puede aparecer en marcha porque la primera lo esté. → tarea 6.
+3. **Cambiar de mascota con un paseo en marcha**: el botón de la segunda no puede aparecer en marcha porque la primera lo esté. → tarea 2, en el test «una mascota sin paseo abierto no tiene paseo».
 4. **Cambiar de mascota mientras una lectura está en vuelo**: la respuesta de la anterior no puede pintar sobre la nueva. **Éste no lleva test y conviene decirlo**: en Jest pediría simular el transporte, y en Playwright sería una carrera contra el reloj, que es justo lo que este proyecto tiene prohibido. Se verifica leyendo: cada efecto que gane la dependencia `activePetId` tiene que conservar su `cancelled`, y es lo primero que mira la revisión de las tareas 5, 6 y 7.
 5. **Borrar la mascota activa desde Perfil**: el id guardado queda huérfano, y la pantalla tiene que pasar a la otra o al alta, nunca a un Perfil en blanco. → tarea 5.
 
@@ -132,6 +132,7 @@ Hoy `petfile.walk.v1` guarda `{"id": "<paseo>"}`: **una sola ranura**. Con dos a
 **Files:**
 
 - Modify: `lib/walk.ts`
+- Modify: `app/(tabs)/index.tsx` — los cinco usos de `WALK_STORAGE_KEY`, en ~862, ~1491, ~1528, ~1660 y ~1670
 - Test: `lib/__tests__/walk.test.ts`
 
 **Interfaces:**
@@ -194,15 +195,21 @@ Expected: FAIL por firma y por funciones que no existen.
 
 Forma nueva del blob: `{"walks": {"<petId>": "<walkId>"}}`. Un blob viejo `{"id": …}` se lee como el paseo de **la mascota que se pregunte**, porque precede a que pudiera haber dos; la primera escritura lo deja en la forma nueva y esa ambigüedad se cierra. El docblock del fichero dice hoy que el paseo en curso vive en el dispositivo y por qué — **ampliarlo con por qué ahora va por mascota**, en el tono del resto del fichero.
 
-- [ ] **Step 4: Verde**
+- [ ] **Step 4: Pasar el id de la mascota a las cinco llamadas de `app/(tabs)/index.tsx`**
 
-Run: `pnpm test -- walk.test`
-Expected: PASS. `pnpm typecheck` fallará todavía en `app/(tabs)/index.tsx`, que es la tarea 6: no arreglarlo aquí.
+La lectura usa `parseRunningWalk(raw, pet.id)`. Las escrituras dejan de hacer `setItem`/`removeItem` a secas y pasan por leer-modificar-escribir con `withRunningWalk` / `withoutRunningWalk`, porque el blob ya no es de una sola mascota. **El id sale del `pet` que esa pantalla ya tiene cargado**, sin depender de nada que no exista aún.
 
-- [ ] **Step 5: Commit**
+Este paso estaba en la tarea 6 y se movió aquí por un conflicto del escaneo previo: dejarlo allí habría dejado `pnpm typecheck` en rojo entre las dos tareas, contra las Global Constraints de este plan. El cambio de almacenamiento entero vive en una tarea y cada tarea deja el árbol verde.
+
+- [ ] **Step 5: Verde**
+
+Run: `pnpm lint && pnpm typecheck && pnpm test`
+Expected: PASS las tres.
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add lib/walk.ts lib/__tests__/walk.test.ts
+git add lib/walk.ts lib/__tests__/walk.test.ts "app/(tabs)/index.tsx"
 git commit -m "feat(walk): el paseo en curso se guarda por mascota, no en una ranura"
 ```
 
@@ -366,48 +373,32 @@ git commit -m "feat(profile): el conmutador arriba y el camino a una segunda mas
 
 ---
 
-### Task 6: El Diario sigue la mascota activa, y su paseo va con ella
-
-Dos cambios en un fichero porque son el mismo: qué animal mira la pantalla.
+### Task 6: El Diario sigue la mascota activa
 
 **Files:**
 
-- Modify: `app/(tabs)/index.tsx` (la carga de la línea ~943; los cinco usos de `WALK_STORAGE_KEY` en ~862, ~1491, ~1528, ~1660, ~1670)
+- Modify: `app/(tabs)/index.tsx` (la carga de la línea ~943)
 
 **Interfaces:**
 
-- Consumes: `useActivePet` (tarea 3); `listMyPets`, `pickActivePet` (tarea 1); `parseRunningWalk`, `withRunningWalk`, `withoutRunningWalk` (tarea 2).
+- Consumes: `useActivePet` (tarea 3); `listMyPets`, `pickActivePet` (tarea 1).
+
+El almacenamiento del paseo por mascota **ya lo dejó hecho la tarea 2** en este mismo fichero, incluidas sus cinco llamadas: aquí no se toca.
 
 - [ ] **Step 1: Cambiar la carga a la lista, con `activePetId` en las dependencias**
 
 Igual que el paso 1 de la tarea 5. **El día no se repone**: `day` no entra en este efecto ni se reinicia al cambiar de mascota, porque la mascota y el día son dos ejes independientes (spec §12.2).
 
-- [ ] **Step 2: Pasar el id de la mascota a las cinco llamadas del almacenamiento**
-
-La lectura usa `parseRunningWalk(raw, pet.id)`. Las escrituras dejan de hacer `setItem`/`removeItem` a secas y pasan por leer-modificar-escribir con `withRunningWalk` / `withoutRunningWalk`, porque el blob ya no es de una sola mascota.
-
-- [ ] **Step 3: Escribir la prueba de que el paseo no se contagia** _(Review Focus 3)_
-
-Es lógica de `lib/`, así que va en `lib/__tests__/walk.test.ts` con el resto:
-
-```ts
-it("el paseo de una mascota no aparece como el de la otra", () => {
-  const raw = withRunningWalk(null, "p1", "w1");
-  expect(parseRunningWalk(raw, "p1")).toBe("w1");
-  expect(parseRunningWalk(raw, "p2")).toBeNull();
-});
-```
-
-- [ ] **Step 4: Verde**
+- [ ] **Step 2: Verde**
 
 Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS las tres. **El typecheck de la tarea 2 se cierra aquí**, que es donde se dijo que se cerraría.
+Expected: PASS las tres.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add "app/(tabs)/index.tsx" lib/__tests__/walk.test.ts
-git commit -m "feat(home): el diario sigue a la mascota activa y su paseo no se contagia"
+git add "app/(tabs)/index.tsx"
+git commit -m "feat(home): el diario sigue a la mascota activa"
 ```
 
 ---

@@ -1,7 +1,7 @@
 {
   "name": "petfile",
   "main": "expo-router/entry",
-  "version": "0.26.0",
+  "version": "0.27.1",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "start": "node scripts/changelog.mjs && expo start",
@@ -74,7 +74,8 @@
     "preset": "jest-expo",
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "/e2e/"
+      "/e2e/",
+      "/.claude/"
     ],
     "setupFilesAfterEnv": [
       "<rootDir>/jest.setup.ts"

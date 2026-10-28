@@ -115,6 +115,7 @@ components/ui/            → the design-system primitives every screen composes
   Text.tsx                → text in the app's typeface; the only Text app code imports
   Avatar.tsx              → the pet's photo, or its initial when there is none
   AvatarEditor.tsx        → framing that photo against the circle it appears in
+  PetSwitcher.tsx         → which pet is on screen, and the sheet that changes it
   Button.tsx              → primary / outlined / secondary / link, with a danger tone
   LoadingScreen.tsx       → full-screen busy state
   tokens.ts               → Nordic Ice values for RN props className can't reach
@@ -122,6 +123,7 @@ lib/                      → domain logic and data access
   supabase.ts             → the only import site for @supabase/supabase-js in app code
   auth.tsx                → session context / Google OAuth
   settings.tsx            → how this tutor wants the app to read, on their device
+  pet.tsx                 → which of the household's pets this phone is attending to
   pets.ts                 → pet validation, create, edit and delete
   photos.ts               → the pet's photo: pick, upload, and sign a read URL
   failures.ts             → the timeout on every request, and its message in the app's voice
@@ -201,7 +203,7 @@ The web target hides all three, so **a change that has to hold on the device is 
 
 ## Tests
 
-**`e2e/home.spec.ts` used to assume a working day, and it does not any more.** Ten of its tests failed before about 09:00: they fill real clock times — 08:30, 09:15, 10:45 — and the entry sheet refuses a time in the future, correctly, so a red suite at 01:00 said nothing about the code and every failure read "¿Todavía no habéis vuelto?". **The fix was the day, not the time**: a fixed morning hour has already happened on _yesterday_, whatever hour the suite runs at, and the diary can be written on a past day. Tests that need a specific clock time now press ‹ first; the two that are about today derive their times from a "now" they own. Measured: the whole suite green at 01:00.
+**`e2e/home.spec.ts` used to assume a working day, and it does not any more.** Ten of its tests failed before about 09:00: they fill real clock times — 08:30, 09:15, 10:45 — and the entry sheet refuses a time in the future, correctly, so a red suite at 01:00 said nothing about the code and every failure read "¿Todavía no has vuelto?". **The fix was the day, not the time**: a fixed morning hour has already happened on _yesterday_, whatever hour the suite runs at, and the diary can be written on a past day. Tests that need a specific clock time now press ‹ first; the two that are about today derive their times from a "now" they own. Measured: the whole suite green at 01:00.
 
 Keep it that way. A new test that types a fixed morning time onto today is a test that fails half the day.
 

@@ -32,6 +32,7 @@ import {
   incidentsFor,
   type PetEventRow,
 } from "../../lib/events";
+import { useActivePet } from "../../lib/pet";
 import { getMyPet, type PetRow } from "../../lib/pets";
 import { readVet } from "../../lib/vets";
 import {
@@ -80,16 +81,62 @@ import {
  */
 const HISTORY_PREVIEW = 5;
 
+/** The incidents of a pet whose rows have not arrived: one array every render. */
+const NO_EVENTS: PetEventRow[] = [];
+
 export default function Health() {
   const router = useRouter();
   const toast = useToast();
 
+  const { activePetId, loading: activePetLoading } = useActivePet();
   const [pet, setPet] = useState<PetRow | null>(null);
   const [petError, setPetError] = useState<string | null>(null);
-  const [weights, setWeights] = useState<PetWeightRow[] | null>(null);
-  const [treatments, setTreatments] = useState<PetTreatmentRow[] | null>(null);
-  const [incidents, setIncidents] = useState<PetEventRow[]>([]);
-  const [dataError, setDataError] = useState<string | null>(null);
+  /**
+   * The weights, the treatments and the incidents, **and the pet they are
+   * of**.
+   *
+   * **One state with its owner in it, because the pet and its rows arrive in
+   * two reads.** `pet` lands first and the rows a request later, so for the
+   * length of that request after a switch the header is the dog the tutor
+   * chose and the rows are the one they left. That is not only ugly: the
+   * sheets take their `petId` from `pet` and their `existing` row from here,
+   * and `updateTreatment` writes `pet_id` along with the rest — saving a
+   * dose of Luna's opened over Toby's header **moved it to Toby**, silently,
+   * and the weight sheet's upsert and delete have the same shape. Found by
+   * reading, not on a device: the window is one round trip, and the switch
+   * happens a tab away, so it is only open on a slow or absent connection.
+   *
+   * Derived against `petId` below rather than cleared by an effect, so the
+   * three names the rest of the screen reads stay what they were and are
+   * `null` — the skeleton — until this pet's own rows are here. A reload
+   * after a save is the same pet, so it keeps what it has and shows no
+   * skeleton.
+   */
+  const [read, setRead] = useState<{
+    petId: string;
+    weights: PetWeightRow[];
+    treatments: PetTreatmentRow[];
+    incidents: PetEventRow[];
+    error: string | null;
+  } | null>(null);
+  const petId = pet?.id ?? null;
+  /**
+   * The read above **only if it is this pet's**, and the one place that is
+   * decided.
+   *
+   * Written once rather than per field on purpose. The same check repeated
+   * on four lines is four chances to forget it, and a fifth field added
+   * tomorrow would compile, pass and quietly show one dog's row under the
+   * other's name — the whole class of defect the `petId` above this exists
+   * to close, walking back in through a line nobody reviewed. With the
+   * ownership settled here there is nothing left for a new field to get
+   * wrong: it reads from `current` or it reads from nothing.
+   */
+  const current = read && read.petId === petId ? read : null;
+  const weights = current?.weights ?? null;
+  const treatments = current?.treatments ?? null;
+  const incidents = current?.incidents ?? NO_EVENTS;
+  const dataError = current?.error ?? null;
   const [attempt, setAttempt] = useState(0);
   const [weighing, setWeighing] = useState<PetWeightRow | "new" | null>(null);
   const [treating, setTreating] = useState<PetTreatmentRow | "new" | null>(
@@ -151,26 +198,51 @@ export default function Health() {
 
   const reload = useCallback(() => {
     setPetError(null);
-    setDataError(null);
     setAttempt((count) => count + 1);
   }, []);
 
-  const petId = pet?.id ?? null;
-
+  /**
+   * **It waits while the stored choice is still being read.** `activePetId`
+   * is `null` in two different ways (see `lib/pet.tsx`): while `loading` is
+   * up it only means the disk has not answered, and resolving on it would
+   * show the oldest pet and swap the tab for the tutor's own a moment later.
+   * A non-null id is already a real choice — made this session, before the
+   * read landed — and is safe to resolve on, which is why the guard tests
+   * both. Either half alone is a different defect: `loading` alone would
+   * hold a screen whose choice is known, and `activePetId === null` alone
+   * would call a read still in flight "nobody chose".
+   *
+   * **`getMyPet(activePetId)` and not the list.** This tab draws no
+   * switcher, so it has no use for the other sheets, and the failure keeps
+   * saying «leer la ficha» — the sentence the list read would have changed.
+   *
+   * **`cancelled` is what keeps the answers in order.** With `activePetId` in
+   * the dependencies a switch fires a second read while the first may still
+   * be in flight, and the slower of the two would otherwise paint the pet
+   * the tutor just left over the one they chose.
+   */
   useEffect(() => {
+    if (activePetLoading && activePetId === null) return;
+
     let cancelled = false;
 
-    getMyPet().then(({ pet: row, error: failure }) => {
+    getMyPet(activePetId).then(({ pet: row, error: failure }) => {
       if (cancelled) return;
       if (failure) return setPetError(failure);
       if (!row) return setPetError("Todavía no hay ninguna mascota");
+      // **Cleared here too, because a switch re-runs this without `reload`.**
+      // The error used to be cleared only by the press that retried, which
+      // was the one way this effect ran again; choosing another pet while the
+      // error is up now runs it, and an answer that arrived would otherwise
+      // sit behind the old sentence.
+      setPetError(null);
       setPet(row);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [attempt]);
+  }, [attempt, activePetId, activePetLoading]);
 
   useEffect(() => {
     if (!petId) return;
@@ -182,12 +254,15 @@ export default function Health() {
       incidentsFor(petId),
     ]).then(([weighed, treated, incident]) => {
       if (cancelled) return;
-      setWeights(weighed.weights);
-      setTreatments(treated.treatments);
-      setIncidents(incident.events);
-      // One message for both: a tutor who cannot reach the server cannot
-      // reach it twice, and two identical lines read as two faults.
-      setDataError(weighed.error ?? treated.error);
+      setRead({
+        petId,
+        weights: weighed.weights,
+        treatments: treated.treatments,
+        incidents: incident.events,
+        // One message for both: a tutor who cannot reach the server cannot
+        // reach it twice, and two identical lines read as two faults.
+        error: weighed.error ?? treated.error,
+      });
     });
 
     return () => {
@@ -289,9 +364,14 @@ export default function Health() {
             <Skeleton width="100%" height={72} />
           </View>
         ) : latest === null ? (
+          // **Una pregunta, no el informe de un hueco.** «Todavía no le has
+          // pesado» dice lo que no has hecho; esta dice lo que la app quiere
+          // saber, que es además la única pregunta que hay aquí y tiene un
+          // solo número por respuesta, con la acción flotante a mano para
+          // darla. La segunda frase se queda porque es la que explica por
+          // qué molestarse.
           <Text className="mb-4 text-text-tertiary">
-            Todavía no le habéis pesado. El primer peso es el que da sentido a
-            todos los demás.
+            {`¿Cuánto pesa ${pet.name}? El primer peso es el que da sentido a todos los demás.`}
           </Text>
         ) : (
           <Pressable

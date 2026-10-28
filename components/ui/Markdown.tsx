@@ -37,7 +37,17 @@ export function Inline({ text }: { text: string }) {
         if (run.startsWith("**") && run.endsWith("**")) {
           return (
             <Text key={index} className="font-semibold text-text-primary">
-              {run.slice(2, -2)}
+              {/* **Vuelve a entrar, porque los dos marcadores se anidan.** El
+                  `split` de arriba prueba la negrita primero, así que un
+                  tramo en negrita se lleva entero lo que haya dentro —
+                  backticks incluidos— y devolverlo en crudo los imprime como
+                  caracteres. Pasó en el changelog la primera vez que una
+                  entrada escribió **`pnpm test` hace tal cosa**, y lo cazó
+                  `e2e/settings.spec.ts`, que afirma que el cuerpo renderizado
+                  no contiene ni un acento grave. La recursión termina a la
+                  primera: `[^*]+` garantiza que aquí dentro ya no queda
+                  ningún asterisco. */}
+              <Inline text={run.slice(2, -2)} />
             </Text>
           );
         }

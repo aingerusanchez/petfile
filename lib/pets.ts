@@ -388,23 +388,65 @@ export async function updatePetPhoto(
   }
 }
 
-export async function getMyPet(): Promise<{
-  pet: PetRow | null;
+// Explicit ordering: without it the list comes back in whatever order Postgres
+// finds the rows, so "the first pet" would differ between calls. With it, the
+// oldest sheet is the one `pickActivePet` falls back to, and that is stable.
+export async function listMyPets(): Promise<{
+  pets: PetRow[];
   error: string | null;
 }> {
-  // Explicit ordering: without it, `limit(1)` picks an arbitrary row once the
-  // account has more than one pet, so "the" pet would differ between calls.
   const query = supabase
     .from("pets")
     .select("*")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
+
+  try {
+    const { data, error } = await withTimeout(query, "listMyPets");
+    if (error) return { pets: [], error: describeFailure(error, "listMyPets") };
+    return { pets: data ?? [], error: null };
+  } catch (cause) {
+    return { pets: [], error: describeFailure(cause, "listMyPets") };
+  }
+}
+
+// Which of the account's pets is the active one. A stored id that no longer
+// matches any sheet (it was deleted from the other phone) falls back to the
+// oldest, rather than to nothing: the account still has a pet.
+export function pickActivePet(
+  pets: PetRow[],
+  storedId: string | null,
+): PetRow | null {
+  if (pets.length === 0) return null;
+  return pets.find((pet) => pet.id === storedId) ?? pets[0];
+}
+
+// Reads the list itself rather than delegating to `listMyPets`: the failure
+// sentence is named by the operation, and the tutor looking at one dog's diary
+// is reading their own pet's sheet, not "las fichas". Three repeated lines cost
+// less than the wrong phrase on every screen that calls this.
+//
+// **And the ordering is one of the three, for the same reason it is there in
+// `listMyPets`.** Without it Postgres answers in whatever order it finds the
+// rows, so `pickActivePet`'s fallback — the oldest sheet — would be a
+// different dog between calls, and every screen that has no stored choice
+// yet would disagree with the next. Flipping it to `descending` is the
+// mutation to fear: nothing throws, nothing looks broken, and the seven
+// screens that call this quietly start showing the newest sheet.
+// `lib/__tests__/pets.read.test.ts` asserts the arguments, because the
+// behaviour here cannot.
+export async function getMyPet(storedId: string | null = null): Promise<{
+  pet: PetRow | null;
+  error: string | null;
+}> {
+  const query = supabase
+    .from("pets")
+    .select("*")
+    .order("created_at", { ascending: true });
 
   try {
     const { data, error } = await withTimeout(query, "getMyPet");
     if (error) return { pet: null, error: describeFailure(error, "getMyPet") };
-    return { pet: data, error: null };
+    return { pet: pickActivePet(data ?? [], storedId), error: null };
   } catch (cause) {
     return { pet: null, error: describeFailure(cause, "getMyPet") };
   }

@@ -18,6 +18,11 @@ export { LoadingScreen } from "./LoadingScreen";
 export { MonthCalendar, type CalendarMark } from "./MonthCalendar";
 export { Inline, Markdown } from "./Markdown";
 export { MarkdownHelp } from "./MarkdownHelp";
+export {
+  MIN_SWITCHABLE_PETS,
+  PetSwitcher,
+  type PetChoice,
+} from "./PetSwitcher";
 export { Screen } from "./Screen";
 export { Segmented } from "./Segmented";
 export { ScreenHeader } from "./ScreenHeader";

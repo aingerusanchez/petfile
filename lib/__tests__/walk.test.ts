@@ -1,8 +1,10 @@
 import {
   elapsedMinutes,
+  NO_RUNNING_WALKS,
   parseRunningWalk,
-  serialiseRunningWalk,
   walkOutcome,
+  withoutRunningWalk,
+  withRunningWalk,
 } from "../walk";
 
 const at = (iso: string) => new Date(iso);
@@ -11,19 +13,66 @@ const MINUTE = 60_000;
 
 describe("parseRunningWalk", () => {
   it("reads back what it wrote", () => {
-    expect(parseRunningWalk(serialiseRunningWalk("walk-1"))).toBe("walk-1");
+    expect(parseRunningWalk(withRunningWalk(null, "p1", "walk-1"), "p1")).toBe(
+      "walk-1",
+    );
   });
 
   it("returns null for nothing stored", () => {
-    expect(parseRunningWalk(null)).toBeNull();
+    expect(parseRunningWalk(null, "p1")).toBeNull();
   });
 
   it("returns null for a corrupt blob rather than throwing", () => {
-    expect(parseRunningWalk("{not json")).toBeNull();
+    expect(parseRunningWalk("{not json", "p1")).toBeNull();
   });
 
   it("returns null when the id is not a string", () => {
-    expect(parseRunningWalk(JSON.stringify({ id: 7 }))).toBeNull();
+    expect(parseRunningWalk(JSON.stringify({ id: 7 }), "p1")).toBeNull();
+  });
+
+  it("guarda un paseo por mascota sin pisar el de la otra", () => {
+    const a = withRunningWalk(null, "p1", "w1");
+    const b = withRunningWalk(a, "p2", "w2");
+    expect(parseRunningWalk(b, "p1")).toBe("w1");
+    expect(parseRunningWalk(b, "p2")).toBe("w2");
+  });
+
+  it("una mascota sin paseo abierto no tiene paseo", () => {
+    expect(
+      parseRunningWalk(withRunningWalk(null, "p1", "w1"), "p2"),
+    ).toBeNull();
+  });
+
+  it("quitar el de una deja el de la otra", () => {
+    const two = withRunningWalk(withRunningWalk(null, "p1", "w1"), "p2", "w2");
+    const left = withoutRunningWalk(two, "p1");
+    expect(parseRunningWalk(left, "p1")).toBeNull();
+    expect(parseRunningWalk(left, "p2")).toBe("w2");
+  });
+
+  it("quitar la última deja el blob que dice que no hay ninguna", () => {
+    const one = withRunningWalk(null, "p1", "w1");
+    expect(withoutRunningWalk(one, "p1")).toBe(NO_RUNNING_WALKS);
+    expect(withoutRunningWalk(null, "p1")).toBe(NO_RUNNING_WALKS);
+    expect(withoutRunningWalk(one, "p2")).not.toBe(NO_RUNNING_WALKS);
+  });
+
+  // Review Focus 2: se actualiza la app con un paseo abierto.
+  it("adopta el blob viejo de una sola ranura", () => {
+    expect(parseRunningWalk(JSON.stringify({ id: "w1" }), "p1")).toBe("w1");
+  });
+
+  it("la primera escritura reescribe el blob viejo en la forma nueva", () => {
+    const next = withRunningWalk(JSON.stringify({ id: "w1" }), "p2", "w2");
+    expect(parseRunningWalk(next, "p2")).toBe("w2");
+    expect(parseRunningWalk(next, "p1")).toBeNull();
+  });
+
+  it("lo que no se entiende es nada", () => {
+    expect(parseRunningWalk("{not json", "p1")).toBeNull();
+    expect(
+      parseRunningWalk(JSON.stringify({ walks: { p1: 7 } }), "p1"),
+    ).toBeNull();
   });
 });
 

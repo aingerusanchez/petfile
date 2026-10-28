@@ -1,4 +1,4 @@
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { Mars, Plus, Venus } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View, type ScrollView } from "react-native";
@@ -20,6 +20,7 @@ import {
   useToast,
 } from "../components/ui";
 import { useAuth } from "../lib/auth";
+import { useActivePet } from "../lib/pet";
 import {
   createPet,
   getMyPet,
@@ -87,6 +88,18 @@ export default function Onboarding() {
   const router = useRouter();
   const toast = useToast();
   const { celebrate } = useCelebration();
+  const { setActivePetId } = useActivePet();
+  /**
+   * Whether this form was asked for or arrived at.
+   *
+   * `Añadir otra mascota` in Perfil is the only thing that sets it, and it is
+   * the whole difference between the two ways of reaching this route: a tutor
+   * who pressed that wants a second sheet, and a tutor who got here by going
+   * back or following an old link does not. Everything the has-pet check below
+   * exists for is about the second of those.
+   */
+  const { another } = useLocalSearchParams<{ another?: string }>();
+  const deliberate = another === "1";
   const [draft, setDraft] = useState<PetDraft>({
     name: "",
     sex: null,
@@ -137,8 +150,17 @@ export default function Onboarding() {
   }>({ for: null, hasPet: null, error: null });
 
   const fresh = check.for === userId;
-  const hasPet = fresh ? check.hasPet : null;
-  const petCheckError = fresh ? check.error : null;
+  /**
+   * Answered rather than asked when the visit was deliberate.
+   *
+   * `false` is not a claim that the account has no pet — it says the question
+   * does not arise. The check is not run in that case (see the effect), so
+   * reading `check` here would leave `hasPet` null forever and the screen on
+   * its spinner; and an error from a check nobody needed would put a
+   * `Reintentar` between a tutor and the form they asked for.
+   */
+  const hasPet = deliberate ? false : fresh ? check.hasPet : null;
+  const petCheckError = deliberate ? null : fresh ? check.error : null;
 
   // Only the fields the tutor has already submitted may speak, and each says
   // whatever is wrong with it *now*.
@@ -270,9 +292,16 @@ export default function Onboarding() {
 
   // Onboarding is reachable directly (deep link, back navigation), so it needs
   // the same has-pet check `app/index.tsx` does — otherwise a user who already
-  // has a pet gets the creation form again and can make a duplicate.
+  // has a pet gets the creation form again and can make a duplicate. That is
+  // still exactly true for everyone who arrives without asking.
+  //
+  // It is not true for `Añadir otra mascota`, which is a tutor saying they
+  // want a second sheet: a second pet is the feature, not the duplicate the
+  // guard was built to prevent. So the request is not made at all in that
+  // case — there is nothing to learn from it, and a failed check would only
+  // stand in the way.
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || deliberate) return;
 
     let cancelled = false;
     getMyPet()
@@ -299,7 +328,7 @@ export default function Onboarding() {
     return () => {
       cancelled = true;
     };
-  }, [userId, attempt]);
+  }, [userId, attempt, deliberate]);
 
   // A failed check must not fall through to the form (that would risk a
   // duplicate pet) or leave the spinner spinning forever.
@@ -364,12 +393,29 @@ export default function Onboarding() {
     try {
       const { petId, error: failure } = await createPet(draft);
       if (petId) {
+        /**
+         * **The pet you just filled in is the pet you land on.**
+         *
+         * Without this the choice stays unmade and every screen falls back to
+         * the oldest sheet, so a tutor who had just registered Toby arrived at
+         * Luna's diary — the wrong-dog defect this whole change exists to
+         * remove, coming in through the one door nobody had looked at.
+         *
+         * **Unconditional, not only for the second pet.** On the very first
+         * registration there is one sheet and `pickActivePet` would land on it
+         * anyway, so the call changes nothing visible — it records the choice
+         * instead of leaning on the fallback to guess right, and it leaves one
+         * path to understand here rather than two. A branch that is not needed
+         * is a branch somebody will break.
+         */
+        setActivePetId(petId);
         // The toast host lives above the Stack, so this survives the
         // navigation that immediately unmounts this screen — which is the
         // whole reason the flow no longer has to stall to be understood.
-        // Once in an account's life: v0 is single-pet, and onboarding
-        // redirects away for good afterwards. That is what earns the effect —
-        // it can never become the repeated noise that usually ruins one.
+        // Once per pet, which is as rare as it sounds: a household registers
+        // one dog, and a second only when a second arrives. That is what earns
+        // the effect — it can never become the repeated noise that usually
+        // ruins one.
         celebrate();
         toast.show({
           variant: "success",

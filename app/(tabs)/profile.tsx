@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import {
   Mars,
   Pencil,
+  Plus,
   Power,
   Settings2,
   Trash2,
@@ -22,6 +23,8 @@ import {
   ErrorNote,
   Group,
   LoadingScreen,
+  MIN_SWITCHABLE_PETS,
+  PetSwitcher,
   Screen,
   Sheet,
   Text,
@@ -29,9 +32,11 @@ import {
   TOUCH_TARGET,
   useCelebration,
   useToast,
+  type PetChoice,
 } from "../../components/ui";
 import { describeAge } from "../../lib/age";
 import { useAuth } from "../../lib/auth";
+import { useActivePet } from "../../lib/pet";
 import { useSettings } from "../../lib/settings";
 import { birthdayOn, daysUntilBirthday } from "../../lib/dates";
 import {
@@ -41,8 +46,9 @@ import {
 } from "../../lib/duration";
 import {
   deletePet,
-  getMyPet,
   isMixedShown,
+  listMyPets,
+  pickActivePet,
   petEditFromRow,
   updatePet,
   updatePetPhoto,
@@ -162,10 +168,25 @@ export default function Profile() {
   const router = useRouter();
   const toast = useToast();
   const { celebrate } = useCelebration();
+  const {
+    activePetId,
+    loading: activePetLoading,
+    setActivePetId,
+  } = useActivePet();
 
+  /** Every sheet this account can reach, oldest first — the switcher's list. */
+  const [pets, setPets] = useState<PetRow[]>([]);
   const [pet, setPet] = useState<PetRow | null>(null);
   const [edit, setEdit] = useState<PetEdit | null>(null);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  /**
+   * One signed URL per pet id, so the portrait above and every face in the
+   * switcher come from the same read rather than from two.
+   *
+   * Keyed rather than a list because it is written once per load and read by
+   * id in two places; a missing key is a pet with no photo, which `Avatar`
+   * already answers with the initial.
+   */
+  const [faces, setFaces] = useState<Record<string, string | null>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   /**
    * Which fields have been submitted, not what is wrong with them.
@@ -196,32 +217,56 @@ export default function Profile() {
   const [typedName, setTypedName] = useState("");
   const [attempt, setAttempt] = useState(0);
 
+  /**
+   * The list, and which of it this phone is looking at.
+   *
+   * **It waits while the stored choice is still being read.** `activePetId`
+   * is `null` in two different ways (see the docblock in `lib/pet.tsx`): while
+   * `loading` is up it only means the disk has not answered yet, and resolving
+   * on it would show the oldest pet and then swap the screen out from under
+   * the tutor a moment later. A non-null id is already a real choice — made
+   * this session, before the read landed — and is safe to resolve on, which is
+   * why the guard tests both.
+   *
+   * **`cancelled` is what keeps the answers in order.** With `activePetId` in
+   * the dependencies, a switch fires a second request while the first is in
+   * flight, and the slower of the two would otherwise paint the pet the tutor
+   * just left over the one they chose.
+   */
   useEffect(() => {
+    if (activePetLoading && activePetId === null) return;
+
     let cancelled = false;
 
-    getMyPet().then(async ({ pet: row, error }) => {
+    listMyPets().then(async ({ pets: rows, error }) => {
       if (cancelled) return;
       if (error) {
         setLoadError(error);
         return;
       }
+      const row = pickActivePet(rows, activePetId);
       if (!row) {
         setLoadError("Todavía no hay ninguna mascota que editar");
         return;
       }
+      setPets(rows);
       setPet(row);
       setEdit(petEditFromRow(row));
       // The column holds an object path, so it has to be signed before an
       // <Image> can read it. A failure here is silent on purpose: the initial
       // is a complete answer.
-      const url = await signedPhotoUrl(row.photo_url);
-      if (!cancelled) setPhotoUri(url);
+      const signed = await Promise.all(
+        rows.map(
+          async (r) => [r.id, await signedPhotoUrl(r.photo_url)] as const,
+        ),
+      );
+      if (!cancelled) setFaces(Object.fromEntries(signed));
     });
 
     return () => {
       cancelled = true;
     };
-  }, [attempt]);
+  }, [attempt, activePetId, activePetLoading]);
 
   const dirty =
     !!pet &&
@@ -368,7 +413,7 @@ export default function Profile() {
       toast.show({ variant: "error", message: columnError });
       return false;
     }
-    setPhotoUri(null);
+    setFaces((f) => ({ ...f, [pet.id]: null }));
     setEditingPhoto(false);
     setAttempt((n) => n + 1);
     return true;
@@ -385,14 +430,47 @@ export default function Profile() {
     }
 
     setConfirmingDelete(false);
-    // Straight to registration, not to "/". Both `app/index.tsx` and
-    // `app/(tabs)/index.tsx` answer to "/", and the tab group wins that race —
-    // measured: deleting the pet landed on the day view with no pet behind it.
-    // Onboarding is the honest destination anyway, and its own guard sends the
-    // tutor away again if a pet somehow exists.
+    setEditing(null);
+
+    const survivor = pets.find((row) => row.id !== pet.id);
+    if (survivor) {
+      // Another sheet is left, so there is nowhere to navigate to — and the
+      // choice has to be *moved*, not merely reloaded.
+      //
+      // **Reloading only ever fixed this screen.** `pickActivePet` falls back
+      // to the oldest of what remains, so Perfil recovers the moment its list
+      // comes back whatever the stored id says. The other four screens never
+      // ask again: their reads hang off `activePetId`, and the tabs of Expo
+      // Router stay mounted behind this one, so an id still naming the
+      // deleted dog leaves the Diario headed "Nala" with a FAB writing
+      // against a `pet_id` the server no longer has. Measured by reading:
+      // nothing throws and nothing reloads until the app next comes back to
+      // the foreground.
+      //
+      // **So this points the id at the survivor, which is the one thing all
+      // five screens listen to.** Not the same act as leaving it alone: the
+      // fallback answers "who is active" for whoever asks again, and this
+      // answers it for everyone, now. The survivor is the oldest sheet left
+      // — `pets` is ordered oldest first — which is the same dog the
+      // fallback would have chosen, so nothing about Perfil changes.
+      //
+      // `setAttempt` stays beside it: both land in one render, so the list is
+      // re-read once, and the reload no longer depends on the id having
+      // moved to do its work.
+      setActivePetId(survivor.id);
+      setAttempt((n) => n + 1);
+      return true;
+    }
+
+    // Nothing left. Straight to registration, not to "/". Both `app/index.tsx`
+    // and `app/(tabs)/index.tsx` answer to "/", and the tab group wins that
+    // race — measured: deleting the pet landed on the day view with no pet
+    // behind it. Onboarding is the honest destination anyway, and its own
+    // guard sends the tutor away again if a pet somehow exists, which also
+    // covers the case where the list in hand was a moment out of date.
     router.replace("/onboarding");
     return true;
-  }, [pet, router, toast]);
+  }, [pet, pets, router, setActivePetId, toast]);
 
   if (loadError) {
     return (
@@ -412,6 +490,17 @@ export default function Profile() {
   }
 
   if (!pet || !edit) return <LoadingScreen />;
+
+  const photoUri = faces[pet.id] ?? null;
+  /**
+   * The switcher's list. A pet whose face has not been signed yet simply has
+   * none, which is the same answer as a pet with no photo.
+   */
+  const choices: PetChoice[] = pets.map((row) => ({
+    id: row.id,
+    name: row.name.trim(),
+    photoUri: faces[row.id] ?? null,
+  }));
 
   const name = pet.name.trim();
   const nameMatches =
@@ -468,6 +557,37 @@ export default function Profile() {
 
   return (
     <Screen scroll edges={["top"]}>
+      {/* **Above the file, because it says whose file this is.** A control
+          that changes everything below it cannot sit under the thing it
+          changes.
+
+          The gap is here and not inside the switcher because the component
+          renders a fragment and draws nothing below two pets: a wrapper that
+          was always present would leave 24dp of nothing at the top of the
+          single-pet profile, which is the one screen this feature promised
+          not to touch. Hence the same threshold on both sides, from one
+          constant.
+
+          `activeId` is `pet.id` and never `activePetId`: the stored id can be
+          null on a first run or name a sheet deleted from another phone, and
+          the row has to mark the pet this screen is actually showing. */}
+      {choices.length >= MIN_SWITCHABLE_PETS ? (
+        <View className="mb-6">
+          <PetSwitcher
+            pets={choices}
+            activeId={pet.id}
+            onSelect={(id) => {
+              // The open block belongs to the pet that is leaving. Its draft
+              // is about to be replaced by the load, and its submitted fields
+              // and goal text would be left describing a dog that is no
+              // longer on screen.
+              closeSection();
+              setActivePetId(id);
+            }}
+          />
+        </View>
+      ) : null}
+
       {/* The file's cover: who this is, at a glance, before any control. */}
       <View className="mb-8 flex-row items-center gap-5">
         <Avatar
@@ -696,7 +816,17 @@ export default function Profile() {
               variant="outlined"
               tone="danger"
               icon={Trash2}
-              label={`Borrar la ficha de ${name}`}
+              // **The name is spoken, not printed.** It used to be in the
+              // visible label, which put a 40-character field inside a
+              // button: «Borrar la ficha de Wolfgang Amadeus Montenegro»
+              // overflowed its own red outline on the device. Truncating it
+              // would be worse than leaving it out — a half-written name on
+              // the one control that cannot be undone. The sheet that opens
+              // next asks «¿Borrar la ficha de …?» in a heading that has the
+              // room, and the accessible name keeps it for a reader who has
+              // no other way to tell which dog this button is about.
+              label="Borrar esta ficha"
+              accessibilityLabel={`Borrar la ficha de ${name}`}
               onPress={() => {
                 setTypedName("");
                 setConfirmingDelete(true);
@@ -833,6 +963,22 @@ export default function Profile() {
         onPress={() => router.push("/settings")}
       />
 
+      {/* **Always here, even with one pet** — with a single dog it is the only
+          way a second one can ever exist, and hiding it until there are two
+          would be a door that opens once you are already through it.
+
+          A link rather than a door like Ajustes: adding a pet is rare, and an
+          outlined full-width button here would read as the third equal action
+          on a page whose subject is this dog. `another=1` is what tells
+          onboarding that this visit was asked for rather than stumbled into. */}
+      <Button
+        testID="profile-add-pet"
+        variant="link"
+        icon={Plus}
+        label="Añadir otra mascota"
+        onPress={() => router.push("/onboarding?another=1")}
+      />
+
       {/* Signing out is routine and reversible, so it keeps its place on the
           page — and it is now the only exit that does, which is the point. */}
       <View className="mt-6 border-t border-border-default pt-8">
@@ -873,7 +1019,7 @@ export default function Profile() {
               {`¿Borrar la ficha de ${name}?`}
             </Text>
             <Text className="mb-5 text-text-secondary">
-              Se borra su ficha y todo lo que habéis registrado. No hay vuelta
+              Se borra su ficha y todo lo que has registrado. No hay vuelta
               atrás.
             </Text>
             {/* The name goes in the label as a request, not as an example: the

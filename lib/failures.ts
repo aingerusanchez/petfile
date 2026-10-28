@@ -98,6 +98,7 @@ export const FAILURE_ACTIONS: Record<string, string> = {
   incidentsFor: "leer los incidentes",
   // The animal's file.
   getMyPet: "leer la ficha",
+  listMyPets: "leer las fichas",
   createPet: "registrar la ficha",
   updatePet: "guardar la ficha",
   deletePet: "borrar la ficha",

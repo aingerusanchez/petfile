@@ -11,6 +11,7 @@ import {
   Text,
 } from "../components/ui";
 import { MONTHS_ES_SHORT, parseISO } from "../lib/dates";
+import { useActivePet } from "../lib/pet";
 import { getMyPet } from "../lib/pets";
 import { fromDateKey } from "../lib/treatments";
 import { formatWeight, weightsFor, type PetWeightRow } from "../lib/weights";
@@ -37,15 +38,55 @@ import { formatWeight, weightsFor, type PetWeightRow } from "../lib/weights";
 export default function Weights() {
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
+  const { activePetId, loading: activePetLoading } = useActivePet();
 
   const [rows, setRows] = useState<PetWeightRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Solo para el estado vacío, que nombra al perro. Se fija en el mismo paso
+  // que las filas y bajo el mismo `cancelled`, así que no puede quedar
+  // nombrando a uno mientras la gráfica dibuja a otro.
+  const [petName, setPetName] = useState<string | null>(null);
 
+  // **It waits while the stored choice is still being read**, and resolves on
+  // a non-null id at once: `null` is "the disk has not answered" while
+  // `loading` is up and "nobody chose" once it is down, and only the second
+  // may fall back to the oldest pet (see `lib/pet.tsx`). **`getMyPet`, not the
+  // list** — this screen draws no switcher, and the failure keeps saying
+  // «leer la ficha». **`cancelled` keeps the answers in order** now that the
+  // pet is a dependency: the slower of two reads must not paint the dog the
+  // tutor left.
+  //
+  // Nothing here writes, and `rows` are only ever set from the pet this very
+  // run read, so there is no mixed state that could reach the server — the
+  // screen is a push over the tabs, so the pet cannot change under it in
+  // practice. What a switch *could* leave on screen is handled inside the
+  // `then` below.
   useEffect(() => {
+    if (activePetLoading && activePetId === null) return;
+
     let cancelled = false;
-    getMyPet().then(async ({ pet, error: failure }) => {
+    getMyPet(activePetId).then(async ({ pet, error: failure }) => {
       if (cancelled) return;
       if (failure || !pet) return setError(failure ?? "No hay ninguna mascota");
+      // **Back to the skeleton the moment the pet lands, error and rows
+      // together.** `error` takes the whole screen and nothing but this
+      // effect ever clears it, so after a pet change the old sentence would
+      // have covered the new dog for a whole round trip — the line
+      // `app/(tabs)/health.tsx` and `app/treatments.tsx` already carry, for
+      // the same reason.
+      //
+      // `rows` goes with it, and here that is not symmetry for its own sake:
+      // those two screens derive their rows against the pet, so clearing the
+      // error uncovers a skeleton. This screen holds a bare array, so on its
+      // own the cleared error would uncover the *previous* dog's chart —
+      // which is what the gap already shows when there is no error to cover
+      // it. Two lines buy the skeleton in both cases, where identifying the
+      // rows would mean identifying them against a pet the chart itself
+      // never reads. On mount both are already null, so this costs nothing
+      // there.
+      setError(null);
+      setRows(null);
+      setPetName(pet.name);
       const { weights, error: listError } = await weightsFor(pet.id, 200);
       if (cancelled) return;
       setRows(weights);
@@ -54,7 +95,7 @@ export default function Weights() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activePetId, activePetLoading]);
 
   const points = [...(rows ?? [])]
     .reverse()
@@ -107,8 +148,15 @@ export default function Weights() {
       ) : rows === null ? (
         <LoadingScreen />
       ) : points.length === 0 ? (
+        // **Enuncia, no pregunta.** Esta pantalla es de solo lectura: no
+        // tiene con qué apuntar un peso, así que «¿Cuánto pesa Loki?» —la
+        // frase que sí usa la tarjeta de Salud, donde hay acción— sería aquí
+        // un callejón. Dice para qué sirve la pantalla, como el estado vacío
+        // de tratamientos.
         <Text testID="weights-empty" className="text-text-tertiary">
-          Todavía no le habéis pesado.
+          {petName
+            ? `Aquí aparecerán los pesajes de ${petName}.`
+            : "Aquí aparecerán los pesajes."}
         </Text>
       ) : (
         <>

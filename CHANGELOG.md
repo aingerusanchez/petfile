@@ -18,6 +18,138 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.27.1] — 2026-10-28
+
+Cuatro cosas que se vieron usando v0.27.0 el primer día, más una quinta que
+llevaba ahí desde siempre y que solo aparece con un nombre largo.
+
+### Arreglado
+
+- **La edad dice «1 año» desde el primer cumpleaños.** Contaba en meses hasta
+  los dos años, así que Loki sopló una vela y la ficha siguió diciendo «13
+  meses». Ahora: meses por debajo del año, «1 año» el día justo, «1 año y N
+  meses» hasta el segundo, y años enteros a partir de ahí. Una fecha de
+  nacimiento aproximada deja de dar los meses pasado el año —sabe el mes pero
+  no el día, que es exactamente la precisión que «1 año y 1 mes» aparenta
+  tener— y dice «alrededor de un año».
+
+- **Un nombre largo ya no se sale de su botón.** «Borrar la ficha de Wolfgang
+  Amadeus Montenegro» cruzaba el contorno rojo y seguía fuera: en React Native
+  una etiqueta no se encoge por defecto, y los puntos suspensivos solo
+  aparecen en una caja que ya es estrecha. Afectaba a todos los botones de la
+  app, con cualquier nombre de más de treinta caracteres. Ese botón además
+  deja de llevar el nombre dentro: truncarlo a medias en el único control sin
+  vuelta atrás sería peor que omitirlo, y la pregunta que sale después lo dice
+  entero.
+
+- **La app ya no da por hecho que el perro tenga dos tutores.** Seis frases
+  contaban con una pareja detrás de la pantalla: «Todavía no le habéis pesado»,
+  «todo lo que habéis registrado», «Qué le habéis dado», «A quién preguntáis»,
+  «Cuando salgáis a pasear». Esta casa son dos tutores y por eso se
+  escribieron así, pero no sabemos cómo se compone la siguiente, y una persona
+  sola leyendo un plural que no la incluye es la app hablándole de otra gente.
+
+  **El plural se queda donde habla del tutor y del perro**, que es verdad de
+  cualquier casa: «¡Ya estáis dentro!» y «vuestro día a día» son los dos, no
+  dos personas. Y donde se podía, el sujeto pasa a ser el perro: los avisos de
+  hora futura del paseo dicen ahora «¿Todavía no ha vuelto?» y «¿Todavía no ha
+  salido?», emparejando con el «¿Todavía no ha pasado?» que esa misma línea ya
+  decía para el resto de entradas.
+
+- **El peso que falta se pregunta en vez de reportarse.** «Todavía no le
+  habéis pesado» informaba de un hueco y, de paso, de quién no lo había
+  tapado. La tarjeta de Salud dice ahora **«¿Cuánto pesa Loki?»**, que es la
+  pregunta que la app tiene de verdad: una sola respuesta, un número, y la
+  acción flotante a mano para darla. La pantalla de pesos no recibe la misma
+  frase porque no podría contestarla —es de solo lectura— y dice para qué
+  sirve: «Aquí aparecerán los pesajes de Loki».
+
+- **Un día sin paseos nombra al perro en vez de medir su cero.** Decía «0 min
+  paseados», que a primera hora de la mañana era la frase entera que ofrecía
+  la pantalla. Ahora dice «Loki aún no ha salido». El sujeto es el perro a
+  propósito: informa de que el paseo no ha empezado, igual que el resto de la
+  línea informa de lo que fue, en vez de preguntarle nada a quien lee.
+
+- **El código dentro de una negrita dejaba sus acentos graves a la vista.** El
+  renderizador de notas prueba la negrita antes que el código, así que un
+  tramo en negrita se llevaba entero lo de dentro y lo imprimía en crudo. Solo
+  se veía al anidar los dos marcadores, cosa que no había hecho ninguna nota
+  ni ninguna entrada de este fichero hasta esta versión.
+
+### Interno
+
+- **`pnpm test` deja de recorrer los worktrees de `.claude/`.** La app de
+  escritorio crea copias de este repo ahí dentro, y la suite las recorría
+  además del propio árbol: 969 pruebas en vez de 589, con nueve suites en rojo
+  que eran de otra rama. La ruta solo aparece al pie de cada error, así que la
+  primera lectura era que lo recién escrito había roto medio repositorio.
+
+## [v0.27.0] — 2026-10-27
+
+### Nuevo
+
+- **La app atiende a más de un perro.** Arriba de Perfil hay una fila con la
+  foto, el nombre y un chevrón; al pulsarla se abre una hoja con las fichas de
+  la casa y se marca la que estás mirando. **La fila no existe mientras haya
+  una sola mascota**, que es el caso de hoy: lo que no se puede cambiar no
+  merece un control.
+
+  Lo que sí está siempre es **«Añadir otra mascota»**, al pie de Perfil. Tenía
+  que estarlo: si se ocultara con una sola ficha, no habría forma de llegar
+  nunca a la segunda.
+
+- **Diario, Salud, pesos y tratamientos leen de la mascota activa.** Seis
+  pantallas preguntaban cada una por su cuenta «¿cuál es el perro?» y todas
+  contestaban lo mismo —la ficha más antigua— porque no había otra. Ahora la
+  pregunta la contesta un sitio, y la elección **vive en el dispositivo**,
+  igual que los formatos de hora: la casa son dos tutores con un móvil cada
+  uno, y a qué perro está mirando cada cual es asunto de quien sostiene el
+  teléfono.
+
+- **Cambiar de perro no cambia de día.** Si estabas mirando el martes pasado,
+  sigues en el martes pasado con el otro animal. Son dos ejes distintos y
+  mezclarlos obligaría a volver a navegar en cada cambio.
+
+### Arreglado
+
+Los cuatro de abajo **no los ha sufrido nadie**, y conviene decir por qué: no
+se podía tener una segunda mascota, así que ninguno era alcanzable. Son los
+que habrían aparecido el primer día que hubiera dos, en silencio y sin un
+mensaje de error, que es la peor forma de aparecer.
+
+- **Una dosis se movía de perro.** Corregir la hora de un tratamiento buscaba
+  la fila solo por su identificador, sin comprobar de quién era, y borrarla
+  borraba la del otro animal.
+
+- **Un peso se escribía encima del de otro animal**, y borrarlo borraba el
+  suyo, por la misma razón.
+
+- **El paseo en curso se guardaba en una sola ranura.** Empezar un paseo con
+  un perro y abrir la ficha del otro mostraba el cronómetro corriendo sobre el
+  que estaba en casa. Ahora el almacenamiento guarda un paseo por mascota, y
+  el botón espera a saber cuál es el suyo antes de decidir qué dice.
+
+- **La regla de obsolescencia podía borrar la nota de la mascota equivocada.**
+  Cerrar o corregir un paseo arrastraba una conclusión que no decía de qué
+  animal era, y la ceremonia de cierre se repetía sobre la barra del otro.
+
+Y tres más que sí son de esta versión:
+
+- **Borrar la mascota activa deja la superviviente activa**, en vez de dejar
+  apuntado un identificador que ya no existe.
+
+- **Un error de hace un rato no tapa a la mascota nueva.** Al cambiar de
+  ficha, el aviso de que algo había fallado se quedaba en pantalla sobre unos
+  datos que sí habían cargado.
+
+- **Las dos X de cerrar una hoja vuelven a medir 48 dp.** El margen negativo
+  que las alinea con el borde del panel no las desplaza: los 10,5 dp que las
+  empujan fuera de la caja de contenido quedan recortados, y un píxel
+  recortado no recibe toque. Medido en el teléfono: 37,5 × 48 dp antes,
+  48 × 48 después. Eran los dos únicos sitios con ese patrón — la hoja del
+  conmutador, que entra en esta versión, y la ayuda de formato de las notas,
+  que lo arrastraba desde que existe.
+
 ## [v0.26.0] — 2026-10-24
 
 ### Arreglado

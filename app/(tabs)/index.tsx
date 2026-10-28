@@ -80,6 +80,7 @@ import {
   type PetEventRow,
 } from "../../lib/events";
 import { barProgress, barStateAt } from "../../lib/goalbar";
+import { useActivePet } from "../../lib/pet";
 import { getMyPet, type PetRow } from "../../lib/pets";
 import {
   describeTreatment,
@@ -102,10 +103,12 @@ import {
   type PendingStop,
 } from "../../lib/pending";
 import {
+  NO_RUNNING_WALKS,
   parseRunningWalk,
-  serialiseRunningWalk,
   walkOutcome,
   WALK_STORAGE_KEY,
+  withoutRunningWalk,
+  withRunningWalk,
 } from "../../lib/walk";
 import {
   describeStools,
@@ -174,7 +177,7 @@ const KINDS: Record<
     editAction: "Editar medicación",
     icon: Pill,
     tone: colors.warning,
-    field: { label: "Qué le habéis dado", placeholder: "Apoquel, media" },
+    field: { label: "Qué le has dado", placeholder: "Apoquel, media" },
     describe: (event) => eventDetail(event, "what"),
   },
   incident: {
@@ -198,6 +201,24 @@ const ORDER: EventKind[] = ["walk", "meal", "medication", "incident"];
  * marks stop rather than lying, which the calendar says in words.
  */
 const MARKED_MONTHS = 12;
+
+/**
+ * Takes one pet's walk out of the device's note and leaves the others.
+ *
+ * **Read, modify, write, because the blob is every pet's.** A bare
+ * `removeItem` would clear the walk of a pet nobody was stopping. It throws
+ * when storage does, and every caller treats the note as best-effort.
+ */
+async function clearRunningWalk(petId: string | null): Promise<void> {
+  if (!petId) return;
+  const raw = await AsyncStorage.getItem(WALK_STORAGE_KEY);
+  const next = withoutRunningWalk(raw, petId);
+  // **The key goes when its last walk does**, as it did when the note held one:
+  // nothing in storage is what a phone that never started a walk looks like.
+  if (next === NO_RUNNING_WALKS)
+    await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+  else await AsyncStorage.setItem(WALK_STORAGE_KEY, next);
+}
 
 /** The same clock time, `by` days away. */
 function shiftDays(day: Date, by: number): Date {
@@ -302,6 +323,7 @@ export default function Home() {
   const toast = useToast();
   const { celebrate } = useCelebration();
   const { settings } = useSettings();
+  const { activePetId, loading: activePetLoading } = useActivePet();
   /**
    * The day on screen, and the boundary it cannot pass.
    *
@@ -363,6 +385,34 @@ export default function Home() {
    */
   const [markedEvents, setMarkedEvents] = useState<PetEventRow[] | null>(null);
   /**
+   * Which pet `markedEvents` and `marksError` were read for.
+   *
+   * **Without it a reopened calendar draws the other dog's year.** The marks
+   * are deliberately kept between openings, so that a reopen shows the grid
+   * at once while the new window loads — and with two pets, "the previous
+   * rows" can belong to the one the tutor just left. Derived against
+   * `petId` where the calendar is drawn, never cleared by an effect.
+   *
+   * **And this is the first of the two shapes "whose rows are these?" takes
+   * in this file, so here is why there are two.** `log.petId` and
+   * `treatmentsRead.petId` carry the owner *inside* the state; `marksFor`
+   * and `readFor` carry it in a second state *beside* it. The rule is not
+   * taste: the owner goes inside when the state is a single object that is
+   * written in one go, because then there is exactly one write and the two
+   * halves cannot be set apart from each other — the bug that cost three
+   * rounds elsewhere in this file was a copy of a fact kept in a ref and
+   * updated at some of the writes. It goes beside when the state it
+   * describes is not ours to reshape that way: `markedEvents` is a bare
+   * `PetEventRow[] | null` the calendar reads, and `runningId` is a bare
+   * id, and wrapping either in an object to carry one string would move the
+   * unwrapping into every reader. **Both forms are derived at the point of
+   * use and neither is ever cleared by an effect** — that part does not
+   * vary, and it is what `react-hooks/set-state-in-effect` asks for. Keep a
+   * new one in whichever shape its state already has; do not unify them for
+   * symmetry.
+   */
+  const [marksFor, setMarksFor] = useState<string | null>(null);
+  /**
    * Every treatment the pet has had, for the day's TRATAMIENTOS section and
    * the calendar.
    *
@@ -378,7 +428,9 @@ export default function Home() {
    * does not wait for it. A failed read draws nothing either, and keeps the
    * rows it had for the calendar: see `readTreatments`.
    */
-  const [treatments, setTreatments] = useState<{
+  const [treatmentsRead, setTreatmentsRead] = useState<{
+    /** The pet these rows belong to. See `treatments`, which derives from it. */
+    petId: string;
     rows: PetTreatmentRow[];
     error: string | null;
   } | null>(null);
@@ -388,7 +440,9 @@ export default function Home() {
    * The log, **and the day it belongs to**.
    *
    * Carrying the key is what lets the screen know its rows are stale without
-   * a second flag: `log.day !== dayKey(day)` is derived, and derived is what
+   * a second flag: `log.day !== dayKey(day)` is derived — and so, since the
+   * pet became a second axis, is `log.petId`: see its own docblock below, and
+   * `loading` where the two are read together. Derived is what
    * `react-hooks/set-state-in-effect` asks for. Before this the rows simply
    * stayed put while the header changed, so tapping ‹ showed "Ayer" over
    * today's four entries for as long as the network took — a tutor checking
@@ -396,6 +450,22 @@ export default function Home() {
    */
   const [log, setLog] = useState<{
     day: string;
+    /**
+     * **The pet these rows are, and the second half of the key.** `null` is a
+     * read that failed, which is no pet's rows and is said under whichever pet
+     * is showing.
+     *
+     * A day alone cannot tell the log of one dog from another's: switching
+     * pets keeps the day on purpose, so the rows of the pet just left carry
+     * the right day, the right `attempt` and no error — and are
+     * indistinguishable from fresh ones. Measured by reading, not on a
+     * device: between `setPet` and the log landing, the new pet's header sat
+     * over the old pet's entries, and the staleness rule, finding the new
+     * pet's running walk among none of them, cleared it from the device's
+     * note. Derived in `loading`, like the day, so there is nothing to keep in
+     * step.
+     */
+    petId: string | null;
     /** The `attempt` this read answered, so a stale log can be told apart. */
     attempt: number;
     events: PetEventRow[];
@@ -452,16 +522,28 @@ export default function Home() {
    * a counter bumped inside a listener.
    */
   const reread = useCallback(() => setUnasked((n) => n + 1), []);
-  /** The walk this device has open, or null. Read once, then kept in step. */
+  /**
+   * The walk this device has open for the pet on screen, or null. Read from
+   * the device whenever the pet is known or changes, then kept in step by
+   * `start`, `stop` and the staleness rule.
+   *
+   * **Only meaningful while `walkChecked` is true.** It is not cleared when
+   * the pet changes, and the read that brings it up to date is asynchronous,
+   * so for a moment it holds the previous pet's walk.
+   */
   const [runningId, setRunningId] = useState<string | null>(null);
+  /**
+   * Which pet `runningId` was last read for. See `walkChecked`.
+   */
+  const [readFor, setReadFor] = useState<string | null>(null);
   /**
    * The stops this device pressed and could not yet tell the server about.
    *
    * **A stop that fails is not a stop that did not happen.** The tutor
    * pressed, the phone recorded the hour, and what is missing is the upload —
    * so the walk is released and the intent waits here and on disk. Read once
-   * at mount beside the running walk, and written by the one branch that
-   * queues. See `lib/pending.ts` for why `pressedAt` is the datum that
+   * at mount, by its own effect and apart from the running walk's, and written
+   * by the one branch that queues. See `lib/pending.ts` for why `pressedAt` is the datum that
    * justifies the whole arrangement.
    */
   const [pending, setPending] = useState<PendingStop[]>([]);
@@ -507,7 +589,7 @@ export default function Home() {
    */
   const [writtenToId, setWrittenToId] = useState<string | null>(null);
   /**
-   * The walk this device has just closed, and the day it was closed on.
+   * The walk this device has just closed, and the day and pet it was closed on.
    *
    * **The goal bar's animation, and nothing else.** It is set only where the
    * server has said yes, it carries the minutes the close actually added, and
@@ -516,6 +598,12 @@ export default function Home() {
    *
    * **The day travels with it** so that a walk closed just before the arrows
    * are pressed cannot animate the day they land on.
+   *
+   * **And so does the pet**, for the same reason on the other axis. Choosing
+   * another pet keeps the day on purpose, so the day gate below never fires
+   * for it, and the goal block unmounts behind the skeleton while the other
+   * dog's log loads: it comes back with this close still standing and plays
+   * A's ceremony on B's bar, from A's totals to B's measure.
    */
   const [closed, setClosed] = useState<{
     id: string;
@@ -523,6 +611,8 @@ export default function Home() {
     /** The day before this walk was counted into it: minutes and walks. */
     before: Walked;
     day: string;
+    /** The pet it was closed for, `null` only while none is on screen. */
+    pet: string | null;
   } | null>(null);
   // **Dropped the moment the day in view leaves it**, in React's own "adjust
   // state when an input changes" shape — the one `?day=` uses above — rather
@@ -531,7 +621,15 @@ export default function Home() {
   // day loads, and comes back with no memory of which closes it has already
   // played, so a walk closed minutes ago would animate again on the way back
   // to its own day, and again on every return after that.
-  if (closed !== null && closed.day !== dayKey(day)) setClosed(null);
+  //
+  // **The pet is the other half of the gate**, read from `pet` rather than
+  // `petId` because that is derived further down and this has to sit here.
+  if (
+    closed !== null &&
+    (closed.day !== dayKey(day) || closed.pet !== (pet?.id ?? null))
+  ) {
+    setClosed(null);
+  }
   /**
    * The day's minutes as this tutor just rewrote them by hand, and the day
    * they were rewritten on.
@@ -563,10 +661,14 @@ export default function Home() {
     after: Walked;
     overClose: string | null;
     day: string;
+    /** The pet it was rewritten for. See `closed`. */
+    pet: string | null;
   } | null>(null);
   if (
     edited !== null &&
-    (edited.day !== dayKey(day) || (closed?.id ?? null) !== edited.overClose)
+    (edited.day !== dayKey(day) ||
+      edited.pet !== (pet?.id ?? null) ||
+      (closed?.id ?? null) !== edited.overClose)
   ) {
     setEdited(null);
   }
@@ -626,8 +728,17 @@ export default function Home() {
    *
    * It starts on no day at all, so the first run — the one opening the screen
    * asked for — counts as a bump.
+   *
+   * **The pet is part of what a run serves.** Choosing another pet moves
+   * neither `attempt` nor the day, so without it the switch would read as the
+   * unasked re-read — and that one keeps whatever is on screen when its read
+   * fails, which here would be the other dog's day.
    */
-  const lastRequest = useRef({ attempt: 0, day: "" });
+  const lastRequest = useRef<{
+    attempt: number;
+    day: string;
+    pet: string | null;
+  }>({ attempt: 0, day: "", pet: null });
   /**
    * The terms of the read in flight, until a run answers with a log.
    *
@@ -854,41 +965,37 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    // **Per key, so one unreadable value does not take the other with it.** A
-    // read that fails is a device with no note, which is what a phone that
-    // has never started a walk looks like: the block offers Empezar. The same
-    // best-effort bargain `start` and `stop` already make.
-    const read = (key: string) => AsyncStorage.getItem(key).catch(() => null);
-    void Promise.all([read(WALK_STORAGE_KEY), read(PENDING_STORAGE_KEY)]).then(
-      ([walk, queue]) => {
+    // Best-effort, as `start` and `stop` are: a read that fails is a device
+    // with no queue.
+    void AsyncStorage.getItem(PENDING_STORAGE_KEY)
+      .catch(() => null)
+      .then((queue) => {
         if (cancelled) return;
         const stops = parsePending(queue);
-        const running = parseRunningWalk(walk);
         setPending(stops);
         pendingRef.current = stops;
-        // **A walk the queue already holds is not running.** The release
-        // writes the queue and only then clears the note, so a process killed
-        // between the two comes back with both on disk — and a walk counted
-        // live *and* as pending is counted twice, on the one screen whose
-        // whole job is a single total. The queue is the later fact, so it
-        // wins.
-        setRunningId(
-          running !== null && stops.some((stop) => stop.id === running)
-            ? null
-            : running,
-        );
         // **The other order of the same pair.** A day read that already ended
         // well has supplied the reason to believe the network is there, and
         // this is the queue it was missing: see `dayRead`.
         if (stops.length > 0 && dayRead.current) void replayQueue();
-      },
-    );
+      });
     return () => {
       cancelled = true;
     };
   }, [replayQueue]);
 
   useEffect(() => {
+    // **It waits while the stored choice is still being read.** `activePetId`
+    // is `null` in two different ways (see `lib/pet.tsx`): while `loading` is
+    // up it only means the disk has not answered, and resolving on it would
+    // show the oldest pet and swap the diary for the tutor's own a moment
+    // later. A non-null id is already a real choice — made this session,
+    // before the read landed — and is safe to resolve on, which is why the
+    // guard tests both. **It sits above everything else on purpose**: the
+    // lines below consume `keepDiaryOnFailedRead` and `awaitingReload`, and a
+    // run that goes no further must not have spent them.
+    if (activePetLoading && activePetId === null) return;
+
     let cancelled = false;
     // Taken at the start of the run, so it belongs to this run and to no
     // other: the reload a failed action asked for, and nothing later.
@@ -904,8 +1011,9 @@ export default function Home() {
      * nothing at all and coming back to the app with no coverage cost them
      * the day.
      *
-     * A press, a navigation, `Reintentar` and the pull gesture all move
-     * `attempt` or the day. The return to the foreground moves neither, only
+     * A press, a navigation, `Reintentar`, the pull gesture and choosing
+     * another pet all move `attempt`, the day or the pet. The return to the
+     * foreground moves none of them, only
      * `unasked`. So a bump is somebody asking, and a run with no bump behind
      * it is the unasked re-read — **except that it may be standing in for a
      * run it cancelled, and then it is bound by that run's terms.** That is
@@ -926,8 +1034,9 @@ export default function Home() {
      */
     const bumped =
       attempt !== lastRequest.current.attempt ||
-      dayKey(day) !== lastRequest.current.day;
-    lastRequest.current = { attempt, day: dayKey(day) };
+      dayKey(day) !== lastRequest.current.day ||
+      activePetId !== lastRequest.current.pet;
+    lastRequest.current = { attempt, day: dayKey(day), pet: activePetId };
     const terms = bumped
       ? { asked: true, keep: afterFailedAction }
       : (unanswered.current ?? { asked: false, keep: false });
@@ -940,7 +1049,23 @@ export default function Home() {
     // `awaitingReload`.
     const answering = awaitingReload.current;
 
-    getMyPet().then(async ({ pet: row, error: failure }) => {
+    // **`getMyPet(activePetId)` and not the list.** The diary draws no
+    // switcher, so it has no use for the other sheets; the stored id goes
+    // through `pickActivePet` inside, with the same fall back to the oldest,
+    // and the failure keeps saying «leer la ficha» — which is the sentence
+    // the list read would have changed on this screen.
+    //
+    // **`cancelled` is what keeps the answers in order.** With `activePetId`
+    // in the dependencies a switch fires a second read while the first is in
+    // flight, and the slower of the two would otherwise paint the pet the
+    // tutor just left over the one they chose. It was already here for the
+    // day; the pet is now the second axis that needs it.
+    //
+    // **The day is not in this effect's gift to reset.** The pet and the day
+    // are independent axes: another dog having nothing on the day the tutor
+    // was reading is an answer, not an error, and moving them to today
+    // because the pet changed would be the app deciding for them.
+    getMyPet(activePetId).then(async ({ pet: row, error: failure }) => {
       if (cancelled) return;
       if (failure || !row) {
         const unreadable = failure ?? NO_PET;
@@ -969,7 +1094,13 @@ export default function Home() {
           prev.day === dayKey(day) &&
           !prev.error
             ? prev
-            : { day: dayKey(day), attempt, events: [], error: unreadable },
+            : {
+                day: dayKey(day),
+                petId: null,
+                attempt,
+                events: [],
+                error: unreadable,
+              },
         );
         answerReload(answering, false);
         return;
@@ -1007,6 +1138,7 @@ export default function Home() {
           ? prev
           : {
               day: dayKey(day),
+              petId: row.id,
               attempt,
               events: rows ?? [],
               error: eventError,
@@ -1030,7 +1162,15 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [day, attempt, unasked, answerReload, replayQueue]);
+  }, [
+    day,
+    attempt,
+    unasked,
+    answerReload,
+    replayQueue,
+    activePetId,
+    activePetLoading,
+  ]);
 
   /**
    * Lazily, and only while the calendar is open: most visits to the diary
@@ -1057,9 +1197,11 @@ export default function Home() {
       // A failed read leaves this null, not an empty list: the grid then
       // marks nothing and says it could not look, instead of drawing every
       // treatment day over a window nobody read. A reopen is untouched — the
-      // previous rows stay until this answer replaces them.
+      // previous rows stay until this answer replaces them, **when they are
+      // this pet's**: another pet's are held by `marksFor` and not drawn.
       setMarkedEvents(marksWindowRows(read));
       setMarksError(read.error);
+      setMarksFor(pet.id);
     });
     return () => {
       cancelled = true;
@@ -1085,7 +1227,7 @@ export default function Home() {
       // have no reason to doubt.
       //
       // Silent on purpose: the rows stay up while the read runs (the log's
-      // waiting state keys on the day, not on the attempt), because a
+      // waiting state keys on the day and the pet, not on the attempt), because a
       // skeleton every time the app came forward would be worse than the bug.
       reread();
       const now = new Date();
@@ -1113,6 +1255,92 @@ export default function Home() {
   const isToday = daysAgo(day, today) === 0;
   const birthdayYears = birthdayOn(day, pet?.birth_date ?? null);
   const petId = pet?.id ?? null;
+  /**
+   * **Whether `runningId` has been read for the pet on screen.** Derived, not
+   * an effect keeping one state in step with another: the read below records
+   * which pet it answered for, and this compares.
+   *
+   * It exists for two defects, and both are the same gap. React commits the
+   * first render with a pet before any effect runs, so that frame has
+   * `runningId === null` *always* — and a start offered there opens a second
+   * walk over a first the device has not been asked about, whose id the write
+   * then overwrites. And when the pet changes, `runningId` still holds the
+   * previous pet's walk until the read lands: the staleness rule, running with
+   * pet A's id over pet B's rows, would find A's walk missing, call it stale
+   * and clear B's note. So the block is withheld (`busy`) and the staleness
+   * rule does not run until this is true.
+   */
+  const walkChecked = readFor === petId;
+  /**
+   * The treatments of the pet on screen, or nothing yet.
+   *
+   * **Derived from `petId` rather than cleared when it changes.** The rows in
+   * state belong to whichever pet was read last, and for the length of one
+   * request after a switch that is the other one: the day's TRATAMIENTOS
+   * section and the calendar's vaccine watermarks would show a dose the dog
+   * on screen never had.
+   */
+  const treatments =
+    treatmentsRead && treatmentsRead.petId === petId ? treatmentsRead : null;
+  /** The calendar's window, on the same terms: this pet's or none. */
+  const marked = marksFor === petId ? markedEvents : null;
+  const marksFailure = marksFor === petId ? marksError : null;
+
+  // **The running walk is read once the pet is known, and again whenever the
+  // pet is another.** The device's note holds every pet's walk, so there is
+  // nothing to read until there is a pet to ask about — which is why this is
+  // not part of the queue's mount read, which sits higher up.
+  useEffect(() => {
+    if (!petId) return;
+    let cancelled = false;
+    // **Per key, so one unreadable value does not take the other with it.** A
+    // read that fails is a device with no note, which is what a phone that
+    // has never started a walk looks like: the block offers Empezar. The same
+    // best-effort bargain `start` and `stop` already make.
+    const read = (key: string) => AsyncStorage.getItem(key).catch(() => null);
+    void Promise.all([read(WALK_STORAGE_KEY), read(PENDING_STORAGE_KEY)]).then(
+      ([walk, queue]) => {
+        if (cancelled) return;
+        const running = parseRunningWalk(walk, petId);
+        // **A walk the queue already holds is not running.** The release
+        // writes the queue and only then clears the note, so a process killed
+        // between the two comes back with both on disk — and a walk counted
+        // live *and* as pending is counted twice, on the one screen whose
+        // whole job is a single total. The queue is the later fact, so it
+        // wins.
+        //
+        // **The queue is asked here, from disk, and not taken from state.**
+        // This read used to share a `Promise.all` with the queue's own, so the
+        // two arrived together and the question could not be asked before the
+        // answer. Now they are two effects, and whichever lands first must
+        // not decide: this one reads the queue itself, so it never waits for
+        // the other, and it also checks `pendingRef` — which is what a queue
+        // built since mount (a stop released this session, then the pet
+        // changing) looks like before the disk has caught up. A walk in
+        // either one is not running.
+        //
+        // **Do not replace either half with the `pending` state, and do not
+        // drop either.** Nothing tests this — it lives in the screen — so this
+        // comment is the whole net. With only the state, a read that lands
+        // before the queue's effect sees an empty queue and counts a queued
+        // walk as running *and* as pending: the double count above, silently.
+        // With only the disk, a stop queued in this session and not yet
+        // written reads as running. Remove either and nothing fails.
+        const queued = [...parsePending(queue), ...pendingRef.current];
+        setRunningId(
+          running !== null && queued.some((stop) => stop.id === running)
+            ? null
+            : running,
+        );
+        // **Together with `runningId`, in the same batch**, so no render sees
+        // one without the other.
+        setReadFor(petId);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [petId]);
 
   /**
    * **Memoizados porque el calendario no sobrevive a un manejador nuevo.**
@@ -1151,11 +1379,15 @@ export default function Home() {
       if (!petId) return;
       const { treatments: rows, error } = await treatmentsFor(petId);
       if (isCancelled()) return;
-      setTreatments((held) => ({
+      setTreatmentsRead((held) => ({
+        petId,
         // A read that failed keeps the rows it had rather than blanking the
         // calendar: a stale mark beats a grid that claims nothing was given.
         // The day's section does not draw while `error` is set.
-        rows: error && held ? held.rows : rows,
+        //
+        // **Only this pet's, though.** Held rows of the pet just left are not
+        // a stale mark, they are another dog's vaccines.
+        rows: error && held?.petId === petId ? held.rows : rows,
         error,
       }));
     },
@@ -1317,7 +1549,10 @@ export default function Home() {
 
   // Hoisted for the same reason: the walk's hooks below read them, and a hook
   // cannot sit after the early returns. Every one is safe before the pet loads.
-  const loading = log === null || log.day !== dayKey(day);
+  const loading =
+    log === null ||
+    log.day !== dayKey(day) ||
+    (log.petId !== null && log.petId !== petId);
   const events = loading ? NO_EVENTS : log.events;
   /** Not fatal: the header, the goal and the actions all still work. */
   const logError = loading ? null : log.error;
@@ -1475,7 +1710,8 @@ export default function Home() {
   // the day the walk belongs to, or paging back a week would clear a walk that
   // is running fine.
   useEffect(() => {
-    if (!runningId || !fresh || logError || !isToday) return;
+    if (!walkChecked || !runningId || !petId) return;
+    if (!fresh || logError || !isToday) return;
     const row = events.find((event) => event.id === runningId);
     const stale =
       !row ||
@@ -1488,12 +1724,12 @@ export default function Home() {
     // change — so the block went on offering a stop for a walk that is gone,
     // on a day the screen will not leave, since the `AppState` pin keys on
     // `runningId`. The write is best-effort, as in `start` and `stop`.
-    AsyncStorage.removeItem(WALK_STORAGE_KEY)
+    clearRunningWalk(petId)
       .catch(() => {
         // The row is the fact; the device's note is only a note.
       })
       .finally(() => setRunningId(null));
-  }, [runningId, events, fresh, logError, isToday]);
+  }, [walkChecked, runningId, petId, events, fresh, logError, isToday]);
 
   const start = useCallback(async () => {
     if (!petId || walkInFlight.current) return;
@@ -1525,7 +1761,14 @@ export default function Home() {
       // and the block offers Empezar over a live walk. The walk runs for this
       // session either way.
       try {
-        await AsyncStorage.setItem(WALK_STORAGE_KEY, serialiseRunningWalk(id));
+        await AsyncStorage.setItem(
+          WALK_STORAGE_KEY,
+          withRunningWalk(
+            await AsyncStorage.getItem(WALK_STORAGE_KEY),
+            petId,
+            id,
+          ),
+        );
       } catch {
         // Not worth interrupting a walk for.
       }
@@ -1645,7 +1888,7 @@ export default function Home() {
         //
         // **The queue goes down before the note is cleared**, so a process
         // killed between the two leaves a walk that is queued and still
-        // marked as running, which the mount read resolves, rather than one
+        // marked as running, which the running walk's read resolves, rather than one
         // that is neither. Both writes are best-effort, as everywhere else
         // here: the queue in memory is what this session counts.
         try {
@@ -1657,7 +1900,7 @@ export default function Home() {
           // Not worth a second failure on top of the one being reported.
         }
         try {
-          await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+          await clearRunningWalk(petId);
         } catch {
           // See above.
         }
@@ -1667,7 +1910,7 @@ export default function Home() {
       // a length (or is gone) by the next load and the staleness effect drops
       // it.
       try {
-        await AsyncStorage.removeItem(WALK_STORAGE_KEY);
+        await clearRunningWalk(petId);
       } catch {
         // See above.
       }
@@ -1700,6 +1943,7 @@ export default function Home() {
           // contains this walk depends on a request still in flight.
           before: { minutes: walked, walks },
           day: dayKey(day),
+          pet: petId,
         });
       }
       setRunningId(null);
@@ -1728,6 +1972,7 @@ export default function Home() {
     }
   }, [
     runningWalk,
+    petId,
     writtenToId,
     toast,
     celebrate,
@@ -1912,6 +2157,7 @@ export default function Home() {
         <GoalBlock
           testID="home-goal"
           walked={measured}
+          petName={pet.name}
           // Additive: the measure goes on reading `measured`, and this is the
           // same day cut into the walks it came in, for the marks on the bar.
           walkMinutes={walkMinutes}
@@ -1932,7 +2178,14 @@ export default function Home() {
           // offering it before one arrives is safe; `isToday` is what keeps a
           // day reached with the arrows free of it, and a walk running past
           // midnight keeps its stop through `walkingSince`.
-          busy={walkBusy || (isToday && runningId !== null && !walkingSince)}
+          // **And across the read of the device's note** (`walkChecked`): the
+          // control stays where it is, disabled, instead of offering Empezar
+          // over a walk nobody has asked the device about yet.
+          busy={
+            walkBusy ||
+            (isToday && !walkChecked) ||
+            (isToday && runningId !== null && !walkingSince)
+          }
           onStart={isToday && !runningId ? start : undefined}
           onStop={
             walkingSince || (isToday && runningId !== null) ? stop : undefined
@@ -1948,7 +2201,10 @@ export default function Home() {
           // total it started from, so both ends of the fill are known the
           // moment the server says yes and nothing has to be waited for. The
           // day it belongs to is still checked, and that is settled above:
-          // `closed` is dropped as the day in view leaves it.
+          // `closed` is dropped as the day in view leaves it — **and as the
+          // pet does**, which is the half added when a second dog became
+          // possible, because a switch deliberately keeps the day and would
+          // otherwise have replayed one dog's close over the other's bar.
           //
           // **Masked by a hand edit, so the block is only ever told one
           // thing.** The two are one decision — what this phone last did to
@@ -2072,7 +2328,7 @@ export default function Home() {
                 ? "Nada registrado aún. ¿Un paseo por la playa 🏖️ o montaña ⛰️ para celebrarlo?"
                 : "No hay registros de este día."
               : isToday
-                ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y lo recordaré.`
+                ? `Cuando pasees con ${pet.name} o coma algo, apúntalo aquí y lo recordaré.`
                 : "Aún puedes registrar actividades para este día."}
           </Text>
         </Group>
@@ -2113,7 +2369,7 @@ export default function Home() {
             // at all until the window has answered: `marksForMonths` owns
             // both halves of that rule and is tested on them.
             marks={marksForMonths(
-              markedEvents,
+              marked,
               treatments?.rows ?? [],
               today,
               MARKED_MONTHS,
@@ -2123,7 +2379,7 @@ export default function Home() {
             value={day}
             maxDate={today}
             birthDate={pet.birth_date}
-            error={marksError}
+            error={marksFailure}
             onSelect={pickDay}
             onToday={goToToday}
           />
@@ -2222,6 +2478,7 @@ export default function Home() {
                 after,
                 overClose: closed?.id ?? null,
                 day: dayKey(day),
+                pet: petId,
               });
             }
 
@@ -2843,9 +3100,7 @@ function EntrySheet({
       return false;
     }
     if (end && end.getTime() > Date.now() + 60_000) {
-      setAtError(
-        isWalk ? "¿Todavía no habéis vuelto?" : "¿Todavía no ha pasado?",
-      );
+      setAtError(isWalk ? "¿Todavía no ha vuelto?" : "¿Todavía no ha pasado?");
       return false;
     }
     setAtError(null);
@@ -2859,7 +3114,7 @@ function EntrySheet({
     // field does not belong in a toast. With both times present HASTA is
     // later than DESDE and has already been checked above.
     if (start && start.getTime() > Date.now() + 60_000) {
-      setFromError("¿Todavía no habéis salido?");
+      setFromError("¿Todavía no ha salido?");
       return false;
     }
     setFromError(null);

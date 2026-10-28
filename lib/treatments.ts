@@ -529,7 +529,20 @@ export async function logTreatment(
   }
 }
 
-/** A correction, not a new fact: the row keeps its id and its `created_by`. */
+/**
+ * A correction, not a new fact: the row keeps its id and its `created_by`.
+ *
+ * **`pet_id` is in the filter and not only in the payload, and that is what
+ * stops a dose moving dog.** `payload` writes `pet_id`, so an `id` that
+ * belongs to another sheet would not be rejected — it would be *reassigned*,
+ * silently, and RLS cannot see the difference because the tutor owns both
+ * sheets. The window that reached it was a screen whose header had already
+ * switched while an open sheet still held the other dog's row; the callers
+ * close that window by identifying their rows, but the caller is the
+ * perimeter and this is the door. Keep both: a future writer that forgets
+ * the perimeter finds the door shut, and an `id` that does not belong to
+ * `petId` now matches nothing instead of being stolen.
+ */
 export async function updateTreatment(
   id: string,
   petId: string,
@@ -541,7 +554,8 @@ export async function updateTreatment(
   const query = supabase
     .from("pet_treatments")
     .update(payload(petId, treatment))
-    .eq("id", id);
+    .eq("id", id)
+    .eq("pet_id", petId);
 
   try {
     const { error } = await withTimeout(query, "updateTreatment");

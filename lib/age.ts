@@ -56,26 +56,43 @@ export function lifeStage(months: number): LifeStage {
 /**
  * The age as a tutor would say it out loud.
  *
- * Months up to two years, then whole years — which is how people talk about
- * dogs ("tiene 15 meses", "tiene 3 años") and also where the precision stops
- * being interesting. Years truncate rather than round, because a dog is two
- * until his third birthday.
+ * **The first birthday is where the unit changes**, and this function used to
+ * get that wrong. It said months all the way to two years, on the written
+ * reasoning that "es como se habla de los perros" — which is true of a dog of
+ * eight months and false of one that blew out a candle yesterday. Nobody says
+ * "trece meses" the day after the tarta. Measured against the only dog this
+ * app has: Loki turned one and the header kept counting in months.
+ *
+ * So: months below the year, `1 año` on the day itself, and `1 año y N meses`
+ * until the second birthday, which keeps the precision that made months worth
+ * using in the first place. From two years on, whole years. Years truncate
+ * rather than round, because a dog is two until his third birthday.
  *
  * An **approximate** birth date knows the month and the year but not the day,
- * so the age is right to within a month. That is worth saying rather than
- * hiding behind a number that looks exact: the phrase softens to "unos 2
- * años", the same honesty `formatDisplayDate` applies to the date itself.
+ * so the age is right to within a month — which is exactly the precision
+ * `1 año y 1 mes` claims to have. Past the first birthday the approximate
+ * phrasing therefore drops the months rather than inventing them, the same
+ * honesty `formatDisplayDate` applies to the date itself.
  */
 export function formatAge(months: number, approximate = false): string {
   if (months < 1) return "Menos de un mes";
 
-  const phrase =
-    months < 24
-      ? `${months} ${months === 1 ? "mes" : "meses"}`
-      : `${Math.floor(months / 12)} años`;
+  // Two softeners rather than one, because Spanish has no "unos" that agrees
+  // with a singular year: "unos 1 año" is not a sentence anybody would say.
+  if (approximate) {
+    if (months === 1) return "un mes";
+    if (months < 12) return `unos ${months} meses`;
+    if (months < 24) return "alrededor de un año";
+    return `unos ${Math.floor(months / 12)} años`;
+  }
 
-  if (!approximate) return phrase;
-  return months === 1 ? "un mes" : `unos ${phrase}`;
+  if (months < 12) return `${months} ${months === 1 ? "mes" : "meses"}`;
+  if (months === 12) return "1 año";
+  if (months < 24) {
+    const rest = months - 12;
+    return `1 año y ${rest} ${rest === 1 ? "mes" : "meses"}`;
+  }
+  return `${Math.floor(months / 12)} años`;
 }
 
 export type PetAge = {
