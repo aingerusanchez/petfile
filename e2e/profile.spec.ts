@@ -22,9 +22,11 @@ test("presents the file rather than a form", async ({ page }) => {
   await expect(page.getByTestId("profile-breed")).toHaveText("Husky Siberiano");
 
   // The age is derived, so the assertion is on its shape and not on a number
-  // that changes with the calendar.
+  // that changes with the calendar. Every shape `formatAge` can produce, in
+  // both the exact and the approximate voice — the year has its own branches
+  // because "1 año" is singular and carries months after it.
   await expect(page.getByTestId("profile-age")).toHaveText(
-    /^(Menos de un mes|(unos |un )?\d* ?(mes|meses|años)) · (Cachorro|Adolescente|Adulto|Senior)$/,
+    /^(Menos de un mes|un mes|unos \d+ meses|alrededor de un año|unos \d+ años|\d+ (?:mes|meses)|1 año(?: y \d+ (?:mes|meses))?|\d+ años) · (Cachorro|Adolescente|Adulto|Senior)$/,
   );
 
   await expect(page.getByTestId("profile-neutered-value")).toHaveText("No");
