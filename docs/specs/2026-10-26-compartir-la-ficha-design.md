@@ -115,7 +115,7 @@ nunca con barra.** `Tutor`, `Cuidador`, `Familiar`; jamás `Tutor/a`.
 Tres razones, en orden de peso:
 
 - **La barra es el registro de un impreso**, y esta app dice «¡Vamos, Loki!» y
-  «¿Todavía no habéis vuelto?». Son dos voces que no caben en la misma
+  «¿Todavía no has vuelto?». Son dos voces que no caben en la misma
   pantalla.
 - **No se queda en la lista.** Si el rol lleva barra, la lleva en todos los
   sitios donde aparezca, y dentro de una frase `Cuidador/a` es ilegible.

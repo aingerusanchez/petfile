@@ -177,7 +177,7 @@ const KINDS: Record<
     editAction: "Editar medicación",
     icon: Pill,
     tone: colors.warning,
-    field: { label: "Qué le habéis dado", placeholder: "Apoquel, media" },
+    field: { label: "Qué le has dado", placeholder: "Apoquel, media" },
     describe: (event) => eventDetail(event, "what"),
   },
   incident: {
@@ -2328,7 +2328,7 @@ export default function Home() {
                 ? "Nada registrado aún. ¿Un paseo por la playa 🏖️ o montaña ⛰️ para celebrarlo?"
                 : "No hay registros de este día."
               : isToday
-                ? `Cuando salgáis a pasear o ${pet.name} coma, apúntalo aquí y lo recordaré.`
+                ? `Cuando pasees con ${pet.name} o coma algo, apúntalo aquí y lo recordaré.`
                 : "Aún puedes registrar actividades para este día."}
           </Text>
         </Group>
@@ -3100,9 +3100,7 @@ function EntrySheet({
       return false;
     }
     if (end && end.getTime() > Date.now() + 60_000) {
-      setAtError(
-        isWalk ? "¿Todavía no habéis vuelto?" : "¿Todavía no ha pasado?",
-      );
+      setAtError(isWalk ? "¿Todavía no ha vuelto?" : "¿Todavía no ha pasado?");
       return false;
     }
     setAtError(null);
@@ -3116,7 +3114,7 @@ function EntrySheet({
     // field does not belong in a toast. With both times present HASTA is
     // later than DESDE and has already been checked above.
     if (start && start.getTime() > Date.now() + 60_000) {
-      setFromError("¿Todavía no habéis salido?");
+      setFromError("¿Todavía no ha salido?");
       return false;
     }
     setFromError(null);

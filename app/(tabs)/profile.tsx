@@ -1019,7 +1019,7 @@ export default function Profile() {
               {`¿Borrar la ficha de ${name}?`}
             </Text>
             <Text className="mb-5 text-text-secondary">
-              Se borra su ficha y todo lo que habéis registrado. No hay vuelta
+              Se borra su ficha y todo lo que has registrado. No hay vuelta
               atrás.
             </Text>
             {/* The name goes in the label as a request, not as an example: the

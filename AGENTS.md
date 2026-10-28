@@ -203,7 +203,7 @@ The web target hides all three, so **a change that has to hold on the device is 
 
 ## Tests
 
-**`e2e/home.spec.ts` used to assume a working day, and it does not any more.** Ten of its tests failed before about 09:00: they fill real clock times — 08:30, 09:15, 10:45 — and the entry sheet refuses a time in the future, correctly, so a red suite at 01:00 said nothing about the code and every failure read "¿Todavía no habéis vuelto?". **The fix was the day, not the time**: a fixed morning hour has already happened on _yesterday_, whatever hour the suite runs at, and the diary can be written on a past day. Tests that need a specific clock time now press ‹ first; the two that are about today derive their times from a "now" they own. Measured: the whole suite green at 01:00.
+**`e2e/home.spec.ts` used to assume a working day, and it does not any more.** Ten of its tests failed before about 09:00: they fill real clock times — 08:30, 09:15, 10:45 — and the entry sheet refuses a time in the future, correctly, so a red suite at 01:00 said nothing about the code and every failure read "¿Todavía no has vuelto?". **The fix was the day, not the time**: a fixed morning hour has already happened on _yesterday_, whatever hour the suite runs at, and the diary can be written on a past day. Tests that need a specific clock time now press ‹ first; the two that are about today derive their times from a "now" they own. Measured: the whole suite green at 01:00.
 
 Keep it that way. A new test that types a fixed morning time onto today is a test that fails half the day.
 

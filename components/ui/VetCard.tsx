@@ -305,7 +305,7 @@ function VetSheet({
         label="VETERINARIA O VETERINARIO"
         value={draft.vet}
         onChangeText={field("vet")}
-        placeholder="A quién preguntáis"
+        placeholder="A quién preguntas"
         autoCapitalize="words"
       />
       <TextField

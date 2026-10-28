@@ -365,7 +365,7 @@ export default function Health() {
           </View>
         ) : latest === null ? (
           <Text className="mb-4 text-text-tertiary">
-            Todavía no le habéis pesado. El primer peso es el que da sentido a
+            Todavía no le has pesado. El primer peso es el que da sentido a
             todos los demás.
           </Text>
         ) : (

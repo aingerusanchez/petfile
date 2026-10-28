@@ -143,7 +143,7 @@ export default function Weights() {
         <LoadingScreen />
       ) : points.length === 0 ? (
         <Text testID="weights-empty" className="text-text-tertiary">
-          Todavía no le habéis pesado.
+          Todavía no le has pesado.
         </Text>
       ) : (
         <>

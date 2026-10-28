@@ -57,7 +57,7 @@ test.beforeEach(async () => {
  *
  * Many fill real clock times — 08:30, 09:15, 10:45 — and the sheet refuses an
  * entry in the future, correctly. Run at 00:20 and ten of them fail with
- * "¿Todavía no habéis vuelto?", which says nothing about the code. A walk
+ * "¿Todavía no ha vuelto?", which says nothing about the code. A walk
  * typed as two times that reach back from now has the mirror problem: 45
  * minutes before 00:20 is yesterday, which the sheet also refuses, correctly.
  *
@@ -3273,7 +3273,7 @@ test("holds the fill when the reload never comes", async ({ page }) => {
  * of the block must agree.** This is the shape the household actually meets:
  * the phone drops the house wifi on the stairs, the `PATCH` gets through and
  * the pet read does not. The bar holds what the close carried — that part was
- * already right — and the measure used to count an empty log and state
+ * already right — and the measure used to count an empty log and say
  * "Loki aún no ha salido" directly above a bar painted past the goal and a
  * label reading "Día cumplido". A tutor cannot tell which half is real,
  * and the one they read every day is the number.
@@ -5578,7 +5578,7 @@ test("refuses a start in the future when there is no return time", async ({
   // With HASTA empty the start is what gets stored, so it gets HASTA's check,
   // on its own field.
   await expect(page.getByTestId("entry-from-error")).toHaveText(
-    "¿Todavía no has salido?",
+    "¿Todavía no ha salido?",
   );
   await expect(page.getByTestId("entry-title")).toBeVisible();
 });
@@ -5595,9 +5595,9 @@ test("shows the goal block for a pet with no goal, and still starts a walk", asy
   await seedSession(page);
   await page.goto("/");
 
-  // The day's own minutes with no count clause at all, and nothing saying
-  // "hoy": a tutor with no goal reads the same sentence as everybody else,
-  // and the block renders on past days too, where the header names the day.
+  // The day with nothing in it yet, and nothing saying "hoy": a tutor with
+  // no goal reads the same sentence as everybody else, and the block renders
+  // on past days too, where the header names the day.
   await expect(page.getByTestId("home-goal-measure")).toHaveText(
     "Loki aún no ha salido",
   );
