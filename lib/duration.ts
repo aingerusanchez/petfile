@@ -15,7 +15,7 @@
  * A duration for reading: "45 min", "1h", "1h 30m", "5h".
  *
  * The unit word stays on the under-an-hour case because that is how the rest
- * of the app speaks ("40 min paseados"), and it is the only shape where the
+ * of the app speaks ("40 min en 2 paseos"), and it is the only shape where the
  * number alone would be ambiguous — "1h 30m" needs no help.
  *
  * **`"minutes"` keeps everything in minutes**, for a tutor who thinks in them:
@@ -97,9 +97,15 @@ export type Walked = { minutes: number; walks: number };
  * that `4h` was not their goal either. They had typed 2 h, and the sentence
  * stated a target nobody had set.
  *
- * **No walks drops the clause altogether** — `0 min paseados`, not "en 0
- * paseos" and not "sin paseos todavía". Every phrasing of a zero count
- * smuggles the expectation back in, which is the thing being removed.
+ * **No walks names the dog instead of measuring him** — `Loki aún no ha
+ * salido`. It read `0 min paseados` and the tutor took it out: first thing in
+ * the morning that was the entire sentence the screen had to offer, and a
+ * measure of nothing is not a measure. The earlier reasoning here said every
+ * phrasing of a zero smuggles the expectation back in, and that still holds
+ * for the phrasings aimed at the reader — `¿aún no has paseado?` makes the
+ * day's first glance a reproach. **The subject is the dog, which is what
+ * makes the difference**: it reports that the walking has not started, the
+ * way the rest of the line reports what it was, and asks nobody for anything.
  *
  * **And it never says "hoy".** The block renders on past days too, so a day
  * named in the sentence would sit under a header already reading "Ayer" —
@@ -107,8 +113,18 @@ export type Walked = { minutes: number; walks: number };
  */
 export function formatWalked(
   walked: Walked,
+  petName: string,
   format: "hours" | "minutes" = "hours",
 ): string {
+  // No walks and no minutes is the only state with nothing to measure, so it
+  // is the only one that says a sentence instead. Minutes without a walk to
+  // put them in cannot come off the rows — `walks` counts what `minutes`
+  // sums — but it would be the one way to claim the dog stayed in over a
+  // number saying he did not, so it keeps the number.
+  if (walked.walks <= 0 && walked.minutes <= 0) {
+    return `${petName} aún no ha salido`;
+  }
+
   const minutes = formatDuration(walked.minutes, format);
   if (walked.walks <= 0) return `${minutes} paseados`;
   return `${minutes} en ${walked.walks} ${walked.walks === 1 ? "paseo" : "paseos"}`;

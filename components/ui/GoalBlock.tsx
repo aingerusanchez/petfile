@@ -574,6 +574,7 @@ function lapFillAt(
  */
 export function GoalBlock({
   walked,
+  petName,
   walkMinutes = [],
   goalMinutes,
   durationFormat,
@@ -614,6 +615,13 @@ export function GoalBlock({
    * `app/(tabs)/index.tsx` builds it from the very rows `walked` is summed
    * from, so the two cannot be two different days.
    */
+  /**
+   * Whose day this is, for the one sentence the measure says instead of a
+   * number: a day with no walks yet reads `Loki aún no ha salido`. The block
+   * needs it for nothing else — the name is not a heading here, the switcher
+   * and the tab say which dog is on screen.
+   */
+  petName: string;
   walkMinutes?: number[];
   goalMinutes: number | null;
   durationFormat: DurationFormat;
@@ -1161,7 +1169,7 @@ export function GoalBlock({
                   // of its own here and now reads the same line as everyone
                   // else. `formatWalked` carries the whole argument, the zero
                   // form and the plural.
-                  formatWalked(shown, durationFormat)}
+                  formatWalked(shown, petName, durationFormat)}
           </Text>
         </View>
 

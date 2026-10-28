@@ -2157,6 +2157,7 @@ export default function Home() {
         <GoalBlock
           testID="home-goal"
           walked={measured}
+          petName={pet.name}
           // Additive: the measure goes on reading `measured`, and this is the
           // same day cut into the walks it came in, for the marks on the bar.
           walkMinutes={walkMinutes}

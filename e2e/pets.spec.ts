@@ -448,7 +448,7 @@ test("keeps a walk left open on the dog whose walk it is", async ({ page }) => {
  * proves it bites — dropping the pet half of the gate in `app/(tabs)/index.tsx`
  * — turns it red through the *measure*, not through the watch: a `closed`
  * that outlives the switch is handed to Nala's block with Loki's totals, and
- * `toContainText("0 min paseados")` fails before the quiet watch is ever
+ * `toContainText("Nala aún no ha salido")` fails before the quiet watch is
  * read. So the overlay assertions below have never failed on their own
  * account, and nobody should assume they are what caught a regression here
  * until they have seen them do it.
@@ -508,9 +508,12 @@ test("does not replay a close over the other dog's bar", async ({ page }) => {
   const armedForHers = Date.now();
   const onHers = closeOverlayWithin(page, WATCH_MS);
   await page.getByRole("tab", { name: /Diario/ }).click();
-  await expect(page.getByTestId("home-goal")).toContainText("0 min paseados", {
-    timeout: WATCH_DEADLINE_MS,
-  });
+  await expect(page.getByTestId("home-goal")).toContainText(
+    "Nala aún no ha salido",
+    {
+      timeout: WATCH_DEADLINE_MS,
+    },
+  );
   expect(
     Date.now() - armedForHers,
     "her bar landed after the watch had closed, so a quiet watch here would mean nobody was looking",
