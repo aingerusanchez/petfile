@@ -18,6 +18,72 @@ Las versiones 0.3.0 y 0.4.x se anotan **en retrospectiva**: ese trabajo entró a
 `main` en un solo merge, antes de que este fichero existiera. De 0.5.0 en
 adelante cada entrada corresponde a lo que se construyó bajo ese número.
 
+## [v0.27.1] — 2026-10-28
+
+Cuatro cosas que se vieron usando v0.27.0 el primer día, más una quinta que
+llevaba ahí desde siempre y que solo aparece con un nombre largo.
+
+### Arreglado
+
+- **La edad dice «1 año» desde el primer cumpleaños.** Contaba en meses hasta
+  los dos años, así que Loki sopló una vela y la ficha siguió diciendo «13
+  meses». Ahora: meses por debajo del año, «1 año» el día justo, «1 año y N
+  meses» hasta el segundo, y años enteros a partir de ahí. Una fecha de
+  nacimiento aproximada deja de dar los meses pasado el año —sabe el mes pero
+  no el día, que es exactamente la precisión que «1 año y 1 mes» aparenta
+  tener— y dice «alrededor de un año».
+
+- **Un nombre largo ya no se sale de su botón.** «Borrar la ficha de Wolfgang
+  Amadeus Montenegro» cruzaba el contorno rojo y seguía fuera: en React Native
+  una etiqueta no se encoge por defecto, y los puntos suspensivos solo
+  aparecen en una caja que ya es estrecha. Afectaba a todos los botones de la
+  app, con cualquier nombre de más de treinta caracteres. Ese botón además
+  deja de llevar el nombre dentro: truncarlo a medias en el único control sin
+  vuelta atrás sería peor que omitirlo, y la pregunta que sale después lo dice
+  entero.
+
+- **La app ya no da por hecho que el perro tenga dos tutores.** Seis frases
+  contaban con una pareja detrás de la pantalla: «Todavía no le habéis pesado»,
+  «todo lo que habéis registrado», «Qué le habéis dado», «A quién preguntáis»,
+  «Cuando salgáis a pasear». Esta casa son dos tutores y por eso se
+  escribieron así, pero no sabemos cómo se compone la siguiente, y una persona
+  sola leyendo un plural que no la incluye es la app hablándole de otra gente.
+
+  **El plural se queda donde habla del tutor y del perro**, que es verdad de
+  cualquier casa: «¡Ya estáis dentro!» y «vuestro día a día» son los dos, no
+  dos personas. Y donde se podía, el sujeto pasa a ser el perro: los avisos de
+  hora futura del paseo dicen ahora «¿Todavía no ha vuelto?» y «¿Todavía no ha
+  salido?», emparejando con el «¿Todavía no ha pasado?» que esa misma línea ya
+  decía para el resto de entradas.
+
+- **El peso que falta se pregunta en vez de reportarse.** «Todavía no le
+  habéis pesado» informaba de un hueco y, de paso, de quién no lo había
+  tapado. La tarjeta de Salud dice ahora **«¿Cuánto pesa Loki?»**, que es la
+  pregunta que la app tiene de verdad: una sola respuesta, un número, y la
+  acción flotante a mano para darla. La pantalla de pesos no recibe la misma
+  frase porque no podría contestarla —es de solo lectura— y dice para qué
+  sirve: «Aquí aparecerán los pesajes de Loki».
+
+- **Un día sin paseos nombra al perro en vez de medir su cero.** Decía «0 min
+  paseados», que a primera hora de la mañana era la frase entera que ofrecía
+  la pantalla. Ahora dice «Loki aún no ha salido». El sujeto es el perro a
+  propósito: informa de que el paseo no ha empezado, igual que el resto de la
+  línea informa de lo que fue, en vez de preguntarle nada a quien lee.
+
+- **El código dentro de una negrita dejaba sus acentos graves a la vista.** El
+  renderizador de notas prueba la negrita antes que el código, así que un
+  tramo en negrita se llevaba entero lo de dentro y lo imprimía en crudo. Solo
+  se veía al anidar los dos marcadores, cosa que no había hecho ninguna nota
+  ni ninguna entrada de este fichero hasta esta versión.
+
+### Interno
+
+- **`pnpm test` deja de recorrer los worktrees de `.claude/`.** La app de
+  escritorio crea copias de este repo ahí dentro, y la suite las recorría
+  además del propio árbol: 969 pruebas en vez de 589, con nueve suites en rojo
+  que eran de otra rama. La ruta solo aparece al pie de cada error, así que la
+  primera lectura era que lo recién escrito había roto medio repositorio.
+
 ## [v0.27.0] — 2026-10-27
 
 ### Nuevo
