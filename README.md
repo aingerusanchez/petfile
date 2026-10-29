@@ -65,7 +65,9 @@ pnpm test:e2e       # Playwright — flujo completo (login, onboarding)
 pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el trace viewer
 ```
 
-**Una cuenta por worker.** La suite borra entre tests todas las mascotas de la cuenta con la que está firmada, y `onboarding.spec.ts` necesita además que su cuenta no tenga ninguna. Las dos cosas pasan en el servidor, así que aislar contextos de navegador no las toca: cada worker firma con su propia cuenta. Por defecto es un worker y basta con la primera; `E2E_WORKERS=2 pnpm test:e2e` usa la segunda. Con más workers que cuentas, la configuración **se niega a arrancar** en vez de dejar que dos compartan una — dos workers sobre la misma cuenta es justo la carrera que esto elimina, y aparecería como tests fallando por elementos que faltan en sitios sin relación.
+**Una cuenta por worker.** La suite borra entre tests todas las mascotas de la cuenta con la que está firmada, y `onboarding.spec.ts` necesita además que su cuenta no tenga ninguna. Las dos cosas pasan en el servidor, así que aislar contextos de navegador no las toca: cada worker firma con su propia cuenta, y el número de workers no puede pasar del número de cuentas que haya en `.env`.
+
+**Por defecto son dos**, que es lo que mide 9 minutos donde uno mide 16,5. Un checkout con una sola cuenta configurada corre en serie y lo dice por pantalla, en vez de fallar al arrancar por un número que nadie eligió. Pedir explícitamente más workers que cuentas (`E2E_WORKERS=4 pnpm test:e2e`) sí **se niega a arrancar**: ahí el número está elegido, y dos workers sobre la misma cuenta son justo la carrera que esto elimina — aparecería como tests fallando por elementos que faltan en sitios sin relación.
 
 ## Scripts
 

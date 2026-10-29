@@ -9,24 +9,47 @@ dotenv.config();
  * One live Supabase account per worker, because `resetE2EPets()` deletes every
  * pet its account owns and `onboarding.spec.ts` needs its account to have no
  * pets at all. Both are server-side, so no amount of browser-context isolation
- * reaches them — the worker count is capped by the accounts in `.env`, and the
- * default stays 1 so a checkout with one account behaves as it always has.
+ * reaches them, which caps the worker count at the accounts `.env` carries.
  *
- * Refusing to start is the point. Two workers quietly sharing one account
- * reintroduce exactly the race this is meant to remove, and it would show up as
- * tests failing on missing elements somewhere unrelated.
+ * **Asking and not asking are treated differently, deliberately.** An explicit
+ * `E2E_WORKERS` is honoured or refused, never quietly downgraded: two workers
+ * sharing one account reintroduce exactly the race this removes, and it would
+ * surface as tests failing on missing elements somewhere unrelated. The
+ * default, which nobody asked for, instead takes what the accounts allow — so
+ * a checkout or a CI runner holding one set of credentials runs in series and
+ * passes, rather than failing at config load over a number it never chose.
+ *
+ * Measured 2026-10-29: 16.5 min on one worker against a mean 9.1 on two. A
+ * saving that has to be remembered is a saving half the runs don't get, which
+ * is why 2 is the default rather than an opt-in.
  */
-const workers = Number(process.env.E2E_WORKERS ?? 1);
+const DEFAULT_WORKERS = 2;
+
 const accounts = configuredAccounts();
-if (!Number.isInteger(workers) || workers < 1) {
-  throw new Error(
-    `E2E_WORKERS must be a positive integer, not "${process.env.E2E_WORKERS}".`,
-  );
-}
-if (workers > accounts) {
-  throw new Error(
-    `E2E_WORKERS=${workers} but .env configures ${accounts} e2e account(s). ` +
-      "Add E2E_EMAIL_2 / E2E_PASSWORD_2 (see docs/supabase-setup.md) or lower E2E_WORKERS.",
+const requested = process.env.E2E_WORKERS;
+const workers =
+  requested === undefined
+    ? Math.max(1, Math.min(DEFAULT_WORKERS, accounts))
+    : Number(requested);
+
+if (requested !== undefined) {
+  if (!Number.isInteger(workers) || workers < 1) {
+    throw new Error(
+      `E2E_WORKERS must be a positive integer, not "${requested}".`,
+    );
+  }
+  if (workers > accounts) {
+    throw new Error(
+      `E2E_WORKERS=${workers} but .env configures ${accounts} e2e account(s). ` +
+        "Add E2E_EMAIL_2 / E2E_PASSWORD_2 (see docs/supabase-setup.md) or lower E2E_WORKERS.",
+    );
+  }
+} else if (workers < DEFAULT_WORKERS) {
+  // Says it once, and only where the default could not be met. Counting the
+  // accounts never reads a value out of `.env`, only whether a name is filled.
+  console.warn(
+    `[e2e] ${accounts} account(s) configured, so running on ${workers} worker(s) ` +
+      `instead of ${DEFAULT_WORKERS}. See docs/supabase-setup.md to add another.`,
   );
 }
 
