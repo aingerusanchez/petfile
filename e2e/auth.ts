@@ -1,13 +1,24 @@
 import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
+import { E2E_ACCOUNTS } from "./accounts";
+
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
-const email = process.env.E2E_EMAIL;
-const password = process.env.E2E_PASSWORD;
-
-/** The dedicated throwaway account documented in README.md and docs/supabase-setup.md. */
-const E2E_ACCOUNT_EMAIL = "loki-e2e@example.com";
+/**
+ * Which account this process owns.
+ *
+ * Every Playwright worker is a separate Node process, so this resolves once per
+ * worker and the sign-in cache below is per-account with no further plumbing.
+ * TEST_PARALLEL_INDEX rather than TEST_WORKER_INDEX: the latter keeps counting
+ * when a worker is replaced after a crash, so a long run would walk off the end
+ * of the list — or, worse, land on an account another worker is still using.
+ */
+const workerIndex = Number(process.env.TEST_PARALLEL_INDEX ?? 0);
+const account = E2E_ACCOUNTS.at(workerIndex);
+const emailVar = account?.emailVar ?? "E2E_EMAIL";
+const passwordVar = account?.passwordVar ?? "E2E_PASSWORD";
+const { email, password } = account?.values() ?? {};
 
 function requireEnv(): {
   url: string;
@@ -17,10 +28,35 @@ function requireEnv(): {
 } {
   if (!url || !anonKey || !email || !password) {
     throw new Error(
-      "Missing EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_KEY, E2E_EMAIL or E2E_PASSWORD. See docs/supabase-setup.md.",
+      `Missing EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_KEY, ${emailVar} or ` +
+        `${passwordVar} (worker ${workerIndex}'s account). See docs/supabase-setup.md.`,
     );
   }
   return { url, anonKey, email, password };
+}
+
+/**
+ * Refuse to write to anything but this worker's own throwaway account.
+ *
+ * Guards the seeds as well as the delete: a seed into a real account is litter
+ * in somebody's actual records, and one mistyped `.env` causes both.
+ */
+function requireTestAccount(what: string): void {
+  if (account === undefined) {
+    throw new Error(
+      `Refusing to ${what}: worker ${workerIndex} has no account in the allow-list, ` +
+        `which names ${E2E_ACCOUNTS.length}. Lower E2E_WORKERS, or add the account ` +
+        "in e2e/accounts.ts and in .env (see docs/supabase-setup.md).",
+    );
+  }
+  if (email !== account.expected) {
+    throw new Error(
+      `Refusing to ${what}: ${emailVar} is not this worker's dedicated test account ` +
+        `(${account.expected}). resetE2EPets deletes every pet the credentialed ` +
+        "account owns " +
+        "— check your .env.",
+    );
+  }
 }
 
 type SignedIn = Awaited<ReturnType<typeof authenticate>>;
@@ -47,10 +83,11 @@ async function authenticate() {
  * Each test used to authenticate twice — once for `resetE2EPets` and once for
  * `seedSession` — which at ~20 tests is ~40 sign-ins per run and trips
  * Supabase's auth rate limit ("Request rate limit reached"), failing the suite
- * for a reason that has nothing to do with the app. `workers: 1` in
- * playwright.config.ts means this module-level cache is shared by the whole
- * run, and a run takes well under a minute, so the session cannot go stale
- * inside it.
+ * for a reason that has nothing to do with the app. A worker is one process,
+ * so this module-level cache covers everything that worker runs: a run signs in
+ * once per worker rather than once per test, whatever the worker count. The
+ * session cannot go stale inside a run either — Supabase's default access-token
+ * lifetime is an hour and the whole suite is well under that.
  */
 let signedIn: Promise<SignedIn> | null = null;
 
@@ -85,15 +122,9 @@ export async function seedSession(page: Page): Promise<void> {
 export async function resetE2EPets(): Promise<void> {
   // Defence in depth: this is an unconditional delete of every pet the
   // credentialed account can see. RLS scopes it to that account, so a
-  // misconfigured `.env` pointing E2E_EMAIL at a real user would silently
-  // destroy that user's real pet records. Refuse to run unless the account
-  // is the documented throwaway one (README.md, docs/supabase-setup.md).
-  if (email !== E2E_ACCOUNT_EMAIL) {
-    throw new Error(
-      `Refusing to reset pets: E2E_EMAIL is not the dedicated test account (${E2E_ACCOUNT_EMAIL}). ` +
-        "resetE2EPets deletes every pet the credentialed account owns — check your .env.",
-    );
-  }
+  // misconfigured `.env` pointing this worker's address at a real user would
+  // silently destroy that user's real pet records.
+  requireTestAccount("reset pets");
 
   const { client } = await signInE2EUser();
 
@@ -146,11 +177,7 @@ export async function seedE2EEvents(
     what?: string | null;
   }[],
 ): Promise<string[]> {
-  if (email !== E2E_ACCOUNT_EMAIL) {
-    throw new Error(
-      `Refusing to seed events: E2E_EMAIL is not the dedicated test account (${E2E_ACCOUNT_EMAIL}).`,
-    );
-  }
+  requireTestAccount("seed events");
 
   const { client } = await signInE2EUser();
   const { data, error } = await client
@@ -176,11 +203,7 @@ export async function seedE2EWeights(
   petId: string,
   rows: { measuredOn: string; grams: number; note?: string | null }[],
 ): Promise<void> {
-  if (email !== E2E_ACCOUNT_EMAIL) {
-    throw new Error(
-      `Refusing to seed weights: E2E_EMAIL is not the dedicated test account (${E2E_ACCOUNT_EMAIL}).`,
-    );
-  }
+  requireTestAccount("seed weights");
 
   const { client } = await signInE2EUser();
   const { error } = await client.from("pet_weights").insert(
@@ -205,11 +228,7 @@ export async function seedE2ETreatments(
     note?: string | null;
   }[],
 ): Promise<void> {
-  if (email !== E2E_ACCOUNT_EMAIL) {
-    throw new Error(
-      `Refusing to seed treatments: E2E_EMAIL is not the dedicated test account (${E2E_ACCOUNT_EMAIL}).`,
-    );
-  }
+  requireTestAccount("seed treatments");
 
   const { client } = await signInE2EUser();
   const { error } = await client.from("pet_treatments").insert(
@@ -236,11 +255,7 @@ export async function seedE2ETreatments(
 export async function seedE2EPet(
   overrides: Record<string, unknown> = {},
 ): Promise<string> {
-  if (email !== E2E_ACCOUNT_EMAIL) {
-    throw new Error(
-      `Refusing to seed a pet: E2E_EMAIL is not the dedicated test account (${E2E_ACCOUNT_EMAIL}).`,
-    );
-  }
+  requireTestAccount("seed a pet");
 
   const client = (await signInE2EUser()).client;
 

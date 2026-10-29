@@ -57,13 +57,15 @@ Ni Metro, ni WiFi, ni cable una vez instalado. Tres cosas que conviene saber:
 
 Esta app **no tiene bypass de autenticación en modo desarrollo**. Todos los entornos, incluido el desarrollo local, requieren un sign-in real con Google.
 
-Los tests end-to-end de Playwright usan una cuenta de Supabase dedicada, identificada solo por email: `loki-e2e@example.com` (la contraseña nunca se documenta aquí — vive únicamente en `.env`, ver `E2E_EMAIL` / `E2E_PASSWORD` en `.env.example`).
+Los tests end-to-end de Playwright usan cuentas de Supabase dedicadas, identificadas solo por email: `loki-e2e@example.com` y `loki-e2e-2@example.com` (las contraseñas nunca se documentan aquí — viven únicamente en `.env`, ver `E2E_EMAIL` / `E2E_PASSWORD` en `.env.example`).
 
 ```bash
 pnpm test          # Jest — lógica de dominio pura (validación, mapeo de RPC, fechas, razas)
 pnpm test:e2e       # Playwright — flujo completo (login, onboarding)
 pnpm test:e2e:ui    # Playwright con UI mode, para depurar visualmente con el trace viewer
 ```
+
+**Una cuenta por worker.** La suite borra entre tests todas las mascotas de la cuenta con la que está firmada, y `onboarding.spec.ts` necesita además que su cuenta no tenga ninguna. Las dos cosas pasan en el servidor, así que aislar contextos de navegador no las toca: cada worker firma con su propia cuenta. Por defecto es un worker y basta con la primera; `E2E_WORKERS=2 pnpm test:e2e` usa la segunda. Con más workers que cuentas, la configuración **se niega a arrancar** en vez de dejar que dos compartan una — dos workers sobre la misma cuenta es justo la carrera que esto elimina, y aparecería como tests fallando por elementos que faltan en sitios sin relación.
 
 ## Scripts
 

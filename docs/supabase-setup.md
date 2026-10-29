@@ -60,10 +60,10 @@ SQL is the whole setup — and the bucket staying private is load-bearing:
 it. If you would rather check it landed, Storage → Buckets should list
 `pet-photos` with "Public" off.
 
-## 5. Create the end-to-end test account
+## 5. Create the end-to-end test accounts
 
-Playwright cannot drive Google's consent screen, so the test suite signs in with a
-dedicated password account that exists only for testing.
+Playwright cannot drive Google's consent screen, so the test suite signs in with
+dedicated password accounts that exist only for testing.
 
 1. Supabase → Authentication → Users → Add user → Create new user.
    - Email: `loki-e2e@example.com`, any strong password, "Auto Confirm User" checked.
@@ -74,5 +74,25 @@ dedicated password account that exists only for testing.
    E2E_PASSWORD=<the password you chose>
    ```
 
-This account is separate from your real Google-backed account, so nothing you record in
-normal use is tied to it.
+These accounts are separate from your real Google-backed account, so nothing you record
+in normal use is tied to them.
+
+### One account per worker
+
+The suite deletes every pet its account owns between tests, and `onboarding.spec.ts`
+needs its account to have no pets at all — both server-side, so no browser-context
+isolation reaches them. Running workers in parallel therefore needs one account each.
+
+One worker is the default and needs only the account above. For two, repeat step 1 with
+`loki-e2e-2@example.com` and add:
+
+```
+E2E_EMAIL_2=loki-e2e-2@example.com
+E2E_PASSWORD_2=<its password>
+```
+
+then run `E2E_WORKERS=2 pnpm test:e2e`. Asking for more workers than there are accounts
+makes the config refuse to start, rather than letting two workers share one and race the
+delete in silence. The addresses are an exact allow-list in `e2e/auth.ts`: a further
+account has to be named there too, deliberately, because that list is the only thing
+between a mistyped `.env` and a real user's records.

@@ -8,7 +8,8 @@ test.beforeEach(async () => {
   // added after the one that registers a pet: `/onboarding` redirects away
   // once a pet exists, so those later tests found an empty screen and failed
   // on a missing element rather than on anything they were checking.
-  // `workers: 1` in playwright.config.ts means these resets cannot race.
+  // Each worker signs in to its own Supabase account (see e2e/auth.ts), and a
+  // worker runs its tests one at a time, so these resets cannot race.
   await resetE2EPets();
 });
 
