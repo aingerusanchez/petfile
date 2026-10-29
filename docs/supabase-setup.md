@@ -60,19 +60,53 @@ SQL is the whole setup — and the bucket staying private is load-bearing:
 it. If you would rather check it landed, Storage → Buckets should list
 `pet-photos` with "Public" off.
 
-## 5. Create the end-to-end test account
+## 5. Create the end-to-end test accounts
 
-Playwright cannot drive Google's consent screen, so the test suite signs in with a
-dedicated password account that exists only for testing.
+Playwright cannot drive Google's consent screen, so the test suite signs in with
+dedicated password accounts that exist only for testing.
 
-1. Supabase → Authentication → Users → Add user → Create new user.
-   - Email: `loki-e2e@example.com`, any strong password, "Auto Confirm User" checked.
+1. Supabase → Authentication → Users → Add user → Create new user, twice.
+   - `loki@e2e.com` and `thor@e2e.com`, any strong password each, "Auto Confirm
+     User" checked on both.
 2. Add to `.env`:
 
    ```
-   E2E_EMAIL=loki-e2e@example.com
+   E2E_EMAIL=loki@e2e.com
    E2E_PASSWORD=<the password you chose>
+   E2E_EMAIL_2=thor@e2e.com
+   E2E_PASSWORD_2=<the other password>
    ```
 
-This account is separate from your real Google-backed account, so nothing you record in
-normal use is tied to it.
+These accounts are separate from your real Google-backed account, so nothing you record
+in normal use is tied to them.
+
+### Why there are two
+
+The suite deletes every pet its account owns between tests, and `onboarding.spec.ts`
+needs its account to have no pets at all — both server-side, so no browser-context
+isolation reaches them. Running workers in parallel therefore needs one account each,
+and the worker count is capped at the accounts `.env` carries.
+
+**Two workers is the default**, because it runs the suite in about 9 minutes against
+16.5 on one. Only the first account filled in is fine: the run drops to one worker and
+prints a line saying why. What is refused outright is an explicit `E2E_WORKERS` higher
+than the number of accounts — that number was chosen rather than defaulted to, and two
+workers sharing one account would race the delete in silence.
+
+The addresses are an exact allow-list in `e2e/accounts.ts`: a third account has to be
+named there too, deliberately, because that list is the only thing between a mistyped
+`.env` and a real user's records.
+
+### In CI
+
+Two things that are easy to get wrong in a pipeline, neither of them caused by the
+worker count but both made sharper by it:
+
+- **Runs must not overlap.** Two pipelines running the suite at once share these same
+  accounts, and each one's `resetE2EPets()` deletes the other's seeds mid-test. Serialize
+  the e2e job — on GitHub Actions, a `concurrency` group that does not cancel in-progress
+  runs — or give each pipeline its own pair of accounts. This is true at one worker too.
+- **The dev server asks for an 8 GB heap** (`playwright.config.ts`). A runner with less
+  physical RAM than that does not get a tidy V8 error; the kernel kills the process and
+  the suite reports a server that would not start. Check the runner's memory before
+  trusting a green first run.
