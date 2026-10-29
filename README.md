@@ -57,7 +57,7 @@ Ni Metro, ni WiFi, ni cable una vez instalado. Tres cosas que conviene saber:
 
 Esta app **no tiene bypass de autenticación en modo desarrollo**. Todos los entornos, incluido el desarrollo local, requieren un sign-in real con Google.
 
-Los tests end-to-end de Playwright usan cuentas de Supabase dedicadas, identificadas solo por email: `loki-e2e@example.com` y `loki-e2e-2@example.com` (las contraseñas nunca se documentan aquí — viven únicamente en `.env`, ver `E2E_EMAIL` / `E2E_PASSWORD` en `.env.example`).
+Los tests end-to-end de Playwright usan cuentas de Supabase dedicadas, identificadas solo por email: `loki@e2e.com` y `thor@e2e.com` (las contraseñas nunca se documentan aquí — viven únicamente en `.env`, ver `E2E_EMAIL` / `E2E_PASSWORD` en `.env.example`).
 
 ```bash
 pnpm test          # Jest — lógica de dominio pura (validación, mapeo de RPC, fechas, razas)

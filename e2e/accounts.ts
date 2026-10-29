@@ -9,7 +9,7 @@
  * The addresses are an exact allow-list, never a pattern. `resetE2EPets` is an
  * unconditional delete of every pet the credentialed account owns, and this is
  * the only thing standing between a mistyped `.env` and a real user's records;
- * a prefix match like /^loki-e2e/ would turn the one check that guards a
+ * a prefix match like /@e2e\.com$/ would turn the one check that guards a
  * destructive write into a guess. Adding a third account means adding it here,
  * deliberately, as well as in `.env`.
  *
@@ -20,7 +20,7 @@
  */
 export const E2E_ACCOUNTS = [
   {
-    expected: "loki-e2e@example.com",
+    expected: "loki@e2e.com",
     emailVar: "E2E_EMAIL",
     passwordVar: "E2E_PASSWORD",
     values: () => ({
@@ -29,7 +29,7 @@ export const E2E_ACCOUNTS = [
     }),
   },
   {
-    expected: "loki-e2e-2@example.com",
+    expected: "thor@e2e.com",
     emailVar: "E2E_EMAIL_2",
     passwordVar: "E2E_PASSWORD_2",
     values: () => ({

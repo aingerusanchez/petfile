@@ -66,11 +66,11 @@ Playwright cannot drive Google's consent screen, so the test suite signs in with
 dedicated password accounts that exist only for testing.
 
 1. Supabase → Authentication → Users → Add user → Create new user.
-   - Email: `loki-e2e@example.com`, any strong password, "Auto Confirm User" checked.
+   - Email: `loki@e2e.com`, any strong password, "Auto Confirm User" checked.
 2. Add to `.env`:
 
    ```
-   E2E_EMAIL=loki-e2e@example.com
+   E2E_EMAIL=loki@e2e.com
    E2E_PASSWORD=<the password you chose>
    ```
 
@@ -84,10 +84,10 @@ needs its account to have no pets at all — both server-side, so no browser-con
 isolation reaches them. Running workers in parallel therefore needs one account each.
 
 One worker is the default and needs only the account above. For two, repeat step 1 with
-`loki-e2e-2@example.com` and add:
+`thor@e2e.com` and add:
 
 ```
-E2E_EMAIL_2=loki-e2e-2@example.com
+E2E_EMAIL_2=thor@e2e.com
 E2E_PASSWORD_2=<its password>
 ```
 
